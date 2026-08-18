@@ -44,6 +44,9 @@ dependencies:
   # Sign in with Apple, used to obtain an identity token for the backend.
   sign_in_with_apple: ^6.1.4
 
+  # Camera capture, used to take the live selfie for verification.
+  image_picker: ^1.1.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

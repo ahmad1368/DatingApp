@@ -2,11 +2,6 @@
   "generated_at": "2026-08-18T06:55:47Z",
   "snapshot": [
     {
-      "number": 3,
-      "title": "Sign in with Apple",
-      "updatedAt": "2026-08-10T20:27:56Z"
-    },
-    {
       "number": 4,
       "title": "Live Selfie Verification",
       "updatedAt": "2026-08-10T20:27:58Z"
@@ -2263,10 +2258,6 @@
     }
   ],
   "queue": [
-    {
-      "number": 4,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 5,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
