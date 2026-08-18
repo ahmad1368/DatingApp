@@ -8,18 +8,23 @@ datasource db {
 }
 
 model User {
-  id              String    @id @default(uuid())
-  phoneNumber     String?   @unique
-  email           String?   @unique
-  googleId        String?   @unique
-  appleUserId     String?   @unique
-  name            String?
-  avatarUrl       String?
-  profilePhotoUrl String?
-  isVerified      Boolean   @default(false)
-  verifiedAt      DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id                    String    @id @default(uuid())
+  phoneNumber           String?   @unique
+  email                 String?   @unique
+  googleId              String?   @unique
+  appleUserId           String?   @unique
+  name                  String?
+  avatarUrl             String?
+  profilePhotoUrl       String?
+  isVerified            Boolean   @default(false)
+  verifiedAt            DateTime?
+  dateOfBirth           DateTime?
+  gender                String?
+  relationshipGoal      String?
+  interests             String[]  @default([])
+  onboardingCompletedAt DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
   @@map("users")
 }
