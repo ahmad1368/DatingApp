@@ -1,0 +1,29 @@
+import { Body, Controller, Get, HttpCode, HttpStatus, Put, UseGuards } from '@nestjs/common';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { AuthenticatedUser, JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { UpdateLocationDto } from './dto/update-location.dto';
+import { UpdateSearchRadiusDto } from './dto/update-search-radius.dto';
+import { LocationService } from './location.service';
+
+@Controller('location')
+@UseGuards(JwtAuthGuard)
+export class LocationController {
+  constructor(private readonly locationService: LocationService) {}
+
+  @Put()
+  @HttpCode(HttpStatus.OK)
+  updateLocation(@CurrentUser() user: AuthenticatedUser, @Body() dto: UpdateLocationDto) {
+    return this.locationService.updateLocation(user.id, dto.latitude, dto.longitude);
+  }
+
+  @Put('radius')
+  @HttpCode(HttpStatus.OK)
+  updateSearchRadius(@CurrentUser() user: AuthenticatedUser, @Body() dto: UpdateSearchRadiusDto) {
+    return this.locationService.updateSearchRadius(user.id, dto.radiusKm);
+  }
+
+  @Get('nearby')
+  findNearby(@CurrentUser() user: AuthenticatedUser) {
+    return this.locationService.findNearbyUsers(user.id);
+  }
+}

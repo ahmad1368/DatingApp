@@ -2,11 +2,6 @@
   "generated_at": "2026-08-18T06:55:47Z",
   "snapshot": [
     {
-      "number": 5,
-      "title": "Interactive step-by-step onboarding process",
-      "updatedAt": "2026-08-10T20:28:00Z"
-    },
-    {
       "number": 6,
       "title": "GPS and radius location",
       "updatedAt": "2026-08-10T20:28:02Z"
@@ -2253,10 +2248,6 @@
     }
   ],
   "queue": [
-    {
-      "number": 6,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 7,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"

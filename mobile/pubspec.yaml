@@ -47,6 +47,9 @@ dependencies:
   # Camera capture, used to take the live selfie for verification.
   image_picker: ^1.1.2
 
+  # Device GPS, used to capture the user's location for distance-based discovery.
+  geolocator: ^13.0.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
