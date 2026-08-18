@@ -2,11 +2,6 @@
   "generated_at": "2026-08-18T06:55:47Z",
   "snapshot": [
     {
-      "number": 4,
-      "title": "Live Selfie Verification",
-      "updatedAt": "2026-08-10T20:27:58Z"
-    },
-    {
       "number": 5,
       "title": "Interactive step-by-step onboarding process",
       "updatedAt": "2026-08-10T20:28:00Z"
@@ -2258,10 +2253,6 @@
     }
   ],
   "queue": [
-    {
-      "number": 5,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 6,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
