@@ -2,11 +2,6 @@
   "generated_at": "2026-08-18T06:55:47Z",
   "snapshot": [
     {
-      "number": 6,
-      "title": "GPS and radius location",
-      "updatedAt": "2026-08-10T20:28:02Z"
-    },
-    {
       "number": 7,
       "title": "Passport Feature",
       "updatedAt": "2026-08-10T20:28:04Z"
@@ -2248,10 +2243,6 @@
     }
   ],
   "queue": [
-    {
-      "number": 7,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 8,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"

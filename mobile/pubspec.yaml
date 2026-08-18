@@ -50,6 +50,10 @@ dependencies:
   # Device GPS, used to capture the user's location for distance-based discovery.
   geolocator: ^13.0.2
 
+  # Interactive world map, used to let premium users pick a Passport location.
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

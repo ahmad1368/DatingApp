@@ -1,4 +1,4 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { LocationService } from './location.service';
 
@@ -85,6 +85,84 @@ describe('LocationService', () => {
 
       expect(result.map((u) => u.id)).toEqual(['near-user', 'mid-user']);
       expect(result[0].distanceKm).toBeLessThan(result[1].distanceKm);
+    });
+
+    it('searches around the passport location instead of the real location when enabled', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: 0,
+        longitude: 0,
+        searchRadiusKm: 50,
+        passportEnabled: true,
+        passportLatitude: 10,
+        passportLongitude: 10,
+      });
+      prisma.user.findMany.mockResolvedValue([
+        { id: 'near-real-location', name: 'NearReal', latitude: 0.1, longitude: 0 },
+        { id: 'near-passport-location', name: 'NearPassport', latitude: 10.1, longitude: 10 },
+      ]);
+
+      const result = await service.findNearbyUsers(USER_ID);
+
+      expect(result.map((u) => u.id)).toEqual(['near-passport-location']);
+    });
+  });
+
+  describe('setPassportLocation', () => {
+    it('throws NotFoundException when the user does not exist', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(service.setPassportLocation(USER_ID, 10, 10)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+
+    it('throws ForbiddenException for non-premium users', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: USER_ID, isPremium: false });
+
+      await expect(service.setPassportLocation(USER_ID, 10, 10)).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it('sets the passport location and enables it for premium users', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: USER_ID, isPremium: true });
+      prisma.user.update.mockResolvedValue({
+        passportEnabled: true,
+        passportLatitude: 48.8566,
+        passportLongitude: 2.3522,
+      });
+
+      const result = await service.setPassportLocation(USER_ID, 48.8566, 2.3522);
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: USER_ID },
+        data: { passportLatitude: 48.8566, passportLongitude: 2.3522, passportEnabled: true },
+      });
+      expect(result).toEqual({
+        passportEnabled: true,
+        latitude: 48.8566,
+        longitude: 2.3522,
+      });
+    });
+  });
+
+  describe('clearPassportLocation', () => {
+    it('disables passport mode', async () => {
+      prisma.user.update.mockResolvedValue({
+        passportEnabled: false,
+        passportLatitude: 48.8566,
+        passportLongitude: 2.3522,
+      });
+
+      const result = await service.clearPassportLocation(USER_ID);
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: USER_ID },
+        data: { passportEnabled: false },
+      });
+      expect(result.passportEnabled).toBe(false);
     });
   });
 });

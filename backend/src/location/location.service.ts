@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { DEFAULT_SEARCH_RADIUS_KM } from './location.constants';
 import { haversineDistanceKm } from './utils/haversine';
@@ -17,6 +22,12 @@ export interface NearbyUser {
   id: string;
   name: string | null;
   distanceKm: number;
+}
+
+export interface PassportLocationResult {
+  passportEnabled: boolean;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 @Injectable()
@@ -52,7 +63,15 @@ export class LocationService {
       throw new NotFoundException('User not found.');
     }
 
-    if (currentUser.latitude == null || currentUser.longitude == null) {
+    const usingPassport =
+      currentUser.passportEnabled &&
+      currentUser.passportLatitude != null &&
+      currentUser.passportLongitude != null;
+
+    const originLatitude = usingPassport ? currentUser.passportLatitude : currentUser.latitude;
+    const originLongitude = usingPassport ? currentUser.passportLongitude : currentUser.longitude;
+
+    if (originLatitude == null || originLongitude == null) {
       throw new BadRequestException('Set your location before searching nearby users.');
     }
 
@@ -71,13 +90,53 @@ export class LocationService {
         id: candidate.id,
         name: candidate.name,
         distanceKm: haversineDistanceKm(
-          currentUser.latitude!,
-          currentUser.longitude!,
+          originLatitude,
+          originLongitude,
           candidate.latitude!,
           candidate.longitude!,
         ),
       }))
       .filter((candidate) => candidate.distanceKm <= radiusKm)
       .sort((a, b) => a.distanceKm - b.distanceKm);
+  }
+
+  async setPassportLocation(
+    userId: string,
+    latitude: number,
+    longitude: number,
+  ): Promise<PassportLocationResult> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+
+    if (!user) {
+      throw new NotFoundException('User not found.');
+    }
+
+    if (!user.isPremium) {
+      throw new ForbiddenException('Passport is a premium feature. Upgrade to use it.');
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: { passportLatitude: latitude, passportLongitude: longitude, passportEnabled: true },
+    });
+
+    return {
+      passportEnabled: true,
+      latitude: updated.passportLatitude,
+      longitude: updated.passportLongitude,
+    };
+  }
+
+  async clearPassportLocation(userId: string): Promise<PassportLocationResult> {
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: { passportEnabled: false },
+    });
+
+    return {
+      passportEnabled: false,
+      latitude: updated.passportLatitude,
+      longitude: updated.passportLongitude,
+    };
   }
 }
