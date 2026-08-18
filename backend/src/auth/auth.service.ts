@@ -11,6 +11,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { SMS_PROVIDER, SmsProvider } from './interfaces/sms-provider.interface';
+import { GOOGLE_TOKEN_VERIFIER, GoogleTokenVerifier } from './interfaces/google-token-verifier.interface';
 import {
   DEFAULT_OTP_CODE_LENGTH,
   DEFAULT_OTP_RESEND_COOLDOWN_SECONDS,
@@ -28,6 +29,11 @@ export interface VerifyOtpResult {
   user: { id: string; phoneNumber: string };
 }
 
+export interface GoogleLoginResult {
+  accessToken: string;
+  user: { id: string; email: string; name: string | null; avatarUrl: string | null };
+}
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -35,6 +41,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     @Inject(SMS_PROVIDER) private readonly smsProvider: SmsProvider,
+    @Inject(GOOGLE_TOKEN_VERIFIER) private readonly googleTokenVerifier: GoogleTokenVerifier,
   ) {}
 
   private get ttlSeconds(): number {
@@ -147,7 +154,54 @@ export class AuthService {
 
     return {
       accessToken,
-      user: { id: user.id, phoneNumber: user.phoneNumber },
+      user: { id: user.id, phoneNumber: user.phoneNumber! },
+    };
+  }
+
+  async loginWithGoogle(idToken: string): Promise<GoogleLoginResult> {
+    const profile = await this.googleTokenVerifier.verify(idToken);
+
+    let user = await this.prisma.user.findUnique({ where: { googleId: profile.googleId } });
+
+    if (!user) {
+      const existingByEmail = await this.prisma.user.findUnique({
+        where: { email: profile.email },
+      });
+
+      if (existingByEmail) {
+        user = await this.prisma.user.update({
+          where: { id: existingByEmail.id },
+          data: {
+            googleId: profile.googleId,
+            name: existingByEmail.name ?? profile.name,
+            avatarUrl: existingByEmail.avatarUrl ?? profile.avatarUrl,
+          },
+        });
+      } else {
+        user = await this.prisma.user.create({
+          data: {
+            googleId: profile.googleId,
+            email: profile.email,
+            name: profile.name,
+            avatarUrl: profile.avatarUrl,
+          },
+        });
+      }
+    }
+
+    const accessToken = await this.jwtService.signAsync({
+      sub: user.id,
+      email: user.email,
+    });
+
+    return {
+      accessToken,
+      user: {
+        id: user.id,
+        email: user.email!,
+        name: user.name,
+        avatarUrl: user.avatarUrl,
+      },
     };
   }
 }

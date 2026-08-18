@@ -19,14 +19,25 @@ class OtpRequestResult {
 }
 
 class AuthResult {
-  AuthResult({required this.accessToken, required this.userId, required this.phoneNumber});
+  AuthResult({
+    required this.accessToken,
+    required this.userId,
+    this.phoneNumber,
+    this.email,
+    this.name,
+    this.avatarUrl,
+  });
 
   final String accessToken;
   final String userId;
-  final String phoneNumber;
+  final String? phoneNumber;
+  final String? email;
+  final String? name;
+  final String? avatarUrl;
 }
 
-/// Talks to the backend's phone number + SMS OTP authentication endpoints.
+/// Talks to the backend's phone number + SMS OTP and Google OAuth
+/// authentication endpoints.
 class AuthApi {
   AuthApi({http.Client? client, String? baseUrl})
       : _client = client ?? http.Client(),
@@ -70,6 +81,28 @@ class AuthApi {
       accessToken: body['accessToken'] as String,
       userId: user['id'] as String,
       phoneNumber: user['phoneNumber'] as String,
+    );
+  }
+
+  Future<AuthResult> loginWithGoogle(String idToken) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/auth/google'),
+      headers: const {'Content-Type': 'application/json'},
+      body: jsonEncode({'idToken': idToken}),
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 200) {
+      throw AuthApiException(_errorMessage(body, response.statusCode));
+    }
+
+    final user = body['user'] as Map<String, dynamic>;
+    return AuthResult(
+      accessToken: body['accessToken'] as String,
+      userId: user['id'] as String,
+      email: user['email'] as String?,
+      name: user['name'] as String?,
+      avatarUrl: user['avatarUrl'] as String?,
     );
   }
 

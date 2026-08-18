@@ -5,6 +5,7 @@ import { createHash } from 'crypto';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SmsProvider } from './interfaces/sms-provider.interface';
+import { GoogleTokenVerifier } from './interfaces/google-token-verifier.interface';
 
 const PHONE = '+14155552671';
 
@@ -20,10 +21,11 @@ describe('AuthService', () => {
       create: jest.Mock;
       update: jest.Mock;
     };
-    user: { upsert: jest.Mock };
+    user: { upsert: jest.Mock; findUnique: jest.Mock; update: jest.Mock; create: jest.Mock };
   };
   let jwtService: { signAsync: jest.Mock };
   let smsProvider: SmsProvider;
+  let googleTokenVerifier: GoogleTokenVerifier;
 
   beforeEach(() => {
     prisma = {
@@ -32,10 +34,16 @@ describe('AuthService', () => {
         create: jest.fn(),
         update: jest.fn(),
       },
-      user: { upsert: jest.fn() },
+      user: {
+        upsert: jest.fn(),
+        findUnique: jest.fn(),
+        update: jest.fn(),
+        create: jest.fn(),
+      },
     };
     jwtService = { signAsync: jest.fn().mockResolvedValue('signed-jwt') };
     smsProvider = { sendOtp: jest.fn().mockResolvedValue(undefined) };
+    googleTokenVerifier = { verify: jest.fn() };
 
     const configService = {
       get: (key: string) => {
@@ -53,6 +61,7 @@ describe('AuthService', () => {
       jwtService as unknown as JwtService,
       configService,
       smsProvider,
+      googleTokenVerifier,
     );
   });
 
@@ -143,6 +152,72 @@ describe('AuthService', () => {
         accessToken: 'signed-jwt',
         user: { id: 'user-1', phoneNumber: PHONE },
       });
+    });
+  });
+
+  describe('loginWithGoogle', () => {
+    const PROFILE = {
+      googleId: 'google-123',
+      email: 'jane@example.com',
+      name: 'Jane Doe',
+      avatarUrl: 'https://example.com/avatar.png',
+    };
+
+    it('creates a new user when no existing account matches', async () => {
+      (googleTokenVerifier.verify as jest.Mock).mockResolvedValue(PROFILE);
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.user.create.mockResolvedValue({ id: 'user-1', ...PROFILE });
+
+      const result = await service.loginWithGoogle('id-token');
+
+      expect(prisma.user.create).toHaveBeenCalledWith({
+        data: {
+          googleId: PROFILE.googleId,
+          email: PROFILE.email,
+          name: PROFILE.name,
+          avatarUrl: PROFILE.avatarUrl,
+        },
+      });
+      expect(result).toEqual({
+        accessToken: 'signed-jwt',
+        user: {
+          id: 'user-1',
+          email: PROFILE.email,
+          name: PROFILE.name,
+          avatarUrl: PROFILE.avatarUrl,
+        },
+      });
+    });
+
+    it('links the Google account to an existing user found by email', async () => {
+      (googleTokenVerifier.verify as jest.Mock).mockResolvedValue(PROFILE);
+      prisma.user.findUnique
+        .mockResolvedValueOnce(null) // lookup by googleId
+        .mockResolvedValueOnce({ id: 'user-1', email: PROFILE.email, name: null, avatarUrl: null }); // lookup by email
+      prisma.user.update.mockResolvedValue({ id: 'user-1', ...PROFILE });
+
+      await service.loginWithGoogle('id-token');
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-1' },
+        data: {
+          googleId: PROFILE.googleId,
+          name: PROFILE.name,
+          avatarUrl: PROFILE.avatarUrl,
+        },
+      });
+      expect(prisma.user.create).not.toHaveBeenCalled();
+    });
+
+    it('reuses the existing account when found directly by googleId', async () => {
+      (googleTokenVerifier.verify as jest.Mock).mockResolvedValue(PROFILE);
+      prisma.user.findUnique.mockResolvedValueOnce({ id: 'user-1', ...PROFILE });
+
+      const result = await service.loginWithGoogle('id-token');
+
+      expect(prisma.user.create).not.toHaveBeenCalled();
+      expect(prisma.user.update).not.toHaveBeenCalled();
+      expect(result.user.id).toBe('user-1');
     });
   });
 });

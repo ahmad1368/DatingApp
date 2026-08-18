@@ -50,4 +50,16 @@ void main() {
 
     expect(find.text('Enter verification code'), findsOneWidget);
   });
+
+  testWidgets('offers a Google sign-in option alongside phone auth', (tester) async {
+    final authApi = AuthApi(client: MockClient((request) async => http.Response('', 500)));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PhoneEntryScreen(authApi: authApi, onVerified: (_) {}),
+      ),
+    );
+
+    expect(find.text('Continue with Google'), findsOneWidget);
+  });
 }
