@@ -26,6 +26,7 @@ class AuthResult {
     this.email,
     this.name,
     this.avatarUrl,
+    this.isPrivateEmail,
   });
 
   final String accessToken;
@@ -34,10 +35,11 @@ class AuthResult {
   final String? email;
   final String? name;
   final String? avatarUrl;
+  final bool? isPrivateEmail;
 }
 
-/// Talks to the backend's phone number + SMS OTP and Google OAuth
-/// authentication endpoints.
+/// Talks to the backend's phone number + SMS OTP, Google OAuth, and
+/// Sign in with Apple authentication endpoints.
 class AuthApi {
   AuthApi({http.Client? client, String? baseUrl})
       : _client = client ?? http.Client(),
@@ -103,6 +105,31 @@ class AuthApi {
       email: user['email'] as String?,
       name: user['name'] as String?,
       avatarUrl: user['avatarUrl'] as String?,
+    );
+  }
+
+  Future<AuthResult> loginWithApple(String identityToken, {String? fullName}) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/auth/apple'),
+      headers: const {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'identityToken': identityToken,
+        'fullName': ?fullName,
+      }),
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 200) {
+      throw AuthApiException(_errorMessage(body, response.statusCode));
+    }
+
+    final user = body['user'] as Map<String, dynamic>;
+    return AuthResult(
+      accessToken: body['accessToken'] as String,
+      userId: user['id'] as String,
+      email: user['email'] as String?,
+      name: user['name'] as String?,
+      isPrivateEmail: user['isPrivateEmail'] as bool?,
     );
   }
 

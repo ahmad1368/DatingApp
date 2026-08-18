@@ -12,6 +12,7 @@ model User {
   phoneNumber String?  @unique
   email       String?  @unique
   googleId    String?  @unique
+  appleUserId String?  @unique
   name        String?
   avatarUrl   String?
   createdAt   DateTime @default(now())
