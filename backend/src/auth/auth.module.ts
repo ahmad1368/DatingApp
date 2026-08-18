@@ -3,11 +3,14 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { AuthController } from './auth.controller';
 import { GoogleAuthController } from './google-auth.controller';
+import { AppleAuthController } from './apple-auth.controller';
 import { AuthService } from './auth.service';
 import { SMS_PROVIDER } from './interfaces/sms-provider.interface';
 import { ConsoleSmsProvider } from './providers/console-sms.provider';
 import { GOOGLE_TOKEN_VERIFIER } from './interfaces/google-token-verifier.interface';
 import { GoogleOAuthTokenVerifier } from './providers/google-oauth-token-verifier.provider';
+import { APPLE_TOKEN_VERIFIER } from './interfaces/apple-token-verifier.interface';
+import { AppleSigninTokenVerifier } from './providers/apple-signin-token-verifier.provider';
 
 @Module({
   imports: [
@@ -21,7 +24,7 @@ import { GoogleOAuthTokenVerifier } from './providers/google-oauth-token-verifie
       }),
     }),
   ],
-  controllers: [AuthController, GoogleAuthController],
+  controllers: [AuthController, GoogleAuthController, AppleAuthController],
   providers: [
     AuthService,
     {
@@ -31,6 +34,10 @@ import { GoogleOAuthTokenVerifier } from './providers/google-oauth-token-verifie
     {
       provide: GOOGLE_TOKEN_VERIFIER,
       useClass: GoogleOAuthTokenVerifier,
+    },
+    {
+      provide: APPLE_TOKEN_VERIFIER,
+      useClass: AppleSigninTokenVerifier,
     },
   ],
   exports: [AuthService],

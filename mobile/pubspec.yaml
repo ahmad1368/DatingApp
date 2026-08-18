@@ -41,6 +41,9 @@ dependencies:
   # Native Google Sign-In, used to obtain an ID token for the backend.
   google_sign_in: ^6.2.2
 
+  # Sign in with Apple, used to obtain an identity token for the backend.
+  sign_in_with_apple: ^6.1.4
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

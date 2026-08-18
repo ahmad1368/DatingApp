@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'apple_sign_in_button.dart';
 import 'auth_api.dart';
 import 'google_sign_in_button.dart';
 import 'otp_verify_screen.dart';
@@ -112,6 +113,8 @@ class _PhoneEntryScreenState extends State<PhoneEntryScreen> {
               ),
               const SizedBox(height: 24),
               GoogleSignInButton(authApi: widget.authApi, onVerified: widget.onVerified),
+              const SizedBox(height: 12),
+              AppleSignInButton(authApi: widget.authApi, onVerified: widget.onVerified),
             ],
           ),
         ),

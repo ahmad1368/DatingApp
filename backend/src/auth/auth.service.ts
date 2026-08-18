@@ -12,6 +12,7 @@ import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { SMS_PROVIDER, SmsProvider } from './interfaces/sms-provider.interface';
 import { GOOGLE_TOKEN_VERIFIER, GoogleTokenVerifier } from './interfaces/google-token-verifier.interface';
+import { APPLE_TOKEN_VERIFIER, AppleTokenVerifier } from './interfaces/apple-token-verifier.interface';
 import {
   DEFAULT_OTP_CODE_LENGTH,
   DEFAULT_OTP_RESEND_COOLDOWN_SECONDS,
@@ -34,6 +35,11 @@ export interface GoogleLoginResult {
   user: { id: string; email: string; name: string | null; avatarUrl: string | null };
 }
 
+export interface AppleLoginResult {
+  accessToken: string;
+  user: { id: string; email: string | null; name: string | null; isPrivateEmail: boolean };
+}
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -42,6 +48,7 @@ export class AuthService {
     private readonly configService: ConfigService,
     @Inject(SMS_PROVIDER) private readonly smsProvider: SmsProvider,
     @Inject(GOOGLE_TOKEN_VERIFIER) private readonly googleTokenVerifier: GoogleTokenVerifier,
+    @Inject(APPLE_TOKEN_VERIFIER) private readonly appleTokenVerifier: AppleTokenVerifier,
   ) {}
 
   private get ttlSeconds(): number {
@@ -201,6 +208,51 @@ export class AuthService {
         email: user.email!,
         name: user.name,
         avatarUrl: user.avatarUrl,
+      },
+    };
+  }
+
+  async loginWithApple(identityToken: string, fullName?: string): Promise<AppleLoginResult> {
+    const profile = await this.appleTokenVerifier.verify(identityToken);
+
+    let user = await this.prisma.user.findUnique({ where: { appleUserId: profile.appleUserId } });
+
+    if (!user) {
+      const existingByEmail = profile.email
+        ? await this.prisma.user.findUnique({ where: { email: profile.email } })
+        : null;
+
+      if (existingByEmail) {
+        user = await this.prisma.user.update({
+          where: { id: existingByEmail.id },
+          data: {
+            appleUserId: profile.appleUserId,
+            name: existingByEmail.name ?? fullName,
+          },
+        });
+      } else {
+        user = await this.prisma.user.create({
+          data: {
+            appleUserId: profile.appleUserId,
+            email: profile.email,
+            name: fullName,
+          },
+        });
+      }
+    }
+
+    const accessToken = await this.jwtService.signAsync({
+      sub: user.id,
+      email: user.email,
+    });
+
+    return {
+      accessToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        isPrivateEmail: profile.isPrivateEmail,
       },
     };
   }

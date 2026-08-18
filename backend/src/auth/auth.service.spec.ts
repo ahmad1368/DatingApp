@@ -6,6 +6,7 @@ import { AuthService } from './auth.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SmsProvider } from './interfaces/sms-provider.interface';
 import { GoogleTokenVerifier } from './interfaces/google-token-verifier.interface';
+import { AppleTokenVerifier } from './interfaces/apple-token-verifier.interface';
 
 const PHONE = '+14155552671';
 
@@ -26,6 +27,7 @@ describe('AuthService', () => {
   let jwtService: { signAsync: jest.Mock };
   let smsProvider: SmsProvider;
   let googleTokenVerifier: GoogleTokenVerifier;
+  let appleTokenVerifier: AppleTokenVerifier;
 
   beforeEach(() => {
     prisma = {
@@ -44,6 +46,7 @@ describe('AuthService', () => {
     jwtService = { signAsync: jest.fn().mockResolvedValue('signed-jwt') };
     smsProvider = { sendOtp: jest.fn().mockResolvedValue(undefined) };
     googleTokenVerifier = { verify: jest.fn() };
+    appleTokenVerifier = { verify: jest.fn() };
 
     const configService = {
       get: (key: string) => {
@@ -62,6 +65,7 @@ describe('AuthService', () => {
       configService,
       smsProvider,
       googleTokenVerifier,
+      appleTokenVerifier,
     );
   });
 
@@ -214,6 +218,77 @@ describe('AuthService', () => {
       prisma.user.findUnique.mockResolvedValueOnce({ id: 'user-1', ...PROFILE });
 
       const result = await service.loginWithGoogle('id-token');
+
+      expect(prisma.user.create).not.toHaveBeenCalled();
+      expect(prisma.user.update).not.toHaveBeenCalled();
+      expect(result.user.id).toBe('user-1');
+    });
+  });
+
+  describe('loginWithApple', () => {
+    const PROFILE = {
+      appleUserId: 'apple-123',
+      email: 'jane@privaterelay.appleid.com',
+      isPrivateEmail: true,
+    };
+
+    it('creates a new user when no existing account matches', async () => {
+      (appleTokenVerifier.verify as jest.Mock).mockResolvedValue(PROFILE);
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.user.create.mockResolvedValue({
+        id: 'user-1',
+        email: PROFILE.email,
+        name: 'Jane Doe',
+      });
+
+      const result = await service.loginWithApple('identity-token', 'Jane Doe');
+
+      expect(prisma.user.create).toHaveBeenCalledWith({
+        data: {
+          appleUserId: PROFILE.appleUserId,
+          email: PROFILE.email,
+          name: 'Jane Doe',
+        },
+      });
+      expect(result).toEqual({
+        accessToken: 'signed-jwt',
+        user: {
+          id: 'user-1',
+          email: PROFILE.email,
+          name: 'Jane Doe',
+          isPrivateEmail: true,
+        },
+      });
+    });
+
+    it('links the Apple account to an existing user found by email', async () => {
+      (appleTokenVerifier.verify as jest.Mock).mockResolvedValue(PROFILE);
+      prisma.user.findUnique
+        .mockResolvedValueOnce(null) // lookup by appleUserId
+        .mockResolvedValueOnce({ id: 'user-1', email: PROFILE.email, name: null }); // lookup by email
+      prisma.user.update.mockResolvedValue({ id: 'user-1', email: PROFILE.email, name: null });
+
+      await service.loginWithApple('identity-token');
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-1' },
+        data: {
+          appleUserId: PROFILE.appleUserId,
+          name: undefined,
+        },
+      });
+      expect(prisma.user.create).not.toHaveBeenCalled();
+    });
+
+    it('reuses the existing account when found directly by appleUserId', async () => {
+      (appleTokenVerifier.verify as jest.Mock).mockResolvedValue(PROFILE);
+      prisma.user.findUnique.mockResolvedValueOnce({
+        id: 'user-1',
+        email: PROFILE.email,
+        name: 'Jane Doe',
+      });
+
+      const result = await service.loginWithApple('identity-token');
 
       expect(prisma.user.create).not.toHaveBeenCalled();
       expect(prisma.user.update).not.toHaveBeenCalled();
