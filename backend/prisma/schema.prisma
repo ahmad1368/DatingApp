@@ -23,10 +23,14 @@ model User {
   relationshipGoal      String?
   interests             String[]  @default([])
   onboardingCompletedAt DateTime?
+  isPremium             Boolean   @default(false)
   latitude              Float?
   longitude             Float?
   locationUpdatedAt     DateTime?
   searchRadiusKm        Int       @default(50)
+  passportLatitude      Float?
+  passportLongitude     Float?
+  passportEnabled       Boolean   @default(false)
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 

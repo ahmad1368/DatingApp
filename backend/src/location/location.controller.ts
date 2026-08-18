@@ -1,8 +1,9 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Put, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Put, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AuthenticatedUser, JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { UpdateLocationDto } from './dto/update-location.dto';
 import { UpdateSearchRadiusDto } from './dto/update-search-radius.dto';
+import { SetPassportLocationDto } from './dto/set-passport-location.dto';
 import { LocationService } from './location.service';
 
 @Controller('location')
@@ -25,5 +26,17 @@ export class LocationController {
   @Get('nearby')
   findNearby(@CurrentUser() user: AuthenticatedUser) {
     return this.locationService.findNearbyUsers(user.id);
+  }
+
+  @Put('passport')
+  @HttpCode(HttpStatus.OK)
+  setPassportLocation(@CurrentUser() user: AuthenticatedUser, @Body() dto: SetPassportLocationDto) {
+    return this.locationService.setPassportLocation(user.id, dto.latitude, dto.longitude);
+  }
+
+  @Delete('passport')
+  @HttpCode(HttpStatus.OK)
+  clearPassportLocation(@CurrentUser() user: AuthenticatedUser) {
+    return this.locationService.clearPassportLocation(user.id);
   }
 }
