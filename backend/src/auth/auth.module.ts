@@ -11,6 +11,7 @@ import { GOOGLE_TOKEN_VERIFIER } from './interfaces/google-token-verifier.interf
 import { GoogleOAuthTokenVerifier } from './providers/google-oauth-token-verifier.provider';
 import { APPLE_TOKEN_VERIFIER } from './interfaces/apple-token-verifier.interface';
 import { AppleSigninTokenVerifier } from './providers/apple-signin-token-verifier.provider';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @Module({
   imports: [
@@ -39,7 +40,8 @@ import { AppleSigninTokenVerifier } from './providers/apple-signin-token-verifie
       provide: APPLE_TOKEN_VERIFIER,
       useClass: AppleSigninTokenVerifier,
     },
+    JwtAuthGuard,
   ],
-  exports: [AuthService],
+  exports: [AuthService, JwtAuthGuard],
 })
 export class AuthModule {}
