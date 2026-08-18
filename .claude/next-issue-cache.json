@@ -2,11 +2,6 @@
   "generated_at": "2026-08-18T06:55:47Z",
   "snapshot": [
     {
-      "number": 1,
-      "title": "Authentication based on phone number and SMS OTP",
-      "updatedAt": "2026-08-10T20:27:52Z"
-    },
-    {
       "number": 2,
       "title": "Login with Google account (Google OAuth)",
       "updatedAt": "2026-08-15T14:08:28Z"
@@ -2273,10 +2268,6 @@
     }
   ],
   "queue": [
-    {
-      "number": 2,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 3,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"

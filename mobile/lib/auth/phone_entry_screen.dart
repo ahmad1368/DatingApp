@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'auth_api.dart';
+import 'google_sign_in_button.dart';
 import 'otp_verify_screen.dart';
 
 /// E.164 international phone numbers: a leading '+', then 8-15 digits total.
@@ -98,6 +99,19 @@ class _PhoneEntryScreenState extends State<PhoneEntryScreen> {
                       )
                     : const Text('Send code'),
               ),
+              const SizedBox(height: 24),
+              const Row(
+                children: [
+                  Expanded(child: Divider()),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8),
+                    child: Text('OR'),
+                  ),
+                  Expanded(child: Divider()),
+                ],
+              ),
+              const SizedBox(height: 24),
+              GoogleSignInButton(authApi: widget.authApi, onVerified: widget.onVerified),
             ],
           ),
         ),

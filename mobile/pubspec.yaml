@@ -38,6 +38,9 @@ dependencies:
   # HTTP client used to talk to the backend API.
   http: ^1.2.2
 
+  # Native Google Sign-In, used to obtain an ID token for the backend.
+  google_sign_in: ^6.2.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
