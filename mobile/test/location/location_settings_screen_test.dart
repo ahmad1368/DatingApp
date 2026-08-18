@@ -1,0 +1,103 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+
+import 'package:mobile/location/location_api.dart';
+import 'package:mobile/location/location_settings_screen.dart';
+
+void main() {
+  testWidgets('sharing location updates the backend and shows nearby users', (tester) async {
+    final requestedPaths = <String>[];
+    final api = LocationApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        requestedPaths.add(request.url.path);
+        if (request.url.path == '/location') {
+          return http.Response(
+            '{"latitude":51.5,"longitude":-0.12,"locationUpdatedAt":"2026-01-01T00:00:00.000Z"}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '[{"id":"user-2","name":"Jane","distanceKm":3.4}]',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LocationSettingsScreen(
+          locationApi: api,
+          currentPositionProvider: () async => const Coordinates(latitude: 51.5, longitude: -0.12),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Share my location'));
+    await tester.pumpAndSettle();
+
+    expect(requestedPaths, containsAll(['/location', '/location/nearby']));
+    expect(find.text('Location updated.'), findsOneWidget);
+    expect(find.text('Jane'), findsOneWidget);
+    expect(find.text('3.4 km away'), findsOneWidget);
+  });
+
+  testWidgets('shows an error when the position provider fails', (tester) async {
+    final api = LocationApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async => http.Response('', 500)),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LocationSettingsScreen(
+          locationApi: api,
+          currentPositionProvider: () async =>
+              throw LocationApiException('Location permission is required to find matches nearby.'),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Share my location'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Location permission is required to find matches nearby.'), findsOneWidget);
+  });
+
+  testWidgets('saving the radius calls the backend', (tester) async {
+    final requestedBodies = <String>[];
+    final api = LocationApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        requestedBodies.add(request.body);
+        if (request.url.path == '/location/radius') {
+          return http.Response(
+            '{"searchRadiusKm":50}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response('[]', 200, headers: {'content-type': 'application/json'});
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LocationSettingsScreen(
+          locationApi: api,
+          currentPositionProvider: () async => const Coordinates(latitude: 0, longitude: 0),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Save radius'));
+    await tester.pumpAndSettle();
+
+    expect(requestedBodies, contains('{"radiusKm":50}'));
+    expect(find.text('Search radius saved.'), findsOneWidget);
+  });
+}
