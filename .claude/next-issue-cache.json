@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-19T04:49:13.034Z",
+  "generated_at": "2026-08-19T05:00:55.603Z",
   "snapshot": [
     {
       "number": 454,
@@ -2160,18 +2160,9 @@
       "number": 23,
       "title": "Undo / Rewind Last Swipe",
       "updatedAt": "2026-08-10T20:28:37Z"
-    },
-    {
-      "number": 22,
-      "title": "Match Expiration Countdown Timer",
-      "updatedAt": "2026-08-10T20:28:35Z"
     }
   ],
   "queue": [
-    {
-      "number": 23,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 24,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
