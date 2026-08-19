@@ -6,6 +6,7 @@ import { VerificationModule } from './verification/verification.module';
 import { OnboardingModule } from './onboarding/onboarding.module';
 import { LocationModule } from './location/location.module';
 import { ProfileModule } from './profile/profile.module';
+import { DiscoveryModule } from './discovery/discovery.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { ProfileModule } from './profile/profile.module';
     OnboardingModule,
     LocationModule,
     ProfileModule,
+    DiscoveryModule,
   ],
 })
 export class AppModule {}

@@ -2,11 +2,6 @@
   "generated_at": "2026-08-18T06:55:47Z",
   "snapshot": [
     {
-      "number": 10,
-      "title": "Inclusive Gender Options",
-      "updatedAt": "2026-08-10T20:28:10Z"
-    },
-    {
       "number": 11,
       "title": "Card Swiping Deck Interface (Swipe Left/Right)",
       "updatedAt": "2026-08-10T20:28:12Z"
@@ -2228,10 +2223,6 @@
     }
   ],
   "queue": [
-    {
-      "number": 11,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 12,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
