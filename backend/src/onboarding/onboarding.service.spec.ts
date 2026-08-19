@@ -23,7 +23,6 @@ describe('OnboardingService', () => {
   it('rejects users under the minimum age', async () => {
     const dto: CompleteOnboardingDto = {
       dateOfBirth: isoDateYearsAgo(16),
-      gender: 'Woman',
       relationshipGoal: 'LONG_TERM',
       interests: ['Hiking'],
     };
@@ -38,7 +37,6 @@ describe('OnboardingService', () => {
     const dto: CompleteOnboardingDto = {
       name: 'Jane',
       dateOfBirth: isoDateYearsAgo(25),
-      gender: 'Woman',
       relationshipGoal: 'CASUAL',
       interests: ['Hiking', 'Music'],
     };
@@ -46,7 +44,6 @@ describe('OnboardingService', () => {
       id: USER_ID,
       name: 'Jane',
       dateOfBirth: new Date(dto.dateOfBirth),
-      gender: 'Woman',
       relationshipGoal: 'CASUAL',
       interests: ['Hiking', 'Music'],
       onboardingCompletedAt: new Date(),
@@ -59,20 +56,18 @@ describe('OnboardingService', () => {
       data: {
         name: 'Jane',
         dateOfBirth: new Date(dto.dateOfBirth),
-        gender: 'Woman',
         relationshipGoal: 'CASUAL',
         interests: ['Hiking', 'Music'],
         onboardingCompletedAt: expect.any(Date),
       },
     });
-    expect(result.gender).toBe('Woman');
+    expect(result.relationshipGoal).toBe('CASUAL');
     expect(result.interests).toEqual(['Hiking', 'Music']);
   });
 
   it('leaves the existing name untouched when none is provided', async () => {
     const dto: CompleteOnboardingDto = {
       dateOfBirth: isoDateYearsAgo(30),
-      gender: 'Man',
       relationshipGoal: 'FRIENDSHIP',
       interests: ['Travel'],
     };
@@ -80,7 +75,6 @@ describe('OnboardingService', () => {
       id: USER_ID,
       name: 'Existing Name',
       dateOfBirth: new Date(dto.dateOfBirth),
-      gender: 'Man',
       relationshipGoal: 'FRIENDSHIP',
       interests: ['Travel'],
       onboardingCompletedAt: new Date(),
@@ -92,7 +86,6 @@ describe('OnboardingService', () => {
       where: { id: USER_ID },
       data: {
         dateOfBirth: new Date(dto.dateOfBirth),
-        gender: 'Man',
         relationshipGoal: 'FRIENDSHIP',
         interests: ['Travel'],
         onboardingCompletedAt: expect.any(Date),

@@ -7,7 +7,6 @@ export interface CompleteOnboardingResult {
   id: string;
   name: string | null;
   dateOfBirth: string;
-  gender: string;
   relationshipGoal: string;
   interests: string[];
   onboardingCompletedAt: string;
@@ -42,7 +41,6 @@ export class OnboardingService {
       data: {
         ...(dto.name ? { name: dto.name } : {}),
         dateOfBirth,
-        gender: dto.gender,
         relationshipGoal: dto.relationshipGoal,
         interests: dto.interests,
         onboardingCompletedAt: new Date(),
@@ -53,7 +51,6 @@ export class OnboardingService {
       id: user.id,
       name: user.name,
       dateOfBirth: user.dateOfBirth!.toISOString(),
-      gender: user.gender!,
       relationshipGoal: user.relationshipGoal!,
       interests: user.interests,
       onboardingCompletedAt: user.onboardingCompletedAt!.toISOString(),

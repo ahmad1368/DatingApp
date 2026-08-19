@@ -19,10 +19,6 @@ export class CompleteOnboardingDto {
   @IsDateString()
   dateOfBirth!: string;
 
-  @IsString()
-  @Length(1, 50)
-  gender!: string;
-
   @IsIn(RELATIONSHIP_GOALS)
   relationshipGoal!: string;
 
