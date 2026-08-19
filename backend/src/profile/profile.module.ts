@@ -15,6 +15,10 @@ import { InstagramController } from './instagram.controller';
 import { InstagramSyncService } from './instagram-sync.service';
 import { INSTAGRAM_CLIENT } from './interfaces/instagram-client.interface';
 import { InstagramGraphApiClient } from './providers/instagram-graph-api.client';
+import { SpotifyController } from './spotify.controller';
+import { SpotifySyncService } from './spotify-sync.service';
+import { SPOTIFY_CLIENT } from './interfaces/spotify-client.interface';
+import { SpotifyWebApiClient } from './providers/spotify-web-api.client';
 
 @Module({
   imports: [AuthModule, ConfigModule],
@@ -25,6 +29,7 @@ import { InstagramGraphApiClient } from './providers/instagram-graph-api.client'
     RelationshipProfileController,
     LifestyleFiltersController,
     InstagramController,
+    SpotifyController,
   ],
   providers: [
     VoiceIntroService,
@@ -36,6 +41,11 @@ import { InstagramGraphApiClient } from './providers/instagram-graph-api.client'
     {
       provide: INSTAGRAM_CLIENT,
       useClass: InstagramGraphApiClient,
+    },
+    SpotifySyncService,
+    {
+      provide: SPOTIFY_CLIENT,
+      useClass: SpotifyWebApiClient,
     },
   ],
 })

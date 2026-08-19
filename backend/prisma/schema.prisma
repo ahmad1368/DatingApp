@@ -65,6 +65,16 @@ model User {
   instagramTokenExpiresAt            DateTime?
   instagramMediaUrls                 String[]  @default([])
   instagramSyncedAt                  DateTime?
+  spotifyUserId                      String?
+  spotifyAccessToken                 String?
+  spotifyRefreshToken                String?
+  spotifyTokenExpiresAt              DateTime?
+  spotifyTopArtists                  String[]  @default([])
+  spotifyTopArtistsSyncedAt          DateTime?
+  anthemTrackId                      String?
+  anthemTrackName                    String?
+  anthemArtistName                   String?
+  anthemAlbumArtUrl                  String?
   createdAt                          DateTime  @default(now())
   updatedAt                          DateTime  @updatedAt
 
