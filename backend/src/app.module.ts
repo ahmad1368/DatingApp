@@ -9,6 +9,7 @@ import { ProfileModule } from './profile/profile.module';
 import { DiscoveryModule } from './discovery/discovery.module';
 import { MessagingModule } from './messaging/messaging.module';
 import { MatchingModule } from './matching/matching.module';
+import { CuratedProfilesModule } from './curated-profiles/curated-profiles.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { MatchingModule } from './matching/matching.module';
     DiscoveryModule,
     MessagingModule,
     MatchingModule,
+    CuratedProfilesModule,
   ],
 })
 export class AppModule {}
