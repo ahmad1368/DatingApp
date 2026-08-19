@@ -28,6 +28,8 @@
 	<true/>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>We use your location to show your distance to other users and find matches nearby.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>We use your microphone to record a short voice intro for your profile.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

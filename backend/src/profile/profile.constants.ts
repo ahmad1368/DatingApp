@@ -1,0 +1,1 @@
+export const MAX_VOICE_INTRO_SECONDS = 30;
