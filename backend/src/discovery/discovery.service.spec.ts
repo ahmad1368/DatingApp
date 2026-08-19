@@ -1,4 +1,4 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { DiscoveryService } from './discovery.service';
 
@@ -9,15 +9,29 @@ describe('DiscoveryService', () => {
   let service: DiscoveryService;
   let prisma: {
     user: { findUnique: jest.Mock; findMany: jest.Mock };
-    swipe: { findMany: jest.Mock; findUnique: jest.Mock; create: jest.Mock; count: jest.Mock };
-    match: { create: jest.Mock };
+    swipe: {
+      findMany: jest.Mock;
+      findUnique: jest.Mock;
+      findFirst: jest.Mock;
+      create: jest.Mock;
+      count: jest.Mock;
+      delete: jest.Mock;
+    };
+    match: { create: jest.Mock; findUnique: jest.Mock; delete: jest.Mock };
   };
 
   beforeEach(() => {
     prisma = {
       user: { findUnique: jest.fn(), findMany: jest.fn() },
-      swipe: { findMany: jest.fn(), findUnique: jest.fn(), create: jest.fn(), count: jest.fn() },
-      match: { create: jest.fn() },
+      swipe: {
+        findMany: jest.fn(),
+        findUnique: jest.fn(),
+        findFirst: jest.fn(),
+        create: jest.fn(),
+        count: jest.fn(),
+        delete: jest.fn(),
+      },
+      match: { create: jest.fn(), findUnique: jest.fn(), delete: jest.fn() },
     };
     service = new DiscoveryService(prisma as unknown as PrismaService);
   });
@@ -249,6 +263,75 @@ describe('DiscoveryService', () => {
         data: { swiperId: USER_ID, targetUserId: TARGET_ID, action: 'SUPER_LIKE' },
       });
       expect(result).toEqual({ matched: true, matchId: 'match-1' });
+    });
+  });
+
+  describe('undoLastSwipe', () => {
+    it('throws when the current user does not exist', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(service.undoLastSwipe(USER_ID)).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('rejects non-premium users', async () => {
+      prisma.user.findUnique.mockResolvedValue({ isPremium: false });
+
+      await expect(service.undoLastSwipe(USER_ID)).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('throws when there is no swipe to undo', async () => {
+      prisma.user.findUnique.mockResolvedValue({ isPremium: true });
+      prisma.swipe.findFirst.mockResolvedValue(null);
+
+      await expect(service.undoLastSwipe(USER_ID)).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('deletes a plain swipe with no match', async () => {
+      prisma.user.findUnique.mockResolvedValue({ isPremium: true });
+      prisma.swipe.findFirst.mockResolvedValue({
+        id: 'swipe-1',
+        targetUserId: TARGET_ID,
+        action: 'PASS',
+      });
+      prisma.match.findUnique.mockResolvedValue(null);
+      prisma.swipe.delete.mockResolvedValue({});
+
+      const result = await service.undoLastSwipe(USER_ID);
+
+      expect(prisma.match.delete).not.toHaveBeenCalled();
+      expect(prisma.swipe.delete).toHaveBeenCalledWith({ where: { id: 'swipe-1' } });
+      expect(result).toEqual({ targetUserId: TARGET_ID, action: 'PASS', hadMatch: false });
+    });
+
+    it('also removes the match when the undone swipe formed one', async () => {
+      prisma.user.findUnique.mockResolvedValue({ isPremium: true });
+      prisma.swipe.findFirst.mockResolvedValue({
+        id: 'swipe-1',
+        targetUserId: TARGET_ID,
+        action: 'LIKE',
+      });
+      prisma.match.findUnique.mockResolvedValue({ id: 'match-1', firstMessageSentAt: null });
+      prisma.match.delete.mockResolvedValue({});
+      prisma.swipe.delete.mockResolvedValue({});
+
+      const result = await service.undoLastSwipe(USER_ID);
+
+      expect(prisma.match.delete).toHaveBeenCalledWith({ where: { id: 'match-1' } });
+      expect(result.hadMatch).toBe(true);
+    });
+
+    it('refuses to undo a match that already has a conversation', async () => {
+      prisma.user.findUnique.mockResolvedValue({ isPremium: true });
+      prisma.swipe.findFirst.mockResolvedValue({
+        id: 'swipe-1',
+        targetUserId: TARGET_ID,
+        action: 'LIKE',
+      });
+      prisma.match.findUnique.mockResolvedValue({ id: 'match-1', firstMessageSentAt: new Date() });
+
+      await expect(service.undoLastSwipe(USER_ID)).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.match.delete).not.toHaveBeenCalled();
+      expect(prisma.swipe.delete).not.toHaveBeenCalled();
     });
   });
 });

@@ -40,6 +40,14 @@ class SwipeResult {
   final String? matchId;
 }
 
+class UndoResult {
+  UndoResult({required this.targetUserId, required this.action, required this.hadMatch});
+
+  final String targetUserId;
+  final String action;
+  final bool hadMatch;
+}
+
 /// Talks to the backend's swipe deck endpoints. Requires a signed-in
 /// user's access token.
 class DiscoveryApi {
@@ -99,6 +107,27 @@ class DiscoveryApi {
     return SwipeResult(
       matched: body['matched'] as bool,
       matchId: body['matchId'] as String?,
+    );
+  }
+
+  /// Premium "rewind": undoes the user's most recent swipe. Throws
+  /// [DiscoveryApiException] (403) if the user isn't premium, or (400) if
+  /// there's nothing to undo or the swipe already led to a conversation.
+  Future<UndoResult> undoLastSwipe() async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/discovery/undo'),
+      headers: _headers,
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 200) {
+      throw DiscoveryApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return UndoResult(
+      targetUserId: body['targetUserId'] as String,
+      action: body['action'] as String,
+      hadMatch: body['hadMatch'] as bool,
     );
   }
 

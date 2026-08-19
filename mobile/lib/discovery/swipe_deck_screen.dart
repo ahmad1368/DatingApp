@@ -56,10 +56,30 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
     }
   }
 
+  Future<void> _handleUndo() async {
+    setState(() => _errorText = null);
+    try {
+      await widget.discoveryApi.undoLastSwipe();
+      await _loadDeck();
+    } on DiscoveryApiException catch (e) {
+      setState(() => _errorText = e.message);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Discover')),
+      appBar: AppBar(
+        title: const Text('Discover'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.undo),
+            color: Colors.amber,
+            tooltip: 'Rewind last swipe',
+            onPressed: _isLoading ? null : _handleUndo,
+          ),
+        ],
+      ),
       body: Column(
         children: [
           if (_errorText != null)

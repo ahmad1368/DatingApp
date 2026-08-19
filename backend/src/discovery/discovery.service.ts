@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { haversineDistanceKm } from '../location/utils/haversine';
@@ -25,6 +25,12 @@ export interface DeckCard {
 export interface SwipeResult {
   matched: boolean;
   matchId?: string;
+}
+
+export interface UndoResult {
+  targetUserId: string;
+  action: string;
+  hadMatch: boolean;
 }
 
 @Injectable()
@@ -150,6 +156,51 @@ export class DiscoveryService {
     });
 
     return { matched: true, matchId: match.id };
+  }
+
+  /**
+   * Premium "rewind": undoes the current user's most recent swipe so the
+   * candidate reappears in the deck. If that swipe formed a match, the
+   * match is undone too, unless a conversation already started there.
+   */
+  async undoLastSwipe(userId: string): Promise<UndoResult> {
+    const currentUser = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!currentUser) {
+      throw new NotFoundException('User not found.');
+    }
+    if (!currentUser.isPremium) {
+      throw new ForbiddenException('Rewind is a premium feature.');
+    }
+
+    const lastSwipe = await this.prisma.swipe.findFirst({
+      where: { swiperId: userId },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (!lastSwipe) {
+      throw new BadRequestException('There is no swipe to undo.');
+    }
+
+    const [userAId, userBId] = [userId, lastSwipe.targetUserId].sort();
+    const match = await this.prisma.match.findUnique({
+      where: { userAId_userBId: { userAId, userBId } },
+    });
+
+    if (match) {
+      if (match.firstMessageSentAt != null) {
+        throw new BadRequestException(
+          'This swipe already led to a conversation and cannot be undone.',
+        );
+      }
+      await this.prisma.match.delete({ where: { id: match.id } });
+    }
+
+    await this.prisma.swipe.delete({ where: { id: lastSwipe.id } });
+
+    return {
+      targetUserId: lastSwipe.targetUserId,
+      action: lastSwipe.action,
+      hadMatch: match != null,
+    };
   }
 
   private buildLifestyleFilterWhere(currentUser: {

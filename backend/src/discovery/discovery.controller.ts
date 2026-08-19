@@ -19,4 +19,10 @@ export class DiscoveryController {
   recordSwipe(@CurrentUser() user: AuthenticatedUser, @Body() dto: RecordSwipeDto) {
     return this.discoveryService.recordSwipe(user.id, dto.targetUserId, dto.action);
   }
+
+  @Post('undo')
+  @HttpCode(HttpStatus.OK)
+  undoLastSwipe(@CurrentUser() user: AuthenticatedUser) {
+    return this.discoveryService.undoLastSwipe(user.id);
+  }
 }
