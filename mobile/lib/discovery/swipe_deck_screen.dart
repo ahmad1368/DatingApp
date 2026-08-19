@@ -17,6 +17,7 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
   bool _isLoading = true;
   String? _errorText;
   String? _matchText;
+  bool _incognitoEnabled = false;
 
   @override
   void initState() {
@@ -66,12 +67,28 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
     }
   }
 
+  Future<void> _toggleIncognito() async {
+    setState(() => _errorText = null);
+    try {
+      final enabled = await widget.discoveryApi.setIncognitoMode(!_incognitoEnabled);
+      setState(() => _incognitoEnabled = enabled);
+    } on DiscoveryApiException catch (e) {
+      setState(() => _errorText = e.message);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Discover'),
         actions: [
+          IconButton(
+            icon: Icon(_incognitoEnabled ? Icons.visibility_off : Icons.visibility),
+            color: _incognitoEnabled ? Colors.purple : null,
+            tooltip: _incognitoEnabled ? 'Incognito mode on' : 'Go incognito',
+            onPressed: _isLoading ? null : _toggleIncognito,
+          ),
           IconButton(
             icon: const Icon(Icons.undo),
             color: Colors.amber,

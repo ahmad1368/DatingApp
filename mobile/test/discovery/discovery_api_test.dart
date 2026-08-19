@@ -155,4 +155,41 @@ void main() {
       expect(() => api.undoLastSwipe(), throwsA(isA<DiscoveryApiException>()));
     });
   });
+
+  group('DiscoveryApi.setIncognitoMode', () {
+    test('sends a PUT with the enabled flag and parses the result', () async {
+      final api = DiscoveryApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'PUT');
+          expect(request.url.path, '/discovery/incognito');
+          expect(request.body, '{"enabled":true}');
+          return http.Response(
+            '{"incognitoEnabled":true}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final result = await api.setIncognitoMode(true);
+
+      expect(result, isTrue);
+    });
+
+    test('throws DiscoveryApiException when enabling for a non-premium user', () async {
+      final api = DiscoveryApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '{"message":"Incognito mode is a premium feature."}',
+            403,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      expect(() => api.setIncognitoMode(true), throwsA(isA<DiscoveryApiException>()));
+    });
+  });
 }

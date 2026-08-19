@@ -131,6 +131,25 @@ class DiscoveryApi {
     );
   }
 
+  /// Premium "incognito" mode: hides the user from the main deck except for
+  /// profiles they've actively liked or super-liked. Throws
+  /// [DiscoveryApiException] (403) when enabling for a non-premium user;
+  /// disabling is always allowed.
+  Future<bool> setIncognitoMode(bool enabled) async {
+    final response = await _client.put(
+      Uri.parse('$_baseUrl/discovery/incognito'),
+      headers: _headers,
+      body: jsonEncode({'enabled': enabled}),
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 200) {
+      throw DiscoveryApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return body['incognitoEnabled'] as bool;
+  }
+
   Map<String, dynamic> _decode(http.Response response) {
     if (response.body.isEmpty) {
       return const {};

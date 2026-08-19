@@ -8,7 +8,7 @@ const TARGET_ID = 'user-2';
 describe('DiscoveryService', () => {
   let service: DiscoveryService;
   let prisma: {
-    user: { findUnique: jest.Mock; findMany: jest.Mock };
+    user: { findUnique: jest.Mock; findMany: jest.Mock; update: jest.Mock };
     swipe: {
       findMany: jest.Mock;
       findUnique: jest.Mock;
@@ -22,7 +22,7 @@ describe('DiscoveryService', () => {
 
   beforeEach(() => {
     prisma = {
-      user: { findUnique: jest.fn(), findMany: jest.fn() },
+      user: { findUnique: jest.fn(), findMany: jest.fn(), update: jest.fn() },
       swipe: {
         findMany: jest.fn(),
         findUnique: jest.fn(),
@@ -85,6 +85,7 @@ describe('DiscoveryService', () => {
         where: {
           id: { notIn: [USER_ID, 'already-swiped'] },
           onboardingCompletedAt: { not: null },
+          OR: [{ incognitoEnabled: false }, { id: { in: [] } }],
         },
         take: 20,
       });
@@ -120,6 +121,7 @@ describe('DiscoveryService', () => {
         where: {
           id: { notIn: [USER_ID] },
           onboardingCompletedAt: { not: null },
+          OR: [{ incognitoEnabled: false }, { id: { in: [] } }],
           smokingHabit: { in: ['Never'] },
           education: { in: ['Bachelors', 'Masters'] },
           relationshipGoal: { in: ['LONG_TERM'] },
@@ -140,7 +142,7 @@ describe('DiscoveryService', () => {
       });
       prisma.swipe.findMany
         .mockResolvedValueOnce([]) // not swiped on anyone yet
-        .mockResolvedValueOnce([{ swiperId: 'super-liker-1' }]); // received a super like
+        .mockResolvedValueOnce([{ swiperId: 'super-liker-1', action: 'SUPER_LIKE' }]); // received a super like
       prisma.user.findMany
         .mockResolvedValueOnce([
           { id: 'super-liker-1', name: 'Sam', dateOfBirth: null, profilePhotoUrl: null, interests: [], relationshipGoal: null },
@@ -159,12 +161,40 @@ describe('DiscoveryService', () => {
         where: {
           id: { notIn: [USER_ID, 'super-liker-1'] },
           onboardingCompletedAt: { not: null },
+          OR: [{ incognitoEnabled: false }, { id: { in: ['super-liker-1'] } }],
         },
         take: 19,
       });
       expect(deck.map((card) => card.id)).toEqual(['super-liker-1', 'other-user']);
       expect(deck[0].isSuperLike).toBe(true);
       expect(deck[1].isSuperLike).toBe(false);
+    });
+
+    it('lets a plain (non-super) like bypass incognito filtering too', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        ...noFilters,
+      });
+      prisma.swipe.findMany
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([{ swiperId: 'liker-1', action: 'LIKE' }]);
+      prisma.user.findMany.mockResolvedValueOnce([]); // no super likers -> no priority query result used
+
+      await service.getDeck(USER_ID);
+
+      expect(prisma.user.findMany).toHaveBeenCalledWith({
+        where: {
+          id: { notIn: [USER_ID] },
+          onboardingCompletedAt: { not: null },
+          OR: [{ incognitoEnabled: false }, { id: { in: ['liker-1'] } }],
+        },
+        take: 20,
+      });
     });
   });
 
@@ -332,6 +362,46 @@ describe('DiscoveryService', () => {
       await expect(service.undoLastSwipe(USER_ID)).rejects.toBeInstanceOf(BadRequestException);
       expect(prisma.match.delete).not.toHaveBeenCalled();
       expect(prisma.swipe.delete).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('setIncognitoMode', () => {
+    it('throws when the current user does not exist', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(service.setIncognitoMode(USER_ID, true)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+
+    it('rejects enabling incognito for a non-premium user', async () => {
+      prisma.user.findUnique.mockResolvedValue({ isPremium: false });
+
+      await expect(service.setIncognitoMode(USER_ID, true)).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+    });
+
+    it('allows a non-premium user to turn incognito off', async () => {
+      prisma.user.findUnique.mockResolvedValue({ isPremium: false });
+      prisma.user.update.mockResolvedValue({ incognitoEnabled: false });
+
+      const result = await service.setIncognitoMode(USER_ID, false);
+
+      expect(result).toEqual({ incognitoEnabled: false });
+    });
+
+    it('enables incognito for a premium user', async () => {
+      prisma.user.findUnique.mockResolvedValue({ isPremium: true });
+      prisma.user.update.mockResolvedValue({ incognitoEnabled: true });
+
+      const result = await service.setIncognitoMode(USER_ID, true);
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: USER_ID },
+        data: { incognitoEnabled: true },
+      });
+      expect(result).toEqual({ incognitoEnabled: true });
     });
   });
 });

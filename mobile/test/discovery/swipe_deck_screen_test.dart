@@ -182,4 +182,59 @@ void main() {
 
     expect(find.text('Rewind is a premium feature.'), findsOneWidget);
   });
+
+  testWidgets('toggling incognito switches the visibility icon', (tester) async {
+    http.Request? incognitoRequest;
+    final api = DiscoveryApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/discovery/deck') {
+          return http.Response('[]', 200, headers: {'content-type': 'application/json'});
+        }
+        incognitoRequest = request;
+        return http.Response(
+          '{"incognitoEnabled":true}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: SwipeDeckScreen(discoveryApi: api)));
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.visibility), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.visibility));
+    await tester.pumpAndSettle();
+
+    expect(incognitoRequest, isNotNull);
+    expect(incognitoRequest!.method, 'PUT');
+    expect(incognitoRequest!.body, '{"enabled":true}');
+    expect(find.byIcon(Icons.visibility_off), findsOneWidget);
+  });
+
+  testWidgets('shows an error when incognito is rejected for a non-premium user', (tester) async {
+    final api = DiscoveryApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/discovery/deck') {
+          return http.Response('[]', 200, headers: {'content-type': 'application/json'});
+        }
+        return http.Response(
+          '{"message":"Incognito mode is a premium feature."}',
+          403,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: SwipeDeckScreen(discoveryApi: api)));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.visibility));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Incognito mode is a premium feature.'), findsOneWidget);
+  });
 }

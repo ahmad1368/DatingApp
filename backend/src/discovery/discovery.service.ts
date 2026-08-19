@@ -33,6 +33,10 @@ export interface UndoResult {
   hadMatch: boolean;
 }
 
+export interface IncognitoResult {
+  incognitoEnabled: boolean;
+}
+
 @Injectable()
 export class DiscoveryService {
   constructor(private readonly prisma: PrismaService) {}
@@ -52,11 +56,16 @@ export class DiscoveryService {
     const excludedIds = [userId, ...swiped.map((s) => s.targetUserId)];
     const lifestyleWhere = this.buildLifestyleFilterWhere(currentUser);
 
-    const superLikes = await this.prisma.swipe.findMany({
-      where: { targetUserId: userId, action: 'SUPER_LIKE', swiperId: { notIn: excludedIds } },
-      select: { swiperId: true },
+    const likersOfMe = await this.prisma.swipe.findMany({
+      where: {
+        targetUserId: userId,
+        action: { in: LIKE_ACTIONS },
+        swiperId: { notIn: excludedIds },
+      },
+      select: { swiperId: true, action: true },
     });
-    const superLikerIds = superLikes.map((s) => s.swiperId);
+    const likedMeIds = likersOfMe.map((s) => s.swiperId);
+    const superLikerIds = likersOfMe.filter((s) => s.action === 'SUPER_LIKE').map((s) => s.swiperId);
 
     const priorityCandidates =
       superLikerIds.length > 0
@@ -76,6 +85,7 @@ export class DiscoveryService {
       where: {
         id: { notIn: [...excludedIds, ...priorityIds] },
         onboardingCompletedAt: { not: null },
+        OR: [{ incognitoEnabled: false }, { id: { in: likedMeIds } }],
         ...lifestyleWhere,
       },
       take: Math.max(DEFAULT_DECK_SIZE - priorityCandidates.length, 0),
@@ -201,6 +211,28 @@ export class DiscoveryService {
       action: lastSwipe.action,
       hadMatch: match != null,
     };
+  }
+
+  /**
+   * Premium "incognito" mode: hides the user from the main discovery deck,
+   * except for profiles the user has actively liked or super-liked (they
+   * remain visible to whoever they've swiped right on).
+   */
+  async setIncognitoMode(userId: string, enabled: boolean): Promise<IncognitoResult> {
+    const currentUser = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!currentUser) {
+      throw new NotFoundException('User not found.');
+    }
+    if (enabled && !currentUser.isPremium) {
+      throw new ForbiddenException('Incognito mode is a premium feature.');
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: { incognitoEnabled: enabled },
+    });
+
+    return { incognitoEnabled: updated.incognitoEnabled };
   }
 
   private buildLifestyleFilterWhere(currentUser: {
