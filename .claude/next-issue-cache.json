@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-19T04:40:58.226Z",
+  "generated_at": "2026-08-19T04:49:13.034Z",
   "snapshot": [
     {
       "number": 454,
@@ -2165,18 +2165,9 @@
       "number": 22,
       "title": "Match Expiration Countdown Timer",
       "updatedAt": "2026-08-10T20:28:35Z"
-    },
-    {
-      "number": 21,
-      "title": "Super Like / Boost Reaction",
-      "updatedAt": "2026-08-10T20:28:33Z"
     }
   ],
   "queue": [
-    {
-      "number": 22,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 23,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
