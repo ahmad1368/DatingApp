@@ -110,3 +110,32 @@ model Message {
   @@index([matchId])
   @@map("messages")
 }
+
+model Question {
+  id        String   @id @default(uuid())
+  text      String
+  options   String[]
+  createdAt DateTime @default(now())
+
+  answers QuestionAnswer[]
+
+  @@map("questions")
+}
+
+model QuestionAnswer {
+  id                String   @id @default(uuid())
+  userId            String
+  questionId        String
+  answer            String
+  acceptableAnswers String[]
+  importance        String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  question Question @relation(fields: [questionId], references: [id])
+
+  @@unique([userId, questionId])
+  @@index([userId])
+  @@index([questionId])
+  @@map("question_answers")
+}

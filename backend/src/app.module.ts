@@ -8,6 +8,7 @@ import { LocationModule } from './location/location.module';
 import { ProfileModule } from './profile/profile.module';
 import { DiscoveryModule } from './discovery/discovery.module';
 import { MessagingModule } from './messaging/messaging.module';
+import { MatchingModule } from './matching/matching.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { MessagingModule } from './messaging/messaging.module';
     ProfileModule,
     DiscoveryModule,
     MessagingModule,
+    MatchingModule,
   ],
 })
 export class AppModule {}

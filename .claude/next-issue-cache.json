@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-19T03:40:54.538Z",
+  "generated_at": "2026-08-19T03:48:09.673Z",
   "snapshot": [
     {
       "number": 454,
@@ -2210,18 +2210,9 @@
       "number": 13,
       "title": "Multi-Factor Questionnaire Matching Algorithm",
       "updatedAt": "2026-08-10T20:28:16Z"
-    },
-    {
-      "number": 12,
-      "title": "Women-First Messaging Rules",
-      "updatedAt": "2026-08-10T20:28:14Z"
     }
   ],
   "queue": [
-    {
-      "number": 13,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 14,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
