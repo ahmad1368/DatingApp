@@ -2,16 +2,6 @@
   "generated_at": "2026-08-18T06:55:47Z",
   "snapshot": [
     {
-      "number": 7,
-      "title": "Passport Feature",
-      "updatedAt": "2026-08-10T20:28:04Z"
-    },
-    {
-      "number": 8,
-      "title": "Complete your profile with question and answer cards (Profile Prompts)",
-      "updatedAt": "2026-08-10T20:28:06Z"
-    },
-    {
       "number": 9,
       "title": "Add Voice Prompts / Voice Intro",
       "updatedAt": "2026-08-10T20:28:08Z"
@@ -2243,14 +2233,6 @@
     }
   ],
   "queue": [
-    {
-      "number": 8,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
-    {
-      "number": 9,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 10,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
