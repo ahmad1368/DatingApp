@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-19T04:05:46.236Z",
+  "generated_at": "2026-08-19T04:13:41.255Z",
   "snapshot": [
     {
       "number": 454,
@@ -2190,18 +2190,9 @@
       "number": 17,
       "title": "Couples and Alternative Relationship Profiling",
       "updatedAt": "2026-08-10T20:28:25Z"
-    },
-    {
-      "number": 16,
-      "title": "Exclusive Vetting & Application Queue",
-      "updatedAt": "2026-08-10T20:28:22Z"
     }
   ],
   "queue": [
-    {
-      "number": 17,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 18,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
