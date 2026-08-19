@@ -218,3 +218,13 @@ model CouplePairing {
   @@index([partnerId])
   @@map("couple_pairings")
 }
+
+model PersonalityProfile {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  dimensionScores Json
+  completedAt     DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("personality_profiles")
+}
