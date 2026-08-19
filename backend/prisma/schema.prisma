@@ -59,6 +59,7 @@ model User {
   filterDietaryPreferences           String[]  @default([])
   filterWantsChildren                String[]  @default([])
   filterRelationshipGoals            String[]  @default([])
+  incognitoEnabled                   Boolean   @default(false)
   createdAt                          DateTime  @default(now())
   updatedAt                          DateTime  @updatedAt
 

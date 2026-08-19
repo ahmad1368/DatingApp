@@ -1,7 +1,8 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Post, Put, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AuthenticatedUser, JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RecordSwipeDto } from './dto/record-swipe.dto';
+import { SetIncognitoModeDto } from './dto/set-incognito-mode.dto';
 import { DiscoveryService } from './discovery.service';
 
 @Controller('discovery')
@@ -24,5 +25,11 @@ export class DiscoveryController {
   @HttpCode(HttpStatus.OK)
   undoLastSwipe(@CurrentUser() user: AuthenticatedUser) {
     return this.discoveryService.undoLastSwipe(user.id);
+  }
+
+  @Put('incognito')
+  @HttpCode(HttpStatus.OK)
+  setIncognitoMode(@CurrentUser() user: AuthenticatedUser, @Body() dto: SetIncognitoModeDto) {
+    return this.discoveryService.setIncognitoMode(user.id, dto.enabled);
   }
 }
