@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-19T03:52:28.499Z",
+  "generated_at": "2026-08-19T04:00:21.854Z",
   "snapshot": [
     {
       "number": 454,
@@ -2200,18 +2200,9 @@
       "number": 15,
       "title": "Direct Profile Item Liking and Commenting",
       "updatedAt": "2026-08-10T20:28:20Z"
-    },
-    {
-      "number": 14,
-      "title": "Daily Curated Profiles (Limited Bagels)",
-      "updatedAt": "2026-08-10T20:28:18Z"
     }
   ],
   "queue": [
-    {
-      "number": 15,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 16,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
