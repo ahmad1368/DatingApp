@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-19T05:06:29.284Z",
+  "generated_at": "2026-08-19T06:33:45.592Z",
   "snapshot": [
     {
       "number": 454,
@@ -2150,18 +2150,9 @@
       "number": 25,
       "title": "Instagram Profile Grid & Media Sync",
       "updatedAt": "2026-08-10T20:28:41Z"
-    },
-    {
-      "number": 24,
-      "title": "Incognito / Invisible Browsing Mode",
-      "updatedAt": "2026-08-10T20:28:39Z"
     }
   ],
   "queue": [
-    {
-      "number": 25,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 26,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
