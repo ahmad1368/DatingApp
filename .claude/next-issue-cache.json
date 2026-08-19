@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-19T06:33:45.592Z",
+  "generated_at": "2026-08-19T06:52:35.856Z",
   "snapshot": [
     {
       "number": 454,
@@ -2145,18 +2145,9 @@
       "number": 26,
       "title": "Spotify Top Artists & Anthem Display",
       "updatedAt": "2026-08-10T20:37:54Z"
-    },
-    {
-      "number": 25,
-      "title": "Instagram Profile Grid & Media Sync",
-      "updatedAt": "2026-08-10T20:28:41Z"
     }
   ],
   "queue": [
-    {
-      "number": 26,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 27,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
