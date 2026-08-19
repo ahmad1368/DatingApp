@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { haversineDistanceKm } from '../location/utils/haversine';
 import { computeFirstMessageExpiresAt } from '../messaging/messaging.constants';
 import { DEFAULT_DECK_SIZE } from './discovery.constants';
+import { calculateAge } from './utils/age';
 
 export interface DeckCard {
   id: string;
@@ -17,15 +18,6 @@ export interface DeckCard {
 export interface SwipeResult {
   matched: boolean;
   matchId?: string;
-}
-
-function calculateAge(dateOfBirth: Date, now: Date): number {
-  let age = now.getFullYear() - dateOfBirth.getFullYear();
-  const monthDiff = now.getMonth() - dateOfBirth.getMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < dateOfBirth.getDate())) {
-    age -= 1;
-  }
-  return age;
 }
 
 @Injectable()

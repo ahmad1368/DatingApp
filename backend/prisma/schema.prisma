@@ -139,3 +139,16 @@ model QuestionAnswer {
   @@index([questionId])
   @@map("question_answers")
 }
+
+model DailyPick {
+  id                 String   @id @default(uuid())
+  userId             String
+  candidateId        String
+  windowStart        DateTime
+  compatibilityScore Int?
+  createdAt          DateTime @default(now())
+
+  @@unique([userId, candidateId, windowStart])
+  @@index([userId, windowStart])
+  @@map("daily_picks")
+}

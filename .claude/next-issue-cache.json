@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-19T03:48:09.673Z",
+  "generated_at": "2026-08-19T03:52:28.499Z",
   "snapshot": [
     {
       "number": 454,
@@ -2205,18 +2205,9 @@
       "number": 14,
       "title": "Daily Curated Profiles (Limited Bagels)",
       "updatedAt": "2026-08-10T20:28:18Z"
-    },
-    {
-      "number": 13,
-      "title": "Multi-Factor Questionnaire Matching Algorithm",
-      "updatedAt": "2026-08-10T20:28:16Z"
     }
   ],
   "queue": [
-    {
-      "number": 14,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 15,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
