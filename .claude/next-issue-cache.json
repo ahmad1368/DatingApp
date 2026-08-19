@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-19T04:19:29.027Z",
+  "generated_at": "2026-08-19T04:28:13.427Z",
   "snapshot": [
     {
       "number": 454,
@@ -2180,18 +2180,9 @@
       "number": 19,
       "title": "Advanced Lifestyle & Interest Filters",
       "updatedAt": "2026-08-10T20:28:29Z"
-    },
-    {
-      "number": 18,
-      "title": "Psychometric 32-Dimension Compatibility Test",
-      "updatedAt": "2026-08-10T20:28:27Z"
     }
   ],
   "queue": [
-    {
-      "number": 19,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 20,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"

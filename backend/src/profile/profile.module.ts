@@ -8,6 +8,8 @@ import { ProfileItemLikeController } from './profile-item-like.controller';
 import { ProfileItemLikeService } from './profile-item-like.service';
 import { RelationshipProfileController } from './relationship-profile.controller';
 import { RelationshipProfileService } from './relationship-profile.service';
+import { LifestyleFiltersController } from './lifestyle-filters.controller';
+import { LifestyleFiltersService } from './lifestyle-filters.service';
 
 @Module({
   imports: [AuthModule],
@@ -16,12 +18,14 @@ import { RelationshipProfileService } from './relationship-profile.service';
     GenderIdentityController,
     ProfileItemLikeController,
     RelationshipProfileController,
+    LifestyleFiltersController,
   ],
   providers: [
     VoiceIntroService,
     GenderIdentityService,
     ProfileItemLikeService,
     RelationshipProfileService,
+    LifestyleFiltersService,
   ],
 })
 export class ProfileModule {}
