@@ -1,0 +1,137 @@
+import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { PersonalityTestService } from './personality-test.service';
+import { PERSONALITY_TEST_ITEMS } from './personality-test.constants';
+
+const USER_ID = 'user-1';
+const OTHER_ID = 'user-2';
+
+function fullValidResponses(overrides: Record<string, number> = {}) {
+  return PERSONALITY_TEST_ITEMS.map((item) => ({
+    itemId: item.id,
+    score: overrides[item.id] ?? 3,
+  }));
+}
+
+describe('PersonalityTestService', () => {
+  let service: PersonalityTestService;
+  let prisma: { personalityProfile: { upsert: jest.Mock; findUnique: jest.Mock } };
+
+  beforeEach(() => {
+    prisma = { personalityProfile: { upsert: jest.fn(), findUnique: jest.fn() } };
+    service = new PersonalityTestService(prisma as unknown as PrismaService);
+  });
+
+  describe('getItems', () => {
+    it('exposes all 32 dimensions without leaking the reverse-scoring flag', () => {
+      const items = service.getItems();
+
+      expect(items).toHaveLength(32);
+      expect(items[0]).toEqual({
+        id: PERSONALITY_TEST_ITEMS[0].id,
+        dimension: PERSONALITY_TEST_ITEMS[0].dimension,
+        statement: PERSONALITY_TEST_ITEMS[0].statement,
+      });
+    });
+  });
+
+  describe('submitTest', () => {
+    it('rejects a response for an unknown item', async () => {
+      const responses = [{ itemId: 'not-a-real-item', score: 3 }];
+
+      await expect(service.submitTest(USER_ID, { responses })).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(prisma.personalityProfile.upsert).not.toHaveBeenCalled();
+    });
+
+    it('rejects a duplicate response for the same item', async () => {
+      const responses = [
+        { itemId: PERSONALITY_TEST_ITEMS[0].id, score: 3 },
+        { itemId: PERSONALITY_TEST_ITEMS[0].id, score: 4 },
+      ];
+
+      await expect(service.submitTest(USER_ID, { responses })).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+    });
+
+    it('rejects an incomplete submission', async () => {
+      const responses = [{ itemId: PERSONALITY_TEST_ITEMS[0].id, score: 3 }];
+
+      await expect(service.submitTest(USER_ID, { responses })).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+    });
+
+    it('scores a full submission, applying reverse-scoring where needed', async () => {
+      const responses = fullValidResponses({
+        'emotional-stability': 5, // not reverse-scored -> 5 * 20 = 100
+        'resilience-under-stress': 5, // reverse-scored -> (6 - 5) * 20 = 20
+      });
+      prisma.personalityProfile.upsert.mockResolvedValue({
+        dimensionScores: { 'Emotional Stability': 100, 'Resilience Under Stress': 20 },
+        completedAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      await service.submitTest(USER_ID, { responses });
+
+      const upsertCall = prisma.personalityProfile.upsert.mock.calls[0][0];
+      expect(upsertCall.where).toEqual({ userId: USER_ID });
+      expect(upsertCall.create.dimensionScores['Emotional Stability']).toBe(100);
+      expect(upsertCall.create.dimensionScores['Resilience Under Stress']).toBe(20);
+      expect(upsertCall.create.dimensionScores['Optimism']).toBe(60); // neutral score 3 -> 60
+    });
+  });
+
+  describe('getMyProfile', () => {
+    it('throws when the user has not completed the test', async () => {
+      prisma.personalityProfile.findUnique.mockResolvedValue(null);
+
+      await expect(service.getMyProfile(USER_ID)).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('returns the stored profile', async () => {
+      prisma.personalityProfile.findUnique.mockResolvedValue({
+        dimensionScores: { Optimism: 80 },
+        completedAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const result = await service.getMyProfile(USER_ID);
+
+      expect(result).toEqual({
+        dimensionScores: { Optimism: 80 },
+        completedAt: '2026-01-01T00:00:00.000Z',
+      });
+    });
+  });
+
+  describe('getCompatibility', () => {
+    it('rejects comparing a user with themselves', async () => {
+      await expect(service.getCompatibility(USER_ID, USER_ID)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+    });
+
+    it('returns null when either user has not completed the test', async () => {
+      prisma.personalityProfile.findUnique
+        .mockResolvedValueOnce({ dimensionScores: { Optimism: 80 } })
+        .mockResolvedValueOnce(null);
+
+      const result = await service.getCompatibility(USER_ID, OTHER_ID);
+
+      expect(result).toEqual({ percentage: null, sharedDimensionCount: 0 });
+    });
+
+    it('computes similarity across shared dimensions', async () => {
+      prisma.personalityProfile.findUnique
+        .mockResolvedValueOnce({ dimensionScores: { Optimism: 80, Warmth: 60 } })
+        .mockResolvedValueOnce({ dimensionScores: { Optimism: 100, Warmth: 60 } });
+
+      const result = await service.getCompatibility(USER_ID, OTHER_ID);
+
+      // Optimism: 100 - |80-100| = 80; Warmth: 100 - |60-60| = 100; avg = 90
+      expect(result).toEqual({ percentage: 90, sharedDimensionCount: 2 });
+    });
+  });
+});

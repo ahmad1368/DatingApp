@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-19T04:13:41.255Z",
+  "generated_at": "2026-08-19T04:19:29.027Z",
   "snapshot": [
     {
       "number": 454,
@@ -2185,18 +2185,9 @@
       "number": 18,
       "title": "Psychometric 32-Dimension Compatibility Test",
       "updatedAt": "2026-08-10T20:28:27Z"
-    },
-    {
-      "number": 17,
-      "title": "Couples and Alternative Relationship Profiling",
-      "updatedAt": "2026-08-10T20:28:25Z"
     }
   ],
   "queue": [
-    {
-      "number": 18,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 19,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"

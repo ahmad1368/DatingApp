@@ -12,6 +12,7 @@ import { MatchingModule } from './matching/matching.module';
 import { CuratedProfilesModule } from './curated-profiles/curated-profiles.module';
 import { VettingModule } from './vetting/vetting.module';
 import { CouplesModule } from './couples/couples.module';
+import { PersonalityModule } from './personality/personality.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { CouplesModule } from './couples/couples.module';
     CuratedProfilesModule,
     VettingModule,
     CouplesModule,
+    PersonalityModule,
   ],
 })
 export class AppModule {}
