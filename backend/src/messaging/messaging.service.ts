@@ -17,12 +17,26 @@ export interface MessageView {
   createdAt: string;
 }
 
+export interface MatchSummaryView {
+  matchId: string;
+  otherUserId: string;
+  otherUserName: string | null;
+  otherUserPhotoUrl: string | null;
+  expiresAt: string | null;
+  firstMessageSent: boolean;
+  createdAt: string;
+}
+
 interface MatchRecord {
   id: string;
   userAId: string;
   userBId: string;
   firstMessageExpiresAt: Date;
   firstMessageSentAt: Date | null;
+}
+
+interface MatchListRecord extends MatchRecord {
+  createdAt: Date;
 }
 
 @Injectable()
@@ -91,6 +105,71 @@ export class MessagingService {
     });
 
     return messages.map((message) => this.toMessageView(message));
+  }
+
+  /**
+   * Lists the current user's active matches. Any match whose 24-hour first
+   * message window has passed with no message ever sent is dissolved here
+   * (the match and the underlying swipes are deleted, so the two users
+   * become rediscoverable) rather than merely marked expired.
+   */
+  async listMyMatches(userId: string): Promise<MatchSummaryView[]> {
+    const matches: MatchListRecord[] = await this.prisma.match.findMany({
+      where: { OR: [{ userAId: userId }, { userBId: userId }] },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const now = new Date();
+    const alive: MatchListRecord[] = [];
+
+    for (const match of matches) {
+      if (this.isExpired(match, now)) {
+        await this.dissolveExpiredMatch(match);
+        continue;
+      }
+      alive.push(match);
+    }
+
+    if (alive.length === 0) {
+      return [];
+    }
+
+    const otherUserIds = alive.map((match) => (match.userAId === userId ? match.userBId : match.userAId));
+    const otherUsers = await this.prisma.user.findMany({
+      where: { id: { in: otherUserIds } },
+      select: { id: true, name: true, profilePhotoUrl: true },
+    });
+    const otherUserById = new Map(otherUsers.map((user) => [user.id, user]));
+
+    return alive.map((match) => {
+      const otherUserId = match.userAId === userId ? match.userBId : match.userAId;
+      const otherUser = otherUserById.get(otherUserId);
+      const firstMessageSent = match.firstMessageSentAt != null;
+
+      return {
+        matchId: match.id,
+        otherUserId,
+        otherUserName: otherUser?.name ?? null,
+        otherUserPhotoUrl: otherUser?.profilePhotoUrl ?? null,
+        expiresAt: firstMessageSent ? null : match.firstMessageExpiresAt.toISOString(),
+        firstMessageSent,
+        createdAt: match.createdAt.toISOString(),
+      };
+    });
+  }
+
+  private async dissolveExpiredMatch(match: MatchRecord): Promise<void> {
+    await this.prisma.$transaction([
+      this.prisma.swipe.deleteMany({
+        where: {
+          OR: [
+            { swiperId: match.userAId, targetUserId: match.userBId },
+            { swiperId: match.userBId, targetUserId: match.userAId },
+          ],
+        },
+      }),
+      this.prisma.match.delete({ where: { id: match.id } }),
+    ]);
   }
 
   private async getMatchForUser(userId: string, matchId: string): Promise<MatchRecord> {

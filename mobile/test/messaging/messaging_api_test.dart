@@ -5,6 +5,42 @@ import 'package:http/testing.dart';
 import 'package:mobile/messaging/messaging_api.dart';
 
 void main() {
+  group('MessagingApi.fetchMyMatches', () {
+    test('sends the bearer token and parses the match summaries', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.url.path, '/matches');
+          expect(request.headers['Authorization'], 'Bearer a-jwt');
+          return http.Response(
+            '[{"matchId":"match-1","otherUserId":"user-2","otherUserName":"Jane",'
+            '"otherUserPhotoUrl":null,"expiresAt":"2026-01-02T00:00:00.000Z",'
+            '"firstMessageSent":false,"createdAt":"2026-01-01T00:00:00.000Z"}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final matches = await api.fetchMyMatches();
+
+      expect(matches, hasLength(1));
+      expect(matches.first.matchId, 'match-1');
+      expect(matches.first.otherUserName, 'Jane');
+      expect(matches.first.expiresAt, DateTime.parse('2026-01-02T00:00:00.000Z'));
+      expect(matches.first.firstMessageSent, isFalse);
+    });
+
+    test('throws MessagingApiException on a non-200 response', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => http.Response('', 500)),
+      );
+
+      expect(() => api.fetchMyMatches(), throwsA(isA<MessagingApiException>()));
+    });
+  });
+
   group('MessagingApi.fetchMatchStatus', () {
     test('sends the bearer token and parses the status', () async {
       final api = MessagingApi(

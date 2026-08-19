@@ -13,16 +13,20 @@ function hoursFromNow(hours: number): Date {
 describe('MessagingService', () => {
   let service: MessagingService;
   let prisma: {
-    match: { findUnique: jest.Mock; update: jest.Mock };
+    match: { findUnique: jest.Mock; update: jest.Mock; findMany: jest.Mock; delete: jest.Mock };
     message: { create: jest.Mock; findMany: jest.Mock };
-    user: { findUnique: jest.Mock };
+    user: { findUnique: jest.Mock; findMany: jest.Mock };
+    swipe: { deleteMany: jest.Mock };
+    $transaction: jest.Mock;
   };
 
   beforeEach(() => {
     prisma = {
-      match: { findUnique: jest.fn(), update: jest.fn() },
+      match: { findUnique: jest.fn(), update: jest.fn(), findMany: jest.fn(), delete: jest.fn() },
       message: { create: jest.fn(), findMany: jest.fn() },
-      user: { findUnique: jest.fn() },
+      user: { findUnique: jest.fn(), findMany: jest.fn() },
+      swipe: { deleteMany: jest.fn() },
+      $transaction: jest.fn((ops: unknown[]) => Promise.all(ops)),
     };
     service = new MessagingService(prisma as unknown as PrismaService);
   });
@@ -206,6 +210,86 @@ describe('MessagingService', () => {
       expect(messages).toEqual([
         { id: 'm1', senderId: WOMAN_ID, content: 'hi', createdAt: '2026-01-01T00:00:00.000Z' },
       ]);
+    });
+  });
+
+  describe('listMyMatches', () => {
+    it('returns active matches with the other user profile info', async () => {
+      prisma.match.findMany.mockResolvedValue([
+        {
+          id: MATCH_ID,
+          userAId: WOMAN_ID,
+          userBId: MAN_ID,
+          firstMessageExpiresAt: hoursFromNow(24),
+          firstMessageSentAt: null,
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ]);
+      prisma.user.findMany.mockResolvedValue([
+        { id: MAN_ID, name: 'Sam', profilePhotoUrl: 'sam.jpg' },
+      ]);
+
+      const matches = await service.listMyMatches(WOMAN_ID);
+
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+      expect(matches).toEqual([
+        {
+          matchId: MATCH_ID,
+          otherUserId: MAN_ID,
+          otherUserName: 'Sam',
+          otherUserPhotoUrl: 'sam.jpg',
+          expiresAt: expect.any(String),
+          firstMessageSent: false,
+          createdAt: '2026-01-01T00:00:00.000Z',
+        },
+      ]);
+    });
+
+    it('reports no expiresAt once the first message has been sent', async () => {
+      prisma.match.findMany.mockResolvedValue([
+        {
+          id: MATCH_ID,
+          userAId: WOMAN_ID,
+          userBId: MAN_ID,
+          firstMessageExpiresAt: hoursFromNow(-1),
+          firstMessageSentAt: new Date('2026-01-01T01:00:00.000Z'),
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ]);
+      prisma.user.findMany.mockResolvedValue([{ id: MAN_ID, name: 'Sam', profilePhotoUrl: null }]);
+
+      const matches = await service.listMyMatches(WOMAN_ID);
+
+      expect(matches[0].firstMessageSent).toBe(true);
+      expect(matches[0].expiresAt).toBeNull();
+    });
+
+    it('dissolves an expired unmessaged match and excludes it from the results', async () => {
+      prisma.match.findMany.mockResolvedValue([
+        {
+          id: MATCH_ID,
+          userAId: WOMAN_ID,
+          userBId: MAN_ID,
+          firstMessageExpiresAt: hoursFromNow(-1),
+          firstMessageSentAt: null,
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ]);
+
+      const matches = await service.listMyMatches(WOMAN_ID);
+
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(prisma.swipe.deleteMany).toHaveBeenCalledWith({
+        where: {
+          OR: [
+            { swiperId: WOMAN_ID, targetUserId: MAN_ID },
+            { swiperId: MAN_ID, targetUserId: WOMAN_ID },
+          ],
+        },
+      });
+      expect(prisma.match.delete).toHaveBeenCalledWith({ where: { id: MATCH_ID } });
+      expect(matches).toEqual([]);
+      expect(prisma.user.findMany).not.toHaveBeenCalled();
     });
   });
 });
