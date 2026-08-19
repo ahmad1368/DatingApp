@@ -92,6 +92,12 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
                     child: const Icon(Icons.close),
                   ),
                   FloatingActionButton(
+                    heroTag: 'superLike',
+                    backgroundColor: Colors.blue,
+                    onPressed: () => _handleSwipe(_deck.first, 'SUPER_LIKE'),
+                    child: const Icon(Icons.star),
+                  ),
+                  FloatingActionButton(
                     heroTag: 'like',
                     backgroundColor: Colors.green,
                     onPressed: () => _handleSwipe(_deck.first, 'LIKE'),

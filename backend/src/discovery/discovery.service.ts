@@ -3,7 +3,12 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { haversineDistanceKm } from '../location/utils/haversine';
 import { computeFirstMessageExpiresAt } from '../messaging/messaging.constants';
-import { DEFAULT_DECK_SIZE } from './discovery.constants';
+import {
+  DAILY_SUPER_LIKE_LIMIT,
+  DEFAULT_DECK_SIZE,
+  LIKE_ACTIONS,
+  startOfUtcDay,
+} from './discovery.constants';
 import { calculateAge } from './utils/age';
 
 export interface DeckCard {
@@ -14,6 +19,7 @@ export interface DeckCard {
   distanceKm: number | null;
   interests: string[];
   relationshipGoal: string | null;
+  isSuperLike: boolean;
 }
 
 export interface SwipeResult {
@@ -38,15 +44,38 @@ export class DiscoveryService {
     });
 
     const excludedIds = [userId, ...swiped.map((s) => s.targetUserId)];
+    const lifestyleWhere = this.buildLifestyleFilterWhere(currentUser);
 
-    const candidates = await this.prisma.user.findMany({
-      where: {
-        id: { notIn: excludedIds },
-        onboardingCompletedAt: { not: null },
-        ...this.buildLifestyleFilterWhere(currentUser),
-      },
-      take: DEFAULT_DECK_SIZE,
+    const superLikes = await this.prisma.swipe.findMany({
+      where: { targetUserId: userId, action: 'SUPER_LIKE', swiperId: { notIn: excludedIds } },
+      select: { swiperId: true },
     });
+    const superLikerIds = superLikes.map((s) => s.swiperId);
+
+    const priorityCandidates =
+      superLikerIds.length > 0
+        ? await this.prisma.user.findMany({
+            where: {
+              id: { in: superLikerIds },
+              onboardingCompletedAt: { not: null },
+              ...lifestyleWhere,
+            },
+            take: DEFAULT_DECK_SIZE,
+          })
+        : [];
+    const priorityIds = priorityCandidates.map((candidate) => candidate.id);
+    const superLikerIdSet = new Set(priorityIds);
+
+    const remainingCandidates = await this.prisma.user.findMany({
+      where: {
+        id: { notIn: [...excludedIds, ...priorityIds] },
+        onboardingCompletedAt: { not: null },
+        ...lifestyleWhere,
+      },
+      take: Math.max(DEFAULT_DECK_SIZE - priorityCandidates.length, 0),
+    });
+
+    const candidates = [...priorityCandidates, ...remainingCandidates];
 
     const usingPassport =
       currentUser.passportEnabled &&
@@ -71,6 +100,7 @@ export class DiscoveryService {
           : null,
       interests: candidate.interests,
       relationshipGoal: candidate.relationshipGoal,
+      isSuperLike: superLikerIdSet.has(candidate.id),
     }));
   }
 
@@ -91,9 +121,18 @@ export class DiscoveryService {
       throw new BadRequestException('You have already swiped on this user.');
     }
 
+    if (action === 'SUPER_LIKE') {
+      const superLikesToday = await this.prisma.swipe.count({
+        where: { swiperId: userId, action: 'SUPER_LIKE', createdAt: { gte: startOfUtcDay(new Date()) } },
+      });
+      if (superLikesToday >= DAILY_SUPER_LIKE_LIMIT) {
+        throw new BadRequestException('You have used all of your super likes for today.');
+      }
+    }
+
     await this.prisma.swipe.create({ data: { swiperId: userId, targetUserId, action } });
 
-    if (action !== 'LIKE') {
+    if (!LIKE_ACTIONS.includes(action as (typeof LIKE_ACTIONS)[number])) {
       return { matched: false };
     }
 
@@ -101,7 +140,7 @@ export class DiscoveryService {
       where: { swiperId_targetUserId: { swiperId: targetUserId, targetUserId: userId } },
     });
 
-    if (!reciprocal || reciprocal.action !== 'LIKE') {
+    if (!reciprocal || !LIKE_ACTIONS.includes(reciprocal.action as (typeof LIKE_ACTIONS)[number])) {
       return { matched: false };
     }
 

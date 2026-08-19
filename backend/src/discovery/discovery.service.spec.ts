@@ -9,18 +9,28 @@ describe('DiscoveryService', () => {
   let service: DiscoveryService;
   let prisma: {
     user: { findUnique: jest.Mock; findMany: jest.Mock };
-    swipe: { findMany: jest.Mock; findUnique: jest.Mock; create: jest.Mock };
+    swipe: { findMany: jest.Mock; findUnique: jest.Mock; create: jest.Mock; count: jest.Mock };
     match: { create: jest.Mock };
   };
 
   beforeEach(() => {
     prisma = {
       user: { findUnique: jest.fn(), findMany: jest.fn() },
-      swipe: { findMany: jest.fn(), findUnique: jest.fn(), create: jest.fn() },
+      swipe: { findMany: jest.fn(), findUnique: jest.fn(), create: jest.fn(), count: jest.fn() },
       match: { create: jest.fn() },
     };
     service = new DiscoveryService(prisma as unknown as PrismaService);
   });
+
+  const noFilters = {
+    filterSmokingHabits: [],
+    filterDrinkingHabits: [],
+    filterEducationLevels: [],
+    filterReligions: [],
+    filterDietaryPreferences: [],
+    filterWantsChildren: [],
+    filterRelationshipGoals: [],
+  };
 
   describe('getDeck', () => {
     it('throws when the current user does not exist', async () => {
@@ -37,15 +47,11 @@ describe('DiscoveryService', () => {
         passportEnabled: false,
         passportLatitude: null,
         passportLongitude: null,
-        filterSmokingHabits: [],
-        filterDrinkingHabits: [],
-        filterEducationLevels: [],
-        filterReligions: [],
-        filterDietaryPreferences: [],
-        filterWantsChildren: [],
-        filterRelationshipGoals: [],
+        ...noFilters,
       });
-      prisma.swipe.findMany.mockResolvedValue([{ targetUserId: 'already-swiped' }]);
+      prisma.swipe.findMany
+        .mockResolvedValueOnce([{ targetUserId: 'already-swiped' }]) // already swiped
+        .mockResolvedValueOnce([]); // no super likers
       prisma.user.findMany.mockResolvedValue([
         {
           id: TARGET_ID,
@@ -72,6 +78,7 @@ describe('DiscoveryService', () => {
       expect(deck[0].id).toBe(TARGET_ID);
       expect(deck[0].age).toBe(25);
       expect(deck[0].distanceKm).toBeGreaterThan(0);
+      expect(deck[0].isSuperLike).toBe(false);
     });
 
     it('applies the current user lifestyle filters to the candidate query', async () => {
@@ -90,7 +97,7 @@ describe('DiscoveryService', () => {
         filterWantsChildren: [],
         filterRelationshipGoals: ['LONG_TERM'],
       });
-      prisma.swipe.findMany.mockResolvedValue([]);
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
       prisma.user.findMany.mockResolvedValue([]);
 
       await service.getDeck(USER_ID);
@@ -105,6 +112,45 @@ describe('DiscoveryService', () => {
         },
         take: 20,
       });
+    });
+
+    it('places super likers first and flags them as isSuperLike', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        ...noFilters,
+      });
+      prisma.swipe.findMany
+        .mockResolvedValueOnce([]) // not swiped on anyone yet
+        .mockResolvedValueOnce([{ swiperId: 'super-liker-1' }]); // received a super like
+      prisma.user.findMany
+        .mockResolvedValueOnce([
+          { id: 'super-liker-1', name: 'Sam', dateOfBirth: null, profilePhotoUrl: null, interests: [], relationshipGoal: null },
+        ]) // priority candidates
+        .mockResolvedValueOnce([
+          { id: 'other-user', name: 'Alex', dateOfBirth: null, profilePhotoUrl: null, interests: [], relationshipGoal: null },
+        ]); // remaining candidates
+
+      const deck = await service.getDeck(USER_ID);
+
+      expect(prisma.user.findMany).toHaveBeenNthCalledWith(1, {
+        where: { id: { in: ['super-liker-1'] }, onboardingCompletedAt: { not: null } },
+        take: 20,
+      });
+      expect(prisma.user.findMany).toHaveBeenNthCalledWith(2, {
+        where: {
+          id: { notIn: [USER_ID, 'super-liker-1'] },
+          onboardingCompletedAt: { not: null },
+        },
+        take: 19,
+      });
+      expect(deck.map((card) => card.id)).toEqual(['super-liker-1', 'other-user']);
+      expect(deck[0].isSuperLike).toBe(true);
+      expect(deck[1].isSuperLike).toBe(false);
     });
   });
 
@@ -175,6 +221,34 @@ describe('DiscoveryService', () => {
 
       expect(result).toEqual({ matched: false });
       expect(prisma.match.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects a super like once the daily limit is reached', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: TARGET_ID });
+      prisma.swipe.findUnique.mockResolvedValueOnce(null);
+      prisma.swipe.count.mockResolvedValue(1);
+
+      await expect(service.recordSwipe(USER_ID, TARGET_ID, 'SUPER_LIKE')).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(prisma.swipe.create).not.toHaveBeenCalled();
+    });
+
+    it('allows a super like under the daily limit and matches against a plain LIKE', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: TARGET_ID });
+      prisma.swipe.findUnique
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ action: 'LIKE' });
+      prisma.swipe.count.mockResolvedValue(0);
+      prisma.swipe.create.mockResolvedValue({});
+      prisma.match.create.mockResolvedValue({ id: 'match-1' });
+
+      const result = await service.recordSwipe(USER_ID, TARGET_ID, 'SUPER_LIKE');
+
+      expect(prisma.swipe.create).toHaveBeenCalledWith({
+        data: { swiperId: USER_ID, targetUserId: TARGET_ID, action: 'SUPER_LIKE' },
+      });
+      expect(result).toEqual({ matched: true, matchId: 'match-1' });
     });
   });
 });

@@ -147,23 +147,50 @@ class _CardContent extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
       ),
       padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.end,
+      child: Stack(
         children: [
-          Text(
-            [card.name ?? 'Someone', if (card.age != null) card.age.toString()].join(', '),
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Text(
+                [card.name ?? 'Someone', if (card.age != null) card.age.toString()].join(', '),
+                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              ),
+              if (card.distanceKm != null)
+                Text('${card.distanceKm!.toStringAsFixed(1)} km away'),
+              if (card.interests.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  children: [for (final interest in card.interests) Chip(label: Text(interest))],
+                ),
+              ],
+            ],
           ),
-          if (card.distanceKm != null)
-            Text('${card.distanceKm!.toStringAsFixed(1)} km away'),
-          if (card.interests.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              children: [for (final interest in card.interests) Chip(label: Text(interest))],
+          if (card.isSuperLike)
+            Positioned(
+              top: 0,
+              right: 0,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.blue,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.star, color: Colors.white, size: 16),
+                    SizedBox(width: 4),
+                    Text(
+                      'Super Liked You',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ],
         ],
       ),
     );

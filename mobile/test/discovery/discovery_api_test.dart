@@ -28,6 +28,25 @@ void main() {
       expect(deck.first.name, 'Jane');
       expect(deck.first.age, 25);
       expect(deck.first.interests, ['Hiking']);
+      expect(deck.first.isSuperLike, isFalse);
+    });
+
+    test('parses isSuperLike when the backend includes it', () async {
+      final api = DiscoveryApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '[{"id":"user-2","name":"Jane","age":25,"profilePhotoUrl":null,'
+            '"distanceKm":3.4,"interests":["Hiking"],"relationshipGoal":"CASUAL","isSuperLike":true}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      final deck = await api.fetchDeck();
+
+      expect(deck.first.isSuperLike, isTrue);
     });
 
     test('throws DiscoveryApiException on a non-200 response', () async {
@@ -60,6 +79,24 @@ void main() {
 
       expect(result.matched, isTrue);
       expect(result.matchId, 'match-1');
+    });
+
+    test('sends a SUPER_LIKE action', () async {
+      final api = DiscoveryApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.body, '{"targetUserId":"user-2","action":"SUPER_LIKE"}');
+          return http.Response(
+            '{"matched":false}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final result = await api.recordSwipe(targetUserId: 'user-2', action: 'SUPER_LIKE');
+
+      expect(result.matched, isFalse);
     });
 
     test('throws DiscoveryApiException when the backend rejects the request', () async {
