@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'onboarding_api.dart';
 
-const int _stepCount = 4;
+const int _stepCount = 3;
 const int _minimumAgeYears = 18;
 
 const Map<String, String> _relationshipGoalLabels = {
@@ -56,7 +56,6 @@ class OnboardingFlowScreen extends StatefulWidget {
 class _OnboardingFlowScreenState extends State<OnboardingFlowScreen> {
   final PageController _pageController = PageController();
   final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _genderController = TextEditingController();
   final Set<String> _selectedInterests = {};
 
   int _currentStep = 0;
@@ -69,7 +68,6 @@ class _OnboardingFlowScreenState extends State<OnboardingFlowScreen> {
   void dispose() {
     _pageController.dispose();
     _nameController.dispose();
-    _genderController.dispose();
     super.dispose();
   }
 
@@ -79,10 +77,8 @@ class _OnboardingFlowScreenState extends State<OnboardingFlowScreen> {
         final dob = _dateOfBirth;
         return dob != null && _calculateAge(dob, DateTime.now()) >= _minimumAgeYears;
       case 1:
-        return _genderController.text.trim().isNotEmpty;
-      case 2:
         return _relationshipGoal != null;
-      case 3:
+      case 2:
         return _selectedInterests.isNotEmpty;
       default:
         return false;
@@ -132,7 +128,6 @@ class _OnboardingFlowScreenState extends State<OnboardingFlowScreen> {
       final result = await widget.onboardingApi.completeOnboarding(
         name: name.isEmpty ? null : name,
         dateOfBirth: _formatIsoDate(_dateOfBirth!),
-        gender: _genderController.text.trim(),
         relationshipGoal: _relationshipGoal!,
         interests: _selectedInterests.toList(),
       );
@@ -171,27 +166,6 @@ class _OnboardingFlowScreenState extends State<OnboardingFlowScreen> {
               style: const TextStyle(color: Colors.red),
             ),
           ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildGenderStep() {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Text('How do you identify?'),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _genderController,
-            decoration: const InputDecoration(
-              labelText: 'Gender',
-              helperText: 'You can be as specific as you like',
-            ),
-            onChanged: (_) => setState(() {}),
-          ),
         ],
       ),
     );
@@ -273,7 +247,6 @@ class _OnboardingFlowScreenState extends State<OnboardingFlowScreen> {
               physics: const NeverScrollableScrollPhysics(),
               children: [
                 _buildBasicInfoStep(),
-                _buildGenderStep(),
                 _buildRelationshipGoalStep(),
                 _buildInterestsStep(),
               ],

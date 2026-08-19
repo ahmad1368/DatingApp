@@ -16,7 +16,6 @@ class OnboardingResult {
     required this.id,
     this.name,
     required this.dateOfBirth,
-    required this.gender,
     required this.relationshipGoal,
     required this.interests,
   });
@@ -24,7 +23,6 @@ class OnboardingResult {
   final String id;
   final String? name;
   final String dateOfBirth;
-  final String gender;
   final String relationshipGoal;
   final List<String> interests;
 }
@@ -43,7 +41,6 @@ class OnboardingApi {
   Future<OnboardingResult> completeOnboarding({
     String? name,
     required String dateOfBirth,
-    required String gender,
     required String relationshipGoal,
     required List<String> interests,
   }) async {
@@ -56,7 +53,6 @@ class OnboardingApi {
       body: jsonEncode({
         'name': ?name,
         'dateOfBirth': dateOfBirth,
-        'gender': gender,
         'relationshipGoal': relationshipGoal,
         'interests': interests,
       }),
@@ -71,7 +67,6 @@ class OnboardingApi {
       id: body['id'] as String,
       name: body['name'] as String?,
       dateOfBirth: body['dateOfBirth'] as String,
-      gender: body['gender'] as String,
       relationshipGoal: body['relationshipGoal'] as String,
       interests: (body['interests'] as List).cast<String>(),
     );

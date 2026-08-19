@@ -15,12 +15,12 @@ void main() {
           expect(request.headers['Authorization'], 'Bearer a-jwt');
           expect(
             request.body,
-            '{"name":"Jane","dateOfBirth":"1995-05-01","gender":"Woman",'
+            '{"name":"Jane","dateOfBirth":"1995-05-01",'
             '"relationshipGoal":"CASUAL","interests":["Hiking","Music"]}',
           );
           return http.Response(
             '{"id":"user-1","name":"Jane","dateOfBirth":"1995-05-01T00:00:00.000Z",'
-            '"gender":"Woman","relationshipGoal":"CASUAL","interests":["Hiking","Music"]}',
+            '"relationshipGoal":"CASUAL","interests":["Hiking","Music"]}',
             200,
             headers: {'content-type': 'application/json'},
           );
@@ -30,7 +30,6 @@ void main() {
       final result = await api.completeOnboarding(
         name: 'Jane',
         dateOfBirth: '1995-05-01',
-        gender: 'Woman',
         relationshipGoal: 'CASUAL',
         interests: const ['Hiking', 'Music'],
       );
@@ -46,12 +45,12 @@ void main() {
         client: MockClient((request) async {
           expect(
             request.body,
-            '{"dateOfBirth":"1990-01-01","gender":"Man",'
+            '{"dateOfBirth":"1990-01-01",'
             '"relationshipGoal":"FRIENDSHIP","interests":["Travel"]}',
           );
           return http.Response(
             '{"id":"user-2","name":null,"dateOfBirth":"1990-01-01T00:00:00.000Z",'
-            '"gender":"Man","relationshipGoal":"FRIENDSHIP","interests":["Travel"]}',
+            '"relationshipGoal":"FRIENDSHIP","interests":["Travel"]}',
             200,
             headers: {'content-type': 'application/json'},
           );
@@ -60,7 +59,6 @@ void main() {
 
       await api.completeOnboarding(
         dateOfBirth: '1990-01-01',
-        gender: 'Man',
         relationshipGoal: 'FRIENDSHIP',
         interests: const ['Travel'],
       );
@@ -81,7 +79,6 @@ void main() {
       expect(
         () => api.completeOnboarding(
           dateOfBirth: '2015-01-01',
-          gender: 'Woman',
           relationshipGoal: 'CASUAL',
           interests: const ['Music'],
         ),

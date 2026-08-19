@@ -15,7 +15,7 @@ void main() {
         capturedRequest = request;
         return http.Response(
           '{"id":"user-1","name":null,"dateOfBirth":"2000-01-01T00:00:00.000Z",'
-          '"gender":"Woman","relationshipGoal":"CASUAL","interests":["Hiking"]}',
+          '"relationshipGoal":"CASUAL","interests":["Hiking"]}',
           200,
           headers: {'content-type': 'application/json'},
         );
@@ -45,21 +45,14 @@ void main() {
     await tester.tap(find.widgetWithText(ElevatedButton, 'Next'));
     await tester.pumpAndSettle();
 
-    // Step 2: gender.
-    expect(find.text('How do you identify?'), findsOneWidget);
-    await tester.enterText(find.byType(TextField), 'Woman');
-    await tester.pump();
-    await tester.tap(find.widgetWithText(ElevatedButton, 'Next'));
-    await tester.pumpAndSettle();
-
-    // Step 3: relationship goal.
+    // Step 2: relationship goal.
     expect(find.text('What are you looking for?'), findsOneWidget);
     await tester.tap(find.text('Something casual'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ElevatedButton, 'Next'));
     await tester.pumpAndSettle();
 
-    // Step 4: interests.
+    // Step 3: interests.
     expect(find.text('Pick a few interests (up to 10)'), findsOneWidget);
     await tester.tap(find.widgetWithText(FilterChip, 'Hiking'));
     await tester.pumpAndSettle();
@@ -70,6 +63,6 @@ void main() {
     expect(capturedRequest, isNotNull);
     expect(capturedRequest!.url.path, '/onboarding');
     expect(completedResult, isNotNull);
-    expect(completedResult!.gender, 'Woman');
+    expect(completedResult!.relationshipGoal, 'CASUAL');
   });
 }
