@@ -7,6 +7,7 @@ import { OnboardingModule } from './onboarding/onboarding.module';
 import { LocationModule } from './location/location.module';
 import { ProfileModule } from './profile/profile.module';
 import { DiscoveryModule } from './discovery/discovery.module';
+import { MessagingModule } from './messaging/messaging.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { DiscoveryModule } from './discovery/discovery.module';
     LocationModule,
     ProfileModule,
     DiscoveryModule,
+    MessagingModule,
   ],
 })
 export class AppModule {}

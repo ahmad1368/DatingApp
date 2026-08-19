@@ -115,7 +115,11 @@ describe('DiscoveryService', () => {
       const result = await service.recordSwipe(USER_ID, TARGET_ID, 'LIKE');
 
       expect(prisma.match.create).toHaveBeenCalledWith({
-        data: { userAId: [USER_ID, TARGET_ID].sort()[0], userBId: [USER_ID, TARGET_ID].sort()[1] },
+        data: {
+          userAId: [USER_ID, TARGET_ID].sort()[0],
+          userBId: [USER_ID, TARGET_ID].sort()[1],
+          firstMessageExpiresAt: expect.any(Date),
+        },
       });
       expect(result).toEqual({ matched: true, matchId: 'match-1' });
     });
