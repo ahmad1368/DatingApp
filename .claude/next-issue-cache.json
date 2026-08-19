@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-19T06:52:35.856Z",
+  "generated_at": "2026-08-19T07:12:44.999Z",
   "snapshot": [
     {
       "number": 454,
@@ -2140,18 +2140,9 @@
       "number": 27,
       "title": "In-Chat Photo and GIF Sharing",
       "updatedAt": "2026-08-10T20:37:56Z"
-    },
-    {
-      "number": 26,
-      "title": "Spotify Top Artists & Anthem Display",
-      "updatedAt": "2026-08-10T20:37:54Z"
     }
   ],
   "queue": [
-    {
-      "number": 27,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 28,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"

@@ -13,7 +13,10 @@ export interface MatchStatus {
 export interface MessageView {
   id: string;
   senderId: string;
-  content: string;
+  contentType: string;
+  content: string | null;
+  mediaUrl: string | null;
+  isBlurred: boolean;
   createdAt: string;
 }
 
@@ -65,35 +68,65 @@ export class MessagingService {
   }
 
   async sendMessage(userId: string, matchId: string, content: string): Promise<MessageView> {
-    const match = await this.getMatchForUser(userId, matchId);
-    const now = new Date();
-
-    if (this.isExpired(match, now)) {
-      throw new BadRequestException(
-        'This match has expired because no message was sent within 24 hours.',
-      );
-    }
-
-    const firstMessageSent = match.firstMessageSentAt != null;
-    if (!firstMessageSent) {
-      const allowed = await this.senderMaySendFirstMessage(userId, match);
-      if (!allowed) {
-        throw new ForbiddenException('Only she can send the first message for this match.');
-      }
-    }
+    const { firstMessageSent } = await this.assertCanSend(userId, matchId);
 
     const message = await this.prisma.message.create({
-      data: { matchId, senderId: userId, content },
+      data: { matchId, senderId: userId, contentType: 'TEXT', content },
     });
 
-    if (!firstMessageSent) {
-      await this.prisma.match.update({
-        where: { id: matchId },
-        data: { firstMessageSentAt: now },
-      });
-    }
+    await this.markFirstMessageIfNeeded(matchId, firstMessageSent);
 
     return this.toMessageView(message);
+  }
+
+  /**
+   * Sends an image or GIF in-chat, subject to the same match-expiry and
+   * women-first-message rules as a text message. Images default to
+   * blurred; the recipient must explicitly reveal them via [revealImage].
+   */
+  async sendMediaMessage(
+    userId: string,
+    matchId: string,
+    contentType: string,
+    mediaUrl: string,
+  ): Promise<MessageView> {
+    const { firstMessageSent } = await this.assertCanSend(userId, matchId);
+
+    const message = await this.prisma.message.create({
+      data: {
+        matchId,
+        senderId: userId,
+        contentType,
+        mediaUrl,
+        isBlurred: contentType === 'IMAGE',
+      },
+    });
+
+    await this.markFirstMessageIfNeeded(matchId, firstMessageSent);
+
+    return this.toMessageView(message);
+  }
+
+  async revealImage(userId: string, matchId: string, messageId: string): Promise<MessageView> {
+    await this.getMatchForUser(userId, matchId);
+
+    const message = await this.prisma.message.findUnique({ where: { id: messageId } });
+    if (!message || message.matchId !== matchId) {
+      throw new NotFoundException('Message not found.');
+    }
+    if (message.senderId === userId) {
+      throw new ForbiddenException('Only the recipient can reveal a blurred photo.');
+    }
+    if (message.contentType !== 'IMAGE' || !message.isBlurred) {
+      return this.toMessageView(message);
+    }
+
+    const updated = await this.prisma.message.update({
+      where: { id: messageId },
+      data: { isBlurred: false },
+    });
+
+    return this.toMessageView(updated);
   }
 
   async listMessages(userId: string, matchId: string): Promise<MessageView[]> {
@@ -172,6 +205,40 @@ export class MessagingService {
     ]);
   }
 
+  private async assertCanSend(
+    userId: string,
+    matchId: string,
+  ): Promise<{ match: MatchRecord; firstMessageSent: boolean }> {
+    const match = await this.getMatchForUser(userId, matchId);
+    const now = new Date();
+
+    if (this.isExpired(match, now)) {
+      throw new BadRequestException(
+        'This match has expired because no message was sent within 24 hours.',
+      );
+    }
+
+    const firstMessageSent = match.firstMessageSentAt != null;
+    if (!firstMessageSent) {
+      const allowed = await this.senderMaySendFirstMessage(userId, match);
+      if (!allowed) {
+        throw new ForbiddenException('Only she can send the first message for this match.');
+      }
+    }
+
+    return { match, firstMessageSent };
+  }
+
+  private async markFirstMessageIfNeeded(matchId: string, firstMessageSent: boolean): Promise<void> {
+    if (firstMessageSent) {
+      return;
+    }
+    await this.prisma.match.update({
+      where: { id: matchId },
+      data: { firstMessageSentAt: new Date() },
+    });
+  }
+
   private async getMatchForUser(userId: string, matchId: string): Promise<MatchRecord> {
     const match = await this.prisma.match.findUnique({ where: { id: matchId } });
 
@@ -204,13 +271,19 @@ export class MessagingService {
   private toMessageView(message: {
     id: string;
     senderId: string;
-    content: string;
+    contentType: string;
+    content: string | null;
+    mediaUrl: string | null;
+    isBlurred: boolean;
     createdAt: Date;
   }): MessageView {
     return {
       id: message.id,
       senderId: message.senderId,
+      contentType: message.contentType,
       content: message.content,
+      mediaUrl: message.mediaUrl,
+      isBlurred: message.isBlurred,
       createdAt: message.createdAt.toISOString(),
     };
   }

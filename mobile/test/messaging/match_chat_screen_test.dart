@@ -46,7 +46,8 @@ void main() {
         if (request.method == 'POST') {
           sendRequest = request;
           return http.Response(
-            '{"id":"m1","senderId":"user-woman","content":"hi!","createdAt":"2026-01-01T00:00:00.000Z"}',
+            '{"id":"m1","senderId":"user-woman","contentType":"TEXT","content":"hi!",'
+            '"mediaUrl":null,"isBlurred":false,"createdAt":"2026-01-01T00:00:00.000Z"}',
             201,
             headers: {'content-type': 'application/json'},
           );
@@ -106,5 +107,177 @@ void main() {
 
     expect(find.text('This match has expired.'), findsOneWidget);
     expect(find.byType(TextField), findsNothing);
+  });
+
+  testWidgets('shows a tap-to-reveal overlay for a blurred photo from the other person', (
+    tester,
+  ) async {
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(
+            '[{"id":"m1","senderId":"user-woman","contentType":"IMAGE","content":null,'
+            '"mediaUrl":"https://example.com/photo.jpg","isBlurred":true,'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":null,"isExpired":false,'
+          '"firstMessageSent":true,"canSendFirstMessage":true}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchChatScreen(messagingApi: api, matchId: 'match-1', currentUserId: 'user-man'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Tap to reveal'), findsOneWidget);
+  });
+
+  testWidgets('does not blur a photo the current user sent themselves', (tester) async {
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(
+            '[{"id":"m1","senderId":"user-woman","contentType":"IMAGE","content":null,'
+            '"mediaUrl":"https://example.com/photo.jpg","isBlurred":true,'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":null,"isExpired":false,'
+          '"firstMessageSent":true,"canSendFirstMessage":true}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchChatScreen(messagingApi: api, matchId: 'match-1', currentUserId: 'user-woman'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Tap to reveal'), findsNothing);
+  });
+
+  testWidgets('tapping a blurred photo reveals it', (tester) async {
+    http.Request? revealRequest;
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path.endsWith('/reveal')) {
+          revealRequest = request;
+          return http.Response(
+            '{"id":"m1","senderId":"user-woman","contentType":"IMAGE","content":null,'
+            '"mediaUrl":"https://example.com/photo.jpg","isBlurred":false,'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(
+            '[{"id":"m1","senderId":"user-woman","contentType":"IMAGE","content":null,'
+            '"mediaUrl":"https://example.com/photo.jpg","isBlurred":true,'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":null,"isExpired":false,'
+          '"firstMessageSent":true,"canSendFirstMessage":true}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchChatScreen(messagingApi: api, matchId: 'match-1', currentUserId: 'user-man'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Tap to reveal'));
+    await tester.pumpAndSettle();
+
+    expect(revealRequest, isNotNull);
+    expect(revealRequest!.url.path, '/matches/match-1/messages/m1/reveal');
+    expect(find.text('Tap to reveal'), findsNothing);
+  });
+
+  testWidgets('opens the GIF picker, searches, and sends the selected GIF', (tester) async {
+    http.Request? sendRequest;
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/matches/gifs/search') {
+          return http.Response(
+            '[{"id":"g1","url":"https://example.com/g1.gif",'
+            '"previewUrl":"https://example.com/g1-preview.gif"}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (request.url.path.endsWith('/media')) {
+          sendRequest = request;
+          return http.Response(
+            '{"id":"m2","senderId":"user-woman","contentType":"GIF","content":null,'
+            '"mediaUrl":"https://example.com/g1.gif","isBlurred":false,'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}',
+            201,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(_emptyMessages, 200, headers: {'content-type': 'application/json'});
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":null,"isExpired":false,'
+          '"firstMessageSent":true,"canSendFirstMessage":true}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchChatScreen(messagingApi: api, matchId: 'match-1', currentUserId: 'user-woman'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.gif_box_outlined));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).last, 'cats');
+    await tester.tap(find.byIcon(Icons.search));
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.descendant(of: find.byType(GridView), matching: find.byType(GestureDetector)),
+    );
+    await tester.pumpAndSettle();
+
+    expect(sendRequest, isNotNull);
+    expect(sendRequest!.body, '{"contentType":"GIF","mediaUrl":"https://example.com/g1.gif"}');
   });
 }
