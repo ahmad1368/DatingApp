@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-19T04:28:13.427Z",
+  "generated_at": "2026-08-19T04:36:54.194Z",
   "snapshot": [
     {
       "number": 454,
@@ -2175,18 +2175,9 @@
       "number": 20,
       "title": "In-App Audio & Video Calling",
       "updatedAt": "2026-08-10T20:28:31Z"
-    },
-    {
-      "number": 19,
-      "title": "Advanced Lifestyle & Interest Filters",
-      "updatedAt": "2026-08-10T20:28:29Z"
     }
   ],
   "queue": [
-    {
-      "number": 20,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 21,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"

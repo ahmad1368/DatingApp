@@ -13,6 +13,7 @@ import { CuratedProfilesModule } from './curated-profiles/curated-profiles.modul
 import { VettingModule } from './vetting/vetting.module';
 import { CouplesModule } from './couples/couples.module';
 import { PersonalityModule } from './personality/personality.module';
+import { CallingModule } from './calling/calling.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { PersonalityModule } from './personality/personality.module';
     VettingModule,
     CouplesModule,
     PersonalityModule,
+    CallingModule,
   ],
 })
 export class AppModule {}

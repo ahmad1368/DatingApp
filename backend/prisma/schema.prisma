@@ -241,3 +241,35 @@ model PersonalityProfile {
 
   @@map("personality_profiles")
 }
+
+model CallSession {
+  id        String    @id @default(uuid())
+  matchId   String
+  callerId  String
+  calleeId  String
+  type      String
+  status    String    @default("RINGING")
+  offerSdp  String
+  answerSdp String?
+  createdAt DateTime  @default(now())
+  endedAt   DateTime?
+
+  iceCandidates CallIceCandidate[]
+
+  @@index([matchId])
+  @@index([calleeId, status])
+  @@map("call_sessions")
+}
+
+model CallIceCandidate {
+  id            String   @id @default(uuid())
+  callSessionId String
+  senderId      String
+  candidate     String
+  createdAt     DateTime @default(now())
+
+  callSession CallSession @relation(fields: [callSessionId], references: [id])
+
+  @@index([callSessionId])
+  @@map("call_ice_candidates")
+}
