@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-19T04:00:21.854Z",
+  "generated_at": "2026-08-19T04:05:46.236Z",
   "snapshot": [
     {
       "number": 454,
@@ -2195,18 +2195,9 @@
       "number": 16,
       "title": "Exclusive Vetting & Application Queue",
       "updatedAt": "2026-08-10T20:28:22Z"
-    },
-    {
-      "number": 15,
-      "title": "Direct Profile Item Liking and Commenting",
-      "updatedAt": "2026-08-10T20:28:20Z"
     }
   ],
   "queue": [
-    {
-      "number": 16,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 17,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"

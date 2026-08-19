@@ -38,6 +38,7 @@ model User {
   passportEnabled              Boolean   @default(false)
   voiceIntroUrl                String?
   voiceIntroDurationSeconds    Int?
+  isCommitteeMember            Boolean   @default(false)
   createdAt                    DateTime  @default(now())
   updatedAt                    DateTime  @updatedAt
 
@@ -166,4 +167,33 @@ model ProfileItemLike {
   @@index([toUserId])
   @@index([fromUserId])
   @@map("profile_item_likes")
+}
+
+model Application {
+  id              String    @id @default(uuid())
+  userId          String    @unique
+  status          String    @default("PENDING")
+  referralCount   Int       @default(0)
+  decidedByUserId String?
+  decisionReason  String?
+  createdAt       DateTime  @default(now())
+  decidedAt       DateTime?
+
+  referrals Referral[]
+
+  @@index([status])
+  @@map("applications")
+}
+
+model Referral {
+  id             String   @id @default(uuid())
+  applicationId  String
+  referrerUserId String
+  createdAt      DateTime @default(now())
+
+  application Application @relation(fields: [applicationId], references: [id])
+
+  @@unique([applicationId, referrerUserId])
+  @@index([applicationId])
+  @@map("referrals")
 }
