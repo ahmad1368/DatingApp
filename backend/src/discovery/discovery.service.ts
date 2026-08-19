@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { haversineDistanceKm } from '../location/utils/haversine';
+import { computeFirstMessageExpiresAt } from '../messaging/messaging.constants';
 import { DEFAULT_DECK_SIZE } from './discovery.constants';
 
 export interface DeckCard {
@@ -111,7 +112,9 @@ export class DiscoveryService {
     }
 
     const [userAId, userBId] = [userId, targetUserId].sort();
-    const match = await this.prisma.match.create({ data: { userAId, userBId } });
+    const match = await this.prisma.match.create({
+      data: { userAId, userBId, firstMessageExpiresAt: computeFirstMessageExpiresAt(new Date()) },
+    });
 
     return { matched: true, matchId: match.id };
   }
