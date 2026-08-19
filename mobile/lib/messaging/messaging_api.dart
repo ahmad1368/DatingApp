@@ -27,6 +27,26 @@ class MatchStatus {
   final bool canSendFirstMessage;
 }
 
+class MatchSummary {
+  MatchSummary({
+    required this.matchId,
+    required this.otherUserId,
+    this.otherUserName,
+    this.otherUserPhotoUrl,
+    this.expiresAt,
+    required this.firstMessageSent,
+    required this.createdAt,
+  });
+
+  final String matchId;
+  final String otherUserId;
+  final String? otherUserName;
+  final String? otherUserPhotoUrl;
+  final DateTime? expiresAt;
+  final bool firstMessageSent;
+  final DateTime createdAt;
+}
+
 class ChatMessage {
   ChatMessage({
     required this.id,
@@ -56,6 +76,30 @@ class MessagingApi {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $accessToken',
       };
+
+  Future<List<MatchSummary>> fetchMyMatches() async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/matches'),
+      headers: _headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw MessagingApiException(_errorMessage(_decode(response), response.statusCode));
+    }
+
+    final list = jsonDecode(response.body) as List;
+    return list.cast<Map<String, dynamic>>().map((json) {
+      return MatchSummary(
+        matchId: json['matchId'] as String,
+        otherUserId: json['otherUserId'] as String,
+        otherUserName: json['otherUserName'] as String?,
+        otherUserPhotoUrl: json['otherUserPhotoUrl'] as String?,
+        expiresAt: json['expiresAt'] != null ? DateTime.parse(json['expiresAt'] as String) : null,
+        firstMessageSent: json['firstMessageSent'] as bool,
+        createdAt: DateTime.parse(json['createdAt'] as String),
+      );
+    }).toList();
+  }
 
   Future<MatchStatus> fetchMatchStatus(String matchId) async {
     final response = await _client.get(

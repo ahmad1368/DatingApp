@@ -9,6 +9,11 @@ import { MessagingService } from './messaging.service';
 export class MessagingController {
   constructor(private readonly messagingService: MessagingService) {}
 
+  @Get()
+  listMyMatches(@CurrentUser() user: AuthenticatedUser) {
+    return this.messagingService.listMyMatches(user.id);
+  }
+
   @Get(':matchId')
   getStatus(@CurrentUser() user: AuthenticatedUser, @Param('matchId') matchId: string) {
     return this.messagingService.getMatchStatus(user.id, matchId);
