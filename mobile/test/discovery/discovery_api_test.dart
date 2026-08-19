@@ -117,4 +117,42 @@ void main() {
       );
     });
   });
+
+  group('DiscoveryApi.undoLastSwipe', () {
+    test('sends a POST and parses the undone swipe', () async {
+      final api = DiscoveryApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'POST');
+          expect(request.url.path, '/discovery/undo');
+          return http.Response(
+            '{"targetUserId":"user-2","action":"PASS","hadMatch":false}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final result = await api.undoLastSwipe();
+
+      expect(result.targetUserId, 'user-2');
+      expect(result.action, 'PASS');
+      expect(result.hadMatch, isFalse);
+    });
+
+    test('throws DiscoveryApiException when the user is not premium', () async {
+      final api = DiscoveryApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '{"message":"Rewind is a premium feature."}',
+            403,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      expect(() => api.undoLastSwipe(), throwsA(isA<DiscoveryApiException>()));
+    });
+  });
 }

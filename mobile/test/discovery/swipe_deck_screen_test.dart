@@ -127,4 +127,59 @@ void main() {
 
     expect(find.text('Super Liked You'), findsOneWidget);
   });
+
+  testWidgets('tapping rewind undoes the last swipe and reloads the deck', (tester) async {
+    var deckCallCount = 0;
+    http.Request? undoRequest;
+    final api = DiscoveryApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/discovery/deck') {
+          deckCallCount += 1;
+          return http.Response('[]', 200, headers: {'content-type': 'application/json'});
+        }
+        undoRequest = request;
+        return http.Response(
+          '{"targetUserId":"user-2","action":"PASS","hadMatch":false}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: SwipeDeckScreen(discoveryApi: api)));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.undo));
+    await tester.pumpAndSettle();
+
+    expect(undoRequest, isNotNull);
+    expect(undoRequest!.method, 'POST');
+    expect(undoRequest!.url.path, '/discovery/undo');
+    expect(deckCallCount, 2);
+  });
+
+  testWidgets('shows an error when rewind is rejected for a non-premium user', (tester) async {
+    final api = DiscoveryApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/discovery/deck') {
+          return http.Response('[]', 200, headers: {'content-type': 'application/json'});
+        }
+        return http.Response(
+          '{"message":"Rewind is a premium feature."}',
+          403,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: SwipeDeckScreen(discoveryApi: api)));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.undo));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Rewind is a premium feature.'), findsOneWidget);
+  });
 }
