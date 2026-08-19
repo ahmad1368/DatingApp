@@ -10,6 +10,7 @@ import { DiscoveryModule } from './discovery/discovery.module';
 import { MessagingModule } from './messaging/messaging.module';
 import { MatchingModule } from './matching/matching.module';
 import { CuratedProfilesModule } from './curated-profiles/curated-profiles.module';
+import { VettingModule } from './vetting/vetting.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { CuratedProfilesModule } from './curated-profiles/curated-profiles.modul
     MessagingModule,
     MatchingModule,
     CuratedProfilesModule,
+    VettingModule,
   ],
 })
 export class AppModule {}
