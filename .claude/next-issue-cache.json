@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-19T05:00:55.603Z",
+  "generated_at": "2026-08-19T05:06:29.284Z",
   "snapshot": [
     {
       "number": 454,
@@ -2155,18 +2155,9 @@
       "number": 24,
       "title": "Incognito / Invisible Browsing Mode",
       "updatedAt": "2026-08-10T20:28:39Z"
-    },
-    {
-      "number": 23,
-      "title": "Undo / Rewind Last Swipe",
-      "updatedAt": "2026-08-10T20:28:37Z"
     }
   ],
   "queue": [
-    {
-      "number": 24,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 25,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
