@@ -11,6 +11,7 @@ import { MessagingModule } from './messaging/messaging.module';
 import { MatchingModule } from './matching/matching.module';
 import { CuratedProfilesModule } from './curated-profiles/curated-profiles.module';
 import { VettingModule } from './vetting/vetting.module';
+import { CouplesModule } from './couples/couples.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { VettingModule } from './vetting/vetting.module';
     MatchingModule,
     CuratedProfilesModule,
     VettingModule,
+    CouplesModule,
   ],
 })
 export class AppModule {}

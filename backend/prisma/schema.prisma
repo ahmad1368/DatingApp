@@ -8,39 +8,46 @@ datasource db {
 }
 
 model User {
-  id                           String    @id @default(uuid())
-  phoneNumber                  String?   @unique
-  email                        String?   @unique
-  googleId                     String?   @unique
-  appleUserId                  String?   @unique
-  name                         String?
-  avatarUrl                    String?
-  profilePhotoUrl              String?
-  isVerified                   Boolean   @default(false)
-  verifiedAt                   DateTime?
-  dateOfBirth                  DateTime?
-  genderIdentities             String[]  @default([])
-  customGenderDescription      String?
-  showGenderOnProfile          Boolean   @default(true)
-  orientations                 String[]  @default([])
-  customOrientationDescription String?
-  showOrientationOnProfile     Boolean   @default(true)
-  relationshipGoal             String?
-  interests                    String[]  @default([])
-  onboardingCompletedAt        DateTime?
-  isPremium                    Boolean   @default(false)
-  latitude                     Float?
-  longitude                    Float?
-  locationUpdatedAt            DateTime?
-  searchRadiusKm               Int       @default(50)
-  passportLatitude             Float?
-  passportLongitude            Float?
-  passportEnabled              Boolean   @default(false)
-  voiceIntroUrl                String?
-  voiceIntroDurationSeconds    Int?
-  isCommitteeMember            Boolean   @default(false)
-  createdAt                    DateTime  @default(now())
-  updatedAt                    DateTime  @updatedAt
+  id                                 String    @id @default(uuid())
+  phoneNumber                        String?   @unique
+  email                              String?   @unique
+  googleId                           String?   @unique
+  appleUserId                        String?   @unique
+  name                               String?
+  avatarUrl                          String?
+  profilePhotoUrl                    String?
+  isVerified                         Boolean   @default(false)
+  verifiedAt                         DateTime?
+  dateOfBirth                        DateTime?
+  genderIdentities                   String[]  @default([])
+  customGenderDescription            String?
+  showGenderOnProfile                Boolean   @default(true)
+  orientations                       String[]  @default([])
+  customOrientationDescription       String?
+  showOrientationOnProfile           Boolean   @default(true)
+  relationshipGoal                   String?
+  interests                          String[]  @default([])
+  onboardingCompletedAt              DateTime?
+  isPremium                          Boolean   @default(false)
+  latitude                           Float?
+  longitude                          Float?
+  locationUpdatedAt                  DateTime?
+  searchRadiusKm                     Int       @default(50)
+  passportLatitude                   Float?
+  passportLongitude                  Float?
+  passportEnabled                    Boolean   @default(false)
+  voiceIntroUrl                      String?
+  voiceIntroDurationSeconds          Int?
+  isCommitteeMember                  Boolean   @default(false)
+  relationshipStructure              String?
+  showRelationshipStructureOnProfile Boolean   @default(true)
+  kinkTags                           String[]  @default([])
+  showKinkTagsOnProfile              Boolean   @default(true)
+  relationshipDesires                String[]  @default([])
+  showRelationshipDesiresOnProfile   Boolean   @default(true)
+  partnerUserId                      String?   @unique
+  createdAt                          DateTime  @default(now())
+  updatedAt                          DateTime  @updatedAt
 
   @@map("users")
 }
@@ -196,4 +203,18 @@ model Referral {
   @@unique([applicationId, referrerUserId])
   @@index([applicationId])
   @@map("referrals")
+}
+
+model CouplePairing {
+  id          String    @id @default(uuid())
+  requesterId String
+  partnerId   String
+  status      String    @default("PENDING")
+  createdAt   DateTime  @default(now())
+  respondedAt DateTime?
+
+  @@unique([requesterId, partnerId])
+  @@index([requesterId])
+  @@index([partnerId])
+  @@map("couple_pairings")
 }
