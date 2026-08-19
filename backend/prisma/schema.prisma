@@ -61,3 +61,17 @@ model SelfieVerificationChallenge {
   @@index([userId])
   @@map("selfie_verification_challenges")
 }
+
+model ProfilePrompt {
+  id        String   @id @default(uuid())
+  userId    String
+  question  String
+  answer    String
+  position  Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, question])
+  @@index([userId])
+  @@map("profile_prompts")
+}

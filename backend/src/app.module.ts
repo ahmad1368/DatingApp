@@ -5,6 +5,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { VerificationModule } from './verification/verification.module';
 import { OnboardingModule } from './onboarding/onboarding.module';
 import { LocationModule } from './location/location.module';
+import { ProfileModule } from './profile/profile.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { LocationModule } from './location/location.module';
     VerificationModule,
     OnboardingModule,
     LocationModule,
+    ProfileModule,
   ],
 })
 export class AppModule {}
