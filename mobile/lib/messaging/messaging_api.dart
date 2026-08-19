@@ -51,14 +51,28 @@ class ChatMessage {
   ChatMessage({
     required this.id,
     required this.senderId,
-    required this.content,
+    required this.contentType,
+    this.content,
+    this.mediaUrl,
+    required this.isBlurred,
     required this.createdAt,
   });
 
   final String id;
   final String senderId;
-  final String content;
+  final String contentType;
+  final String? content;
+  final String? mediaUrl;
+  final bool isBlurred;
   final DateTime createdAt;
+}
+
+class GifResult {
+  GifResult({required this.id, required this.url, required this.previewUrl});
+
+  final String id;
+  final String url;
+  final String previewUrl;
 }
 
 /// Talks to the backend's match/messaging endpoints. Requires a signed-in
@@ -150,11 +164,74 @@ class MessagingApi {
     return _toChatMessage(body);
   }
 
+  Future<ChatMessage> sendMediaMessage({
+    required String matchId,
+    required String contentType,
+    required String mediaUrl,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/matches/$matchId/media'),
+      headers: _headers,
+      body: jsonEncode({'contentType': contentType, 'mediaUrl': mediaUrl}),
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 201) {
+      throw MessagingApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return _toChatMessage(body);
+  }
+
+  Future<ChatMessage> revealImage({required String matchId, required String messageId}) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/matches/$matchId/messages/$messageId/reveal'),
+      headers: _headers,
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 200) {
+      throw MessagingApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return _toChatMessage(body);
+  }
+
+  Future<List<GifResult>> searchGifs(String query, {int? limit}) async {
+    final params = <String, String>{'q': query};
+    if (limit != null) {
+      params['limit'] = limit.toString();
+    }
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/matches/gifs/search').replace(queryParameters: params),
+      headers: _headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw MessagingApiException(_errorMessage(_decode(response), response.statusCode));
+    }
+
+    final list = jsonDecode(response.body) as List;
+    return list
+        .cast<Map<String, dynamic>>()
+        .map(
+          (json) => GifResult(
+            id: json['id'] as String,
+            url: json['url'] as String,
+            previewUrl: json['previewUrl'] as String,
+          ),
+        )
+        .toList();
+  }
+
   ChatMessage _toChatMessage(Map<String, dynamic> json) {
     return ChatMessage(
       id: json['id'] as String,
       senderId: json['senderId'] as String,
-      content: json['content'] as String,
+      contentType: json['contentType'] as String,
+      content: json['content'] as String?,
+      mediaUrl: json['mediaUrl'] as String?,
+      isBlurred: json['isBlurred'] as bool,
       createdAt: DateTime.parse(json['createdAt'] as String),
     );
   }

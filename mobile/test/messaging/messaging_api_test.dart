@@ -82,7 +82,8 @@ void main() {
         client: MockClient((request) async {
           expect(request.url.path, '/matches/match-1/messages');
           return http.Response(
-            '[{"id":"m1","senderId":"user-1","content":"hi","createdAt":"2026-01-01T00:00:00.000Z"}]',
+            '[{"id":"m1","senderId":"user-1","contentType":"TEXT","content":"hi",'
+            '"mediaUrl":null,"isBlurred":false,"createdAt":"2026-01-01T00:00:00.000Z"}]',
             200,
             headers: {'content-type': 'application/json'},
           );
@@ -94,6 +95,7 @@ void main() {
       expect(messages, hasLength(1));
       expect(messages.first.content, 'hi');
       expect(messages.first.senderId, 'user-1');
+      expect(messages.first.contentType, 'TEXT');
     });
   });
 
@@ -106,7 +108,8 @@ void main() {
           expect(request.url.path, '/matches/match-1/messages');
           expect(request.body, '{"content":"hey there"}');
           return http.Response(
-            '{"id":"m2","senderId":"user-1","content":"hey there","createdAt":"2026-01-01T01:00:00.000Z"}',
+            '{"id":"m2","senderId":"user-1","contentType":"TEXT","content":"hey there",'
+            '"mediaUrl":null,"isBlurred":false,"createdAt":"2026-01-01T01:00:00.000Z"}',
             201,
             headers: {'content-type': 'application/json'},
           );
@@ -135,6 +138,94 @@ void main() {
         () => api.sendMessage(matchId: 'match-1', content: 'hi'),
         throwsA(isA<MessagingApiException>()),
       );
+    });
+  });
+
+  group('MessagingApi.sendMediaMessage', () {
+    test('sends the content type and media URL, parsing a blurred image', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'POST');
+          expect(request.url.path, '/matches/match-1/media');
+          expect(
+            request.body,
+            '{"contentType":"IMAGE","mediaUrl":"https://example.com/photo.jpg"}',
+          );
+          return http.Response(
+            '{"id":"m3","senderId":"user-1","contentType":"IMAGE","content":null,'
+            '"mediaUrl":"https://example.com/photo.jpg","isBlurred":true,'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}',
+            201,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final message = await api.sendMediaMessage(
+        matchId: 'match-1',
+        contentType: 'IMAGE',
+        mediaUrl: 'https://example.com/photo.jpg',
+      );
+
+      expect(message.contentType, 'IMAGE');
+      expect(message.isBlurred, isTrue);
+      expect(message.mediaUrl, 'https://example.com/photo.jpg');
+    });
+  });
+
+  group('MessagingApi.revealImage', () {
+    test('sends a POST to the reveal endpoint and parses the unblurred message', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'POST');
+          expect(request.url.path, '/matches/match-1/messages/m3/reveal');
+          return http.Response(
+            '{"id":"m3","senderId":"user-1","contentType":"IMAGE","content":null,'
+            '"mediaUrl":"https://example.com/photo.jpg","isBlurred":false,'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final message = await api.revealImage(matchId: 'match-1', messageId: 'm3');
+
+      expect(message.isBlurred, isFalse);
+    });
+  });
+
+  group('MessagingApi.searchGifs', () {
+    test('sends the query and parses GIF results', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.url.path, '/matches/gifs/search');
+          expect(request.url.queryParameters['q'], 'cats');
+          return http.Response(
+            '[{"id":"g1","url":"https://example.com/g1.gif","previewUrl":"https://example.com/g1-preview.gif"}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final results = await api.searchGifs('cats');
+
+      expect(results, hasLength(1));
+      expect(results.first.id, 'g1');
+      expect(results.first.url, 'https://example.com/g1.gif');
+    });
+
+    test('throws MessagingApiException on a non-200 response', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => http.Response('', 500)),
+      );
+
+      expect(() => api.searchGifs('cats'), throwsA(isA<MessagingApiException>()));
     });
   });
 }

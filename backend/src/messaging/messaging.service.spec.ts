@@ -14,7 +14,7 @@ describe('MessagingService', () => {
   let service: MessagingService;
   let prisma: {
     match: { findUnique: jest.Mock; update: jest.Mock; findMany: jest.Mock; delete: jest.Mock };
-    message: { create: jest.Mock; findMany: jest.Mock };
+    message: { create: jest.Mock; findMany: jest.Mock; findUnique: jest.Mock; update: jest.Mock };
     user: { findUnique: jest.Mock; findMany: jest.Mock };
     swipe: { deleteMany: jest.Mock };
     $transaction: jest.Mock;
@@ -23,7 +23,7 @@ describe('MessagingService', () => {
   beforeEach(() => {
     prisma = {
       match: { findUnique: jest.fn(), update: jest.fn(), findMany: jest.fn(), delete: jest.fn() },
-      message: { create: jest.fn(), findMany: jest.fn() },
+      message: { create: jest.fn(), findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
       user: { findUnique: jest.fn(), findMany: jest.fn() },
       swipe: { deleteMany: jest.fn() },
       $transaction: jest.fn((ops: unknown[]) => Promise.all(ops)),
@@ -149,14 +149,17 @@ describe('MessagingService', () => {
       prisma.message.create.mockResolvedValue({
         id: 'message-1',
         senderId: WOMAN_ID,
+        contentType: 'TEXT',
         content: 'hi',
+        mediaUrl: null,
+        isBlurred: false,
         createdAt: new Date('2026-01-01T00:00:00.000Z'),
       });
 
       const result = await service.sendMessage(WOMAN_ID, MATCH_ID, 'hi');
 
       expect(prisma.message.create).toHaveBeenCalledWith({
-        data: { matchId: MATCH_ID, senderId: WOMAN_ID, content: 'hi' },
+        data: { matchId: MATCH_ID, senderId: WOMAN_ID, contentType: 'TEXT', content: 'hi' },
       });
       expect(prisma.match.update).toHaveBeenCalledWith({
         where: { id: MATCH_ID },
@@ -165,7 +168,10 @@ describe('MessagingService', () => {
       expect(result).toEqual({
         id: 'message-1',
         senderId: WOMAN_ID,
+        contentType: 'TEXT',
         content: 'hi',
+        mediaUrl: null,
+        isBlurred: false,
         createdAt: '2026-01-01T00:00:00.000Z',
       });
     });
@@ -175,7 +181,10 @@ describe('MessagingService', () => {
       prisma.message.create.mockResolvedValue({
         id: 'message-2',
         senderId: MAN_ID,
+        contentType: 'TEXT',
         content: 'hey there',
+        mediaUrl: null,
+        isBlurred: false,
         createdAt: new Date('2026-01-01T01:00:00.000Z'),
       });
 
@@ -183,6 +192,161 @@ describe('MessagingService', () => {
 
       expect(prisma.match.update).not.toHaveBeenCalled();
       expect(result.senderId).toBe(MAN_ID);
+    });
+  });
+
+  describe('sendMediaMessage', () => {
+    it('rejects sending after the match has expired', async () => {
+      mockMatch({ firstMessageExpiresAt: hoursFromNow(-1) });
+
+      await expect(
+        service.sendMediaMessage(WOMAN_ID, MATCH_ID, 'IMAGE', 'https://example.com/photo.jpg'),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.message.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects the man sending the first image to a woman match', async () => {
+      mockMatch();
+      mockUsers({ [WOMAN_ID]: ['Woman'], [MAN_ID]: ['Man'] });
+
+      await expect(
+        service.sendMediaMessage(MAN_ID, MATCH_ID, 'IMAGE', 'https://example.com/photo.jpg'),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('sends an image blurred by default', async () => {
+      mockMatch();
+      mockUsers({ [WOMAN_ID]: ['Woman'], [MAN_ID]: ['Man'] });
+      prisma.message.create.mockResolvedValue({
+        id: 'message-3',
+        senderId: WOMAN_ID,
+        contentType: 'IMAGE',
+        content: null,
+        mediaUrl: 'https://example.com/photo.jpg',
+        isBlurred: true,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const result = await service.sendMediaMessage(
+        WOMAN_ID,
+        MATCH_ID,
+        'IMAGE',
+        'https://example.com/photo.jpg',
+      );
+
+      expect(prisma.message.create).toHaveBeenCalledWith({
+        data: {
+          matchId: MATCH_ID,
+          senderId: WOMAN_ID,
+          contentType: 'IMAGE',
+          mediaUrl: 'https://example.com/photo.jpg',
+          isBlurred: true,
+        },
+      });
+      expect(result.isBlurred).toBe(true);
+    });
+
+    it('sends a GIF unblurred', async () => {
+      mockMatch();
+      mockUsers({ [WOMAN_ID]: ['Woman'], [MAN_ID]: ['Man'] });
+      prisma.message.create.mockResolvedValue({
+        id: 'message-4',
+        senderId: WOMAN_ID,
+        contentType: 'GIF',
+        content: null,
+        mediaUrl: 'https://example.com/fun.gif',
+        isBlurred: false,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const result = await service.sendMediaMessage(
+        WOMAN_ID,
+        MATCH_ID,
+        'GIF',
+        'https://example.com/fun.gif',
+      );
+
+      expect(prisma.message.create).toHaveBeenCalledWith({
+        data: {
+          matchId: MATCH_ID,
+          senderId: WOMAN_ID,
+          contentType: 'GIF',
+          mediaUrl: 'https://example.com/fun.gif',
+          isBlurred: false,
+        },
+      });
+      expect(result.isBlurred).toBe(false);
+    });
+  });
+
+  describe('revealImage', () => {
+    it('throws when the user is not part of the match', async () => {
+      mockMatch();
+
+      await expect(
+        service.revealImage('someone-else', MATCH_ID, 'message-1'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('throws when the message does not belong to the match', async () => {
+      mockMatch();
+      prisma.message.findUnique.mockResolvedValue({
+        id: 'message-1',
+        matchId: 'other-match',
+        senderId: MAN_ID,
+        contentType: 'IMAGE',
+        isBlurred: true,
+      });
+
+      await expect(service.revealImage(WOMAN_ID, MATCH_ID, 'message-1')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+
+    it('rejects the sender revealing their own photo', async () => {
+      mockMatch();
+      prisma.message.findUnique.mockResolvedValue({
+        id: 'message-1',
+        matchId: MATCH_ID,
+        senderId: WOMAN_ID,
+        contentType: 'IMAGE',
+        isBlurred: true,
+      });
+
+      await expect(service.revealImage(WOMAN_ID, MATCH_ID, 'message-1')).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+    });
+
+    it('lets the recipient reveal a blurred photo', async () => {
+      mockMatch();
+      prisma.message.findUnique.mockResolvedValue({
+        id: 'message-1',
+        matchId: MATCH_ID,
+        senderId: WOMAN_ID,
+        contentType: 'IMAGE',
+        content: null,
+        mediaUrl: 'https://example.com/photo.jpg',
+        isBlurred: true,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+      prisma.message.update.mockResolvedValue({
+        id: 'message-1',
+        senderId: WOMAN_ID,
+        contentType: 'IMAGE',
+        content: null,
+        mediaUrl: 'https://example.com/photo.jpg',
+        isBlurred: false,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const result = await service.revealImage(MAN_ID, MATCH_ID, 'message-1');
+
+      expect(prisma.message.update).toHaveBeenCalledWith({
+        where: { id: 'message-1' },
+        data: { isBlurred: false },
+      });
+      expect(result.isBlurred).toBe(false);
     });
   });
 
@@ -198,7 +362,15 @@ describe('MessagingService', () => {
     it('returns messages ordered by creation time', async () => {
       mockMatch();
       prisma.message.findMany.mockResolvedValue([
-        { id: 'm1', senderId: WOMAN_ID, content: 'hi', createdAt: new Date('2026-01-01T00:00:00.000Z') },
+        {
+          id: 'm1',
+          senderId: WOMAN_ID,
+          contentType: 'TEXT',
+          content: 'hi',
+          mediaUrl: null,
+          isBlurred: false,
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
       ]);
 
       const messages = await service.listMessages(WOMAN_ID, MATCH_ID);
@@ -208,7 +380,15 @@ describe('MessagingService', () => {
         orderBy: { createdAt: 'asc' },
       });
       expect(messages).toEqual([
-        { id: 'm1', senderId: WOMAN_ID, content: 'hi', createdAt: '2026-01-01T00:00:00.000Z' },
+        {
+          id: 'm1',
+          senderId: WOMAN_ID,
+          contentType: 'TEXT',
+          content: 'hi',
+          mediaUrl: null,
+          isBlurred: false,
+          createdAt: '2026-01-01T00:00:00.000Z',
+        },
       ]);
     });
   });
