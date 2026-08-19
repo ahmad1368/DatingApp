@@ -1,0 +1,106 @@
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { SetLifestyleFiltersDto } from './dto/set-lifestyle-filters.dto';
+
+export interface LifestyleFiltersResult {
+  smokingHabit: string | null;
+  drinkingHabit: string | null;
+  education: string | null;
+  religion: string | null;
+  dietaryPreference: string | null;
+  wantsChildren: string | null;
+  filterSmokingHabits: string[];
+  filterDrinkingHabits: string[];
+  filterEducationLevels: string[];
+  filterReligions: string[];
+  filterDietaryPreferences: string[];
+  filterWantsChildren: string[];
+  filterRelationshipGoals: string[];
+}
+
+interface LifestyleFiltersRecord {
+  smokingHabit: string | null;
+  drinkingHabit: string | null;
+  education: string | null;
+  religion: string | null;
+  dietaryPreference: string | null;
+  wantsChildren: string | null;
+  filterSmokingHabits: string[];
+  filterDrinkingHabits: string[];
+  filterEducationLevels: string[];
+  filterReligions: string[];
+  filterDietaryPreferences: string[];
+  filterWantsChildren: string[];
+  filterRelationshipGoals: string[];
+}
+
+const SELECT = {
+  smokingHabit: true,
+  drinkingHabit: true,
+  education: true,
+  religion: true,
+  dietaryPreference: true,
+  wantsChildren: true,
+  filterSmokingHabits: true,
+  filterDrinkingHabits: true,
+  filterEducationLevels: true,
+  filterReligions: true,
+  filterDietaryPreferences: true,
+  filterWantsChildren: true,
+  filterRelationshipGoals: true,
+} as const;
+
+@Injectable()
+export class LifestyleFiltersService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async getLifestyleFilters(userId: string): Promise<LifestyleFiltersResult> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: SELECT });
+    return this.toResult(user);
+  }
+
+  async setLifestyleFilters(
+    userId: string,
+    dto: SetLifestyleFiltersDto,
+  ): Promise<LifestyleFiltersResult> {
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        smokingHabit: dto.smokingHabit ?? null,
+        drinkingHabit: dto.drinkingHabit ?? null,
+        education: dto.education ?? null,
+        religion: dto.religion ?? null,
+        dietaryPreference: dto.dietaryPreference ?? null,
+        wantsChildren: dto.wantsChildren ?? null,
+        filterSmokingHabits: dto.filterSmokingHabits,
+        filterDrinkingHabits: dto.filterDrinkingHabits,
+        filterEducationLevels: dto.filterEducationLevels,
+        filterReligions: dto.filterReligions,
+        filterDietaryPreferences: dto.filterDietaryPreferences,
+        filterWantsChildren: dto.filterWantsChildren,
+        filterRelationshipGoals: dto.filterRelationshipGoals,
+      },
+      select: SELECT,
+    });
+
+    return this.toResult(user);
+  }
+
+  private toResult(user: LifestyleFiltersRecord | null): LifestyleFiltersResult {
+    return {
+      smokingHabit: user?.smokingHabit ?? null,
+      drinkingHabit: user?.drinkingHabit ?? null,
+      education: user?.education ?? null,
+      religion: user?.religion ?? null,
+      dietaryPreference: user?.dietaryPreference ?? null,
+      wantsChildren: user?.wantsChildren ?? null,
+      filterSmokingHabits: user?.filterSmokingHabits ?? [],
+      filterDrinkingHabits: user?.filterDrinkingHabits ?? [],
+      filterEducationLevels: user?.filterEducationLevels ?? [],
+      filterReligions: user?.filterReligions ?? [],
+      filterDietaryPreferences: user?.filterDietaryPreferences ?? [],
+      filterWantsChildren: user?.filterWantsChildren ?? [],
+      filterRelationshipGoals: user?.filterRelationshipGoals ?? [],
+    };
+  }
+}

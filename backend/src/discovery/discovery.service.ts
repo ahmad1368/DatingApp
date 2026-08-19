@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { haversineDistanceKm } from '../location/utils/haversine';
 import { computeFirstMessageExpiresAt } from '../messaging/messaging.constants';
@@ -42,6 +43,7 @@ export class DiscoveryService {
       where: {
         id: { notIn: excludedIds },
         onboardingCompletedAt: { not: null },
+        ...this.buildLifestyleFilterWhere(currentUser),
       },
       take: DEFAULT_DECK_SIZE,
     });
@@ -109,5 +111,41 @@ export class DiscoveryService {
     });
 
     return { matched: true, matchId: match.id };
+  }
+
+  private buildLifestyleFilterWhere(currentUser: {
+    filterSmokingHabits: string[];
+    filterDrinkingHabits: string[];
+    filterEducationLevels: string[];
+    filterReligions: string[];
+    filterDietaryPreferences: string[];
+    filterWantsChildren: string[];
+    filterRelationshipGoals: string[];
+  }): Prisma.UserWhereInput {
+    const where: Prisma.UserWhereInput = {};
+
+    if (currentUser.filterSmokingHabits.length > 0) {
+      where.smokingHabit = { in: currentUser.filterSmokingHabits };
+    }
+    if (currentUser.filterDrinkingHabits.length > 0) {
+      where.drinkingHabit = { in: currentUser.filterDrinkingHabits };
+    }
+    if (currentUser.filterEducationLevels.length > 0) {
+      where.education = { in: currentUser.filterEducationLevels };
+    }
+    if (currentUser.filterReligions.length > 0) {
+      where.religion = { in: currentUser.filterReligions };
+    }
+    if (currentUser.filterDietaryPreferences.length > 0) {
+      where.dietaryPreference = { in: currentUser.filterDietaryPreferences };
+    }
+    if (currentUser.filterWantsChildren.length > 0) {
+      where.wantsChildren = { in: currentUser.filterWantsChildren };
+    }
+    if (currentUser.filterRelationshipGoals.length > 0) {
+      where.relationshipGoal = { in: currentUser.filterRelationshipGoals };
+    }
+
+    return where;
   }
 }

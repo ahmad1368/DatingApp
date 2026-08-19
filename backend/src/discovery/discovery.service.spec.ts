@@ -37,6 +37,13 @@ describe('DiscoveryService', () => {
         passportEnabled: false,
         passportLatitude: null,
         passportLongitude: null,
+        filterSmokingHabits: [],
+        filterDrinkingHabits: [],
+        filterEducationLevels: [],
+        filterReligions: [],
+        filterDietaryPreferences: [],
+        filterWantsChildren: [],
+        filterRelationshipGoals: [],
       });
       prisma.swipe.findMany.mockResolvedValue([{ targetUserId: 'already-swiped' }]);
       prisma.user.findMany.mockResolvedValue([
@@ -65,6 +72,39 @@ describe('DiscoveryService', () => {
       expect(deck[0].id).toBe(TARGET_ID);
       expect(deck[0].age).toBe(25);
       expect(deck[0].distanceKm).toBeGreaterThan(0);
+    });
+
+    it('applies the current user lifestyle filters to the candidate query', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        filterSmokingHabits: ['Never'],
+        filterDrinkingHabits: [],
+        filterEducationLevels: ['Bachelors', 'Masters'],
+        filterReligions: [],
+        filterDietaryPreferences: [],
+        filterWantsChildren: [],
+        filterRelationshipGoals: ['LONG_TERM'],
+      });
+      prisma.swipe.findMany.mockResolvedValue([]);
+      prisma.user.findMany.mockResolvedValue([]);
+
+      await service.getDeck(USER_ID);
+
+      expect(prisma.user.findMany).toHaveBeenCalledWith({
+        where: {
+          id: { notIn: [USER_ID] },
+          onboardingCompletedAt: { not: null },
+          smokingHabit: { in: ['Never'] },
+          education: { in: ['Bachelors', 'Masters'] },
+          relationshipGoal: { in: ['LONG_TERM'] },
+        },
+        take: 20,
+      });
     });
   });
 
