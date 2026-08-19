@@ -20,6 +20,7 @@ class DeckCard {
     this.distanceKm,
     required this.interests,
     this.relationshipGoal,
+    this.isSuperLike = false,
   });
 
   final String id;
@@ -29,6 +30,7 @@ class DeckCard {
   final double? distanceKm;
   final List<String> interests;
   final String? relationshipGoal;
+  final bool isSuperLike;
 }
 
 class SwipeResult {
@@ -76,6 +78,7 @@ class DiscoveryApi {
             distanceKm: (json['distanceKm'] as num?)?.toDouble(),
             interests: (json['interests'] as List).cast<String>(),
             relationshipGoal: json['relationshipGoal'] as String?,
+            isSuperLike: json['isSuperLike'] as bool? ?? false,
           ),
         )
         .toList();
