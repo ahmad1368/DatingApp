@@ -142,24 +142,117 @@ export class DiscoveryService {
     const originLongitude = usingPassport ? currentUser.passportLongitude : currentUser.longitude;
 
     const now = new Date();
+    const origin = { latitude: originLatitude, longitude: originLongitude };
 
-    return candidates.map((candidate) => ({
+    return candidates.map((candidate) =>
+      this.toDeckCard(candidate, now, origin, {
+        isSuperLike: superLikerIdSet.has(candidate.id),
+        isBoosted: boostedIdSet.has(candidate.id),
+      }),
+    );
+  }
+
+  /**
+   * Premium "who liked you": a grid of everyone who has already swiped
+   * right (or super-liked) the current user, most recent first, so they
+   * can match instantly instead of waiting to see them in the main deck.
+   */
+  async getLikedByGrid(userId: string): Promise<DeckCard[]> {
+    const currentUser = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!currentUser) {
+      throw new NotFoundException('User not found.');
+    }
+    if (!currentUser.isPremium) {
+      throw new ForbiddenException('Seeing who liked you is a premium feature.');
+    }
+
+    const swiped = await this.prisma.swipe.findMany({
+      where: { swiperId: userId },
+      select: { targetUserId: true },
+    });
+    const excludedIds = [userId, ...swiped.map((s) => s.targetUserId)];
+
+    const likersOfMe = await this.prisma.swipe.findMany({
+      where: {
+        targetUserId: userId,
+        action: { in: LIKE_ACTIONS },
+        swiperId: { notIn: excludedIds },
+      },
+      select: { swiperId: true, action: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    const likerIdsOrdered = likersOfMe.map((s) => s.swiperId);
+    const superLikerIdSet = new Set(
+      likersOfMe.filter((s) => s.action === 'SUPER_LIKE').map((s) => s.swiperId),
+    );
+
+    const lifestyleWhere = this.buildLifestyleFilterWhere(currentUser);
+    const likers =
+      likerIdsOrdered.length > 0
+        ? await this.prisma.user.findMany({
+            where: {
+              id: { in: likerIdsOrdered },
+              onboardingCompletedAt: { not: null },
+              activeMode: currentUser.activeMode,
+              ...lifestyleWhere,
+            },
+          })
+        : [];
+    const likerById = new Map(likers.map((liker) => [liker.id, liker]));
+    const orderedLikers = likerIdsOrdered
+      .map((id) => likerById.get(id))
+      .filter((liker): liker is (typeof likers)[number] => liker != null);
+
+    const usingPassport =
+      currentUser.passportEnabled &&
+      currentUser.passportLatitude != null &&
+      currentUser.passportLongitude != null;
+    const origin = {
+      latitude: usingPassport ? currentUser.passportLatitude : currentUser.latitude,
+      longitude: usingPassport ? currentUser.passportLongitude : currentUser.longitude,
+    };
+    const now = new Date();
+
+    return orderedLikers.map((liker) =>
+      this.toDeckCard(liker, now, origin, {
+        isSuperLike: superLikerIdSet.has(liker.id),
+        isBoosted: false,
+      }),
+    );
+  }
+
+  private toDeckCard(
+    candidate: {
+      id: string;
+      name: string | null;
+      dateOfBirth: Date | null;
+      profilePhotoUrl: string | null;
+      latitude: number | null;
+      longitude: number | null;
+      interests: string[];
+      relationshipGoal: string | null;
+    },
+    now: Date,
+    origin: { latitude: number | null; longitude: number | null },
+    flags: { isSuperLike: boolean; isBoosted: boolean },
+  ): DeckCard {
+    return {
       id: candidate.id,
       name: candidate.name,
       age: candidate.dateOfBirth ? calculateAge(candidate.dateOfBirth, now) : null,
       profilePhotoUrl: candidate.profilePhotoUrl,
       distanceKm:
-        originLatitude != null &&
-        originLongitude != null &&
+        origin.latitude != null &&
+        origin.longitude != null &&
         candidate.latitude != null &&
         candidate.longitude != null
-          ? haversineDistanceKm(originLatitude, originLongitude, candidate.latitude, candidate.longitude)
+          ? haversineDistanceKm(origin.latitude, origin.longitude, candidate.latitude, candidate.longitude)
           : null,
       interests: candidate.interests,
       relationshipGoal: candidate.relationshipGoal,
-      isSuperLike: superLikerIdSet.has(candidate.id),
-      isBoosted: boostedIdSet.has(candidate.id),
-    }));
+      isSuperLike: flags.isSuperLike,
+      isBoosted: flags.isBoosted,
+    };
   }
 
   async recordSwipe(userId: string, targetUserId: string, action: string): Promise<SwipeResult> {

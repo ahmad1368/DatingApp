@@ -377,4 +377,31 @@ void main() {
     expect(find.text('Discover · BFF'), findsOneWidget);
     expect(deckCallCount, 2);
   });
+
+  testWidgets('tapping the who-liked-you icon opens the likes grid', (tester) async {
+    final api = DiscoveryApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/discovery/deck') {
+          return http.Response('[]', 200, headers: {'content-type': 'application/json'});
+        }
+        if (request.url.path == '/discovery/likes') {
+          return http.Response('[]', 200, headers: {'content-type': 'application/json'});
+        }
+        return http.Response(
+          '{"active":false,"expiresAt":null,"viewCount":0}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: SwipeDeckScreen(discoveryApi: api)));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.grid_view));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Who Liked You'), findsOneWidget);
+  });
 }

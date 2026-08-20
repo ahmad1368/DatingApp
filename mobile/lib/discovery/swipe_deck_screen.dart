@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'discovery_api.dart';
+import 'liked_by_grid_screen.dart';
 import 'swipe_card.dart';
 
 class SwipeDeckScreen extends StatefulWidget {
@@ -146,6 +147,15 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
           ),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.grid_view),
+            tooltip: 'Who liked you',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => LikedByGridScreen(discoveryApi: widget.discoveryApi),
+              ),
+            ),
+          ),
           IconButton(
             icon: Icon(_incognitoEnabled ? Icons.visibility_off : Icons.visibility),
             color: _incognitoEnabled ? Colors.purple : null,

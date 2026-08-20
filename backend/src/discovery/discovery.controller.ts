@@ -50,4 +50,9 @@ export class DiscoveryController {
   setActiveMode(@CurrentUser() user: AuthenticatedUser, @Body() dto: SetActiveModeDto) {
     return this.discoveryService.setActiveMode(user.id, dto.mode);
   }
+
+  @Get('likes')
+  getLikedByGrid(@CurrentUser() user: AuthenticatedUser) {
+    return this.discoveryService.getLikedByGrid(user.id);
+  }
 }
