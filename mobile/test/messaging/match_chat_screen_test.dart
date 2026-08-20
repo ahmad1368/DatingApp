@@ -499,4 +499,147 @@ void main() {
     expect(toggleRequest!.body, '{"enabled":false}');
     expect(find.byIcon(Icons.done), findsOneWidget);
   });
+
+  testWidgets('sending an icebreaker shows response options with no answers yet', (tester) async {
+    http.Request? sendRequest;
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/matches/icebreaker-prompts') {
+          return http.Response(
+            '[{"id":"coffee-or-tea","question":"Coffee or tea?","optionA":"Coffee","optionB":"Tea"}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (request.method == 'POST' && request.url.path == '/matches/match-1/icebreaker') {
+          sendRequest = request;
+          return http.Response(
+            '{"id":"m1","senderId":"user-woman","contentType":"ICEBREAKER","content":"coffee-or-tea",'
+            '"mediaUrl":null,"isBlurred":false,"icebreaker":{"promptId":"coffee-or-tea",'
+            '"question":"Coffee or tea?","optionA":"Coffee","optionB":"Tea","myOptionIndex":null,'
+            '"otherOptionIndex":null},"createdAt":"2026-01-01T00:00:00.000Z"}',
+            201,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(_emptyMessages, 200, headers: {'content-type': 'application/json'});
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":null,"isExpired":false,'
+          '"firstMessageSent":true,"canSendFirstMessage":true}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchChatScreen(messagingApi: api, matchId: 'match-1', currentUserId: 'user-woman'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.quiz_outlined));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Coffee or tea?'), findsOneWidget);
+
+    await tester.tap(find.text('Coffee or tea?'));
+    await tester.pumpAndSettle();
+
+    expect(sendRequest, isNotNull);
+    expect(sendRequest!.body, '{"promptId":"coffee-or-tea"}');
+    expect(find.text('Coffee'), findsOneWidget);
+    expect(find.text('Tea'), findsOneWidget);
+  });
+
+  testWidgets('answering an icebreaker shows my pick while waiting on the other side', (
+    tester,
+  ) async {
+    http.Request? responseRequest;
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.method == 'POST' && request.url.path.endsWith('/icebreaker-response')) {
+          responseRequest = request;
+          return http.Response(
+            '{"id":"m1","senderId":"user-man","contentType":"ICEBREAKER","content":"coffee-or-tea",'
+            '"mediaUrl":null,"isBlurred":false,"icebreaker":{"promptId":"coffee-or-tea",'
+            '"question":"Coffee or tea?","optionA":"Coffee","optionB":"Tea","myOptionIndex":0,'
+            '"otherOptionIndex":null},"createdAt":"2026-01-01T00:00:00.000Z"}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(
+            '[{"id":"m1","senderId":"user-man","contentType":"ICEBREAKER","content":"coffee-or-tea",'
+            '"mediaUrl":null,"isBlurred":false,"icebreaker":{"promptId":"coffee-or-tea",'
+            '"question":"Coffee or tea?","optionA":"Coffee","optionB":"Tea","myOptionIndex":null,'
+            '"otherOptionIndex":null},"createdAt":"2026-01-01T00:00:00.000Z"}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":null,"isExpired":false,'
+          '"firstMessageSent":true,"canSendFirstMessage":true}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchChatScreen(messagingApi: api, matchId: 'match-1', currentUserId: 'user-woman'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Coffee'));
+    await tester.pumpAndSettle();
+
+    expect(responseRequest, isNotNull);
+    expect(responseRequest!.body, '{"optionIndex":0}');
+    expect(find.text('You: Coffee'), findsOneWidget);
+    expect(find.text('Waiting for their answer...'), findsOneWidget);
+  });
+
+  testWidgets('reveals both picks once both people have answered', (tester) async {
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(
+            '[{"id":"m1","senderId":"user-man","contentType":"ICEBREAKER","content":"coffee-or-tea",'
+            '"mediaUrl":null,"isBlurred":false,"icebreaker":{"promptId":"coffee-or-tea",'
+            '"question":"Coffee or tea?","optionA":"Coffee","optionB":"Tea","myOptionIndex":1,'
+            '"otherOptionIndex":0},"createdAt":"2026-01-01T00:00:00.000Z"}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":null,"isExpired":false,'
+          '"firstMessageSent":true,"canSendFirstMessage":true}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchChatScreen(messagingApi: api, matchId: 'match-1', currentUserId: 'user-woman'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('You: Tea'), findsOneWidget);
+    expect(find.text('Them: Coffee'), findsOneWidget);
+  });
 }

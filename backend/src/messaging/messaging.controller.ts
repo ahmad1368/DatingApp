@@ -17,6 +17,8 @@ import { SendMediaMessageDto } from './dto/send-media-message.dto';
 import { CheckMessageDto } from './dto/check-message.dto';
 import { ReportMessageDto } from './dto/report-message.dto';
 import { SetReadReceiptsDto } from './dto/set-read-receipts.dto';
+import { SendIcebreakerDto } from './dto/send-icebreaker.dto';
+import { RespondIcebreakerDto } from './dto/respond-icebreaker.dto';
 import { GifSearchService } from './gif-search.service';
 import { MessagingService } from './messaging.service';
 import { MessageModerationService } from './message-moderation.service';
@@ -38,6 +40,11 @@ export class MessagingController {
   @Get('gifs/search')
   searchGifs(@Query('q') q: string, @Query('limit') limit?: string) {
     return this.gifSearchService.search(q, limit ? Number(limit) : undefined);
+  }
+
+  @Get('icebreaker-prompts')
+  getIcebreakerPrompts() {
+    return this.messagingService.getIcebreakerPrompts();
   }
 
   @Put('read-receipts')
@@ -80,6 +87,27 @@ export class MessagingController {
     @Body() dto: SendMediaMessageDto,
   ) {
     return this.messagingService.sendMediaMessage(user.id, matchId, dto.contentType, dto.mediaUrl);
+  }
+
+  @Post(':matchId/icebreaker')
+  @HttpCode(HttpStatus.CREATED)
+  sendIcebreaker(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('matchId') matchId: string,
+    @Body() dto: SendIcebreakerDto,
+  ) {
+    return this.messagingService.sendIcebreaker(user.id, matchId, dto.promptId);
+  }
+
+  @Post(':matchId/messages/:messageId/icebreaker-response')
+  @HttpCode(HttpStatus.OK)
+  respondToIcebreaker(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('matchId') matchId: string,
+    @Param('messageId') messageId: string,
+    @Body() dto: RespondIcebreakerDto,
+  ) {
+    return this.messagingService.respondToIcebreaker(user.id, matchId, messageId, dto.optionIndex);
   }
 
   @Post(':matchId/messages/:messageId/reveal')

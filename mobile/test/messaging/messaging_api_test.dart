@@ -344,4 +344,111 @@ void main() {
       );
     });
   });
+
+  group('MessagingApi.fetchIcebreakerPrompts', () {
+    test('parses the list of prompts', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.url.path, '/matches/icebreaker-prompts');
+          return http.Response(
+            '[{"id":"coffee-or-tea","question":"Coffee or tea?","optionA":"Coffee","optionB":"Tea"}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final prompts = await api.fetchIcebreakerPrompts();
+
+      expect(prompts, hasLength(1));
+      expect(prompts.first.id, 'coffee-or-tea');
+      expect(prompts.first.optionA, 'Coffee');
+    });
+
+    test('throws MessagingApiException on a non-200 response', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => http.Response('', 500)),
+      );
+
+      expect(() => api.fetchIcebreakerPrompts(), throwsA(isA<MessagingApiException>()));
+    });
+  });
+
+  group('MessagingApi.sendIcebreaker', () {
+    test('sends the prompt id and parses the created message', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'POST');
+          expect(request.url.path, '/matches/match-1/icebreaker');
+          expect(request.body, '{"promptId":"coffee-or-tea"}');
+          return http.Response(
+            '{"id":"m1","senderId":"user-1","contentType":"ICEBREAKER","content":"coffee-or-tea",'
+            '"mediaUrl":null,"isBlurred":false,"icebreaker":{"promptId":"coffee-or-tea",'
+            '"question":"Coffee or tea?","optionA":"Coffee","optionB":"Tea","myOptionIndex":null,'
+            '"otherOptionIndex":null},"createdAt":"2026-01-01T00:00:00.000Z"}',
+            201,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final message = await api.sendIcebreaker(matchId: 'match-1', promptId: 'coffee-or-tea');
+
+      expect(message.contentType, 'ICEBREAKER');
+      expect(message.icebreaker, isNotNull);
+      expect(message.icebreaker!.question, 'Coffee or tea?');
+      expect(message.icebreaker!.haveIAnswered, isFalse);
+    });
+
+    test('throws MessagingApiException when the prompt is unknown', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '{"message":"Unknown icebreaker prompt."}',
+            400,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      expect(
+        () => api.sendIcebreaker(matchId: 'match-1', promptId: 'nope'),
+        throwsA(isA<MessagingApiException>()),
+      );
+    });
+  });
+
+  group('MessagingApi.respondToIcebreaker', () {
+    test('sends the chosen option and parses both sides once revealed', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'POST');
+          expect(request.url.path, '/matches/match-1/messages/m1/icebreaker-response');
+          expect(request.body, '{"optionIndex":1}');
+          return http.Response(
+            '{"id":"m1","senderId":"user-2","contentType":"ICEBREAKER","content":"coffee-or-tea",'
+            '"mediaUrl":null,"isBlurred":false,"icebreaker":{"promptId":"coffee-or-tea",'
+            '"question":"Coffee or tea?","optionA":"Coffee","optionB":"Tea","myOptionIndex":1,'
+            '"otherOptionIndex":0},"createdAt":"2026-01-01T00:00:00.000Z"}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final message = await api.respondToIcebreaker(
+        matchId: 'match-1',
+        messageId: 'm1',
+        optionIndex: 1,
+      );
+
+      expect(message.icebreaker!.haveBothAnswered, isTrue);
+      expect(message.icebreaker!.otherOptionIndex, 0);
+    });
+  });
 }

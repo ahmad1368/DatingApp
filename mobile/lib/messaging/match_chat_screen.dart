@@ -215,6 +215,59 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
     }
   }
 
+  Future<void> _openIcebreakerPicker() async {
+    setState(() => _errorText = null);
+    List<IcebreakerPrompt> prompts;
+    try {
+      prompts = await widget.messagingApi.fetchIcebreakerPrompts();
+    } on MessagingApiException catch (e) {
+      setState(() => _errorText = e.message);
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    final prompt = await showDialog<IcebreakerPrompt>(
+      context: context,
+      builder: (context) => _IcebreakerPickerDialog(prompts: prompts),
+    );
+    if (prompt != null) {
+      await _sendIcebreaker(prompt);
+    }
+  }
+
+  Future<void> _sendIcebreaker(IcebreakerPrompt prompt) async {
+    setState(() => _errorText = null);
+    try {
+      final message = await widget.messagingApi.sendIcebreaker(
+        matchId: widget.matchId,
+        promptId: prompt.id,
+      );
+      _onMessageSent(message);
+    } on MessagingApiException catch (e) {
+      setState(() => _errorText = e.message);
+    }
+  }
+
+  Future<void> _respondToIcebreaker(ChatMessage message, int optionIndex) async {
+    setState(() => _errorText = null);
+    try {
+      final updated = await widget.messagingApi.respondToIcebreaker(
+        matchId: widget.matchId,
+        messageId: message.id,
+        optionIndex: optionIndex,
+      );
+      setState(() {
+        _messages = [
+          for (final existing in _messages)
+            if (existing.id == updated.id) updated else existing,
+        ];
+      });
+    } on MessagingApiException catch (e) {
+      setState(() => _errorText = e.message);
+    }
+  }
+
   bool get _canType {
     final status = _status;
     if (status == null) {
@@ -310,6 +363,11 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
                           tooltip: 'Send a GIF',
                           onPressed: _openGifPicker,
                         ),
+                        IconButton(
+                          icon: const Icon(Icons.quiz_outlined),
+                          tooltip: 'Send an icebreaker',
+                          onPressed: _openIcebreakerPicker,
+                        ),
                         Expanded(
                           child: TextField(
                             controller: _controller,
@@ -354,10 +412,54 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
             ],
           ),
         );
+      case 'ICEBREAKER':
+        return _buildIcebreakerContent(message);
       case 'TEXT':
       default:
         return Text(message.content ?? '');
     }
+  }
+
+  Widget _buildIcebreakerContent(ChatMessage message) {
+    final icebreaker = message.icebreaker;
+    if (icebreaker == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      width: 220,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(icebreaker.question, style: const TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          if (!icebreaker.haveIAnswered) ...[
+            OutlinedButton(
+              onPressed: () => _respondToIcebreaker(message, 0),
+              child: Text(icebreaker.optionA),
+            ),
+            const SizedBox(height: 4),
+            OutlinedButton(
+              onPressed: () => _respondToIcebreaker(message, 1),
+              child: Text(icebreaker.optionB),
+            ),
+          ] else ...[
+            Text('You: ${icebreaker.myOptionIndex == 0 ? icebreaker.optionA : icebreaker.optionB}'),
+            if (icebreaker.haveBothAnswered)
+              Text(
+                'Them: ${icebreaker.otherOptionIndex == 0 ? icebreaker.optionA : icebreaker.optionB}',
+              )
+            else
+              const Text('Waiting for their answer...', style: TextStyle(color: Colors.grey)),
+          ],
+        ],
+      ),
+    );
   }
 
   Widget _networkImage(String url) {
@@ -469,6 +571,42 @@ class _GifPickerDialogState extends State<_GifPickerDialog> {
               ),
           ],
         ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+      ],
+    );
+  }
+}
+
+class _IcebreakerPickerDialog extends StatelessWidget {
+  const _IcebreakerPickerDialog({required this.prompts});
+
+  final List<IcebreakerPrompt> prompts;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Send an icebreaker'),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: prompts.isEmpty
+            ? const Text('No icebreakers available right now.')
+            : ListView.builder(
+                shrinkWrap: true,
+                itemCount: prompts.length,
+                itemBuilder: (context, index) {
+                  final prompt = prompts[index];
+                  return ListTile(
+                    title: Text(prompt.question),
+                    subtitle: Text('${prompt.optionA} or ${prompt.optionB}'),
+                    onTap: () => Navigator.of(context).pop(prompt),
+                  );
+                },
+              ),
       ),
       actions: [
         TextButton(
