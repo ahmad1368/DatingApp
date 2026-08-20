@@ -29,6 +29,26 @@ void main() {
       expect(deck.first.age, 25);
       expect(deck.first.interests, ['Hiking']);
       expect(deck.first.isSuperLike, isFalse);
+      expect(deck.first.relationshipIntentBadges, isEmpty);
+    });
+
+    test('parses relationshipIntentBadges when the backend includes them', () async {
+      final api = DiscoveryApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '[{"id":"user-2","name":"Jane","age":25,"profilePhotoUrl":null,'
+            '"distanceKm":3.4,"interests":["Hiking"],"relationshipGoal":"CASUAL",'
+            '"relationshipIntentBadges":["Marriage","Long-Term Relationship"]}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      final deck = await api.fetchDeck();
+
+      expect(deck.first.relationshipIntentBadges, ['Marriage', 'Long-Term Relationship']);
     });
 
     test('parses isSuperLike when the backend includes it', () async {

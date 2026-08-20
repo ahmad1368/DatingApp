@@ -8,78 +8,80 @@ datasource db {
 }
 
 model User {
-  id                                 String    @id @default(uuid())
-  phoneNumber                        String?   @unique
-  email                              String?   @unique
-  googleId                           String?   @unique
-  appleUserId                        String?   @unique
-  name                               String?
-  avatarUrl                          String?
-  profilePhotoUrl                    String?
-  isVerified                         Boolean   @default(false)
-  verifiedAt                         DateTime?
-  dateOfBirth                        DateTime?
-  genderIdentities                   String[]  @default([])
-  customGenderDescription            String?
-  showGenderOnProfile                Boolean   @default(true)
-  orientations                       String[]  @default([])
-  customOrientationDescription       String?
-  showOrientationOnProfile           Boolean   @default(true)
-  relationshipGoal                   String?
-  interests                          String[]  @default([])
-  onboardingCompletedAt              DateTime?
-  isPremium                          Boolean   @default(false)
-  latitude                           Float?
-  longitude                          Float?
-  locationUpdatedAt                  DateTime?
-  searchRadiusKm                     Int       @default(50)
-  passportLatitude                   Float?
-  passportLongitude                  Float?
-  passportEnabled                    Boolean   @default(false)
-  voiceIntroUrl                      String?
-  voiceIntroDurationSeconds          Int?
-  isCommitteeMember                  Boolean   @default(false)
-  relationshipStructure              String?
-  showRelationshipStructureOnProfile Boolean   @default(true)
-  kinkTags                           String[]  @default([])
-  showKinkTagsOnProfile              Boolean   @default(true)
-  relationshipDesires                String[]  @default([])
-  showRelationshipDesiresOnProfile   Boolean   @default(true)
-  partnerUserId                      String?   @unique
-  smokingHabit                       String?
-  drinkingHabit                      String?
-  education                          String?
-  religion                           String?
-  dietaryPreference                  String?
-  wantsChildren                      String?
-  filterSmokingHabits                String[]  @default([])
-  filterDrinkingHabits               String[]  @default([])
-  filterEducationLevels              String[]  @default([])
-  filterReligions                    String[]  @default([])
-  filterDietaryPreferences           String[]  @default([])
-  filterWantsChildren                String[]  @default([])
-  filterRelationshipGoals            String[]  @default([])
-  incognitoEnabled                   Boolean   @default(false)
-  activeMode                         String    @default("DATING")
-  snoozedUntil                       DateTime?
-  readReceiptsEnabled                Boolean   @default(true)
-  instagramUserId                    String?
-  instagramAccessToken               String?
-  instagramTokenExpiresAt            DateTime?
-  instagramMediaUrls                 String[]  @default([])
-  instagramSyncedAt                  DateTime?
-  spotifyUserId                      String?
-  spotifyAccessToken                 String?
-  spotifyRefreshToken                String?
-  spotifyTokenExpiresAt              DateTime?
-  spotifyTopArtists                  String[]  @default([])
-  spotifyTopArtistsSyncedAt          DateTime?
-  anthemTrackId                      String?
-  anthemTrackName                    String?
-  anthemArtistName                   String?
-  anthemAlbumArtUrl                  String?
-  createdAt                          DateTime  @default(now())
-  updatedAt                          DateTime  @updatedAt
+  id                                    String    @id @default(uuid())
+  phoneNumber                           String?   @unique
+  email                                 String?   @unique
+  googleId                              String?   @unique
+  appleUserId                           String?   @unique
+  name                                  String?
+  avatarUrl                             String?
+  profilePhotoUrl                       String?
+  isVerified                            Boolean   @default(false)
+  verifiedAt                            DateTime?
+  dateOfBirth                           DateTime?
+  genderIdentities                      String[]  @default([])
+  customGenderDescription               String?
+  showGenderOnProfile                   Boolean   @default(true)
+  orientations                          String[]  @default([])
+  customOrientationDescription          String?
+  showOrientationOnProfile              Boolean   @default(true)
+  relationshipGoal                      String?
+  interests                             String[]  @default([])
+  onboardingCompletedAt                 DateTime?
+  isPremium                             Boolean   @default(false)
+  latitude                              Float?
+  longitude                             Float?
+  locationUpdatedAt                     DateTime?
+  searchRadiusKm                        Int       @default(50)
+  passportLatitude                      Float?
+  passportLongitude                     Float?
+  passportEnabled                       Boolean   @default(false)
+  voiceIntroUrl                         String?
+  voiceIntroDurationSeconds             Int?
+  isCommitteeMember                     Boolean   @default(false)
+  relationshipStructure                 String?
+  showRelationshipStructureOnProfile    Boolean   @default(true)
+  kinkTags                              String[]  @default([])
+  showKinkTagsOnProfile                 Boolean   @default(true)
+  relationshipDesires                   String[]  @default([])
+  showRelationshipDesiresOnProfile      Boolean   @default(true)
+  customRelationshipIntent              String?
+  showCustomRelationshipIntentOnProfile Boolean   @default(true)
+  partnerUserId                         String?   @unique
+  smokingHabit                          String?
+  drinkingHabit                         String?
+  education                             String?
+  religion                              String?
+  dietaryPreference                     String?
+  wantsChildren                         String?
+  filterSmokingHabits                   String[]  @default([])
+  filterDrinkingHabits                  String[]  @default([])
+  filterEducationLevels                 String[]  @default([])
+  filterReligions                       String[]  @default([])
+  filterDietaryPreferences              String[]  @default([])
+  filterWantsChildren                   String[]  @default([])
+  filterRelationshipGoals               String[]  @default([])
+  incognitoEnabled                      Boolean   @default(false)
+  activeMode                            String    @default("DATING")
+  snoozedUntil                          DateTime?
+  readReceiptsEnabled                   Boolean   @default(true)
+  instagramUserId                       String?
+  instagramAccessToken                  String?
+  instagramTokenExpiresAt               DateTime?
+  instagramMediaUrls                    String[]  @default([])
+  instagramSyncedAt                     DateTime?
+  spotifyUserId                         String?
+  spotifyAccessToken                    String?
+  spotifyRefreshToken                   String?
+  spotifyTokenExpiresAt                 DateTime?
+  spotifyTopArtists                     String[]  @default([])
+  spotifyTopArtistsSyncedAt             DateTime?
+  anthemTrackId                         String?
+  anthemTrackName                       String?
+  anthemArtistName                      String?
+  anthemAlbumArtUrl                     String?
+  createdAt                             DateTime  @default(now())
+  updatedAt                             DateTime  @updatedAt
 
   @@map("users")
 }

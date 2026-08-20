@@ -20,6 +20,7 @@ class DeckCard {
     this.distanceKm,
     required this.interests,
     this.relationshipGoal,
+    this.relationshipIntentBadges = const [],
     this.isSuperLike = false,
     this.isBoosted = false,
   });
@@ -31,6 +32,7 @@ class DeckCard {
   final double? distanceKm;
   final List<String> interests;
   final String? relationshipGoal;
+  final List<String> relationshipIntentBadges;
   final bool isSuperLike;
   final bool isBoosted;
 }
@@ -97,6 +99,8 @@ class DiscoveryApi {
       distanceKm: (json['distanceKm'] as num?)?.toDouble(),
       interests: (json['interests'] as List).cast<String>(),
       relationshipGoal: json['relationshipGoal'] as String?,
+      relationshipIntentBadges:
+          (json['relationshipIntentBadges'] as List?)?.cast<String>() ?? const [],
       isSuperLike: json['isSuperLike'] as bool? ?? false,
       isBoosted: json['isBoosted'] as bool? ?? false,
     );

@@ -9,6 +9,8 @@ export interface RelationshipProfileResult {
   showKinkTagsOnProfile: boolean;
   relationshipDesires: string[];
   showRelationshipDesiresOnProfile: boolean;
+  customRelationshipIntent: string | null;
+  showCustomRelationshipIntentOnProfile: boolean;
 }
 
 @Injectable()
@@ -25,6 +27,8 @@ export class RelationshipProfileService {
         showKinkTagsOnProfile: true,
         relationshipDesires: true,
         showRelationshipDesiresOnProfile: true,
+        customRelationshipIntent: true,
+        showCustomRelationshipIntentOnProfile: true,
       },
     });
 
@@ -35,6 +39,8 @@ export class RelationshipProfileService {
       showKinkTagsOnProfile: user?.showKinkTagsOnProfile ?? true,
       relationshipDesires: user?.relationshipDesires ?? [],
       showRelationshipDesiresOnProfile: user?.showRelationshipDesiresOnProfile ?? true,
+      customRelationshipIntent: user?.customRelationshipIntent ?? null,
+      showCustomRelationshipIntentOnProfile: user?.showCustomRelationshipIntentOnProfile ?? true,
     };
   }
 
@@ -51,6 +57,8 @@ export class RelationshipProfileService {
         showKinkTagsOnProfile: dto.showKinkTagsOnProfile,
         relationshipDesires: dto.relationshipDesires,
         showRelationshipDesiresOnProfile: dto.showRelationshipDesiresOnProfile,
+        customRelationshipIntent: dto.customRelationshipIntent ?? null,
+        showCustomRelationshipIntentOnProfile: dto.showCustomRelationshipIntentOnProfile,
       },
     });
 
@@ -61,6 +69,8 @@ export class RelationshipProfileService {
       showKinkTagsOnProfile: user.showKinkTagsOnProfile,
       relationshipDesires: user.relationshipDesires,
       showRelationshipDesiresOnProfile: user.showRelationshipDesiresOnProfile,
+      customRelationshipIntent: user.customRelationshipIntent,
+      showCustomRelationshipIntentOnProfile: user.showCustomRelationshipIntentOnProfile,
     };
   }
 }

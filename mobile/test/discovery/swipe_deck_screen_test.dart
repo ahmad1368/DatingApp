@@ -138,6 +138,36 @@ void main() {
     expect(find.text('Super Liked You'), findsOneWidget);
   });
 
+  testWidgets('shows relationship intent badges when the candidate has them', (tester) async {
+    const badgedDeckResponse =
+        '[{"id":"user-2","name":"Jane","age":25,"profilePhotoUrl":null,'
+        '"distanceKm":3.4,"interests":["Hiking"],"relationshipGoal":"CASUAL",'
+        '"relationshipIntentBadges":["Marriage","Long-Term Relationship"]}]';
+    final api = DiscoveryApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/discovery/deck') {
+          return http.Response(
+            badgedDeckResponse,
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"active":false,"expiresAt":null,"viewCount":0}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: SwipeDeckScreen(discoveryApi: api)));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Marriage'), findsOneWidget);
+    expect(find.text('Long-Term Relationship'), findsOneWidget);
+  });
+
   testWidgets('shows a boosted badge when the candidate is boosted', (tester) async {
     const boostedDeckResponse =
         '[{"id":"user-2","name":"Jane","age":25,"profilePhotoUrl":null,'

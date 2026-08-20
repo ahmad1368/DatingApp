@@ -22,6 +22,8 @@ describe('RelationshipProfileService', () => {
         showKinkTagsOnProfile: true,
         relationshipDesires: [],
         showRelationshipDesiresOnProfile: true,
+        customRelationshipIntent: null,
+        showCustomRelationshipIntentOnProfile: true,
       });
 
       const result = await service.getRelationshipProfile(USER_ID);
@@ -33,6 +35,8 @@ describe('RelationshipProfileService', () => {
         showKinkTagsOnProfile: true,
         relationshipDesires: [],
         showRelationshipDesiresOnProfile: true,
+        customRelationshipIntent: null,
+        showCustomRelationshipIntentOnProfile: true,
       });
     });
   });
@@ -46,6 +50,8 @@ describe('RelationshipProfileService', () => {
         showKinkTagsOnProfile: true,
         relationshipDesires: ['Thruple', 'Casual Dating'],
         showRelationshipDesiresOnProfile: true,
+        customRelationshipIntent: 'Long distance okay',
+        showCustomRelationshipIntentOnProfile: true,
       };
       prisma.user.update.mockResolvedValue({
         relationshipStructure: dto.relationshipStructure,
@@ -54,6 +60,8 @@ describe('RelationshipProfileService', () => {
         showKinkTagsOnProfile: dto.showKinkTagsOnProfile,
         relationshipDesires: dto.relationshipDesires,
         showRelationshipDesiresOnProfile: dto.showRelationshipDesiresOnProfile,
+        customRelationshipIntent: dto.customRelationshipIntent,
+        showCustomRelationshipIntentOnProfile: dto.showCustomRelationshipIntentOnProfile,
       });
 
       const result = await service.setRelationshipProfile(USER_ID, dto);
@@ -67,19 +75,23 @@ describe('RelationshipProfileService', () => {
           showKinkTagsOnProfile: true,
           relationshipDesires: ['Thruple', 'Casual Dating'],
           showRelationshipDesiresOnProfile: true,
+          customRelationshipIntent: 'Long distance okay',
+          showCustomRelationshipIntentOnProfile: true,
         },
       });
       expect(result.relationshipStructure).toBe('Polyamorous');
       expect(result.showRelationshipStructureOnProfile).toBe(false);
+      expect(result.customRelationshipIntent).toBe('Long distance okay');
     });
 
-    it('clears the relationship structure when omitted', async () => {
+    it('clears the relationship structure and custom intent when omitted', async () => {
       const dto: SetRelationshipProfileDto = {
         showRelationshipStructureOnProfile: true,
         kinkTags: [],
         showKinkTagsOnProfile: true,
         relationshipDesires: [],
         showRelationshipDesiresOnProfile: true,
+        showCustomRelationshipIntentOnProfile: true,
       };
       prisma.user.update.mockResolvedValue({
         relationshipStructure: null,
@@ -88,13 +100,18 @@ describe('RelationshipProfileService', () => {
         showKinkTagsOnProfile: true,
         relationshipDesires: [],
         showRelationshipDesiresOnProfile: true,
+        customRelationshipIntent: null,
+        showCustomRelationshipIntentOnProfile: true,
       });
 
       await service.setRelationshipProfile(USER_ID, dto);
 
       expect(prisma.user.update).toHaveBeenCalledWith({
         where: { id: USER_ID },
-        data: expect.objectContaining({ relationshipStructure: null }),
+        data: expect.objectContaining({
+          relationshipStructure: null,
+          customRelationshipIntent: null,
+        }),
       });
     });
   });
