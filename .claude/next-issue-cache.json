@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-20T04:09:23.985Z",
+  "generated_at": "2026-08-20T04:25:14.926Z",
   "snapshot": [
     {
       "number": 454,
@@ -2090,18 +2090,9 @@
       "number": 37,
       "title": "Interactive Date Question / Icebreaker Games",
       "updatedAt": "2026-08-10T20:38:16Z"
-    },
-    {
-      "number": 36,
-      "title": "Location-Based Crossing Paths (People Nearby)",
-      "updatedAt": "2026-08-10T20:38:14Z"
     }
   ],
   "queue": [
-    {
-      "number": 37,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 38,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
