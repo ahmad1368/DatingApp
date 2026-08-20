@@ -39,6 +39,7 @@ model User {
   passportEnabled                       Boolean   @default(false)
   voiceIntroUrl                         String?
   voiceIntroDurationSeconds             Int?
+  videoSnippetUrl                       String?
   isCommitteeMember                     Boolean   @default(false)
   relationshipStructure                 String?
   showRelationshipStructureOnProfile    Boolean   @default(true)

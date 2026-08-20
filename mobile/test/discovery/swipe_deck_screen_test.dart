@@ -196,6 +196,35 @@ void main() {
     expect(find.text('Boosted'), findsOneWidget);
   });
 
+  testWidgets('shows a play icon when the candidate has a video snippet', (tester) async {
+    const videoDeckResponse =
+        '[{"id":"user-2","name":"Jane","age":25,"profilePhotoUrl":null,'
+        '"videoSnippetUrl":"https://example.com/snippet.mp4",'
+        '"distanceKm":3.4,"interests":["Hiking"],"relationshipGoal":"CASUAL"}]';
+    final api = DiscoveryApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/discovery/deck') {
+          return http.Response(
+            videoDeckResponse,
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"active":false,"expiresAt":null,"viewCount":0}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: SwipeDeckScreen(discoveryApi: api)));
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.play_circle_fill), findsOneWidget);
+  });
+
   testWidgets('tapping rewind undoes the last swipe and reloads the deck', (tester) async {
     var deckCallCount = 0;
     http.Request? undoRequest;

@@ -229,6 +229,12 @@ class _CardContent extends StatelessWidget {
                 ),
               ),
             ),
+          if (card.videoSnippetUrl != null)
+            const Positioned(
+              bottom: 8,
+              right: 8,
+              child: Icon(Icons.play_circle_fill, color: Colors.white, size: 32),
+            ),
         ],
       ),
     );
