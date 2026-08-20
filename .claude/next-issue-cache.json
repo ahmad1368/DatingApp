@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-20T04:43:01.984Z",
+  "generated_at": "2026-08-20T05:05:19.307Z",
   "snapshot": [
     {
       "number": 454,
@@ -2080,18 +2080,9 @@
       "number": 39,
       "title": "Custom Relationship Intent Badges",
       "updatedAt": "2026-08-10T20:38:20Z"
-    },
-    {
-      "number": 38,
-      "title": "Block Contacts / Privacy Shields",
-      "updatedAt": "2026-08-10T20:38:18Z"
     }
   ],
   "queue": [
-    {
-      "number": 39,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 40,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
