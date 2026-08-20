@@ -253,6 +253,47 @@ void main() {
     });
   });
 
+  group('DiscoveryApi.fetchLikedByGrid', () {
+    test('sends the bearer token and parses the grid', () async {
+      final api = DiscoveryApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'GET');
+          expect(request.url.path, '/discovery/likes');
+          expect(request.headers['Authorization'], 'Bearer a-jwt');
+          return http.Response(
+            '[{"id":"user-3","name":"Sam","age":29,"profilePhotoUrl":null,'
+            '"distanceKm":1.2,"interests":["Coffee"],"relationshipGoal":"CASUAL","isSuperLike":true}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final grid = await api.fetchLikedByGrid();
+
+      expect(grid, hasLength(1));
+      expect(grid.first.id, 'user-3');
+      expect(grid.first.name, 'Sam');
+      expect(grid.first.isSuperLike, isTrue);
+    });
+
+    test('throws DiscoveryApiException when the user is not premium', () async {
+      final api = DiscoveryApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '{"message":"Seeing who liked you is a premium feature."}',
+            403,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      expect(() => api.fetchLikedByGrid(), throwsA(isA<DiscoveryApiException>()));
+    });
+  });
+
   group('DiscoveryApi.setActiveMode', () {
     test('sends a PUT with the mode and parses the result', () async {
       final api = DiscoveryApi(

@@ -558,4 +558,120 @@ describe('DiscoveryService', () => {
       expect(result).toEqual({ activeMode: 'BIZZ' });
     });
   });
+
+  describe('getLikedByGrid', () => {
+    it('throws when the current user does not exist', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(service.getLikedByGrid(USER_ID)).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('throws when the current user is not premium', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: USER_ID, isPremium: false });
+
+      await expect(service.getLikedByGrid(USER_ID)).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('returns everyone who liked the user, most recent first, flagging super likes', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        isPremium: true,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+      });
+      prisma.swipe.findMany
+        .mockResolvedValueOnce([{ targetUserId: 'already-swiped' }]) // already swiped by me
+        .mockResolvedValueOnce([
+          { swiperId: 'liker-2', action: 'SUPER_LIKE' },
+          { swiperId: 'liker-1', action: 'LIKE' },
+        ]); // likers, most recent first
+      prisma.user.findMany.mockResolvedValue([
+        { id: 'liker-1', name: 'Alex', dateOfBirth: null, profilePhotoUrl: null, interests: [], relationshipGoal: null },
+        { id: 'liker-2', name: 'Sam', dateOfBirth: null, profilePhotoUrl: null, interests: [], relationshipGoal: null },
+      ]);
+
+      const grid = await service.getLikedByGrid(USER_ID);
+
+      expect(prisma.swipe.findMany).toHaveBeenNthCalledWith(2, {
+        where: {
+          targetUserId: USER_ID,
+          action: { in: ['LIKE', 'SUPER_LIKE'] },
+          swiperId: { notIn: [USER_ID, 'already-swiped'] },
+        },
+        select: { swiperId: true, action: true },
+        orderBy: { createdAt: 'desc' },
+      });
+      expect(prisma.user.findMany).toHaveBeenCalledWith({
+        where: {
+          id: { in: ['liker-2', 'liker-1'] },
+          onboardingCompletedAt: { not: null },
+          activeMode: 'DATING',
+        },
+      });
+      expect(grid.map((card) => card.id)).toEqual(['liker-2', 'liker-1']);
+      expect(grid[0].isSuperLike).toBe(true);
+      expect(grid[0].isBoosted).toBe(false);
+      expect(grid[1].isSuperLike).toBe(false);
+    });
+
+    it('returns an empty grid without querying users when nobody has liked the user', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        isPremium: true,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+      });
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+
+      const grid = await service.getLikedByGrid(USER_ID);
+
+      expect(grid).toEqual([]);
+      expect(prisma.user.findMany).not.toHaveBeenCalled();
+    });
+
+    it('applies the current active mode and lifestyle filters to the liker query', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        isPremium: true,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'BFF',
+        filterSmokingHabits: ['Never'],
+        filterDrinkingHabits: [],
+        filterEducationLevels: [],
+        filterReligions: [],
+        filterDietaryPreferences: [],
+        filterWantsChildren: [],
+        filterRelationshipGoals: [],
+      });
+      prisma.swipe.findMany
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([{ swiperId: 'liker-1', action: 'LIKE' }]);
+      prisma.user.findMany.mockResolvedValue([]);
+
+      await service.getLikedByGrid(USER_ID);
+
+      expect(prisma.user.findMany).toHaveBeenCalledWith({
+        where: {
+          id: { in: ['liker-1'] },
+          onboardingCompletedAt: { not: null },
+          activeMode: 'BFF',
+          smokingHabit: { in: ['Never'] },
+        },
+      });
+    });
+  });
 });

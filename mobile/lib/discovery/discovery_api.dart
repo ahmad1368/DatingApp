@@ -85,22 +85,21 @@ class DiscoveryApi {
     }
 
     final list = jsonDecode(response.body) as List;
-    return list
-        .cast<Map<String, dynamic>>()
-        .map(
-          (json) => DeckCard(
-            id: json['id'] as String,
-            name: json['name'] as String?,
-            age: json['age'] as int?,
-            profilePhotoUrl: json['profilePhotoUrl'] as String?,
-            distanceKm: (json['distanceKm'] as num?)?.toDouble(),
-            interests: (json['interests'] as List).cast<String>(),
-            relationshipGoal: json['relationshipGoal'] as String?,
-            isSuperLike: json['isSuperLike'] as bool? ?? false,
-            isBoosted: json['isBoosted'] as bool? ?? false,
-          ),
-        )
-        .toList();
+    return list.cast<Map<String, dynamic>>().map(_toDeckCard).toList();
+  }
+
+  DeckCard _toDeckCard(Map<String, dynamic> json) {
+    return DeckCard(
+      id: json['id'] as String,
+      name: json['name'] as String?,
+      age: json['age'] as int?,
+      profilePhotoUrl: json['profilePhotoUrl'] as String?,
+      distanceKm: (json['distanceKm'] as num?)?.toDouble(),
+      interests: (json['interests'] as List).cast<String>(),
+      relationshipGoal: json['relationshipGoal'] as String?,
+      isSuperLike: json['isSuperLike'] as bool? ?? false,
+      isBoosted: json['isBoosted'] as bool? ?? false,
+    );
   }
 
   Future<SwipeResult> recordSwipe({required String targetUserId, required String action}) async {
@@ -190,6 +189,23 @@ class DiscoveryApi {
     }
 
     return _toBoostStatus(body);
+  }
+
+  /// Premium "who liked you": everyone who has already swiped right on the
+  /// current user, most recent first. Throws [DiscoveryApiException] (403)
+  /// if the user isn't premium.
+  Future<List<DeckCard>> fetchLikedByGrid() async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/discovery/likes'),
+      headers: _headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw DiscoveryApiException(_errorMessage(_decode(response), response.statusCode));
+    }
+
+    final list = jsonDecode(response.body) as List;
+    return list.cast<Map<String, dynamic>>().map(_toDeckCard).toList();
   }
 
   /// Switches which network the user browses/matches in: 'DATING', 'BFF',

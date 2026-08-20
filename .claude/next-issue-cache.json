@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-20T02:32:25.028Z",
+  "generated_at": "2026-08-20T02:48:24.114Z",
   "snapshot": [
     {
       "number": 454,
@@ -2120,18 +2120,9 @@
       "number": 31,
       "title": "See Who Liked You (Likes You Grid)",
       "updatedAt": "2026-08-10T20:38:04Z"
-    },
-    {
-      "number": 30,
-      "title": "Friendship & Professional Networking Modes (BFF/Bizz)",
-      "updatedAt": "2026-08-10T20:38:02Z"
     }
   ],
   "queue": [
-    {
-      "number": 31,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 32,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
