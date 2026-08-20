@@ -11,6 +11,9 @@ export const MEDIA_CONTENT_TYPES = ['IMAGE', 'GIF'] as const;
 export const DEFAULT_GIF_SEARCH_LIMIT = 20;
 export const MAX_GIF_SEARCH_LIMIT = 50;
 
+export const VOICE_NOTE_CONTENT_TYPE = 'VOICE_NOTE';
+export const MAX_VOICE_NOTE_SECONDS = 60;
+
 export interface IcebreakerPrompt {
   id: string;
   question: string;

@@ -19,6 +19,7 @@ import { ReportMessageDto } from './dto/report-message.dto';
 import { SetReadReceiptsDto } from './dto/set-read-receipts.dto';
 import { SendIcebreakerDto } from './dto/send-icebreaker.dto';
 import { RespondIcebreakerDto } from './dto/respond-icebreaker.dto';
+import { SendVoiceNoteDto } from './dto/send-voice-note.dto';
 import { GifSearchService } from './gif-search.service';
 import { MessagingService } from './messaging.service';
 import { MessageModerationService } from './message-moderation.service';
@@ -93,6 +94,16 @@ export class MessagingController {
     @Body() dto: SendMediaMessageDto,
   ) {
     return this.messagingService.sendMediaMessage(user.id, matchId, dto.contentType, dto.mediaUrl);
+  }
+
+  @Post(':matchId/voice-note')
+  @HttpCode(HttpStatus.CREATED)
+  sendVoiceNote(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('matchId') matchId: string,
+    @Body() dto: SendVoiceNoteDto,
+  ) {
+    return this.messagingService.sendVoiceNote(user.id, matchId, dto.mediaUrl, dto.durationSeconds);
   }
 
   @Post(':matchId/icebreaker')

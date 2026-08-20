@@ -5,8 +5,39 @@ import 'package:http/testing.dart';
 
 import 'package:mobile/messaging/match_chat_screen.dart';
 import 'package:mobile/messaging/messaging_api.dart';
+import 'package:mobile/profile/voice_player_controller.dart';
+import 'package:mobile/profile/voice_recorder_controller.dart';
 
 const _emptyMessages = '[]';
+
+class _FakeRecorder implements VoiceRecorderController {
+  bool granted = true;
+  bool started = false;
+  String stopPath = 'file:///tmp/fake-note.m4a';
+
+  @override
+  Future<bool> hasPermission() async => granted;
+
+  @override
+  Future<void> start() async {
+    started = true;
+  }
+
+  @override
+  Future<String?> stop() async => stopPath;
+}
+
+class _FakePlayer implements VoicePlayerController {
+  String? lastPlayedPath;
+
+  @override
+  Future<void> play(String path) async {
+    lastPlayedPath = path;
+  }
+
+  @override
+  Future<void> stop() async {}
+}
 
 void main() {
   testWidgets('hides the composer and shows a banner while waiting on her first message', (
@@ -685,5 +716,147 @@ void main() {
 
     expect(extendRequest, isNotNull);
     expect(find.text('Extend 24 hours'), findsNothing);
+  });
+
+  testWidgets('records and sends a voice note', (tester) async {
+    http.Request? sendRequest;
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(_emptyMessages, 200, headers: {'content-type': 'application/json'});
+        }
+        if (request.method == 'POST' && request.url.path == '/matches/match-1/voice-note') {
+          sendRequest = request;
+          return http.Response(
+            '{"id":"m5","senderId":"user-woman","contentType":"VOICE_NOTE","content":null,'
+            '"mediaUrl":"file:///tmp/fake-note.m4a","isBlurred":false,"durationSeconds":2,'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}',
+            201,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":null,"isExpired":false,'
+          '"firstMessageSent":true,"canSendFirstMessage":true}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+    final recorder = _FakeRecorder();
+    final player = _FakePlayer();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchChatScreen(
+          messagingApi: api,
+          matchId: 'match-1',
+          currentUserId: 'user-woman',
+          recorder: recorder,
+          player: player,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.mic_none));
+    await tester.pump();
+    expect(recorder.started, isTrue);
+    expect(find.byIcon(Icons.stop_circle), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 2));
+    await tester.tap(find.byIcon(Icons.stop_circle));
+    await tester.pumpAndSettle();
+
+    expect(sendRequest, isNotNull);
+    expect(sendRequest!.body, contains('"mediaUrl":"file:///tmp/fake-note.m4a"'));
+    expect(find.textContaining('voice note'), findsOneWidget);
+  });
+
+  testWidgets('shows an error when microphone permission is denied', (tester) async {
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(_emptyMessages, 200, headers: {'content-type': 'application/json'});
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":null,"isExpired":false,'
+          '"firstMessageSent":true,"canSendFirstMessage":true}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+    final recorder = _FakeRecorder()..granted = false;
+    final player = _FakePlayer();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchChatScreen(
+          messagingApi: api,
+          matchId: 'match-1',
+          currentUserId: 'user-woman',
+          recorder: recorder,
+          player: player,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.mic_none));
+    await tester.pump();
+
+    expect(
+      find.text('Microphone permission is required to send a voice note.'),
+      findsOneWidget,
+    );
+    expect(recorder.started, isFalse);
+  });
+
+  testWidgets('tapping play on a voice note plays it back', (tester) async {
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(
+            '[{"id":"m1","senderId":"user-man","contentType":"VOICE_NOTE","content":null,'
+            '"mediaUrl":"file:///tmp/incoming-note.m4a","isBlurred":false,"durationSeconds":5,'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":null,"isExpired":false,'
+          '"firstMessageSent":true,"canSendFirstMessage":true}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+    final recorder = _FakeRecorder();
+    final player = _FakePlayer();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchChatScreen(
+          messagingApi: api,
+          matchId: 'match-1',
+          currentUserId: 'user-woman',
+          recorder: recorder,
+          player: player,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('5s voice note'), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.play_arrow));
+    await tester.pump();
+
+    expect(player.lastPlayedPath, 'file:///tmp/incoming-note.m4a');
   });
 }
