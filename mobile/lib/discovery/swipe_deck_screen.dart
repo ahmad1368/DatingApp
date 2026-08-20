@@ -18,11 +18,24 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
   String? _errorText;
   String? _matchText;
   bool _incognitoEnabled = false;
+  BoostStatus? _boostStatus;
 
   @override
   void initState() {
     super.initState();
     _loadDeck();
+    _loadBoostStatus();
+  }
+
+  Future<void> _loadBoostStatus() async {
+    try {
+      final status = await widget.discoveryApi.fetchBoostStatus();
+      if (mounted) {
+        setState(() => _boostStatus = status);
+      }
+    } catch (_) {
+      // Non-critical: leave the boost banner hidden if this fails.
+    }
   }
 
   Future<void> _loadDeck() async {
@@ -77,6 +90,16 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
     }
   }
 
+  Future<void> _activateBoost() async {
+    setState(() => _errorText = null);
+    try {
+      final status = await widget.discoveryApi.activateBoost();
+      setState(() => _boostStatus = status);
+    } on DiscoveryApiException catch (e) {
+      setState(() => _errorText = e.message);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -95,6 +118,12 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
             tooltip: 'Rewind last swipe',
             onPressed: _isLoading ? null : _handleUndo,
           ),
+          IconButton(
+            icon: const Icon(Icons.rocket_launch),
+            color: (_boostStatus?.active ?? false) ? Colors.deepOrange : null,
+            tooltip: (_boostStatus?.active ?? false) ? 'Boost active' : 'Boost your profile',
+            onPressed: (_boostStatus?.active ?? false) ? null : _activateBoost,
+          ),
         ],
       ),
       body: Column(
@@ -103,6 +132,14 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
             Padding(
               padding: const EdgeInsets.all(16),
               child: Text(_errorText!, style: const TextStyle(color: Colors.red)),
+            ),
+          if (_boostStatus?.active ?? false)
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                'Boosted! ${_boostStatus!.viewCount} extra views so far.',
+                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.deepOrange),
+              ),
             ),
           if (_matchText != null)
             Padding(

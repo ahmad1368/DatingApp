@@ -116,16 +116,54 @@ void main() {
         '"distanceKm":3.4,"interests":["Hiking"],"relationshipGoal":"CASUAL","isSuperLike":true}]';
     final api = DiscoveryApi(
       accessToken: 'a-jwt',
-      client: MockClient(
-        (request) async =>
-            http.Response(superLikedDeckResponse, 200, headers: {'content-type': 'application/json'}),
-      ),
+      client: MockClient((request) async {
+        if (request.url.path == '/discovery/deck') {
+          return http.Response(
+            superLikedDeckResponse,
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"active":false,"expiresAt":null,"viewCount":0}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
     );
 
     await tester.pumpWidget(MaterialApp(home: SwipeDeckScreen(discoveryApi: api)));
     await tester.pumpAndSettle();
 
     expect(find.text('Super Liked You'), findsOneWidget);
+  });
+
+  testWidgets('shows a boosted badge when the candidate is boosted', (tester) async {
+    const boostedDeckResponse =
+        '[{"id":"user-2","name":"Jane","age":25,"profilePhotoUrl":null,'
+        '"distanceKm":3.4,"interests":["Hiking"],"relationshipGoal":"CASUAL","isBoosted":true}]';
+    final api = DiscoveryApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/discovery/deck') {
+          return http.Response(
+            boostedDeckResponse,
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"active":false,"expiresAt":null,"viewCount":0}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: SwipeDeckScreen(discoveryApi: api)));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Boosted'), findsOneWidget);
   });
 
   testWidgets('tapping rewind undoes the last swipe and reloads the deck', (tester) async {
@@ -236,5 +274,65 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Incognito mode is a premium feature.'), findsOneWidget);
+  });
+
+  testWidgets('activating boost shows the banner and disables the button', (tester) async {
+    http.Request? boostActivateRequest;
+    final api = DiscoveryApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/discovery/deck') {
+          return http.Response('[]', 200, headers: {'content-type': 'application/json'});
+        }
+        if (request.method == 'POST' && request.url.path == '/discovery/boost') {
+          boostActivateRequest = request;
+          return http.Response(
+            '{"active":true,"expiresAt":"2026-01-01T00:30:00.000Z","viewCount":0}',
+            201,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"active":false,"expiresAt":null,"viewCount":0}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: SwipeDeckScreen(discoveryApi: api)));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.rocket_launch));
+    await tester.pumpAndSettle();
+
+    expect(boostActivateRequest, isNotNull);
+    expect(find.textContaining('Boosted!'), findsOneWidget);
+
+    final button = tester.widget<IconButton>(
+      find.ancestor(of: find.byIcon(Icons.rocket_launch), matching: find.byType(IconButton)),
+    );
+    expect(button.onPressed, isNull);
+  });
+
+  testWidgets('shows an existing active boost on load', (tester) async {
+    final api = DiscoveryApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/discovery/deck') {
+          return http.Response('[]', 200, headers: {'content-type': 'application/json'});
+        }
+        return http.Response(
+          '{"active":true,"expiresAt":"2026-01-01T00:30:00.000Z","viewCount":7}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: SwipeDeckScreen(discoveryApi: api)));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Boosted! 7 extra views so far.'), findsOneWidget);
   });
 }

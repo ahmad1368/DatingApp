@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { haversineDistanceKm } from '../location/utils/haversine';
 import { computeFirstMessageExpiresAt } from '../messaging/messaging.constants';
 import {
+  computeBoostExpiresAt,
   DAILY_SUPER_LIKE_LIMIT,
   DEFAULT_DECK_SIZE,
   LIKE_ACTIONS,
@@ -20,6 +21,7 @@ export interface DeckCard {
   interests: string[];
   relationshipGoal: string | null;
   isSuperLike: boolean;
+  isBoosted: boolean;
 }
 
 export interface SwipeResult {
@@ -35,6 +37,12 @@ export interface UndoResult {
 
 export interface IncognitoResult {
   incognitoEnabled: boolean;
+}
+
+export interface BoostStatus {
+  active: boolean;
+  expiresAt: string | null;
+  viewCount: number;
 }
 
 @Injectable()
@@ -65,21 +73,40 @@ export class DiscoveryService {
       select: { swiperId: true, action: true },
     });
     const likedMeIds = likersOfMe.map((s) => s.swiperId);
-    const superLikerIds = likersOfMe.filter((s) => s.action === 'SUPER_LIKE').map((s) => s.swiperId);
+    const superLikerIdSet = new Set(
+      likersOfMe.filter((s) => s.action === 'SUPER_LIKE').map((s) => s.swiperId),
+    );
 
-    const priorityCandidates =
-      superLikerIds.length > 0
+    const activeBoosts = await this.prisma.boost.findMany({
+      where: { expiresAt: { gt: new Date() }, userId: { notIn: excludedIds } },
+      orderBy: { createdAt: 'asc' },
+    });
+    const boostedIdSet = new Set(activeBoosts.map((boost) => boost.userId));
+
+    // Boosted profiles get top priority ("pushed to the top"), then anyone
+    // who has super-liked the viewer, de-duplicated in that order.
+    const priorityIdsOrdered = [
+      ...boostedIdSet,
+      ...[...superLikerIdSet].filter((id) => !boostedIdSet.has(id)),
+    ];
+
+    const priorityCandidatesRaw =
+      priorityIdsOrdered.length > 0
         ? await this.prisma.user.findMany({
             where: {
-              id: { in: superLikerIds },
+              id: { in: priorityIdsOrdered },
               onboardingCompletedAt: { not: null },
               ...lifestyleWhere,
             },
             take: DEFAULT_DECK_SIZE,
           })
         : [];
+    const priorityCandidateById = new Map(priorityCandidatesRaw.map((c) => [c.id, c]));
+    const priorityCandidates = priorityIdsOrdered
+      .map((id) => priorityCandidateById.get(id))
+      .filter((candidate): candidate is (typeof priorityCandidatesRaw)[number] => candidate != null)
+      .slice(0, DEFAULT_DECK_SIZE);
     const priorityIds = priorityCandidates.map((candidate) => candidate.id);
-    const superLikerIdSet = new Set(priorityIds);
 
     const remainingCandidates = await this.prisma.user.findMany({
       where: {
@@ -92,6 +119,14 @@ export class DiscoveryService {
     });
 
     const candidates = [...priorityCandidates, ...remainingCandidates];
+
+    const shownBoostedIds = priorityIds.filter((id) => boostedIdSet.has(id));
+    if (shownBoostedIds.length > 0) {
+      await this.prisma.boost.updateMany({
+        where: { userId: { in: shownBoostedIds }, expiresAt: { gt: new Date() } },
+        data: { viewCount: { increment: 1 } },
+      });
+    }
 
     const usingPassport =
       currentUser.passportEnabled &&
@@ -117,6 +152,7 @@ export class DiscoveryService {
       interests: candidate.interests,
       relationshipGoal: candidate.relationshipGoal,
       isSuperLike: superLikerIdSet.has(candidate.id),
+      isBoosted: boostedIdSet.has(candidate.id),
     }));
   }
 
@@ -233,6 +269,47 @@ export class DiscoveryService {
     });
 
     return { incognitoEnabled: updated.incognitoEnabled };
+  }
+
+  /**
+   * Premium "boost": puts the user at the top of nearby decks for 30
+   * minutes. Priority placement and view-count tracking happen in
+   * [getDeck] whenever this boost is still active.
+   */
+  async activateBoost(userId: string): Promise<BoostStatus> {
+    const currentUser = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!currentUser) {
+      throw new NotFoundException('User not found.');
+    }
+    if (!currentUser.isPremium) {
+      throw new ForbiddenException('Boost is a premium feature.');
+    }
+
+    const existing = await this.prisma.boost.findFirst({
+      where: { userId, expiresAt: { gt: new Date() } },
+    });
+    if (existing) {
+      throw new BadRequestException('You already have an active boost.');
+    }
+
+    const boost = await this.prisma.boost.create({
+      data: { userId, expiresAt: computeBoostExpiresAt(new Date()) },
+    });
+
+    return { active: true, expiresAt: boost.expiresAt.toISOString(), viewCount: boost.viewCount };
+  }
+
+  async getBoostStatus(userId: string): Promise<BoostStatus> {
+    const boost = await this.prisma.boost.findFirst({
+      where: { userId, expiresAt: { gt: new Date() } },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!boost) {
+      return { active: false, expiresAt: null, viewCount: 0 };
+    }
+
+    return { active: true, expiresAt: boost.expiresAt.toISOString(), viewCount: boost.viewCount };
   }
 
   private buildLifestyleFilterWhere(currentUser: {
