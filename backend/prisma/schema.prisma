@@ -62,6 +62,7 @@ model User {
   incognitoEnabled                   Boolean   @default(false)
   activeMode                         String    @default("DATING")
   snoozedUntil                       DateTime?
+  readReceiptsEnabled                Boolean   @default(true)
   instagramUserId                    String?
   instagramAccessToken               String?
   instagramTokenExpiresAt            DateTime?
@@ -138,14 +139,15 @@ model Match {
 }
 
 model Message {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   matchId     String
   senderId    String
-  contentType String   @default("TEXT")
+  contentType String    @default("TEXT")
   content     String?
   mediaUrl    String?
-  isBlurred   Boolean  @default(false)
-  createdAt   DateTime @default(now())
+  isBlurred   Boolean   @default(false)
+  readAt      DateTime?
+  createdAt   DateTime  @default(now())
 
   match Match @relation(fields: [matchId], references: [id])
 

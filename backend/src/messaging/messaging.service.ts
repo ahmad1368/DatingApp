@@ -17,7 +17,12 @@ export interface MessageView {
   content: string | null;
   mediaUrl: string | null;
   isBlurred: boolean;
+  readAt: string | null;
   createdAt: string;
+}
+
+export interface ReadReceiptsResult {
+  readReceiptsEnabled: boolean;
 }
 
 export interface MatchSummaryView {
@@ -129,6 +134,13 @@ export class MessagingService {
     return this.toMessageView(updated);
   }
 
+  /**
+   * Listing a conversation doubles as "opening" it: any of the other
+   * person's messages that aren't marked read yet get stamped now, unless
+   * the current user has turned off read receipts (see
+   * [setReadReceiptsEnabled]) - in that case their reads never show up to
+   * the sender, mirroring how the toggle behaves elsewhere in the app.
+   */
   async listMessages(userId: string, matchId: string): Promise<MessageView[]> {
     await this.getMatchForUser(userId, matchId);
 
@@ -137,7 +149,45 @@ export class MessagingService {
       orderBy: { createdAt: 'asc' },
     });
 
+    const unreadIncomingIds = messages
+      .filter((message) => message.senderId !== userId && message.readAt == null)
+      .map((message) => message.id);
+
+    if (unreadIncomingIds.length > 0) {
+      const currentUser = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { readReceiptsEnabled: true },
+      });
+
+      if (currentUser?.readReceiptsEnabled) {
+        const readAt = new Date();
+        await this.prisma.message.updateMany({
+          where: { id: { in: unreadIncomingIds } },
+          data: { readAt },
+        });
+        const unreadIdSet = new Set(unreadIncomingIds);
+        return messages.map((message) =>
+          this.toMessageView(unreadIdSet.has(message.id) ? { ...message, readAt } : message),
+        );
+      }
+    }
+
     return messages.map((message) => this.toMessageView(message));
+  }
+
+  /**
+   * Privacy toggle: when disabled, the current user's reads of other
+   * people's messages are never stamped, so senders never see their
+   * messages as read. Does not affect whether this user can see read
+   * receipts on messages they sent while receipts were enabled.
+   */
+  async setReadReceiptsEnabled(userId: string, enabled: boolean): Promise<ReadReceiptsResult> {
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: { readReceiptsEnabled: enabled },
+    });
+
+    return { readReceiptsEnabled: updated.readReceiptsEnabled };
   }
 
   /**
@@ -275,6 +325,7 @@ export class MessagingService {
     content: string | null;
     mediaUrl: string | null;
     isBlurred: boolean;
+    readAt: Date | null;
     createdAt: Date;
   }): MessageView {
     return {
@@ -284,6 +335,7 @@ export class MessagingService {
       content: message.content,
       mediaUrl: message.mediaUrl,
       isBlurred: message.isBlurred,
+      readAt: message.readAt ? message.readAt.toISOString() : null,
       createdAt: message.createdAt.toISOString(),
     };
   }
