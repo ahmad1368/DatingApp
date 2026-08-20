@@ -168,6 +168,37 @@ void main() {
     expect(find.text('Long-Term Relationship'), findsOneWidget);
   });
 
+  testWidgets('shows lifestyle badges when the candidate has them', (tester) async {
+    const badgedDeckResponse =
+        '[{"id":"user-2","name":"Jane","age":25,"profilePhotoUrl":null,'
+        '"distanceKm":3.4,"interests":["Hiking"],"relationshipGoal":"CASUAL",'
+        '"lifestyleBadges":["178 cm","Workout: Often","Dog"]}]';
+    final api = DiscoveryApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/discovery/deck') {
+          return http.Response(
+            badgedDeckResponse,
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"active":false,"expiresAt":null,"viewCount":0}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: SwipeDeckScreen(discoveryApi: api)));
+    await tester.pumpAndSettle();
+
+    expect(find.text('178 cm'), findsOneWidget);
+    expect(find.text('Workout: Often'), findsOneWidget);
+    expect(find.text('Dog'), findsOneWidget);
+  });
+
   testWidgets('shows a boosted badge when the candidate is boosted', (tester) async {
     const boostedDeckResponse =
         '[{"id":"user-2","name":"Jane","age":25,"profilePhotoUrl":null,'

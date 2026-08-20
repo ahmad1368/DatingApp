@@ -51,6 +51,25 @@ void main() {
       expect(deck.first.relationshipIntentBadges, ['Marriage', 'Long-Term Relationship']);
     });
 
+    test('parses lifestyleBadges when the backend includes them', () async {
+      final api = DiscoveryApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '[{"id":"user-2","name":"Jane","age":25,"profilePhotoUrl":null,'
+            '"distanceKm":3.4,"interests":["Hiking"],"relationshipGoal":"CASUAL",'
+            '"lifestyleBadges":["178 cm","Workout: Often","Dog"]}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      final deck = await api.fetchDeck();
+
+      expect(deck.first.lifestyleBadges, ['178 cm', 'Workout: Often', 'Dog']);
+    });
+
     test('parses videoSnippetUrl when the backend includes it', () async {
       final api = DiscoveryApi(
         accessToken: 'a-jwt',

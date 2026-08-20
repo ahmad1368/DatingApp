@@ -1,4 +1,4 @@
-import { ArrayMaxSize, IsArray, IsIn, IsOptional } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsInt, IsOptional, Max, Min } from 'class-validator';
 import { RELATIONSHIP_GOALS } from '../../onboarding/onboarding.constants';
 import {
   CHILDREN_PREFERENCES,
@@ -6,8 +6,12 @@ import {
   DRINKING_HABITS,
   EDUCATION_LEVELS,
   MAX_FILTER_SELECTIONS,
+  MAX_HEIGHT_CM,
+  MIN_HEIGHT_CM,
+  PET_OWNERSHIP_OPTIONS,
   RELIGIONS,
   SMOKING_HABITS,
+  WORKOUT_HABITS,
 } from '../lifestyle-filters.constants';
 
 export class SetLifestyleFiltersDto {
@@ -34,6 +38,23 @@ export class SetLifestyleFiltersDto {
   @IsOptional()
   @IsIn(CHILDREN_PREFERENCES)
   wantsChildren?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(MIN_HEIGHT_CM)
+  @Max(MAX_HEIGHT_CM)
+  heightCm?: number;
+
+  @IsOptional()
+  @IsIn(WORKOUT_HABITS)
+  workoutHabit?: string;
+
+  @IsOptional()
+  @IsIn(PET_OWNERSHIP_OPTIONS)
+  petOwnership?: string;
+
+  @IsBoolean()
+  showLifestyleBadgesOnProfile!: boolean;
 
   @IsArray()
   @ArrayMaxSize(MAX_FILTER_SELECTIONS)

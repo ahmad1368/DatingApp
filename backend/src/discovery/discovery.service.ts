@@ -26,6 +26,7 @@ export interface DeckCard {
   interests: string[];
   relationshipGoal: string | null;
   relationshipIntentBadges: string[];
+  lifestyleBadges: string[];
   isSuperLike: boolean;
   isBoosted: boolean;
 }
@@ -255,6 +256,12 @@ export class DiscoveryService {
       showRelationshipDesiresOnProfile: boolean;
       customRelationshipIntent: string | null;
       showCustomRelationshipIntentOnProfile: boolean;
+      heightCm: number | null;
+      workoutHabit: string | null;
+      petOwnership: string | null;
+      smokingHabit: string | null;
+      drinkingHabit: string | null;
+      showLifestyleBadgesOnProfile: boolean;
     },
     now: Date,
     origin: { latitude: number | null; longitude: number | null },
@@ -276,6 +283,7 @@ export class DiscoveryService {
       interests: candidate.interests,
       relationshipGoal: candidate.relationshipGoal,
       relationshipIntentBadges: this.buildRelationshipIntentBadges(candidate),
+      lifestyleBadges: this.buildLifestyleBadges(candidate),
       isSuperLike: flags.isSuperLike,
       isBoosted: flags.isBoosted,
     };
@@ -298,6 +306,40 @@ export class DiscoveryService {
     }
     if (candidate.showCustomRelationshipIntentOnProfile && candidate.customRelationshipIntent) {
       badges.push(candidate.customRelationshipIntent);
+    }
+    return badges;
+  }
+
+  /**
+   * Compact lifestyle badges (height, workout, pets, smoking, drinking),
+   * gated by the candidate's own display toggle.
+   */
+  private buildLifestyleBadges(candidate: {
+    heightCm: number | null;
+    workoutHabit: string | null;
+    petOwnership: string | null;
+    smokingHabit: string | null;
+    drinkingHabit: string | null;
+    showLifestyleBadgesOnProfile: boolean;
+  }): string[] {
+    if (!candidate.showLifestyleBadgesOnProfile) {
+      return [];
+    }
+    const badges: string[] = [];
+    if (candidate.heightCm != null) {
+      badges.push(`${candidate.heightCm} cm`);
+    }
+    if (candidate.workoutHabit) {
+      badges.push(`Workout: ${candidate.workoutHabit}`);
+    }
+    if (candidate.petOwnership) {
+      badges.push(candidate.petOwnership);
+    }
+    if (candidate.smokingHabit) {
+      badges.push(`Smoking: ${candidate.smokingHabit}`);
+    }
+    if (candidate.drinkingHabit) {
+      badges.push(`Drinking: ${candidate.drinkingHabit}`);
     }
     return badges;
   }
