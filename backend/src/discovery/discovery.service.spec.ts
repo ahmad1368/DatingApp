@@ -68,6 +68,7 @@ describe('DiscoveryService', () => {
         passportEnabled: false,
         passportLatitude: null,
         passportLongitude: null,
+        activeMode: 'DATING',
         ...noFilters,
       });
       prisma.swipe.findMany
@@ -92,6 +93,7 @@ describe('DiscoveryService', () => {
         where: {
           id: { notIn: [USER_ID, 'already-swiped'] },
           onboardingCompletedAt: { not: null },
+          activeMode: 'DATING',
           OR: [{ incognitoEnabled: false }, { id: { in: [] } }],
         },
         take: 20,
@@ -111,6 +113,7 @@ describe('DiscoveryService', () => {
         passportEnabled: false,
         passportLatitude: null,
         passportLongitude: null,
+        activeMode: 'DATING',
         filterSmokingHabits: ['Never'],
         filterDrinkingHabits: [],
         filterEducationLevels: ['Bachelors', 'Masters'],
@@ -128,6 +131,7 @@ describe('DiscoveryService', () => {
         where: {
           id: { notIn: [USER_ID] },
           onboardingCompletedAt: { not: null },
+          activeMode: 'DATING',
           OR: [{ incognitoEnabled: false }, { id: { in: [] } }],
           smokingHabit: { in: ['Never'] },
           education: { in: ['Bachelors', 'Masters'] },
@@ -145,6 +149,7 @@ describe('DiscoveryService', () => {
         passportEnabled: false,
         passportLatitude: null,
         passportLongitude: null,
+        activeMode: 'DATING',
         ...noFilters,
       });
       prisma.swipe.findMany
@@ -161,13 +166,18 @@ describe('DiscoveryService', () => {
       const deck = await service.getDeck(USER_ID);
 
       expect(prisma.user.findMany).toHaveBeenNthCalledWith(1, {
-        where: { id: { in: ['super-liker-1'] }, onboardingCompletedAt: { not: null } },
+        where: {
+          id: { in: ['super-liker-1'] },
+          onboardingCompletedAt: { not: null },
+          activeMode: 'DATING',
+        },
         take: 20,
       });
       expect(prisma.user.findMany).toHaveBeenNthCalledWith(2, {
         where: {
           id: { notIn: [USER_ID, 'super-liker-1'] },
           onboardingCompletedAt: { not: null },
+          activeMode: 'DATING',
           OR: [{ incognitoEnabled: false }, { id: { in: ['super-liker-1'] } }],
         },
         take: 19,
@@ -185,6 +195,7 @@ describe('DiscoveryService', () => {
         passportEnabled: false,
         passportLatitude: null,
         passportLongitude: null,
+        activeMode: 'DATING',
         ...noFilters,
       });
       prisma.swipe.findMany
@@ -198,6 +209,7 @@ describe('DiscoveryService', () => {
         where: {
           id: { notIn: [USER_ID] },
           onboardingCompletedAt: { not: null },
+          activeMode: 'DATING',
           OR: [{ incognitoEnabled: false }, { id: { in: ['liker-1'] } }],
         },
         take: 20,
@@ -212,6 +224,7 @@ describe('DiscoveryService', () => {
         passportEnabled: false,
         passportLatitude: null,
         passportLongitude: null,
+        activeMode: 'DATING',
         ...noFilters,
       });
       prisma.swipe.findMany
@@ -239,6 +252,33 @@ describe('DiscoveryService', () => {
       expect(prisma.boost.updateMany).toHaveBeenCalledWith({
         where: { userId: { in: ['boosted-1'] }, expiresAt: { gt: expect.any(Date) } },
         data: { viewCount: { increment: 1 } },
+      });
+    });
+
+    it('only surfaces candidates who share the current active mode', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'BFF',
+        ...noFilters,
+      });
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      prisma.user.findMany.mockResolvedValue([]);
+
+      await service.getDeck(USER_ID);
+
+      expect(prisma.user.findMany).toHaveBeenCalledWith({
+        where: {
+          id: { notIn: [USER_ID] },
+          onboardingCompletedAt: { not: null },
+          activeMode: 'BFF',
+          OR: [{ incognitoEnabled: false }, { id: { in: [] } }],
+        },
+        take: 20,
       });
     });
   });
@@ -502,6 +542,20 @@ describe('DiscoveryService', () => {
       const result = await service.getBoostStatus(USER_ID);
 
       expect(result).toEqual({ active: true, expiresAt: expiresAt.toISOString(), viewCount: 5 });
+    });
+  });
+
+  describe('setActiveMode', () => {
+    it('updates and returns the new active mode', async () => {
+      prisma.user.update.mockResolvedValue({ activeMode: 'BIZZ' });
+
+      const result = await service.setActiveMode(USER_ID, 'BIZZ');
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: USER_ID },
+        data: { activeMode: 'BIZZ' },
+      });
+      expect(result).toEqual({ activeMode: 'BIZZ' });
     });
   });
 });

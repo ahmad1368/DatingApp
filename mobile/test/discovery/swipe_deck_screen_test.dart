@@ -335,4 +335,46 @@ void main() {
 
     expect(find.text('Boosted! 7 extra views so far.'), findsOneWidget);
   });
+
+  testWidgets('switching mode calls the API and reloads the deck', (tester) async {
+    http.Request? modeRequest;
+    var deckCallCount = 0;
+    final api = DiscoveryApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/discovery/deck') {
+          deckCallCount += 1;
+          return http.Response('[]', 200, headers: {'content-type': 'application/json'});
+        }
+        if (request.method == 'PUT' && request.url.path == '/discovery/mode') {
+          modeRequest = request;
+          return http.Response(
+            '{"activeMode":"BFF"}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"active":false,"expiresAt":null,"viewCount":0}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: SwipeDeckScreen(discoveryApi: api)));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Discover · Dating'), findsOneWidget);
+
+    await tester.tap(find.text('Discover · Dating'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('BFF').last);
+    await tester.pumpAndSettle();
+
+    expect(modeRequest, isNotNull);
+    expect(modeRequest!.body, '{"mode":"BFF"}');
+    expect(find.text('Discover · BFF'), findsOneWidget);
+    expect(deckCallCount, 2);
+  });
 }

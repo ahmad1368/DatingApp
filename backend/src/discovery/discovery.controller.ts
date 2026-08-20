@@ -3,6 +3,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AuthenticatedUser, JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RecordSwipeDto } from './dto/record-swipe.dto';
 import { SetIncognitoModeDto } from './dto/set-incognito-mode.dto';
+import { SetActiveModeDto } from './dto/set-active-mode.dto';
 import { DiscoveryService } from './discovery.service';
 
 @Controller('discovery')
@@ -42,5 +43,11 @@ export class DiscoveryController {
   @Get('boost')
   getBoostStatus(@CurrentUser() user: AuthenticatedUser) {
     return this.discoveryService.getBoostStatus(user.id);
+  }
+
+  @Put('mode')
+  @HttpCode(HttpStatus.OK)
+  setActiveMode(@CurrentUser() user: AuthenticatedUser, @Body() dto: SetActiveModeDto) {
+    return this.discoveryService.setActiveMode(user.id, dto.mode);
   }
 }

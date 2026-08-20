@@ -19,6 +19,7 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
   String? _matchText;
   bool _incognitoEnabled = false;
   BoostStatus? _boostStatus;
+  String _activeMode = 'DATING';
 
   @override
   void initState() {
@@ -100,11 +101,50 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
     }
   }
 
+  Future<void> _switchMode(String mode) async {
+    if (mode == _activeMode) {
+      return;
+    }
+    setState(() => _errorText = null);
+    try {
+      final newMode = await widget.discoveryApi.setActiveMode(mode);
+      setState(() => _activeMode = newMode);
+      await _loadDeck();
+    } on DiscoveryApiException catch (e) {
+      setState(() => _errorText = e.message);
+    }
+  }
+
+  String _modeLabel(String mode) {
+    switch (mode) {
+      case 'BFF':
+        return 'BFF';
+      case 'BIZZ':
+        return 'Bizz';
+      case 'DATING':
+      default:
+        return 'Dating';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Discover'),
+        title: PopupMenuButton<String>(
+          tooltip: 'Switch mode',
+          onSelected: _switchMode,
+          itemBuilder: (context) => ['DATING', 'BFF', 'BIZZ']
+              .map((mode) => PopupMenuItem<String>(value: mode, child: Text(_modeLabel(mode))))
+              .toList(),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Discover · ${_modeLabel(_activeMode)}'),
+              const Icon(Icons.arrow_drop_down),
+            ],
+          ),
+        ),
         actions: [
           IconButton(
             icon: Icon(_incognitoEnabled ? Icons.visibility_off : Icons.visibility),

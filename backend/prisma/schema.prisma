@@ -60,6 +60,7 @@ model User {
   filterWantsChildren                String[]  @default([])
   filterRelationshipGoals            String[]  @default([])
   incognitoEnabled                   Boolean   @default(false)
+  activeMode                         String    @default("DATING")
   instagramUserId                    String?
   instagramAccessToken               String?
   instagramTokenExpiresAt            DateTime?
