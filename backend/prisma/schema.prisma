@@ -29,6 +29,7 @@ model User {
   interests                             String[]  @default([])
   onboardingCompletedAt                 DateTime?
   isPremium                             Boolean   @default(false)
+  giftTokenBalance                      Int       @default(100)
   latitude                              Float?
   longitude                             Float?
   locationUpdatedAt                     DateTime?
@@ -205,6 +206,20 @@ model UserReport {
   @@index([reportedUserId])
   @@index([reporterId])
   @@map("user_reports")
+}
+
+model GiftTransaction {
+  id          String   @id @default(uuid())
+  senderId    String
+  recipientId String
+  giftId      String
+  tokenCost   Int
+  message     String?
+  createdAt   DateTime @default(now())
+
+  @@index([senderId])
+  @@index([recipientId])
+  @@map("gift_transactions")
 }
 
 model DateCheckIn {

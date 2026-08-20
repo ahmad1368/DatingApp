@@ -16,6 +16,7 @@ import { PersonalityModule } from './personality/personality.module';
 import { CallingModule } from './calling/calling.module';
 import { SafetyModule } from './safety/safety.module';
 import { BlockingModule } from './blocking/blocking.module';
+import { GiftingModule } from './gifting/gifting.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { BlockingModule } from './blocking/blocking.module';
     CallingModule,
     SafetyModule,
     BlockingModule,
+    GiftingModule,
   ],
 })
 export class AppModule {}

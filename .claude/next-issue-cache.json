@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-20T05:05:19.307Z",
+  "generated_at": "2026-08-20T05:08:33.065Z",
   "snapshot": [
     {
       "number": 454,
@@ -2075,18 +2075,9 @@
       "number": 40,
       "title": "Virtual Gifts and Tip Reactions",
       "updatedAt": "2026-08-10T20:38:22Z"
-    },
-    {
-      "number": 39,
-      "title": "Custom Relationship Intent Badges",
-      "updatedAt": "2026-08-10T20:38:20Z"
     }
   ],
   "queue": [
-    {
-      "number": 40,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 41,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
