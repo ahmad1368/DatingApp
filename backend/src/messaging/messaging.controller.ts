@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Param,
   Post,
+  Put,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -15,6 +16,7 @@ import { SendMessageDto } from './dto/send-message.dto';
 import { SendMediaMessageDto } from './dto/send-media-message.dto';
 import { CheckMessageDto } from './dto/check-message.dto';
 import { ReportMessageDto } from './dto/report-message.dto';
+import { SetReadReceiptsDto } from './dto/set-read-receipts.dto';
 import { GifSearchService } from './gif-search.service';
 import { MessagingService } from './messaging.service';
 import { MessageModerationService } from './message-moderation.service';
@@ -36,6 +38,12 @@ export class MessagingController {
   @Get('gifs/search')
   searchGifs(@Query('q') q: string, @Query('limit') limit?: string) {
     return this.gifSearchService.search(q, limit ? Number(limit) : undefined);
+  }
+
+  @Put('read-receipts')
+  @HttpCode(HttpStatus.OK)
+  setReadReceiptsEnabled(@CurrentUser() user: AuthenticatedUser, @Body() dto: SetReadReceiptsDto) {
+    return this.messagingService.setReadReceiptsEnabled(user.id, dto.enabled);
   }
 
   @Post('moderation/check')

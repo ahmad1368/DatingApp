@@ -96,6 +96,27 @@ void main() {
       expect(messages.first.content, 'hi');
       expect(messages.first.senderId, 'user-1');
       expect(messages.first.contentType, 'TEXT');
+      expect(messages.first.isRead, isFalse);
+    });
+
+    test('parses readAt when the backend includes it', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '[{"id":"m1","senderId":"user-1","contentType":"TEXT","content":"hi",'
+            '"mediaUrl":null,"isBlurred":false,"readAt":"2026-01-01T00:05:00.000Z",'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      final messages = await api.fetchMessages('match-1');
+
+      expect(messages.first.isRead, isTrue);
+      expect(messages.first.readAt, DateTime.parse('2026-01-01T00:05:00.000Z'));
     });
   });
 
@@ -258,6 +279,37 @@ void main() {
       );
 
       expect(() => api.checkMessage('hi'), throwsA(isA<MessagingApiException>()));
+    });
+  });
+
+  group('MessagingApi.setReadReceiptsEnabled', () {
+    test('sends a PUT with the enabled flag and parses the result', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'PUT');
+          expect(request.url.path, '/matches/read-receipts');
+          expect(request.body, '{"enabled":false}');
+          return http.Response(
+            '{"readReceiptsEnabled":false}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final result = await api.setReadReceiptsEnabled(false);
+
+      expect(result, isFalse);
+    });
+
+    test('throws MessagingApiException on a non-200 response', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => http.Response('', 500)),
+      );
+
+      expect(() => api.setReadReceiptsEnabled(true), throwsA(isA<MessagingApiException>()));
     });
   });
 

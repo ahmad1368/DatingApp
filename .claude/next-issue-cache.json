@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-20T03:51:59.775Z",
+  "generated_at": "2026-08-20T03:56:18.399Z",
   "snapshot": [
     {
       "number": 454,
@@ -2100,18 +2100,9 @@
       "number": 35,
       "title": "Read Receipts Control",
       "updatedAt": "2026-08-10T20:38:12Z"
-    },
-    {
-      "number": 34,
-      "title": "In-App Safety Center & Emergency Assistance",
-      "updatedAt": "2026-08-10T20:38:10Z"
     }
   ],
   "queue": [
-    {
-      "number": 35,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 36,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"

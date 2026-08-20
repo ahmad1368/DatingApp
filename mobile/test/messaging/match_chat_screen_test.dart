@@ -391,4 +391,112 @@ void main() {
     expect(reportRequest!.url.path, '/matches/match-1/messages/m1/report');
     expect(reportRequest!.body, '{"reason":"harassing me"}');
   });
+
+  testWidgets('shows a Read label under my own message once it has been read', (tester) async {
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(
+            '[{"id":"m1","senderId":"user-woman","contentType":"TEXT","content":"hi!",'
+            '"mediaUrl":null,"isBlurred":false,"readAt":"2026-01-01T00:05:00.000Z",'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":null,"isExpired":false,'
+          '"firstMessageSent":true,"canSendFirstMessage":true}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchChatScreen(messagingApi: api, matchId: 'match-1', currentUserId: 'user-woman'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Read'), findsOneWidget);
+  });
+
+  testWidgets('does not show a Read label for an unread message from the other person', (
+    tester,
+  ) async {
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(
+            '[{"id":"m1","senderId":"user-man","contentType":"TEXT","content":"hey",'
+            '"mediaUrl":null,"isBlurred":false,"readAt":"2026-01-01T00:05:00.000Z",'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":null,"isExpired":false,'
+          '"firstMessageSent":true,"canSendFirstMessage":true}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchChatScreen(messagingApi: api, matchId: 'match-1', currentUserId: 'user-woman'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Read'), findsNothing);
+  });
+
+  testWidgets('toggling read receipts calls the API and switches the icon', (tester) async {
+    http.Request? toggleRequest;
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.method == 'PUT' && request.url.path == '/matches/read-receipts') {
+          toggleRequest = request;
+          return http.Response(
+            '{"readReceiptsEnabled":false}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(_emptyMessages, 200, headers: {'content-type': 'application/json'});
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":null,"isExpired":false,'
+          '"firstMessageSent":true,"canSendFirstMessage":true}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchChatScreen(messagingApi: api, matchId: 'match-1', currentUserId: 'user-woman'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.done_all), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.done_all));
+    await tester.pumpAndSettle();
+
+    expect(toggleRequest, isNotNull);
+    expect(toggleRequest!.body, '{"enabled":false}');
+    expect(find.byIcon(Icons.done), findsOneWidget);
+  });
 }

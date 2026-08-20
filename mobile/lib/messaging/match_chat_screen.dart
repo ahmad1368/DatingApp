@@ -30,6 +30,7 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
   List<ChatMessage> _messages = [];
   bool _isLoading = true;
   bool _isSending = false;
+  bool _readReceiptsEnabled = true;
   String? _errorText;
 
   @override
@@ -194,6 +195,16 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
     }
   }
 
+  Future<void> _toggleReadReceipts() async {
+    setState(() => _errorText = null);
+    try {
+      final enabled = await widget.messagingApi.setReadReceiptsEnabled(!_readReceiptsEnabled);
+      setState(() => _readReceiptsEnabled = enabled);
+    } on MessagingApiException catch (e) {
+      setState(() => _errorText = e.message);
+    }
+  }
+
   Future<void> _openGifPicker() async {
     final gif = await showDialog<GifResult>(
       context: context,
@@ -229,7 +240,17 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Chat')),
+      appBar: AppBar(
+        title: const Text('Chat'),
+        actions: [
+          IconButton(
+            icon: Icon(_readReceiptsEnabled ? Icons.done_all : Icons.done),
+            color: _readReceiptsEnabled ? Colors.indigo : null,
+            tooltip: _readReceiptsEnabled ? 'Read receipts on' : 'Read receipts off',
+            onPressed: _toggleReadReceipts,
+          ),
+        ],
+      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : Column(
@@ -254,7 +275,18 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
                             final isMine = message.senderId == widget.currentUserId;
                             final bubble = Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                              child: _buildMessageContent(message, isMine),
+                              child: Column(
+                                crossAxisAlignment:
+                                    isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                                children: [
+                                  _buildMessageContent(message, isMine),
+                                  if (isMine && message.isRead)
+                                    const Text(
+                                      'Read',
+                                      style: TextStyle(fontSize: 11, color: Colors.grey),
+                                    ),
+                                ],
+                              ),
                             );
                             return Align(
                               alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,

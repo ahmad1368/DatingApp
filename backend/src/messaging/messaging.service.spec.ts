@@ -14,8 +14,14 @@ describe('MessagingService', () => {
   let service: MessagingService;
   let prisma: {
     match: { findUnique: jest.Mock; update: jest.Mock; findMany: jest.Mock; delete: jest.Mock };
-    message: { create: jest.Mock; findMany: jest.Mock; findUnique: jest.Mock; update: jest.Mock };
-    user: { findUnique: jest.Mock; findMany: jest.Mock };
+    message: {
+      create: jest.Mock;
+      findMany: jest.Mock;
+      findUnique: jest.Mock;
+      update: jest.Mock;
+      updateMany: jest.Mock;
+    };
+    user: { findUnique: jest.Mock; findMany: jest.Mock; update: jest.Mock };
     swipe: { deleteMany: jest.Mock };
     $transaction: jest.Mock;
   };
@@ -23,8 +29,14 @@ describe('MessagingService', () => {
   beforeEach(() => {
     prisma = {
       match: { findUnique: jest.fn(), update: jest.fn(), findMany: jest.fn(), delete: jest.fn() },
-      message: { create: jest.fn(), findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
-      user: { findUnique: jest.fn(), findMany: jest.fn() },
+      message: {
+        create: jest.fn(),
+        findMany: jest.fn(),
+        findUnique: jest.fn(),
+        update: jest.fn(),
+        updateMany: jest.fn(),
+      },
+      user: { findUnique: jest.fn(), findMany: jest.fn(), update: jest.fn() },
       swipe: { deleteMany: jest.fn() },
       $transaction: jest.fn((ops: unknown[]) => Promise.all(ops)),
     };
@@ -172,6 +184,7 @@ describe('MessagingService', () => {
         content: 'hi',
         mediaUrl: null,
         isBlurred: false,
+        readAt: null,
         createdAt: '2026-01-01T00:00:00.000Z',
       });
     });
@@ -387,9 +400,92 @@ describe('MessagingService', () => {
           content: 'hi',
           mediaUrl: null,
           isBlurred: false,
+          readAt: null,
           createdAt: '2026-01-01T00:00:00.000Z',
         },
       ]);
+      expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    });
+
+    it("marks the other person's unread messages as read when receipts are enabled", async () => {
+      mockMatch();
+      prisma.message.findMany.mockResolvedValue([
+        {
+          id: 'm1',
+          senderId: MAN_ID,
+          contentType: 'TEXT',
+          content: 'hey',
+          mediaUrl: null,
+          isBlurred: false,
+          readAt: null,
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ]);
+      prisma.user.findUnique.mockResolvedValue({ readReceiptsEnabled: true });
+
+      const messages = await service.listMessages(WOMAN_ID, MATCH_ID);
+
+      expect(prisma.message.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: ['m1'] } },
+        data: { readAt: expect.any(Date) },
+      });
+      expect(messages[0].readAt).not.toBeNull();
+    });
+
+    it('does not stamp reads when the reader has disabled read receipts', async () => {
+      mockMatch();
+      prisma.message.findMany.mockResolvedValue([
+        {
+          id: 'm1',
+          senderId: MAN_ID,
+          contentType: 'TEXT',
+          content: 'hey',
+          mediaUrl: null,
+          isBlurred: false,
+          readAt: null,
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ]);
+      prisma.user.findUnique.mockResolvedValue({ readReceiptsEnabled: false });
+
+      const messages = await service.listMessages(WOMAN_ID, MATCH_ID);
+
+      expect(prisma.message.updateMany).not.toHaveBeenCalled();
+      expect(messages[0].readAt).toBeNull();
+    });
+
+    it('does not mark the current user\'s own outgoing messages as read', async () => {
+      mockMatch();
+      prisma.message.findMany.mockResolvedValue([
+        {
+          id: 'm1',
+          senderId: WOMAN_ID,
+          contentType: 'TEXT',
+          content: 'hi',
+          mediaUrl: null,
+          isBlurred: false,
+          readAt: null,
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ]);
+
+      await service.listMessages(WOMAN_ID, MATCH_ID);
+
+      expect(prisma.message.updateMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('setReadReceiptsEnabled', () => {
+    it('updates and returns the new setting', async () => {
+      prisma.user.update.mockResolvedValue({ readReceiptsEnabled: false });
+
+      const result = await service.setReadReceiptsEnabled(WOMAN_ID, false);
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: WOMAN_ID },
+        data: { readReceiptsEnabled: false },
+      });
+      expect(result).toEqual({ readReceiptsEnabled: false });
     });
   });
 

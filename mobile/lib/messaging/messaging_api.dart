@@ -55,6 +55,7 @@ class ChatMessage {
     this.content,
     this.mediaUrl,
     required this.isBlurred,
+    this.readAt,
     required this.createdAt,
   });
 
@@ -64,7 +65,10 @@ class ChatMessage {
   final String? content;
   final String? mediaUrl;
   final bool isBlurred;
+  final DateTime? readAt;
   final DateTime createdAt;
+
+  bool get isRead => readAt != null;
 }
 
 class GifResult {
@@ -252,6 +256,23 @@ class MessagingApi {
     );
   }
 
+  /// Privacy toggle: when disabled, this user's reads of other people's
+  /// messages are never stamped, so senders never see a read receipt.
+  Future<bool> setReadReceiptsEnabled(bool enabled) async {
+    final response = await _client.put(
+      Uri.parse('$_baseUrl/matches/read-receipts'),
+      headers: _headers,
+      body: jsonEncode({'enabled': enabled}),
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 200) {
+      throw MessagingApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return body['readReceiptsEnabled'] as bool;
+  }
+
   Future<void> reportMessage({
     required String matchId,
     required String messageId,
@@ -276,6 +297,7 @@ class MessagingApi {
       content: json['content'] as String?,
       mediaUrl: json['mediaUrl'] as String?,
       isBlurred: json['isBlurred'] as bool,
+      readAt: json['readAt'] != null ? DateTime.parse(json['readAt'] as String) : null,
       createdAt: DateTime.parse(json['createdAt'] as String),
     );
   }
