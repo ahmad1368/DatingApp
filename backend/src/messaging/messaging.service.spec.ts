@@ -379,6 +379,56 @@ describe('MessagingService', () => {
     });
   });
 
+  describe('sendVoiceNote', () => {
+    it('rejects sending after the match has expired', async () => {
+      mockMatch({ firstMessageExpiresAt: hoursFromNow(-1) });
+
+      await expect(
+        service.sendVoiceNote(WOMAN_ID, MATCH_ID, 'file:///tmp/note.m4a', 12),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.message.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects the man sending the first voice note to a woman match', async () => {
+      mockMatch();
+      mockUsers({ [WOMAN_ID]: ['Woman'], [MAN_ID]: ['Man'] });
+
+      await expect(
+        service.sendVoiceNote(MAN_ID, MATCH_ID, 'file:///tmp/note.m4a', 12),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('creates a VOICE_NOTE message with its duration', async () => {
+      mockMatch();
+      mockUsers({ [WOMAN_ID]: ['Woman'], [MAN_ID]: ['Man'] });
+      prisma.message.create.mockResolvedValue({
+        id: 'message-5',
+        senderId: WOMAN_ID,
+        contentType: 'VOICE_NOTE',
+        content: null,
+        mediaUrl: 'file:///tmp/note.m4a',
+        isBlurred: false,
+        durationSeconds: 12,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const result = await service.sendVoiceNote(WOMAN_ID, MATCH_ID, 'file:///tmp/note.m4a', 12);
+
+      expect(prisma.message.create).toHaveBeenCalledWith({
+        data: {
+          matchId: MATCH_ID,
+          senderId: WOMAN_ID,
+          contentType: 'VOICE_NOTE',
+          mediaUrl: 'file:///tmp/note.m4a',
+          durationSeconds: 12,
+        },
+      });
+      expect(result.contentType).toBe('VOICE_NOTE');
+      expect(result.durationSeconds).toBe(12);
+      expect(result.mediaUrl).toBe('file:///tmp/note.m4a');
+    });
+  });
+
   describe('revealImage', () => {
     it('throws when the user is not part of the match', async () => {
       mockMatch();

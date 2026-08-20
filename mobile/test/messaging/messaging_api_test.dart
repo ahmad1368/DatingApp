@@ -237,6 +237,57 @@ void main() {
     });
   });
 
+  group('MessagingApi.sendVoiceNote', () {
+    test('sends the media URL and duration, parsing the created message', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'POST');
+          expect(request.url.path, '/matches/match-1/voice-note');
+          expect(
+            request.body,
+            '{"mediaUrl":"file:///tmp/note.m4a","durationSeconds":12}',
+          );
+          return http.Response(
+            '{"id":"m5","senderId":"user-1","contentType":"VOICE_NOTE","content":null,'
+            '"mediaUrl":"file:///tmp/note.m4a","isBlurred":false,"durationSeconds":12,'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}',
+            201,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final message = await api.sendVoiceNote(
+        matchId: 'match-1',
+        mediaUrl: 'file:///tmp/note.m4a',
+        durationSeconds: 12,
+      );
+
+      expect(message.contentType, 'VOICE_NOTE');
+      expect(message.durationSeconds, 12);
+      expect(message.mediaUrl, 'file:///tmp/note.m4a');
+    });
+
+    test('throws MessagingApiException when the backend rejects the request', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '{"message":"durationSeconds must not be greater than 60"}',
+            400,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      expect(
+        () => api.sendVoiceNote(matchId: 'match-1', mediaUrl: 'file:///tmp/note.m4a', durationSeconds: 90),
+        throwsA(isA<MessagingApiException>()),
+      );
+    });
+  });
+
   group('MessagingApi.revealImage', () {
     test('sends a POST to the reveal endpoint and parses the unblurred message', () async {
       final api = MessagingApi(

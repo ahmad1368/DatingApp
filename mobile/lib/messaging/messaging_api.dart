@@ -59,6 +59,7 @@ class ChatMessage {
     this.content,
     this.mediaUrl,
     required this.isBlurred,
+    this.durationSeconds,
     this.readAt,
     this.icebreaker,
     required this.createdAt,
@@ -70,6 +71,7 @@ class ChatMessage {
   final String? content;
   final String? mediaUrl;
   final bool isBlurred;
+  final int? durationSeconds;
   final DateTime? readAt;
   final Icebreaker? icebreaker;
   final DateTime createdAt;
@@ -253,6 +255,25 @@ class MessagingApi {
     return _toChatMessage(body);
   }
 
+  Future<ChatMessage> sendVoiceNote({
+    required String matchId,
+    required String mediaUrl,
+    required int durationSeconds,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/matches/$matchId/voice-note'),
+      headers: _headers,
+      body: jsonEncode({'mediaUrl': mediaUrl, 'durationSeconds': durationSeconds}),
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 201) {
+      throw MessagingApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return _toChatMessage(body);
+  }
+
   Future<ChatMessage> revealImage({required String matchId, required String messageId}) async {
     final response = await _client.post(
       Uri.parse('$_baseUrl/matches/$matchId/messages/$messageId/reveal'),
@@ -417,6 +438,7 @@ class MessagingApi {
       content: json['content'] as String?,
       mediaUrl: json['mediaUrl'] as String?,
       isBlurred: json['isBlurred'] as bool,
+      durationSeconds: json['durationSeconds'] as int?,
       readAt: json['readAt'] != null ? DateTime.parse(json['readAt'] as String) : null,
       icebreaker: icebreakerJson != null
           ? Icebreaker(

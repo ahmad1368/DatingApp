@@ -1,24 +1,34 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
+import '../profile/voice_player_controller.dart';
+import '../profile/voice_recorder_controller.dart';
 import 'messaging_api.dart';
+
+const int _maxVoiceNoteSeconds = 60;
 
 /// Chat screen for a single match. Enforces the women-first rule client
 /// side (the backend is the source of truth): until the first message has
 /// been sent, only the woman in the match may type, and the match shows a
 /// live countdown to its 24-hour expiration.
 class MatchChatScreen extends StatefulWidget {
-  const MatchChatScreen({
+  MatchChatScreen({
     super.key,
     required this.messagingApi,
     required this.matchId,
     required this.currentUserId,
-  });
+    VoiceRecorderController? recorder,
+    VoicePlayerController? player,
+  })  : recorder = recorder ?? DeviceVoiceRecorderController(),
+        player = player ?? DeviceVoicePlayerController();
 
   final MessagingApi messagingApi;
   final String matchId;
   final String currentUserId;
+  final VoiceRecorderController recorder;
+  final VoicePlayerController player;
 
   @override
   State<MatchChatScreen> createState() => _MatchChatScreenState();
@@ -31,6 +41,9 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
   bool _isLoading = true;
   bool _isSending = false;
   bool _readReceiptsEnabled = true;
+  bool _isRecording = false;
+  int _recordedSeconds = 0;
+  Timer? _recordTimer;
   String? _errorText;
 
   @override
@@ -42,6 +55,7 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
   @override
   void dispose() {
     _controller.dispose();
+    _recordTimer?.cancel();
     super.dispose();
   }
 
@@ -204,6 +218,64 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
     } on MessagingApiException catch (e) {
       setState(() => _errorText = e.message);
     }
+  }
+
+  Future<void> _startRecording() async {
+    setState(() => _errorText = null);
+
+    final hasPermission = await widget.recorder.hasPermission();
+    if (!hasPermission) {
+      setState(() => _errorText = 'Microphone permission is required to send a voice note.');
+      return;
+    }
+
+    await widget.recorder.start();
+    setState(() {
+      _isRecording = true;
+      _recordedSeconds = 0;
+    });
+
+    _recordTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      setState(() => _recordedSeconds += 1);
+      if (_recordedSeconds >= _maxVoiceNoteSeconds) {
+        _stopAndSendRecording();
+      }
+    });
+  }
+
+  Future<void> _stopAndSendRecording() async {
+    _recordTimer?.cancel();
+    final path = await widget.recorder.stop();
+    final duration = _recordedSeconds;
+    setState(() => _isRecording = false);
+
+    if (path == null || duration < 1) {
+      return;
+    }
+
+    setState(() => _isSending = true);
+    try {
+      final message = await widget.messagingApi.sendVoiceNote(
+        matchId: widget.matchId,
+        mediaUrl: path,
+        durationSeconds: duration,
+      );
+      _onMessageSent(message);
+    } on MessagingApiException catch (e) {
+      setState(() => _errorText = e.message);
+    } finally {
+      if (mounted) {
+        setState(() => _isSending = false);
+      }
+    }
+  }
+
+  Future<void> _playVoiceNote(ChatMessage message) async {
+    final path = message.mediaUrl;
+    if (path == null) {
+      return;
+    }
+    await widget.player.play(path);
   }
 
   Future<void> _openGifPicker() async {
@@ -388,6 +460,15 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
                           tooltip: 'Send an icebreaker',
                           onPressed: _openIcebreakerPicker,
                         ),
+                        IconButton(
+                          icon: Icon(_isRecording ? Icons.stop_circle : Icons.mic_none),
+                          color: _isRecording ? Colors.red : null,
+                          tooltip: _isRecording ? 'Stop and send voice note' : 'Record a voice note',
+                          onPressed: _isSending
+                              ? null
+                              : (_isRecording ? _stopAndSendRecording : _startRecording),
+                        ),
+                        if (_isRecording) Text('$_recordedSeconds s'),
                         Expanded(
                           child: TextField(
                             controller: _controller,
@@ -434,6 +515,17 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
         );
       case 'ICEBREAKER':
         return _buildIcebreakerContent(message);
+      case 'VOICE_NOTE':
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.play_arrow),
+              onPressed: () => _playVoiceNote(message),
+            ),
+            Text('${message.durationSeconds ?? 0}s voice note'),
+          ],
+        );
       case 'TEXT':
       default:
         return Text(message.content ?? '');

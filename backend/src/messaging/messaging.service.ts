@@ -6,6 +6,7 @@ import {
   ICEBREAKER_PROMPTS,
   IcebreakerPrompt,
   isWoman,
+  VOICE_NOTE_CONTENT_TYPE,
 } from './messaging.constants';
 
 export interface MatchStatus {
@@ -33,6 +34,7 @@ export interface MessageView {
   content: string | null;
   mediaUrl: string | null;
   isBlurred: boolean;
+  durationSeconds: number | null;
   readAt: string | null;
   icebreaker: IcebreakerView | null;
   createdAt: string;
@@ -136,6 +138,33 @@ export class MessagingService {
         contentType,
         mediaUrl,
         isBlurred: contentType === 'IMAGE',
+      },
+    });
+
+    await this.markFirstMessageIfNeeded(matchId, firstMessageSent);
+
+    return this.toMessageView(message, userId);
+  }
+
+  /**
+   * Sends a short recorded voice note in-chat, subject to the same
+   * match-expiry and women-first-message rules as a text message.
+   */
+  async sendVoiceNote(
+    userId: string,
+    matchId: string,
+    mediaUrl: string,
+    durationSeconds: number,
+  ): Promise<MessageView> {
+    const { firstMessageSent } = await this.assertCanSend(userId, matchId);
+
+    const message = await this.prisma.message.create({
+      data: {
+        matchId,
+        senderId: userId,
+        contentType: VOICE_NOTE_CONTENT_TYPE,
+        mediaUrl,
+        durationSeconds,
       },
     });
 
@@ -461,6 +490,7 @@ export class MessagingService {
       content: string | null;
       mediaUrl: string | null;
       isBlurred: boolean;
+      durationSeconds: number | null;
       readAt: Date | null;
       createdAt: Date;
     },
@@ -474,6 +504,7 @@ export class MessagingService {
       content: message.content,
       mediaUrl: message.mediaUrl,
       isBlurred: message.isBlurred,
+      durationSeconds: message.durationSeconds,
       readAt: message.readAt ? message.readAt.toISOString() : null,
       icebreaker: this.toIcebreakerView(message.contentType, message.content, userId, icebreakerResponses),
       createdAt: message.createdAt.toISOString(),

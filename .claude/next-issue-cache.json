@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-20T05:46:54.039Z",
+  "generated_at": "2026-08-20T06:04:08.259Z",
   "snapshot": [
     {
       "number": 454,
@@ -2055,18 +2055,9 @@
       "number": 44,
       "title": "In-App Audio Notes / Voice Messaging in Chat",
       "updatedAt": "2026-08-10T20:38:30Z"
-    },
-    {
-      "number": 43,
-      "title": "Extend Match Time Limit",
-      "updatedAt": "2026-08-10T20:38:28Z"
     }
   ],
   "queue": [
-    {
-      "number": 44,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 45,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
