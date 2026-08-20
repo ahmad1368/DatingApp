@@ -151,6 +151,19 @@ model Message {
   @@map("messages")
 }
 
+model MessageReport {
+  id                   String   @id @default(uuid())
+  messageId            String
+  reporterId           String
+  reason               String
+  moderationFlagged    Boolean  @default(false)
+  moderationCategories String[] @default([])
+  createdAt            DateTime @default(now())
+
+  @@index([messageId])
+  @@map("message_reports")
+}
+
 model Question {
   id        String   @id @default(uuid())
   text      String

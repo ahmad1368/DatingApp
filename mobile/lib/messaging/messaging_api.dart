@@ -75,6 +75,13 @@ class GifResult {
   final String previewUrl;
 }
 
+class ModerationResult {
+  ModerationResult({required this.flagged, required this.categories});
+
+  final bool flagged;
+  final List<String> categories;
+}
+
 /// Talks to the backend's match/messaging endpoints. Requires a signed-in
 /// user's access token.
 class MessagingApi {
@@ -222,6 +229,43 @@ class MessagingApi {
           ),
         )
         .toList();
+  }
+
+  /// Real-time pre-send check: call with a draft message so the UI can
+  /// warn the user before they actually send something the AI moderator
+  /// flags as potentially harassing or harmful.
+  Future<ModerationResult> checkMessage(String text) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/matches/moderation/check'),
+      headers: _headers,
+      body: jsonEncode({'text': text}),
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 200) {
+      throw MessagingApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return ModerationResult(
+      flagged: body['flagged'] as bool,
+      categories: (body['categories'] as List).cast<String>(),
+    );
+  }
+
+  Future<void> reportMessage({
+    required String matchId,
+    required String messageId,
+    required String reason,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/matches/$matchId/messages/$messageId/report'),
+      headers: _headers,
+      body: jsonEncode({'reason': reason}),
+    );
+
+    if (response.statusCode != 201) {
+      throw MessagingApiException(_errorMessage(_decode(response), response.statusCode));
+    }
   }
 
   ChatMessage _toChatMessage(Map<String, dynamic> json) {

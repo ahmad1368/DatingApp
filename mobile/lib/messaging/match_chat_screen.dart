@@ -71,10 +71,21 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
       return;
     }
 
-    setState(() {
-      _isSending = true;
-      _errorText = null;
-    });
+    setState(() => _errorText = null);
+
+    try {
+      final moderation = await widget.messagingApi.checkMessage(content);
+      if (moderation.flagged) {
+        final shouldSend = await _confirmFlaggedSend(moderation.categories);
+        if (shouldSend != true) {
+          return;
+        }
+      }
+    } on MessagingApiException {
+      // If the safety check itself fails, don't block the user from sending.
+    }
+
+    setState(() => _isSending = true);
     try {
       final message = await widget.messagingApi.sendMessage(
         matchId: widget.matchId,
@@ -88,6 +99,53 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
       if (mounted) {
         setState(() => _isSending = false);
       }
+    }
+  }
+
+  Future<bool?> _confirmFlaggedSend(List<String> categories) {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Heads up'),
+        content: Text(
+          'This message may come across as harmful or harassing'
+          '${categories.isNotEmpty ? ' (${categories.join(', ')})' : ''}. Send anyway?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Send anyway'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _reportMessage(ChatMessage message) async {
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (context) => const _ReportMessageDialog(),
+    );
+    if (reason == null || reason.trim().isEmpty) {
+      return;
+    }
+    try {
+      await widget.messagingApi.reportMessage(
+        matchId: widget.matchId,
+        messageId: message.id,
+        reason: reason.trim(),
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Thanks, we'll review this message.")),
+        );
+      }
+    } on MessagingApiException catch (e) {
+      setState(() => _errorText = e.message);
     }
   }
 
@@ -194,12 +252,18 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
                           itemBuilder: (context, index) {
                             final message = _messages[index];
                             final isMine = message.senderId == widget.currentUserId;
+                            final bubble = Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                              child: _buildMessageContent(message, isMine),
+                            );
                             return Align(
                               alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                                child: _buildMessageContent(message, isMine),
-                              ),
+                              child: isMine
+                                  ? bubble
+                                  : GestureDetector(
+                                      onLongPress: () => _reportMessage(message),
+                                      child: bubble,
+                                    ),
                             );
                           },
                         ),
@@ -378,6 +442,45 @@ class _GifPickerDialogState extends State<_GifPickerDialog> {
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancel'),
+        ),
+      ],
+    );
+  }
+}
+
+class _ReportMessageDialog extends StatefulWidget {
+  const _ReportMessageDialog();
+
+  @override
+  State<_ReportMessageDialog> createState() => _ReportMessageDialogState();
+}
+
+class _ReportMessageDialogState extends State<_ReportMessageDialog> {
+  final _reasonController = TextEditingController();
+
+  @override
+  void dispose() {
+    _reasonController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Report this message'),
+      content: TextField(
+        controller: _reasonController,
+        decoration: const InputDecoration(hintText: 'Why are you reporting this?'),
+        autofocus: true,
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(_reasonController.text),
+          child: const Text('Report'),
         ),
       ],
     );
