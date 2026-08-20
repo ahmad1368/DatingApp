@@ -82,6 +82,7 @@ describe('DiscoveryService', () => {
           name: 'Jane',
           dateOfBirth: new Date(new Date().getFullYear() - 25, 0, 1),
           profilePhotoUrl: 'https://example.com/photo.jpg',
+          videoSnippetUrl: 'https://example.com/snippet.mp4',
           latitude: 0.1,
           longitude: 0,
           interests: ['Hiking'],
@@ -109,6 +110,7 @@ describe('DiscoveryService', () => {
       expect(deck[0].distanceKm).toBeGreaterThan(0);
       expect(deck[0].isSuperLike).toBe(false);
       expect(deck[0].relationshipIntentBadges).toEqual([]);
+      expect(deck[0].videoSnippetUrl).toBe('https://example.com/snippet.mp4');
     });
 
     it('shows relationship intent badges only when their visibility toggles are on', async () => {

@@ -21,6 +21,7 @@ export interface DeckCard {
   name: string | null;
   age: number | null;
   profilePhotoUrl: string | null;
+  videoSnippetUrl: string | null;
   distanceKm: number | null;
   interests: string[];
   relationshipGoal: string | null;
@@ -245,6 +246,7 @@ export class DiscoveryService {
       name: string | null;
       dateOfBirth: Date | null;
       profilePhotoUrl: string | null;
+      videoSnippetUrl: string | null;
       latitude: number | null;
       longitude: number | null;
       interests: string[];
@@ -263,6 +265,7 @@ export class DiscoveryService {
       name: candidate.name,
       age: candidate.dateOfBirth ? calculateAge(candidate.dateOfBirth, now) : null,
       profilePhotoUrl: candidate.profilePhotoUrl,
+      videoSnippetUrl: candidate.videoSnippetUrl,
       distanceKm:
         origin.latitude != null &&
         origin.longitude != null &&

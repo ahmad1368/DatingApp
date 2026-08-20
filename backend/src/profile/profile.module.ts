@@ -3,6 +3,8 @@ import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from '../auth/auth.module';
 import { VoiceIntroController } from './voice-intro.controller';
 import { VoiceIntroService } from './voice-intro.service';
+import { VideoSnippetController } from './video-snippet.controller';
+import { VideoSnippetService } from './video-snippet.service';
 import { GenderIdentityController } from './gender-identity.controller';
 import { GenderIdentityService } from './gender-identity.service';
 import { ProfileItemLikeController } from './profile-item-like.controller';
@@ -24,6 +26,7 @@ import { SpotifyWebApiClient } from './providers/spotify-web-api.client';
   imports: [AuthModule, ConfigModule],
   controllers: [
     VoiceIntroController,
+    VideoSnippetController,
     GenderIdentityController,
     ProfileItemLikeController,
     RelationshipProfileController,
@@ -33,6 +36,7 @@ import { SpotifyWebApiClient } from './providers/spotify-web-api.client';
   ],
   providers: [
     VoiceIntroService,
+    VideoSnippetService,
     GenderIdentityService,
     ProfileItemLikeService,
     RelationshipProfileService,

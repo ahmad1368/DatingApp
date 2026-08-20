@@ -1,1 +1,2 @@
 export const MAX_VOICE_INTRO_SECONDS = 30;
+export const VIDEO_SNIPPET_DURATION_SECONDS = 2;

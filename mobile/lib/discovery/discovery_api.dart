@@ -17,6 +17,7 @@ class DeckCard {
     this.name,
     this.age,
     this.profilePhotoUrl,
+    this.videoSnippetUrl,
     this.distanceKm,
     required this.interests,
     this.relationshipGoal,
@@ -29,6 +30,7 @@ class DeckCard {
   final String? name;
   final int? age;
   final String? profilePhotoUrl;
+  final String? videoSnippetUrl;
   final double? distanceKm;
   final List<String> interests;
   final String? relationshipGoal;
@@ -96,6 +98,7 @@ class DiscoveryApi {
       name: json['name'] as String?,
       age: json['age'] as int?,
       profilePhotoUrl: json['profilePhotoUrl'] as String?,
+      videoSnippetUrl: json['videoSnippetUrl'] as String?,
       distanceKm: (json['distanceKm'] as num?)?.toDouble(),
       interests: (json['interests'] as List).cast<String>(),
       relationshipGoal: json['relationshipGoal'] as String?,
