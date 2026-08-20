@@ -1,8 +1,17 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { MatchingService } from '../matching/matching.service';
+import { LIKE_ACTIONS } from '../discovery/discovery.constants';
 import { calculateAge } from '../discovery/utils/age';
-import { CANDIDATE_POOL_SIZE, DAILY_PICKS_LIMIT, computeWindowStart } from './curated-profiles.constants';
+import {
+  CANDIDATE_POOL_SIZE,
+  DAILY_PICKS_LIMIT,
+  STANDOUT_ENGAGEMENT_BONUS_CAP,
+  STANDOUT_ENGAGEMENT_BONUS_PER_LIKE,
+  STANDOUT_ENGAGEMENT_THRESHOLD,
+  computeEngagementWindowStart,
+  computeWindowStart,
+} from './curated-profiles.constants';
 
 export interface CuratedProfile {
   id: string;
@@ -10,6 +19,7 @@ export interface CuratedProfile {
   age: number | null;
   profilePhotoUrl: string | null;
   compatibilityPercentage: number | null;
+  isStandout: boolean;
 }
 
 interface DailyPickRecord {
@@ -69,6 +79,9 @@ export class CuratedProfilesService {
       return [];
     }
 
+    const candidateIds = candidates.map((candidate) => candidate.id);
+    const engagementCounts = await this.getEngagementCounts(candidateIds);
+
     const scored = await Promise.all(
       candidates.map(async (candidate) => ({
         candidateId: candidate.id,
@@ -77,7 +90,14 @@ export class CuratedProfilesService {
       })),
     );
 
-    scored.sort((a, b) => (b.compatibilityScore ?? -1) - (a.compatibilityScore ?? -1));
+    // Rank by compatibility first, but give a swipe-engagement bonus so
+    // candidates who are highly liked by others ("standouts") surface too,
+    // without letting engagement alone override a poor compatibility match.
+    scored.sort((a, b) => {
+      const scoreA = (a.compatibilityScore ?? -1) + this.engagementBonus(engagementCounts.get(a.candidateId) ?? 0);
+      const scoreB = (b.compatibilityScore ?? -1) + this.engagementBonus(engagementCounts.get(b.candidateId) ?? 0);
+      return scoreB - scoreA;
+    });
     const top = scored.slice(0, DAILY_PICKS_LIMIT);
 
     await this.prisma.dailyPick.createMany({
@@ -94,9 +114,11 @@ export class CuratedProfilesService {
   }
 
   private async toCuratedProfiles(picks: DailyPickRecord[]): Promise<CuratedProfile[]> {
-    const candidates = await this.prisma.user.findMany({
-      where: { id: { in: picks.map((pick) => pick.candidateId) } },
-    });
+    const candidateIds = picks.map((pick) => pick.candidateId);
+    const [candidates, engagementCounts] = await Promise.all([
+      this.prisma.user.findMany({ where: { id: { in: candidateIds } } }),
+      this.getEngagementCounts(candidateIds),
+    ]);
     const candidateById = new Map(candidates.map((candidate) => [candidate.id, candidate]));
     const now = new Date();
 
@@ -112,8 +134,36 @@ export class CuratedProfilesService {
         age: candidate.dateOfBirth ? calculateAge(candidate.dateOfBirth, now) : null,
         profilePhotoUrl: candidate.profilePhotoUrl,
         compatibilityPercentage: pick.compatibilityScore,
+        isStandout: (engagementCounts.get(pick.candidateId) ?? 0) >= STANDOUT_ENGAGEMENT_THRESHOLD,
       });
     }
     return profiles;
+  }
+
+  /** Recent like/super-like counts received by each candidate, used both to
+   *  rank the daily batch and to flag standouts once the picks are read. */
+  private async getEngagementCounts(candidateIds: string[]): Promise<Map<string, number>> {
+    if (candidateIds.length === 0) {
+      return new Map();
+    }
+
+    const recentLikes = await this.prisma.swipe.findMany({
+      where: {
+        targetUserId: { in: candidateIds },
+        action: { in: LIKE_ACTIONS },
+        createdAt: { gte: computeEngagementWindowStart(new Date()) },
+      },
+      select: { targetUserId: true },
+    });
+
+    const counts = new Map<string, number>();
+    for (const like of recentLikes) {
+      counts.set(like.targetUserId, (counts.get(like.targetUserId) ?? 0) + 1);
+    }
+    return counts;
+  }
+
+  private engagementBonus(likeCount: number): number {
+    return Math.min(likeCount * STANDOUT_ENGAGEMENT_BONUS_PER_LIKE, STANDOUT_ENGAGEMENT_BONUS_CAP);
   }
 }
