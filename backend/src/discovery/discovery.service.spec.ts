@@ -108,6 +108,39 @@ describe('DiscoveryService', () => {
       expect(deck[0].age).toBe(25);
       expect(deck[0].distanceKm).toBeGreaterThan(0);
       expect(deck[0].isSuperLike).toBe(false);
+      expect(deck[0].relationshipIntentBadges).toEqual([]);
+    });
+
+    it('shows relationship intent badges only when their visibility toggles are on', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+      });
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      prisma.user.findMany.mockResolvedValue([
+        {
+          id: TARGET_ID,
+          name: 'Jane',
+          dateOfBirth: null,
+          profilePhotoUrl: null,
+          interests: [],
+          relationshipGoal: 'CASUAL',
+          relationshipDesires: ['Marriage', 'Long-Term Relationship'],
+          showRelationshipDesiresOnProfile: true,
+          customRelationshipIntent: 'Open to relocating',
+          showCustomRelationshipIntentOnProfile: false,
+        },
+      ]);
+
+      const deck = await service.getDeck(USER_ID);
+
+      expect(deck[0].relationshipIntentBadges).toEqual(['Marriage', 'Long-Term Relationship']);
     });
 
     it('applies the current user lifestyle filters to the candidate query', async () => {

@@ -159,6 +159,21 @@ class _CardContent extends StatelessWidget {
               ),
               if (card.distanceKm != null)
                 Text('${card.distanceKm!.toStringAsFixed(1)} km away'),
+              if (card.relationshipIntentBadges.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    for (final badge in card.relationshipIntentBadges)
+                      Chip(
+                        label: Text(badge),
+                        backgroundColor: Colors.pink.shade100,
+                        visualDensity: VisualDensity.compact,
+                      ),
+                  ],
+                ),
+              ],
               if (card.interests.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Wrap(

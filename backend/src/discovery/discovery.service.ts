@@ -24,6 +24,7 @@ export interface DeckCard {
   distanceKm: number | null;
   interests: string[];
   relationshipGoal: string | null;
+  relationshipIntentBadges: string[];
   isSuperLike: boolean;
   isBoosted: boolean;
 }
@@ -248,6 +249,10 @@ export class DiscoveryService {
       longitude: number | null;
       interests: string[];
       relationshipGoal: string | null;
+      relationshipDesires: string[];
+      showRelationshipDesiresOnProfile: boolean;
+      customRelationshipIntent: string | null;
+      showCustomRelationshipIntentOnProfile: boolean;
     },
     now: Date,
     origin: { latitude: number | null; longitude: number | null },
@@ -267,9 +272,31 @@ export class DiscoveryService {
           : null,
       interests: candidate.interests,
       relationshipGoal: candidate.relationshipGoal,
+      relationshipIntentBadges: this.buildRelationshipIntentBadges(candidate),
       isSuperLike: flags.isSuperLike,
       isBoosted: flags.isBoosted,
     };
+  }
+
+  /**
+   * Explicit "relationship intent" badges shown on a profile: the curated
+   * tags they've chosen to display, plus one freeform custom badge - each
+   * respects its own visibility toggle independently.
+   */
+  private buildRelationshipIntentBadges(candidate: {
+    relationshipDesires: string[];
+    showRelationshipDesiresOnProfile: boolean;
+    customRelationshipIntent: string | null;
+    showCustomRelationshipIntentOnProfile: boolean;
+  }): string[] {
+    const badges: string[] = [];
+    if (candidate.showRelationshipDesiresOnProfile) {
+      badges.push(...candidate.relationshipDesires);
+    }
+    if (candidate.showCustomRelationshipIntentOnProfile && candidate.customRelationshipIntent) {
+      badges.push(candidate.customRelationshipIntent);
+    }
+    return badges;
   }
 
   async recordSwipe(userId: string, targetUserId: string, action: string): Promise<SwipeResult> {
