@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-20T06:04:08.259Z",
+  "generated_at": "2026-08-20T06:14:36.623Z",
   "snapshot": [
     {
       "number": 454,
@@ -2050,18 +2050,9 @@
       "number": 45,
       "title": "Height, Habits & Lifestyle Badges",
       "updatedAt": "2026-08-10T20:38:32Z"
-    },
-    {
-      "number": 44,
-      "title": "In-App Audio Notes / Voice Messaging in Chat",
-      "updatedAt": "2026-08-10T20:38:30Z"
     }
   ],
   "queue": [
-    {
-      "number": 45,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 46,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
