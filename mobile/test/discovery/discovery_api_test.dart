@@ -324,4 +324,114 @@ void main() {
       expect(() => api.setActiveMode('BIZZ'), throwsA(isA<DiscoveryApiException>()));
     });
   });
+
+  group('DiscoveryApi.setSnoozeMode', () {
+    test('enabling sends the flag and an ISO-8601 until, and parses the result', () async {
+      final until = DateTime.utc(2026, 1, 8);
+      final api = DiscoveryApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'PUT');
+          expect(request.url.path, '/discovery/snooze');
+          expect(request.body, '{"enabled":true,"until":"2026-01-08T00:00:00.000Z"}');
+          return http.Response(
+            '{"snoozedUntil":"2026-01-08T00:00:00.000Z"}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final snoozedUntil = await api.setSnoozeMode(true, until: until);
+
+      expect(snoozedUntil, until);
+    });
+
+    test('enabling without an until omits it from the body', () async {
+      final api = DiscoveryApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.body, '{"enabled":true}');
+          return http.Response(
+            '{"snoozedUntil":"2026-01-08T00:00:00.000Z"}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      await api.setSnoozeMode(true);
+    });
+
+    test('disabling sends enabled:false and parses a null snoozedUntil', () async {
+      final api = DiscoveryApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.body, '{"enabled":false}');
+          return http.Response(
+            '{"snoozedUntil":null}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final snoozedUntil = await api.setSnoozeMode(false);
+
+      expect(snoozedUntil, isNull);
+    });
+
+    test('throws DiscoveryApiException when the end date is invalid', () async {
+      final api = DiscoveryApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '{"message":"Snooze end time must be in the future."}',
+            400,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      expect(() => api.setSnoozeMode(true), throwsA(isA<DiscoveryApiException>()));
+    });
+  });
+
+  group('DiscoveryApi.fetchSnoozeStatus', () {
+    test('parses an inactive snooze', () async {
+      final api = DiscoveryApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'GET');
+          expect(request.url.path, '/discovery/snooze');
+          return http.Response(
+            '{"snoozedUntil":null}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final snoozedUntil = await api.fetchSnoozeStatus();
+
+      expect(snoozedUntil, isNull);
+    });
+
+    test('parses an active snooze', () async {
+      final api = DiscoveryApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '{"snoozedUntil":"2026-01-08T00:00:00.000Z"}',
+            200,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      final snoozedUntil = await api.fetchSnoozeStatus();
+
+      expect(snoozedUntil, DateTime.utc(2026, 1, 8));
+    });
+  });
 }

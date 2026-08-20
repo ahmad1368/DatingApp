@@ -70,6 +70,7 @@ export class CuratedProfilesService {
       where: {
         id: { notIn: excludedIds },
         onboardingCompletedAt: { not: null },
+        OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: new Date() } }],
       },
       take: CANDIDATE_POOL_SIZE,
       select: { id: true },

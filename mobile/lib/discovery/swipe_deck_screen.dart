@@ -21,12 +21,14 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
   bool _incognitoEnabled = false;
   BoostStatus? _boostStatus;
   String _activeMode = 'DATING';
+  DateTime? _snoozedUntil;
 
   @override
   void initState() {
     super.initState();
     _loadDeck();
     _loadBoostStatus();
+    _loadSnoozeStatus();
   }
 
   Future<void> _loadBoostStatus() async {
@@ -37,6 +39,17 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
       }
     } catch (_) {
       // Non-critical: leave the boost banner hidden if this fails.
+    }
+  }
+
+  Future<void> _loadSnoozeStatus() async {
+    try {
+      final snoozedUntil = await widget.discoveryApi.fetchSnoozeStatus();
+      if (mounted) {
+        setState(() => _snoozedUntil = snoozedUntil);
+      }
+    } catch (_) {
+      // Non-critical: leave the snooze banner hidden if this fails.
     }
   }
 
@@ -97,6 +110,16 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
     try {
       final status = await widget.discoveryApi.activateBoost();
       setState(() => _boostStatus = status);
+    } on DiscoveryApiException catch (e) {
+      setState(() => _errorText = e.message);
+    }
+  }
+
+  Future<void> _toggleSnooze() async {
+    setState(() => _errorText = null);
+    try {
+      final snoozedUntil = await widget.discoveryApi.setSnoozeMode(_snoozedUntil == null);
+      setState(() => _snoozedUntil = snoozedUntil);
     } on DiscoveryApiException catch (e) {
       setState(() => _errorText = e.message);
     }
@@ -174,6 +197,12 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
             tooltip: (_boostStatus?.active ?? false) ? 'Boost active' : 'Boost your profile',
             onPressed: (_boostStatus?.active ?? false) ? null : _activateBoost,
           ),
+          IconButton(
+            icon: const Icon(Icons.bedtime),
+            color: _snoozedUntil != null ? Colors.indigo : null,
+            tooltip: _snoozedUntil != null ? 'Snoozed - tap to resume' : 'Snooze / travel mode',
+            onPressed: _toggleSnooze,
+          ),
         ],
       ),
       body: Column(
@@ -189,6 +218,14 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
               child: Text(
                 'Boosted! ${_boostStatus!.viewCount} extra views so far.',
                 style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.deepOrange),
+              ),
+            ),
+          if (_snoozedUntil != null)
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                "You're snoozed until ${_snoozedUntil!.toLocal()}. Hidden from new matches.",
+                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.indigo),
               ),
             ),
           if (_matchText != null)

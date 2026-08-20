@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-20T03:22:20.875Z",
+  "generated_at": "2026-08-20T03:32:55.870Z",
   "snapshot": [
     {
       "number": 454,
@@ -2110,18 +2110,9 @@
       "number": 33,
       "title": "Snooze / Travel Mode Profile Hiding",
       "updatedAt": "2026-08-10T20:38:08Z"
-    },
-    {
-      "number": 32,
-      "title": "Standouts / Top Picks Feed",
-      "updatedAt": "2026-08-10T20:38:06Z"
     }
   ],
   "queue": [
-    {
-      "number": 33,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 34,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"

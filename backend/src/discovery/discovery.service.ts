@@ -5,9 +5,12 @@ import { haversineDistanceKm } from '../location/utils/haversine';
 import { computeFirstMessageExpiresAt } from '../messaging/messaging.constants';
 import {
   computeBoostExpiresAt,
+  computeDefaultSnoozeUntil,
+  computeMaxSnoozeUntil,
   DAILY_SUPER_LIKE_LIMIT,
   DEFAULT_DECK_SIZE,
   LIKE_ACTIONS,
+  SNOOZE_MAX_DURATION_DAYS,
   startOfUtcDay,
 } from './discovery.constants';
 import { calculateAge } from './utils/age';
@@ -49,6 +52,10 @@ export interface ActiveModeResult {
   activeMode: string;
 }
 
+export interface SnoozeResult {
+  snoozedUntil: string | null;
+}
+
 @Injectable()
 export class DiscoveryService {
   constructor(private readonly prisma: PrismaService) {}
@@ -67,6 +74,10 @@ export class DiscoveryService {
 
     const excludedIds = [userId, ...swiped.map((s) => s.targetUserId)];
     const lifestyleWhere = this.buildLifestyleFilterWhere(currentUser);
+    const now = new Date();
+    const notSnoozedWhere: Prisma.UserWhereInput = {
+      OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: now } }],
+    };
 
     const likersOfMe = await this.prisma.swipe.findMany({
       where: {
@@ -101,6 +112,7 @@ export class DiscoveryService {
               id: { in: priorityIdsOrdered },
               onboardingCompletedAt: { not: null },
               activeMode: currentUser.activeMode,
+              ...notSnoozedWhere,
               ...lifestyleWhere,
             },
             take: DEFAULT_DECK_SIZE,
@@ -118,7 +130,10 @@ export class DiscoveryService {
         id: { notIn: [...excludedIds, ...priorityIds] },
         onboardingCompletedAt: { not: null },
         activeMode: currentUser.activeMode,
-        OR: [{ incognitoEnabled: false }, { id: { in: likedMeIds } }],
+        AND: [
+          { OR: [{ incognitoEnabled: false }, { id: { in: likedMeIds } }] },
+          notSnoozedWhere,
+        ],
         ...lifestyleWhere,
       },
       take: Math.max(DEFAULT_DECK_SIZE - priorityCandidates.length, 0),
@@ -141,7 +156,6 @@ export class DiscoveryService {
     const originLatitude = usingPassport ? currentUser.passportLatitude : currentUser.latitude;
     const originLongitude = usingPassport ? currentUser.passportLongitude : currentUser.longitude;
 
-    const now = new Date();
     const origin = { latitude: originLatitude, longitude: originLongitude };
 
     return candidates.map((candidate) =>
@@ -425,6 +439,53 @@ export class DiscoveryService {
     });
 
     return { activeMode: updated.activeMode };
+  }
+
+  /**
+   * "Snooze"/travel mode: temporarily hides the user from other people's
+   * discovery decks and the daily picks feed (see [getDeck] and
+   * CuratedProfilesService) without touching their existing swipes or
+   * matches, so a paused user can still message and browse normally.
+   */
+  async setSnoozeMode(userId: string, enabled: boolean, until?: string): Promise<SnoozeResult> {
+    const currentUser = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!currentUser) {
+      throw new NotFoundException('User not found.');
+    }
+
+    if (!enabled) {
+      const updated = await this.prisma.user.update({
+        where: { id: userId },
+        data: { snoozedUntil: null },
+      });
+      return { snoozedUntil: updated.snoozedUntil?.toISOString() ?? null };
+    }
+
+    const now = new Date();
+    const snoozedUntil = until ? new Date(until) : computeDefaultSnoozeUntil(now);
+    if (snoozedUntil.getTime() <= now.getTime()) {
+      throw new BadRequestException('Snooze end time must be in the future.');
+    }
+    if (snoozedUntil.getTime() > computeMaxSnoozeUntil(now).getTime()) {
+      throw new BadRequestException(`Snooze cannot be longer than ${SNOOZE_MAX_DURATION_DAYS} days.`);
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: { snoozedUntil },
+    });
+
+    return { snoozedUntil: updated.snoozedUntil ? updated.snoozedUntil.toISOString() : null };
+  }
+
+  async getSnoozeStatus(userId: string): Promise<SnoozeResult> {
+    const currentUser = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!currentUser) {
+      throw new NotFoundException('User not found.');
+    }
+
+    const isActive = currentUser.snoozedUntil != null && currentUser.snoozedUntil.getTime() > Date.now();
+    return { snoozedUntil: isActive && currentUser.snoozedUntil ? currentUser.snoozedUntil.toISOString() : null };
   }
 
   private buildLifestyleFilterWhere(currentUser: {
