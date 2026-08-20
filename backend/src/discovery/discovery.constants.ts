@@ -6,6 +6,10 @@ export const LIKE_ACTIONS: SwipeAction[] = ['LIKE', 'SUPER_LIKE'];
 
 export const DEFAULT_DECK_SIZE = 20;
 
+export const ACTIVE_MODES = ['DATING', 'BFF', 'BIZZ'] as const;
+
+export type ActiveMode = (typeof ACTIVE_MODES)[number];
+
 export const DAILY_SUPER_LIKE_LIMIT = 1;
 
 export const BOOST_DURATION_MINUTES = 30;

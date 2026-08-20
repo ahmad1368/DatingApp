@@ -45,6 +45,10 @@ export interface BoostStatus {
   viewCount: number;
 }
 
+export interface ActiveModeResult {
+  activeMode: string;
+}
+
 @Injectable()
 export class DiscoveryService {
   constructor(private readonly prisma: PrismaService) {}
@@ -96,6 +100,7 @@ export class DiscoveryService {
             where: {
               id: { in: priorityIdsOrdered },
               onboardingCompletedAt: { not: null },
+              activeMode: currentUser.activeMode,
               ...lifestyleWhere,
             },
             take: DEFAULT_DECK_SIZE,
@@ -112,6 +117,7 @@ export class DiscoveryService {
       where: {
         id: { notIn: [...excludedIds, ...priorityIds] },
         onboardingCompletedAt: { not: null },
+        activeMode: currentUser.activeMode,
         OR: [{ incognitoEnabled: false }, { id: { in: likedMeIds } }],
         ...lifestyleWhere,
       },
@@ -310,6 +316,22 @@ export class DiscoveryService {
     }
 
     return { active: true, expiresAt: boost.expiresAt.toISOString(), viewCount: boost.viewCount };
+  }
+
+  /**
+   * Switches which network the user is browsing/discoverable in (dating,
+   * BFF, or Bizz) within the same swipe/match architecture: getDeck only
+   * surfaces candidates whose own activeMode currently matches the
+   * viewer's, so the three modes stay separate without needing parallel
+   * swipe/match data.
+   */
+  async setActiveMode(userId: string, mode: string): Promise<ActiveModeResult> {
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: { activeMode: mode },
+    });
+
+    return { activeMode: updated.activeMode };
   }
 
   private buildLifestyleFilterWhere(currentUser: {

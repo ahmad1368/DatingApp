@@ -192,6 +192,24 @@ class DiscoveryApi {
     return _toBoostStatus(body);
   }
 
+  /// Switches which network the user browses/matches in: 'DATING', 'BFF',
+  /// or 'BIZZ'. The deck only shows candidates currently browsing the same
+  /// mode.
+  Future<String> setActiveMode(String mode) async {
+    final response = await _client.put(
+      Uri.parse('$_baseUrl/discovery/mode'),
+      headers: _headers,
+      body: jsonEncode({'mode': mode}),
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 200) {
+      throw DiscoveryApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return body['activeMode'] as String;
+  }
+
   BoostStatus _toBoostStatus(Map<String, dynamic> json) {
     return BoostStatus(
       active: json['active'] as bool,

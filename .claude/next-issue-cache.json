@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-20T02:14:39.442Z",
+  "generated_at": "2026-08-20T02:32:25.028Z",
   "snapshot": [
     {
       "number": 454,
@@ -2125,18 +2125,9 @@
       "number": 30,
       "title": "Friendship & Professional Networking Modes (BFF/Bizz)",
       "updatedAt": "2026-08-10T20:38:02Z"
-    },
-    {
-      "number": 29,
-      "title": "Profile Boost / Spotlight Traffic Spikes",
-      "updatedAt": "2026-08-10T20:38:00Z"
     }
   ],
   "queue": [
-    {
-      "number": 30,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 31,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"

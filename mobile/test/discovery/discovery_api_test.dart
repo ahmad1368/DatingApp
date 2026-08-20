@@ -252,4 +252,35 @@ void main() {
       expect(status.expiresAt, isNull);
     });
   });
+
+  group('DiscoveryApi.setActiveMode', () {
+    test('sends a PUT with the mode and parses the result', () async {
+      final api = DiscoveryApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'PUT');
+          expect(request.url.path, '/discovery/mode');
+          expect(request.body, '{"mode":"BFF"}');
+          return http.Response(
+            '{"activeMode":"BFF"}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final mode = await api.setActiveMode('BFF');
+
+      expect(mode, 'BFF');
+    });
+
+    test('throws DiscoveryApiException on a non-200 response', () async {
+      final api = DiscoveryApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => http.Response('', 500)),
+      );
+
+      expect(() => api.setActiveMode('BIZZ'), throwsA(isA<DiscoveryApiException>()));
+    });
+  });
 }
