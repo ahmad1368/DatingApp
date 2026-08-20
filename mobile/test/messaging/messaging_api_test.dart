@@ -15,7 +15,7 @@ void main() {
           return http.Response(
             '[{"matchId":"match-1","otherUserId":"user-2","otherUserName":"Jane",'
             '"otherUserPhotoUrl":null,"expiresAt":"2026-01-02T00:00:00.000Z",'
-            '"firstMessageSent":false,"createdAt":"2026-01-01T00:00:00.000Z"}]',
+            '"firstMessageSent":false,"canExtend":true,"createdAt":"2026-01-01T00:00:00.000Z"}]',
             200,
             headers: {'content-type': 'application/json'},
           );
@@ -29,6 +29,7 @@ void main() {
       expect(matches.first.otherUserName, 'Jane');
       expect(matches.first.expiresAt, DateTime.parse('2026-01-02T00:00:00.000Z'));
       expect(matches.first.firstMessageSent, isFalse);
+      expect(matches.first.canExtend, isTrue);
     });
 
     test('throws MessagingApiException on a non-200 response', () async {
@@ -50,7 +51,8 @@ void main() {
           expect(request.headers['Authorization'], 'Bearer a-jwt');
           return http.Response(
             '{"matchId":"match-1","expiresAt":"2026-01-02T00:00:00.000Z",'
-            '"isExpired":false,"firstMessageSent":false,"canSendFirstMessage":true}',
+            '"isExpired":false,"firstMessageSent":false,"canSendFirstMessage":true,'
+            '"canExtend":true}',
             200,
             headers: {'content-type': 'application/json'},
           );
@@ -63,6 +65,7 @@ void main() {
       expect(status.expiresAt, DateTime.parse('2026-01-02T00:00:00.000Z'));
       expect(status.isExpired, isFalse);
       expect(status.canSendFirstMessage, isTrue);
+      expect(status.canExtend, isTrue);
     });
 
     test('throws MessagingApiException on a non-200 response', () async {
@@ -72,6 +75,45 @@ void main() {
       );
 
       expect(() => api.fetchMatchStatus('missing'), throwsA(isA<MessagingApiException>()));
+    });
+  });
+
+  group('MessagingApi.extendMatchTimeLimit', () {
+    test('sends a POST and parses the updated status', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'POST');
+          expect(request.url.path, '/matches/match-1/extend');
+          return http.Response(
+            '{"matchId":"match-1","expiresAt":"2026-01-03T00:00:00.000Z",'
+            '"isExpired":false,"firstMessageSent":false,"canSendFirstMessage":true,'
+            '"canExtend":false}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final status = await api.extendMatchTimeLimit('match-1');
+
+      expect(status.expiresAt, DateTime.parse('2026-01-03T00:00:00.000Z'));
+      expect(status.canExtend, isFalse);
+    });
+
+    test('throws MessagingApiException when the match has already been extended', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '{"message":"This match has already been extended once."}',
+            400,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      expect(() => api.extendMatchTimeLimit('match-1'), throwsA(isA<MessagingApiException>()));
     });
   });
 

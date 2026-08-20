@@ -48,6 +48,7 @@ describe('MessagingService', () => {
   function mockMatch(overrides: Partial<{
     firstMessageExpiresAt: Date;
     firstMessageSentAt: Date | null;
+    firstMessageExtendedAt: Date | null;
   }> = {}) {
     prisma.match.findUnique.mockResolvedValue({
       id: MATCH_ID,
@@ -55,6 +56,7 @@ describe('MessagingService', () => {
       userBId: MAN_ID,
       firstMessageExpiresAt: hoursFromNow(24),
       firstMessageSentAt: null,
+      firstMessageExtendedAt: null,
       ...overrides,
     });
   }
@@ -126,6 +128,88 @@ describe('MessagingService', () => {
       expect(status.firstMessageSent).toBe(true);
       expect(status.canSendFirstMessage).toBe(true);
       expect(status.expiresAt).toBeNull();
+    });
+
+    it('reports canExtend true for an unmessaged, unexpired, not-yet-extended match', async () => {
+      mockMatch();
+
+      const status = await service.getMatchStatus(MAN_ID, MATCH_ID);
+
+      expect(status.canExtend).toBe(true);
+    });
+
+    it('reports canExtend false once the match has already been extended', async () => {
+      mockMatch({ firstMessageExtendedAt: new Date() });
+
+      const status = await service.getMatchStatus(MAN_ID, MATCH_ID);
+
+      expect(status.canExtend).toBe(false);
+    });
+
+    it('reports canExtend false once the first message has been sent', async () => {
+      mockMatch({ firstMessageSentAt: new Date() });
+
+      const status = await service.getMatchStatus(MAN_ID, MATCH_ID);
+
+      expect(status.canExtend).toBe(false);
+    });
+  });
+
+  describe('extendMatchTimeLimit', () => {
+    it('throws when the user is not part of the match', async () => {
+      mockMatch();
+
+      await expect(
+        service.extendMatchTimeLimit('someone-else', MATCH_ID),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('rejects extending once the first message has been sent', async () => {
+      mockMatch({ firstMessageSentAt: new Date() });
+
+      await expect(service.extendMatchTimeLimit(MAN_ID, MATCH_ID)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(prisma.match.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects extending an already-expired match', async () => {
+      mockMatch({ firstMessageExpiresAt: hoursFromNow(-1) });
+
+      await expect(service.extendMatchTimeLimit(MAN_ID, MATCH_ID)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(prisma.match.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects extending a match that has already been extended once', async () => {
+      mockMatch({ firstMessageExtendedAt: new Date() });
+
+      await expect(service.extendMatchTimeLimit(MAN_ID, MATCH_ID)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(prisma.match.update).not.toHaveBeenCalled();
+    });
+
+    it('adds 24 hours to the expiry and records the extension', async () => {
+      mockMatch();
+      prisma.match.update.mockResolvedValue({
+        id: MATCH_ID,
+        userAId: WOMAN_ID,
+        userBId: MAN_ID,
+        firstMessageExpiresAt: hoursFromNow(24),
+        firstMessageSentAt: null,
+        firstMessageExtendedAt: new Date(),
+      });
+
+      const status = await service.extendMatchTimeLimit(MAN_ID, MATCH_ID);
+
+      expect(prisma.match.update).toHaveBeenCalledWith({
+        where: { id: MATCH_ID },
+        data: { firstMessageExpiresAt: expect.any(Date), firstMessageExtendedAt: expect.any(Date) },
+      });
+      expect(status.canExtend).toBe(false);
+      expect(status.isExpired).toBe(false);
     });
   });
 
@@ -691,6 +775,7 @@ describe('MessagingService', () => {
           otherUserPhotoUrl: 'sam.jpg',
           expiresAt: expect.any(String),
           firstMessageSent: false,
+          canExtend: true,
           createdAt: '2026-01-01T00:00:00.000Z',
         },
       ]);

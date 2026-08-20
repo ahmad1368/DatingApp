@@ -69,6 +69,12 @@ export class MessagingController {
     return this.messagingService.listMessages(user.id, matchId);
   }
 
+  @Post(':matchId/extend')
+  @HttpCode(HttpStatus.OK)
+  extendMatchTimeLimit(@CurrentUser() user: AuthenticatedUser, @Param('matchId') matchId: string) {
+    return this.messagingService.extendMatchTimeLimit(user.id, matchId);
+  }
+
   @Post(':matchId/messages')
   @HttpCode(HttpStatus.CREATED)
   sendMessage(

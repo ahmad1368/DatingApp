@@ -87,4 +87,45 @@ void main() {
 
     expect(find.text('Chat unlocked'), findsOneWidget);
   });
+
+  testWidgets('extending a match removes the extend button', (tester) async {
+    http.Request? extendRequest;
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.method == 'POST' && request.url.path == '/matches/match-1/extend') {
+          extendRequest = request;
+          return http.Response(
+            '{"matchId":"match-1","expiresAt":"2026-01-03T00:00:00.000Z",'
+            '"isExpired":false,"firstMessageSent":false,"canSendFirstMessage":true,'
+            '"canExtend":false}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '[{"matchId":"match-1","otherUserId":"user-2","otherUserName":"Jane",'
+          '"otherUserPhotoUrl":null,"expiresAt":"${DateTime.now().add(const Duration(hours: 5)).toIso8601String()}",'
+          '"firstMessageSent":false,"canExtend":true,"createdAt":"2026-01-01T00:00:00.000Z"}]',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(home: MatchesScreen(messagingApi: api, currentUserId: 'user-1')),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.byIcon(Icons.timer_outlined), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.timer_outlined));
+    await tester.pump();
+    await tester.pump();
+
+    expect(extendRequest, isNotNull);
+    expect(find.byIcon(Icons.timer_outlined), findsNothing);
+  });
 }

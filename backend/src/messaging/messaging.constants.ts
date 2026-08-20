@@ -1,5 +1,9 @@
 export const FIRST_MESSAGE_WINDOW_HOURS = 24;
 
+// A match can be extended once (see MessagingService.extendMatchTimeLimit)
+// to give the pair more time before it dissolves for never messaging.
+export const MATCH_EXTENSION_HOURS = 24;
+
 export const WOMAN_GENDER_IDENTITIES = ['Woman', 'Transgender Woman'];
 
 export const MEDIA_CONTENT_TYPES = ['IMAGE', 'GIF'] as const;
@@ -34,6 +38,10 @@ export function findIcebreakerPrompt(promptId: string): IcebreakerPrompt | undef
 
 export function computeFirstMessageExpiresAt(from: Date): Date {
   return new Date(from.getTime() + FIRST_MESSAGE_WINDOW_HOURS * 60 * 60 * 1000);
+}
+
+export function computeExtendedExpiresAt(from: Date): Date {
+  return new Date(from.getTime() + MATCH_EXTENSION_HOURS * 60 * 60 * 1000);
 }
 
 export function isWoman(genderIdentities: string[]): boolean {

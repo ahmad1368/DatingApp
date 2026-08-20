@@ -173,6 +173,7 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
         isExpired: false,
         firstMessageSent: true,
         canSendFirstMessage: true,
+        canExtend: false,
       );
     });
   }
@@ -268,6 +269,16 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
     }
   }
 
+  Future<void> _extendMatchTimeLimit() async {
+    setState(() => _errorText = null);
+    try {
+      final status = await widget.messagingApi.extendMatchTimeLimit(widget.matchId);
+      setState(() => _status = status);
+    } on MessagingApiException catch (e) {
+      setState(() => _errorText = e.message);
+    }
+  }
+
   bool get _canType {
     final status = _status;
     if (status == null) {
@@ -317,6 +328,15 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
                   Padding(
                     padding: const EdgeInsets.all(16),
                     child: Text(_lockedBanner!, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                if (_status?.canExtend ?? false)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: OutlinedButton.icon(
+                      onPressed: _extendMatchTimeLimit,
+                      icon: const Icon(Icons.timer_outlined),
+                      label: const Text('Extend 24 hours'),
+                    ),
                   ),
                 Expanded(
                   child: _messages.isEmpty

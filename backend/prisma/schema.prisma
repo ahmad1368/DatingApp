@@ -127,12 +127,13 @@ model Swipe {
 }
 
 model Match {
-  id                    String    @id @default(uuid())
-  userAId               String
-  userBId               String
-  createdAt             DateTime  @default(now())
-  firstMessageExpiresAt DateTime
-  firstMessageSentAt    DateTime?
+  id                     String    @id @default(uuid())
+  userAId                String
+  userBId                String
+  createdAt              DateTime  @default(now())
+  firstMessageExpiresAt  DateTime
+  firstMessageSentAt     DateTime?
+  firstMessageExtendedAt DateTime?
 
   messages Message[]
 

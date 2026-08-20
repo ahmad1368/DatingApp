@@ -60,6 +60,33 @@ class _MatchesScreenState extends State<MatchesScreen> {
     }
   }
 
+  Future<void> _extendMatch(MatchSummary match) async {
+    setState(() => _errorText = null);
+    try {
+      final status = await widget.messagingApi.extendMatchTimeLimit(match.matchId);
+      setState(() {
+        _matches = [
+          for (final existing in _matches)
+            if (existing.matchId == match.matchId)
+              MatchSummary(
+                matchId: existing.matchId,
+                otherUserId: existing.otherUserId,
+                otherUserName: existing.otherUserName,
+                otherUserPhotoUrl: existing.otherUserPhotoUrl,
+                expiresAt: status.expiresAt,
+                firstMessageSent: existing.firstMessageSent,
+                canExtend: status.canExtend,
+                createdAt: existing.createdAt,
+              )
+            else
+              existing,
+        ];
+      });
+    } on MessagingApiException catch (e) {
+      setState(() => _errorText = e.message);
+    }
+  }
+
   String _countdownLabel(MatchSummary match) {
     if (match.firstMessageSent || match.expiresAt == null) {
       return 'Chat unlocked';
@@ -97,6 +124,13 @@ class _MatchesScreenState extends State<MatchesScreen> {
                             return ListTile(
                               title: Text(match.otherUserName ?? 'Someone new'),
                               subtitle: Text(_countdownLabel(match)),
+                              trailing: match.canExtend
+                                  ? IconButton(
+                                      icon: const Icon(Icons.timer_outlined),
+                                      tooltip: 'Extend 24 hours',
+                                      onPressed: () => _extendMatch(match),
+                                    )
+                                  : null,
                               onTap: () => Navigator.of(context).push(
                                 MaterialPageRoute(
                                   builder: (_) => MatchChatScreen(
