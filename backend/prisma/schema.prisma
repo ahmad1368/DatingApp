@@ -179,6 +179,19 @@ model IcebreakerResponse {
   @@map("icebreaker_responses")
 }
 
+model BlockedContact {
+  id            String   @id @default(uuid())
+  userId        String
+  contactValue  String
+  blockedUserId String?
+  createdAt     DateTime @default(now())
+
+  @@unique([userId, contactValue])
+  @@index([userId])
+  @@index([blockedUserId])
+  @@map("blocked_contacts")
+}
+
 model UserReport {
   id             String   @id @default(uuid())
   reporterId     String

@@ -11,6 +11,7 @@ describe('CuratedProfilesService', () => {
     user: { findUnique: jest.Mock; findMany: jest.Mock };
     swipe: { findMany: jest.Mock };
     dailyPick: { findMany: jest.Mock; createMany: jest.Mock };
+    blockedContact: { findMany: jest.Mock };
   };
   let matchingService: { getCompatibility: jest.Mock };
 
@@ -19,6 +20,7 @@ describe('CuratedProfilesService', () => {
       user: { findUnique: jest.fn(), findMany: jest.fn() },
       swipe: { findMany: jest.fn() },
       dailyPick: { findMany: jest.fn(), createMany: jest.fn() },
+      blockedContact: { findMany: jest.fn().mockResolvedValue([]) },
     };
     matchingService = { getCompatibility: jest.fn() };
     service = new CuratedProfilesService(
@@ -129,6 +131,28 @@ describe('CuratedProfilesService', () => {
     });
     expect(picks.map((p) => p.id)).toEqual(['high-compat', 'low-compat']);
     expect(picks[0].compatibilityPercentage).toBe(95);
+  });
+
+  it('excludes users blocked in either direction via synced contacts from the candidate pool', async () => {
+    prisma.user.findUnique.mockResolvedValue({ id: USER_ID });
+    prisma.dailyPick.findMany.mockResolvedValueOnce([]);
+    prisma.swipe.findMany.mockResolvedValue([]);
+    prisma.blockedContact.findMany
+      .mockResolvedValueOnce([{ blockedUserId: 'i-blocked-them' }])
+      .mockResolvedValueOnce([{ userId: 'they-blocked-me' }]);
+    prisma.user.findMany.mockResolvedValueOnce([]);
+
+    await service.getDailyPicks(USER_ID);
+
+    expect(prisma.user.findMany).toHaveBeenNthCalledWith(1, {
+      where: {
+        id: { notIn: [USER_ID, 'i-blocked-them', 'they-blocked-me'] },
+        onboardingCompletedAt: { not: null },
+        OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }],
+      },
+      take: 30,
+      select: { id: true },
+    });
   });
 
   it('gives highly-liked candidates an engagement bonus that can move them ahead in ranking', async () => {

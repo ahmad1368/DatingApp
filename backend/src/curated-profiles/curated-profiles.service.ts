@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { MatchingService } from '../matching/matching.service';
+import { getBlockedUserIds } from '../blocking/blocking.utils';
 import { LIKE_ACTIONS } from '../discovery/discovery.constants';
 import { calculateAge } from '../discovery/utils/age';
 import {
@@ -64,7 +65,8 @@ export class CuratedProfilesService {
       where: { swiperId: userId },
       select: { targetUserId: true },
     });
-    const excludedIds = [userId, ...swiped.map((s) => s.targetUserId)];
+    const blockedIds = await getBlockedUserIds(this.prisma, userId);
+    const excludedIds = [userId, ...swiped.map((s) => s.targetUserId), ...blockedIds];
 
     const candidates = await this.prisma.user.findMany({
       where: {

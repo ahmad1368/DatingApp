@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { getBlockedUserIds } from '../blocking/blocking.utils';
 import { haversineDistanceKm } from '../location/utils/haversine';
 import { computeFirstMessageExpiresAt } from '../messaging/messaging.constants';
 import {
@@ -71,8 +72,9 @@ export class DiscoveryService {
       where: { swiperId: userId },
       select: { targetUserId: true },
     });
+    const blockedIds = await getBlockedUserIds(this.prisma, userId);
 
-    const excludedIds = [userId, ...swiped.map((s) => s.targetUserId)];
+    const excludedIds = [userId, ...swiped.map((s) => s.targetUserId), ...blockedIds];
     const lifestyleWhere = this.buildLifestyleFilterWhere(currentUser);
     const now = new Date();
     const notSnoozedWhere: Prisma.UserWhereInput = {
@@ -184,7 +186,8 @@ export class DiscoveryService {
       where: { swiperId: userId },
       select: { targetUserId: true },
     });
-    const excludedIds = [userId, ...swiped.map((s) => s.targetUserId)];
+    const blockedIds = await getBlockedUserIds(this.prisma, userId);
+    const excludedIds = [userId, ...swiped.map((s) => s.targetUserId), ...blockedIds];
 
     const likersOfMe = await this.prisma.swipe.findMany({
       where: {
