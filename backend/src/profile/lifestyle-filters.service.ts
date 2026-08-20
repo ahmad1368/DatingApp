@@ -9,6 +9,10 @@ export interface LifestyleFiltersResult {
   religion: string | null;
   dietaryPreference: string | null;
   wantsChildren: string | null;
+  heightCm: number | null;
+  workoutHabit: string | null;
+  petOwnership: string | null;
+  showLifestyleBadgesOnProfile: boolean;
   filterSmokingHabits: string[];
   filterDrinkingHabits: string[];
   filterEducationLevels: string[];
@@ -25,6 +29,10 @@ interface LifestyleFiltersRecord {
   religion: string | null;
   dietaryPreference: string | null;
   wantsChildren: string | null;
+  heightCm: number | null;
+  workoutHabit: string | null;
+  petOwnership: string | null;
+  showLifestyleBadgesOnProfile: boolean;
   filterSmokingHabits: string[];
   filterDrinkingHabits: string[];
   filterEducationLevels: string[];
@@ -41,6 +49,10 @@ const SELECT = {
   religion: true,
   dietaryPreference: true,
   wantsChildren: true,
+  heightCm: true,
+  workoutHabit: true,
+  petOwnership: true,
+  showLifestyleBadgesOnProfile: true,
   filterSmokingHabits: true,
   filterDrinkingHabits: true,
   filterEducationLevels: true,
@@ -72,6 +84,10 @@ export class LifestyleFiltersService {
         religion: dto.religion ?? null,
         dietaryPreference: dto.dietaryPreference ?? null,
         wantsChildren: dto.wantsChildren ?? null,
+        heightCm: dto.heightCm ?? null,
+        workoutHabit: dto.workoutHabit ?? null,
+        petOwnership: dto.petOwnership ?? null,
+        showLifestyleBadgesOnProfile: dto.showLifestyleBadgesOnProfile,
         filterSmokingHabits: dto.filterSmokingHabits,
         filterDrinkingHabits: dto.filterDrinkingHabits,
         filterEducationLevels: dto.filterEducationLevels,
@@ -94,6 +110,10 @@ export class LifestyleFiltersService {
       religion: user?.religion ?? null,
       dietaryPreference: user?.dietaryPreference ?? null,
       wantsChildren: user?.wantsChildren ?? null,
+      heightCm: user?.heightCm ?? null,
+      workoutHabit: user?.workoutHabit ?? null,
+      petOwnership: user?.petOwnership ?? null,
+      showLifestyleBadgesOnProfile: user?.showLifestyleBadgesOnProfile ?? true,
       filterSmokingHabits: user?.filterSmokingHabits ?? [],
       filterDrinkingHabits: user?.filterDrinkingHabits ?? [],
       filterEducationLevels: user?.filterEducationLevels ?? [],

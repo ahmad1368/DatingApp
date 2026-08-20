@@ -26,6 +26,10 @@ describe('LifestyleFiltersService', () => {
         religion: null,
         dietaryPreference: null,
         wantsChildren: null,
+        heightCm: null,
+        workoutHabit: null,
+        petOwnership: null,
+        showLifestyleBadgesOnProfile: true,
         filterSmokingHabits: [],
         filterDrinkingHabits: [],
         filterEducationLevels: [],
@@ -46,6 +50,10 @@ describe('LifestyleFiltersService', () => {
         religion: 'Buddhist',
         dietaryPreference: 'Vegetarian',
         wantsChildren: 'Wants Children',
+        heightCm: 178,
+        workoutHabit: 'Often',
+        petOwnership: 'Dog',
+        showLifestyleBadgesOnProfile: true,
         filterSmokingHabits: ['Never', 'Trying to Quit'],
         filterDrinkingHabits: ['Never', 'Socially'],
         filterEducationLevels: ['Bachelors', 'Masters', 'Doctorate'],
@@ -67,6 +75,10 @@ describe('LifestyleFiltersService', () => {
           religion: 'Buddhist',
           dietaryPreference: 'Vegetarian',
           wantsChildren: 'Wants Children',
+          heightCm: 178,
+          workoutHabit: 'Often',
+          petOwnership: 'Dog',
+          showLifestyleBadgesOnProfile: true,
           filterSmokingHabits: ['Never', 'Trying to Quit'],
           filterDrinkingHabits: ['Never', 'Socially'],
           filterEducationLevels: ['Bachelors', 'Masters', 'Doctorate'],
@@ -79,10 +91,12 @@ describe('LifestyleFiltersService', () => {
       });
       expect(result.education).toBe('Masters');
       expect(result.filterEducationLevels).toEqual(['Bachelors', 'Masters', 'Doctorate']);
+      expect(result.heightCm).toBe(178);
     });
 
     it('clears optional attributes that are omitted', async () => {
       const dto: SetLifestyleFiltersDto = {
+        showLifestyleBadgesOnProfile: false,
         filterSmokingHabits: [],
         filterDrinkingHabits: [],
         filterEducationLevels: [],
@@ -98,6 +112,10 @@ describe('LifestyleFiltersService', () => {
         religion: null,
         dietaryPreference: null,
         wantsChildren: null,
+        heightCm: null,
+        workoutHabit: null,
+        petOwnership: null,
+        showLifestyleBadgesOnProfile: false,
         filterSmokingHabits: [],
         filterDrinkingHabits: [],
         filterEducationLevels: [],
@@ -111,7 +129,14 @@ describe('LifestyleFiltersService', () => {
 
       expect(prisma.user.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ smokingHabit: null, education: null }),
+          data: expect.objectContaining({
+            smokingHabit: null,
+            education: null,
+            heightCm: null,
+            workoutHabit: null,
+            petOwnership: null,
+            showLifestyleBadgesOnProfile: false,
+          }),
         }),
       );
     });

@@ -8,8 +8,12 @@ import {
   DIETARY_PREFERENCES,
   DRINKING_HABITS,
   EDUCATION_LEVELS,
+  MAX_HEIGHT_CM,
+  MIN_HEIGHT_CM,
+  PET_OWNERSHIP_OPTIONS,
   RELIGIONS,
   SMOKING_HABITS,
+  WORKOUT_HABITS,
 } from './lifestyle-filters.constants';
 import { LifestyleFiltersService } from './lifestyle-filters.service';
 
@@ -27,6 +31,10 @@ export class LifestyleFiltersController {
       dietaryPreferences: DIETARY_PREFERENCES,
       childrenPreferences: CHILDREN_PREFERENCES,
       relationshipGoals: RELATIONSHIP_GOALS,
+      workoutHabits: WORKOUT_HABITS,
+      petOwnershipOptions: PET_OWNERSHIP_OPTIONS,
+      minHeightCm: MIN_HEIGHT_CM,
+      maxHeightCm: MAX_HEIGHT_CM,
     };
   }
 

@@ -22,6 +22,7 @@ class DeckCard {
     required this.interests,
     this.relationshipGoal,
     this.relationshipIntentBadges = const [],
+    this.lifestyleBadges = const [],
     this.isSuperLike = false,
     this.isBoosted = false,
   });
@@ -35,6 +36,7 @@ class DeckCard {
   final List<String> interests;
   final String? relationshipGoal;
   final List<String> relationshipIntentBadges;
+  final List<String> lifestyleBadges;
   final bool isSuperLike;
   final bool isBoosted;
 }
@@ -104,6 +106,7 @@ class DiscoveryApi {
       relationshipGoal: json['relationshipGoal'] as String?,
       relationshipIntentBadges:
           (json['relationshipIntentBadges'] as List?)?.cast<String>() ?? const [],
+      lifestyleBadges: (json['lifestyleBadges'] as List?)?.cast<String>() ?? const [],
       isSuperLike: json['isSuperLike'] as bool? ?? false,
       isBoosted: json['isBoosted'] as bool? ?? false,
     );

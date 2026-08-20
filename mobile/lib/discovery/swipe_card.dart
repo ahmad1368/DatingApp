@@ -174,6 +174,21 @@ class _CardContent extends StatelessWidget {
                   ],
                 ),
               ],
+              if (card.lifestyleBadges.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    for (final badge in card.lifestyleBadges)
+                      Chip(
+                        label: Text(badge),
+                        backgroundColor: Colors.teal.shade100,
+                        visualDensity: VisualDensity.compact,
+                      ),
+                  ],
+                ),
+              ],
               if (card.interests.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Wrap(
