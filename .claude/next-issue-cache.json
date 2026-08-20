@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-20T05:25:24.682Z",
+  "generated_at": "2026-08-20T05:36:27.683Z",
   "snapshot": [
     {
       "number": 454,
@@ -2065,18 +2065,9 @@
       "number": 42,
       "title": "Video Profile Snippets (Looping Video Headers)",
       "updatedAt": "2026-08-10T20:38:26Z"
-    },
-    {
-      "number": 41,
-      "title": "Blind Dating / Fast Chat Speed Dating Mode",
-      "updatedAt": "2026-08-10T20:38:24Z"
     }
   ],
   "queue": [
-    {
-      "number": 42,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 43,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
