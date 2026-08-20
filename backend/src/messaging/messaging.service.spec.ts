@@ -22,6 +22,7 @@ describe('MessagingService', () => {
       updateMany: jest.Mock;
     };
     user: { findUnique: jest.Mock; findMany: jest.Mock; update: jest.Mock };
+    icebreakerResponse: { findMany: jest.Mock; upsert: jest.Mock };
     swipe: { deleteMany: jest.Mock };
     $transaction: jest.Mock;
   };
@@ -37,6 +38,7 @@ describe('MessagingService', () => {
         updateMany: jest.fn(),
       },
       user: { findUnique: jest.fn(), findMany: jest.fn(), update: jest.fn() },
+      icebreakerResponse: { findMany: jest.fn().mockResolvedValue([]), upsert: jest.fn() },
       swipe: { deleteMany: jest.fn() },
       $transaction: jest.fn((ops: unknown[]) => Promise.all(ops)),
     };
@@ -185,6 +187,7 @@ describe('MessagingService', () => {
         mediaUrl: null,
         isBlurred: false,
         readAt: null,
+        icebreaker: null,
         createdAt: '2026-01-01T00:00:00.000Z',
       });
     });
@@ -401,6 +404,7 @@ describe('MessagingService', () => {
           mediaUrl: null,
           isBlurred: false,
           readAt: null,
+          icebreaker: null,
           createdAt: '2026-01-01T00:00:00.000Z',
         },
       ]);
@@ -486,6 +490,177 @@ describe('MessagingService', () => {
         data: { readReceiptsEnabled: false },
       });
       expect(result).toEqual({ readReceiptsEnabled: false });
+    });
+  });
+
+  describe('getIcebreakerPrompts', () => {
+    it('returns a non-empty static list of two-option prompts', () => {
+      const prompts = service.getIcebreakerPrompts();
+
+      expect(prompts.length).toBeGreaterThan(0);
+      expect(prompts[0]).toEqual(
+        expect.objectContaining({
+          id: expect.any(String),
+          question: expect.any(String),
+          optionA: expect.any(String),
+          optionB: expect.any(String),
+        }),
+      );
+    });
+  });
+
+  describe('sendIcebreaker', () => {
+    it('rejects an unknown prompt id', async () => {
+      await expect(
+        service.sendIcebreaker(WOMAN_ID, MATCH_ID, 'not-a-real-prompt'),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.message.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects the man sending the first icebreaker to a woman match', async () => {
+      mockMatch();
+      mockUsers({ [WOMAN_ID]: ['Woman'], [MAN_ID]: ['Man'] });
+
+      await expect(
+        service.sendIcebreaker(MAN_ID, MATCH_ID, 'coffee-or-tea'),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('creates an ICEBREAKER message with no responses yet', async () => {
+      mockMatch();
+      mockUsers({ [WOMAN_ID]: ['Woman'], [MAN_ID]: ['Man'] });
+      prisma.message.create.mockResolvedValue({
+        id: 'message-1',
+        senderId: WOMAN_ID,
+        contentType: 'ICEBREAKER',
+        content: 'coffee-or-tea',
+        mediaUrl: null,
+        isBlurred: false,
+        readAt: null,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const result = await service.sendIcebreaker(WOMAN_ID, MATCH_ID, 'coffee-or-tea');
+
+      expect(prisma.message.create).toHaveBeenCalledWith({
+        data: { matchId: MATCH_ID, senderId: WOMAN_ID, contentType: 'ICEBREAKER', content: 'coffee-or-tea' },
+      });
+      expect(result.icebreaker).toEqual({
+        promptId: 'coffee-or-tea',
+        question: 'Coffee or tea?',
+        optionA: 'Coffee',
+        optionB: 'Tea',
+        myOptionIndex: null,
+        otherOptionIndex: null,
+      });
+    });
+  });
+
+  describe('respondToIcebreaker', () => {
+    it('throws when the message is not an icebreaker in this match', async () => {
+      mockMatch();
+      prisma.message.findUnique.mockResolvedValue({
+        id: 'message-1',
+        matchId: MATCH_ID,
+        contentType: 'TEXT',
+      });
+
+      await expect(
+        service.respondToIcebreaker(WOMAN_ID, MATCH_ID, 'message-1', 0),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(prisma.icebreakerResponse.upsert).not.toHaveBeenCalled();
+    });
+
+    it("upserts the responder's pick and reveals both sides once both have answered", async () => {
+      mockMatch();
+      prisma.message.findUnique.mockResolvedValue({
+        id: 'message-1',
+        matchId: MATCH_ID,
+        senderId: WOMAN_ID,
+        contentType: 'ICEBREAKER',
+        content: 'coffee-or-tea',
+        mediaUrl: null,
+        isBlurred: false,
+        readAt: null,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+      prisma.icebreakerResponse.findMany.mockResolvedValue([
+        { userId: WOMAN_ID, optionIndex: 0 },
+        { userId: MAN_ID, optionIndex: 1 },
+      ]);
+
+      const result = await service.respondToIcebreaker(MAN_ID, MATCH_ID, 'message-1', 1);
+
+      expect(prisma.icebreakerResponse.upsert).toHaveBeenCalledWith({
+        where: { messageId_userId: { messageId: 'message-1', userId: MAN_ID } },
+        create: { messageId: 'message-1', userId: MAN_ID, optionIndex: 1 },
+        update: { optionIndex: 1 },
+      });
+      expect(result.icebreaker).toEqual({
+        promptId: 'coffee-or-tea',
+        question: 'Coffee or tea?',
+        optionA: 'Coffee',
+        optionB: 'Tea',
+        myOptionIndex: 1,
+        otherOptionIndex: 0,
+      });
+    });
+
+    it("only shows the responder's own pick until the other side answers", async () => {
+      mockMatch();
+      prisma.message.findUnique.mockResolvedValue({
+        id: 'message-1',
+        matchId: MATCH_ID,
+        senderId: WOMAN_ID,
+        contentType: 'ICEBREAKER',
+        content: 'coffee-or-tea',
+        mediaUrl: null,
+        isBlurred: false,
+        readAt: null,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+      prisma.icebreakerResponse.findMany.mockResolvedValue([{ userId: MAN_ID, optionIndex: 1 }]);
+
+      const result = await service.respondToIcebreaker(MAN_ID, MATCH_ID, 'message-1', 1);
+
+      expect(result.icebreaker?.myOptionIndex).toBe(1);
+      expect(result.icebreaker?.otherOptionIndex).toBeNull();
+    });
+  });
+
+  describe('listMessages icebreaker hydration', () => {
+    it("includes both sides' answers when listing a conversation", async () => {
+      mockMatch();
+      prisma.message.findMany.mockResolvedValue([
+        {
+          id: 'message-1',
+          senderId: WOMAN_ID,
+          contentType: 'ICEBREAKER',
+          content: 'coffee-or-tea',
+          mediaUrl: null,
+          isBlurred: false,
+          readAt: new Date('2026-01-01T00:05:00.000Z'),
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ]);
+      prisma.icebreakerResponse.findMany.mockResolvedValue([
+        { messageId: 'message-1', userId: WOMAN_ID, optionIndex: 0 },
+        { messageId: 'message-1', userId: MAN_ID, optionIndex: 1 },
+      ]);
+
+      const messages = await service.listMessages(MAN_ID, MATCH_ID);
+
+      expect(prisma.icebreakerResponse.findMany).toHaveBeenCalledWith({
+        where: { messageId: { in: ['message-1'] } },
+      });
+      expect(messages[0].icebreaker).toEqual({
+        promptId: 'coffee-or-tea',
+        question: 'Coffee or tea?',
+        optionA: 'Coffee',
+        optionB: 'Tea',
+        myOptionIndex: 1,
+        otherOptionIndex: 0,
+      });
     });
   });
 

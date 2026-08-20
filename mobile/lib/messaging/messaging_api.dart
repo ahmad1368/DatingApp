@@ -56,6 +56,7 @@ class ChatMessage {
     this.mediaUrl,
     required this.isBlurred,
     this.readAt,
+    this.icebreaker,
     required this.createdAt,
   });
 
@@ -66,9 +67,45 @@ class ChatMessage {
   final String? mediaUrl;
   final bool isBlurred;
   final DateTime? readAt;
+  final Icebreaker? icebreaker;
   final DateTime createdAt;
 
   bool get isRead => readAt != null;
+}
+
+class IcebreakerPrompt {
+  IcebreakerPrompt({
+    required this.id,
+    required this.question,
+    required this.optionA,
+    required this.optionB,
+  });
+
+  final String id;
+  final String question;
+  final String optionA;
+  final String optionB;
+}
+
+class Icebreaker {
+  Icebreaker({
+    required this.promptId,
+    required this.question,
+    required this.optionA,
+    required this.optionB,
+    this.myOptionIndex,
+    this.otherOptionIndex,
+  });
+
+  final String promptId;
+  final String question;
+  final String optionA;
+  final String optionB;
+  final int? myOptionIndex;
+  final int? otherOptionIndex;
+
+  bool get haveIAnswered => myOptionIndex != null;
+  bool get haveBothAnswered => myOptionIndex != null && otherOptionIndex != null;
 }
 
 class GifResult {
@@ -273,6 +310,66 @@ class MessagingApi {
     return body['readReceiptsEnabled'] as bool;
   }
 
+  /// Fetches the static bank of two-option icebreaker cards either person
+  /// can send in-chat to spark conversation before meeting.
+  Future<List<IcebreakerPrompt>> fetchIcebreakerPrompts() async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/matches/icebreaker-prompts'),
+      headers: _headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw MessagingApiException(_errorMessage(_decode(response), response.statusCode));
+    }
+
+    final list = jsonDecode(response.body) as List;
+    return list
+        .cast<Map<String, dynamic>>()
+        .map(
+          (json) => IcebreakerPrompt(
+            id: json['id'] as String,
+            question: json['question'] as String,
+            optionA: json['optionA'] as String,
+            optionB: json['optionB'] as String,
+          ),
+        )
+        .toList();
+  }
+
+  Future<ChatMessage> sendIcebreaker({required String matchId, required String promptId}) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/matches/$matchId/icebreaker'),
+      headers: _headers,
+      body: jsonEncode({'promptId': promptId}),
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 201) {
+      throw MessagingApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return _toChatMessage(body);
+  }
+
+  Future<ChatMessage> respondToIcebreaker({
+    required String matchId,
+    required String messageId,
+    required int optionIndex,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/matches/$matchId/messages/$messageId/icebreaker-response'),
+      headers: _headers,
+      body: jsonEncode({'optionIndex': optionIndex}),
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 200) {
+      throw MessagingApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return _toChatMessage(body);
+  }
+
   Future<void> reportMessage({
     required String matchId,
     required String messageId,
@@ -290,6 +387,7 @@ class MessagingApi {
   }
 
   ChatMessage _toChatMessage(Map<String, dynamic> json) {
+    final icebreakerJson = json['icebreaker'] as Map<String, dynamic>?;
     return ChatMessage(
       id: json['id'] as String,
       senderId: json['senderId'] as String,
@@ -298,6 +396,16 @@ class MessagingApi {
       mediaUrl: json['mediaUrl'] as String?,
       isBlurred: json['isBlurred'] as bool,
       readAt: json['readAt'] != null ? DateTime.parse(json['readAt'] as String) : null,
+      icebreaker: icebreakerJson != null
+          ? Icebreaker(
+              promptId: icebreakerJson['promptId'] as String,
+              question: icebreakerJson['question'] as String,
+              optionA: icebreakerJson['optionA'] as String,
+              optionB: icebreakerJson['optionB'] as String,
+              myOptionIndex: icebreakerJson['myOptionIndex'] as int?,
+              otherOptionIndex: icebreakerJson['otherOptionIndex'] as int?,
+            )
+          : null,
       createdAt: DateTime.parse(json['createdAt'] as String),
     );
   }

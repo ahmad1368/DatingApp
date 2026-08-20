@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { isWoman } from './messaging.constants';
+import { findIcebreakerPrompt, ICEBREAKER_PROMPTS, IcebreakerPrompt, isWoman } from './messaging.constants';
 
 export interface MatchStatus {
   matchId: string;
@@ -8,6 +8,15 @@ export interface MatchStatus {
   isExpired: boolean;
   firstMessageSent: boolean;
   canSendFirstMessage: boolean;
+}
+
+export interface IcebreakerView {
+  promptId: string;
+  question: string;
+  optionA: string;
+  optionB: string;
+  myOptionIndex: number | null;
+  otherOptionIndex: number | null;
 }
 
 export interface MessageView {
@@ -18,6 +27,7 @@ export interface MessageView {
   mediaUrl: string | null;
   isBlurred: boolean;
   readAt: string | null;
+  icebreaker: IcebreakerView | null;
   createdAt: string;
 }
 
@@ -81,7 +91,7 @@ export class MessagingService {
 
     await this.markFirstMessageIfNeeded(matchId, firstMessageSent);
 
-    return this.toMessageView(message);
+    return this.toMessageView(message, userId);
   }
 
   /**
@@ -109,7 +119,7 @@ export class MessagingService {
 
     await this.markFirstMessageIfNeeded(matchId, firstMessageSent);
 
-    return this.toMessageView(message);
+    return this.toMessageView(message, userId);
   }
 
   async revealImage(userId: string, matchId: string, messageId: string): Promise<MessageView> {
@@ -123,7 +133,7 @@ export class MessagingService {
       throw new ForbiddenException('Only the recipient can reveal a blurred photo.');
     }
     if (message.contentType !== 'IMAGE' || !message.isBlurred) {
-      return this.toMessageView(message);
+      return this.toMessageView(message, userId);
     }
 
     const updated = await this.prisma.message.update({
@@ -131,7 +141,7 @@ export class MessagingService {
       data: { isBlurred: false },
     });
 
-    return this.toMessageView(updated);
+    return this.toMessageView(updated, userId);
   }
 
   /**
@@ -149,30 +159,92 @@ export class MessagingService {
       orderBy: { createdAt: 'asc' },
     });
 
+    const responsesByMessageId = await this.getIcebreakerResponsesByMessage(
+      messages.filter((message) => message.contentType === 'ICEBREAKER').map((message) => message.id),
+    );
+
     const unreadIncomingIds = messages
       .filter((message) => message.senderId !== userId && message.readAt == null)
       .map((message) => message.id);
 
+    let readAt: Date | null = null;
     if (unreadIncomingIds.length > 0) {
       const currentUser = await this.prisma.user.findUnique({
         where: { id: userId },
         select: { readReceiptsEnabled: true },
       });
-
       if (currentUser?.readReceiptsEnabled) {
-        const readAt = new Date();
+        readAt = new Date();
         await this.prisma.message.updateMany({
           where: { id: { in: unreadIncomingIds } },
           data: { readAt },
         });
-        const unreadIdSet = new Set(unreadIncomingIds);
-        return messages.map((message) =>
-          this.toMessageView(unreadIdSet.has(message.id) ? { ...message, readAt } : message),
-        );
       }
     }
+    const unreadIdSet = new Set(unreadIncomingIds);
 
-    return messages.map((message) => this.toMessageView(message));
+    return messages.map((message) =>
+      this.toMessageView(
+        readAt && unreadIdSet.has(message.id) ? { ...message, readAt } : message,
+        userId,
+        responsesByMessageId.get(message.id) ?? [],
+      ),
+    );
+  }
+
+  /**
+   * In-chat icebreaker: a two-option question card either person can send
+   * to spark conversation before meeting. Subject to the same match-expiry
+   * and women-first-message rules as any other message.
+   */
+  async sendIcebreaker(userId: string, matchId: string, promptId: string): Promise<MessageView> {
+    const prompt = findIcebreakerPrompt(promptId);
+    if (!prompt) {
+      throw new BadRequestException('Unknown icebreaker prompt.');
+    }
+
+    const { firstMessageSent } = await this.assertCanSend(userId, matchId);
+
+    const message = await this.prisma.message.create({
+      data: { matchId, senderId: userId, contentType: 'ICEBREAKER', content: promptId },
+    });
+
+    await this.markFirstMessageIfNeeded(matchId, firstMessageSent);
+
+    return this.toMessageView(message, userId);
+  }
+
+  /**
+   * Answers an icebreaker card. Each side's pick is stored independently;
+   * [toMessageView] only ever reveals it as "myOptionIndex"/"otherOptionIndex"
+   * from the current viewer's perspective, not by absolute option.
+   */
+  async respondToIcebreaker(
+    userId: string,
+    matchId: string,
+    messageId: string,
+    optionIndex: number,
+  ): Promise<MessageView> {
+    await this.getMatchForUser(userId, matchId);
+
+    const message = await this.prisma.message.findUnique({ where: { id: messageId } });
+    if (!message || message.matchId !== matchId || message.contentType !== 'ICEBREAKER') {
+      throw new NotFoundException('Icebreaker not found.');
+    }
+
+    await this.prisma.icebreakerResponse.upsert({
+      where: { messageId_userId: { messageId, userId } },
+      create: { messageId, userId, optionIndex },
+      update: { optionIndex },
+    });
+
+    const responses = await this.prisma.icebreakerResponse.findMany({ where: { messageId } });
+
+    return this.toMessageView(message, userId, responses);
+  }
+
+  getIcebreakerPrompts(): IcebreakerPrompt[] {
+    return ICEBREAKER_PROMPTS;
   }
 
   /**
@@ -318,16 +390,39 @@ export class MessagingService {
     return !isWoman(other?.genderIdentities ?? []);
   }
 
-  private toMessageView(message: {
-    id: string;
-    senderId: string;
-    contentType: string;
-    content: string | null;
-    mediaUrl: string | null;
-    isBlurred: boolean;
-    readAt: Date | null;
-    createdAt: Date;
-  }): MessageView {
+  private async getIcebreakerResponsesByMessage(
+    messageIds: string[],
+  ): Promise<Map<string, { userId: string; optionIndex: number }[]>> {
+    const responsesByMessageId = new Map<string, { userId: string; optionIndex: number }[]>();
+    if (messageIds.length === 0) {
+      return responsesByMessageId;
+    }
+
+    const responses = await this.prisma.icebreakerResponse.findMany({
+      where: { messageId: { in: messageIds } },
+    });
+    for (const response of responses) {
+      const list = responsesByMessageId.get(response.messageId) ?? [];
+      list.push({ userId: response.userId, optionIndex: response.optionIndex });
+      responsesByMessageId.set(response.messageId, list);
+    }
+    return responsesByMessageId;
+  }
+
+  private toMessageView(
+    message: {
+      id: string;
+      senderId: string;
+      contentType: string;
+      content: string | null;
+      mediaUrl: string | null;
+      isBlurred: boolean;
+      readAt: Date | null;
+      createdAt: Date;
+    },
+    userId: string,
+    icebreakerResponses: { userId: string; optionIndex: number }[] = [],
+  ): MessageView {
     return {
       id: message.id,
       senderId: message.senderId,
@@ -336,7 +431,35 @@ export class MessagingService {
       mediaUrl: message.mediaUrl,
       isBlurred: message.isBlurred,
       readAt: message.readAt ? message.readAt.toISOString() : null,
+      icebreaker: this.toIcebreakerView(message.contentType, message.content, userId, icebreakerResponses),
       createdAt: message.createdAt.toISOString(),
+    };
+  }
+
+  private toIcebreakerView(
+    contentType: string,
+    promptId: string | null,
+    userId: string,
+    responses: { userId: string; optionIndex: number }[],
+  ): IcebreakerView | null {
+    if (contentType !== 'ICEBREAKER' || !promptId) {
+      return null;
+    }
+    const prompt = findIcebreakerPrompt(promptId);
+    if (!prompt) {
+      return null;
+    }
+
+    const myResponse = responses.find((response) => response.userId === userId);
+    const otherResponse = responses.find((response) => response.userId !== userId);
+
+    return {
+      promptId: prompt.id,
+      question: prompt.question,
+      optionA: prompt.optionA,
+      optionB: prompt.optionB,
+      myOptionIndex: myResponse?.optionIndex ?? null,
+      otherOptionIndex: otherResponse?.optionIndex ?? null,
     };
   }
 }

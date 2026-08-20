@@ -168,6 +168,17 @@ model MessageReport {
   @@map("message_reports")
 }
 
+model IcebreakerResponse {
+  id          String   @id @default(uuid())
+  messageId   String
+  userId      String
+  optionIndex Int
+  createdAt   DateTime @default(now())
+
+  @@unique([messageId, userId])
+  @@map("icebreaker_responses")
+}
+
 model UserReport {
   id             String   @id @default(uuid())
   reporterId     String
