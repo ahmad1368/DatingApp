@@ -14,6 +14,7 @@ import { VettingModule } from './vetting/vetting.module';
 import { CouplesModule } from './couples/couples.module';
 import { PersonalityModule } from './personality/personality.module';
 import { CallingModule } from './calling/calling.module';
+import { SafetyModule } from './safety/safety.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { CallingModule } from './calling/calling.module';
     CouplesModule,
     PersonalityModule,
     CallingModule,
+    SafetyModule,
   ],
 })
 export class AppModule {}

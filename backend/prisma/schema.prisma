@@ -166,6 +166,35 @@ model MessageReport {
   @@map("message_reports")
 }
 
+model UserReport {
+  id             String   @id @default(uuid())
+  reporterId     String
+  reportedUserId String
+  reason         String
+  details        String?
+  createdAt      DateTime @default(now())
+
+  @@index([reportedUserId])
+  @@index([reporterId])
+  @@map("user_reports")
+}
+
+model DateCheckIn {
+  id                    String    @id @default(uuid())
+  userId                String
+  matchId               String?
+  location              String?
+  scheduledAt           DateTime
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  notes                 String?
+  confirmedAt           DateTime?
+  createdAt             DateTime  @default(now())
+
+  @@index([userId])
+  @@map("date_check_ins")
+}
+
 model Question {
   id        String   @id @default(uuid())
   text      String
