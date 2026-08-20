@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-20T03:56:18.399Z",
+  "generated_at": "2026-08-20T04:09:23.985Z",
   "snapshot": [
     {
       "number": 454,
@@ -2095,18 +2095,9 @@
       "number": 36,
       "title": "Location-Based Crossing Paths (People Nearby)",
       "updatedAt": "2026-08-10T20:38:14Z"
-    },
-    {
-      "number": 35,
-      "title": "Read Receipts Control",
-      "updatedAt": "2026-08-10T20:38:12Z"
     }
   ],
   "queue": [
-    {
-      "number": 36,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 37,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
