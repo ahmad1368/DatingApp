@@ -61,6 +61,7 @@ model User {
   filterRelationshipGoals            String[]  @default([])
   incognitoEnabled                   Boolean   @default(false)
   activeMode                         String    @default("DATING")
+  snoozedUntil                       DateTime?
   instagramUserId                    String?
   instagramAccessToken               String?
   instagramTokenExpiresAt            DateTime?

@@ -94,7 +94,10 @@ describe('DiscoveryService', () => {
           id: { notIn: [USER_ID, 'already-swiped'] },
           onboardingCompletedAt: { not: null },
           activeMode: 'DATING',
-          OR: [{ incognitoEnabled: false }, { id: { in: [] } }],
+          AND: [
+            { OR: [{ incognitoEnabled: false }, { id: { in: [] } }] },
+            { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
+          ],
         },
         take: 20,
       });
@@ -132,7 +135,10 @@ describe('DiscoveryService', () => {
           id: { notIn: [USER_ID] },
           onboardingCompletedAt: { not: null },
           activeMode: 'DATING',
-          OR: [{ incognitoEnabled: false }, { id: { in: [] } }],
+          AND: [
+            { OR: [{ incognitoEnabled: false }, { id: { in: [] } }] },
+            { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
+          ],
           smokingHabit: { in: ['Never'] },
           education: { in: ['Bachelors', 'Masters'] },
           relationshipGoal: { in: ['LONG_TERM'] },
@@ -170,6 +176,7 @@ describe('DiscoveryService', () => {
           id: { in: ['super-liker-1'] },
           onboardingCompletedAt: { not: null },
           activeMode: 'DATING',
+          OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }],
         },
         take: 20,
       });
@@ -178,7 +185,10 @@ describe('DiscoveryService', () => {
           id: { notIn: [USER_ID, 'super-liker-1'] },
           onboardingCompletedAt: { not: null },
           activeMode: 'DATING',
-          OR: [{ incognitoEnabled: false }, { id: { in: ['super-liker-1'] } }],
+          AND: [
+            { OR: [{ incognitoEnabled: false }, { id: { in: ['super-liker-1'] } }] },
+            { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
+          ],
         },
         take: 19,
       });
@@ -210,7 +220,10 @@ describe('DiscoveryService', () => {
           id: { notIn: [USER_ID] },
           onboardingCompletedAt: { not: null },
           activeMode: 'DATING',
-          OR: [{ incognitoEnabled: false }, { id: { in: ['liker-1'] } }],
+          AND: [
+            { OR: [{ incognitoEnabled: false }, { id: { in: ['liker-1'] } }] },
+            { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
+          ],
         },
         take: 20,
       });
@@ -276,9 +289,39 @@ describe('DiscoveryService', () => {
           id: { notIn: [USER_ID] },
           onboardingCompletedAt: { not: null },
           activeMode: 'BFF',
-          OR: [{ incognitoEnabled: false }, { id: { in: [] } }],
+          AND: [
+            { OR: [{ incognitoEnabled: false }, { id: { in: [] } }] },
+            { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
+          ],
         },
         take: 20,
+      });
+    });
+
+    it('excludes snoozed candidates from both the priority and remaining pools', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+      });
+      prisma.swipe.findMany
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([{ swiperId: 'super-liker-1', action: 'SUPER_LIKE' }]);
+      prisma.user.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+
+      await service.getDeck(USER_ID);
+
+      const priorityWhere = prisma.user.findMany.mock.calls[0][0].where;
+      const remainingWhere = prisma.user.findMany.mock.calls[1][0].where;
+
+      expect(priorityWhere.OR).toEqual([{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }]);
+      expect(remainingWhere.AND).toContainEqual({
+        OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }],
       });
     });
   });
@@ -672,6 +715,107 @@ describe('DiscoveryService', () => {
           smokingHabit: { in: ['Never'] },
         },
       });
+    });
+  });
+
+  describe('setSnoozeMode', () => {
+    it('throws when the current user does not exist', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(service.setSnoozeMode(USER_ID, true)).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('clears the snooze when disabling', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: USER_ID });
+      prisma.user.update.mockResolvedValue({ snoozedUntil: null });
+
+      const result = await service.setSnoozeMode(USER_ID, false);
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: USER_ID },
+        data: { snoozedUntil: null },
+      });
+      expect(result).toEqual({ snoozedUntil: null });
+    });
+
+    it('defaults to a 7-day snooze when no end date is given', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: USER_ID });
+      prisma.user.update.mockImplementation(({ data }) => Promise.resolve({ snoozedUntil: data.snoozedUntil }));
+
+      const result = await service.setSnoozeMode(USER_ID, true);
+
+      const updateCall = prisma.user.update.mock.calls[0][0];
+      const snoozedUntil = updateCall.data.snoozedUntil as Date;
+      const daysAhead = (snoozedUntil.getTime() - Date.now()) / (24 * 60 * 60 * 1000);
+      expect(daysAhead).toBeGreaterThan(6.9);
+      expect(daysAhead).toBeLessThan(7.1);
+      expect(result.snoozedUntil).toBe(snoozedUntil.toISOString());
+    });
+
+    it('snoozes until the given date when provided', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: USER_ID });
+      const until = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString();
+      prisma.user.update.mockImplementation(({ data }) => Promise.resolve({ snoozedUntil: data.snoozedUntil }));
+
+      const result = await service.setSnoozeMode(USER_ID, true, until);
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: USER_ID },
+        data: { snoozedUntil: new Date(until) },
+      });
+      expect(result.snoozedUntil).toBe(until);
+    });
+
+    it('rejects an end date that is not in the future', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: USER_ID });
+      const pastDate = new Date(Date.now() - 60_000).toISOString();
+
+      await expect(service.setSnoozeMode(USER_ID, true, pastDate)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+    });
+
+    it('rejects an end date beyond the maximum snooze duration', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: USER_ID });
+      const farFuture = new Date(Date.now() + 200 * 24 * 60 * 60 * 1000).toISOString();
+
+      await expect(service.setSnoozeMode(USER_ID, true, farFuture)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+    });
+  });
+
+  describe('getSnoozeStatus', () => {
+    it('throws when the current user does not exist', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(service.getSnoozeStatus(USER_ID)).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('reports null when there is no active snooze', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: USER_ID, snoozedUntil: null });
+
+      const result = await service.getSnoozeStatus(USER_ID);
+
+      expect(result).toEqual({ snoozedUntil: null });
+    });
+
+    it('reports the active snooze end date', async () => {
+      const snoozedUntil = new Date(Date.now() + 60_000);
+      prisma.user.findUnique.mockResolvedValue({ id: USER_ID, snoozedUntil });
+
+      const result = await service.getSnoozeStatus(USER_ID);
+
+      expect(result).toEqual({ snoozedUntil: snoozedUntil.toISOString() });
+    });
+
+    it('treats an expired snooze as inactive', async () => {
+      const expired = new Date(Date.now() - 60_000);
+      prisma.user.findUnique.mockResolvedValue({ id: USER_ID, snoozedUntil: expired });
+
+      const result = await service.getSnoozeStatus(USER_ID);
+
+      expect(result).toEqual({ snoozedUntil: null });
     });
   });
 });

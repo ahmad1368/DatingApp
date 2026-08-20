@@ -4,6 +4,7 @@ import { AuthenticatedUser, JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RecordSwipeDto } from './dto/record-swipe.dto';
 import { SetIncognitoModeDto } from './dto/set-incognito-mode.dto';
 import { SetActiveModeDto } from './dto/set-active-mode.dto';
+import { SetSnoozeModeDto } from './dto/set-snooze-mode.dto';
 import { DiscoveryService } from './discovery.service';
 
 @Controller('discovery')
@@ -54,5 +55,16 @@ export class DiscoveryController {
   @Get('likes')
   getLikedByGrid(@CurrentUser() user: AuthenticatedUser) {
     return this.discoveryService.getLikedByGrid(user.id);
+  }
+
+  @Put('snooze')
+  @HttpCode(HttpStatus.OK)
+  setSnoozeMode(@CurrentUser() user: AuthenticatedUser, @Body() dto: SetSnoozeModeDto) {
+    return this.discoveryService.setSnoozeMode(user.id, dto.enabled, dto.until);
+  }
+
+  @Get('snooze')
+  getSnoozeStatus(@CurrentUser() user: AuthenticatedUser) {
+    return this.discoveryService.getSnoozeStatus(user.id);
   }
 }

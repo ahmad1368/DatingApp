@@ -105,6 +105,7 @@ describe('CuratedProfilesService', () => {
       where: {
         id: { notIn: [USER_ID, 'already-swiped'] },
         onboardingCompletedAt: { not: null },
+        OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }],
       },
       take: 30,
       select: { id: true },

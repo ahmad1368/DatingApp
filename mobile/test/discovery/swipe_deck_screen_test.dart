@@ -378,6 +378,53 @@ void main() {
     expect(deckCallCount, 2);
   });
 
+  testWidgets('toggling snooze shows the banner and colors the icon', (tester) async {
+    http.Request? snoozeRequest;
+    final api = DiscoveryApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/discovery/deck') {
+          return http.Response('[]', 200, headers: {'content-type': 'application/json'});
+        }
+        if (request.method == 'PUT' && request.url.path == '/discovery/snooze') {
+          snoozeRequest = request;
+          return http.Response(
+            '{"snoozedUntil":"2026-01-08T00:00:00.000Z"}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (request.url.path == '/discovery/snooze') {
+          return http.Response(
+            '{"snoozedUntil":null}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"active":false,"expiresAt":null,"viewCount":0}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: SwipeDeckScreen(discoveryApi: api)));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.bedtime));
+    await tester.pumpAndSettle();
+
+    expect(snoozeRequest, isNotNull);
+    expect(snoozeRequest!.body, '{"enabled":true}');
+    expect(find.textContaining("You're snoozed until"), findsOneWidget);
+
+    final button = tester.widget<IconButton>(
+      find.ancestor(of: find.byIcon(Icons.bedtime), matching: find.byType(IconButton)),
+    );
+    expect(button.color, Colors.indigo);
+  });
+
   testWidgets('tapping the who-liked-you icon opens the likes grid', (tester) async {
     final api = DiscoveryApi(
       accessToken: 'a-jwt',
