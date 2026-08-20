@@ -5,7 +5,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { DEFAULT_SEARCH_RADIUS_KM } from './location.constants';
+import {
+  CROSSING_DEDUPE_MINUTES,
+  CROSSING_HISTORY_HOURS,
+  CROSSING_RADIUS_KM,
+  CROSSING_RECENCY_MINUTES,
+  DEFAULT_SEARCH_RADIUS_KM,
+} from './location.constants';
 import { haversineDistanceKm } from './utils/haversine';
 
 export interface UpdateLocationResult {
@@ -30,15 +36,27 @@ export interface PassportLocationResult {
   longitude: number | null;
 }
 
+export interface CrossedPath {
+  id: string;
+  name: string | null;
+  profilePhotoUrl: string | null;
+  crossCount: number;
+  closestDistanceKm: number;
+  lastCrossedAt: string;
+}
+
 @Injectable()
 export class LocationService {
   constructor(private readonly prisma: PrismaService) {}
 
   async updateLocation(userId: string, latitude: number, longitude: number): Promise<UpdateLocationResult> {
+    const now = new Date();
     const user = await this.prisma.user.update({
       where: { id: userId },
-      data: { latitude, longitude, locationUpdatedAt: new Date() },
+      data: { latitude, longitude, locationUpdatedAt: now },
     });
+
+    await this.recordCrossings(userId, latitude, longitude, now);
 
     return {
       latitude: user.latitude!,
@@ -138,5 +156,112 @@ export class LocationService {
       latitude: updated.passportLatitude,
       longitude: updated.passportLongitude,
     };
+  }
+
+  /**
+   * "Crossed paths": everyone the current user has been physically close to
+   * (see [recordCrossings]) in the last CROSSING_HISTORY_HOURS, most
+   * recently crossed first.
+   */
+  async getCrossedPaths(userId: string): Promise<CrossedPath[]> {
+    const windowStart = new Date(Date.now() - CROSSING_HISTORY_HOURS * 60 * 60 * 1000);
+
+    const crossings = await this.prisma.pathCrossing.findMany({
+      where: {
+        OR: [{ userAId: userId }, { userBId: userId }],
+        crossedAt: { gte: windowStart },
+      },
+      orderBy: { crossedAt: 'desc' },
+    });
+
+    if (crossings.length === 0) {
+      return [];
+    }
+
+    type CrossingSummary = { crossCount: number; closestDistanceKm: number; lastCrossedAt: Date };
+    const byOtherUserId = new Map<string, CrossingSummary>();
+
+    for (const crossing of crossings) {
+      const otherUserId = crossing.userAId === userId ? crossing.userBId : crossing.userAId;
+      const existing = byOtherUserId.get(otherUserId);
+      if (!existing) {
+        byOtherUserId.set(otherUserId, {
+          crossCount: 1,
+          closestDistanceKm: crossing.distanceKm,
+          lastCrossedAt: crossing.crossedAt,
+        });
+        continue;
+      }
+      existing.crossCount += 1;
+      existing.closestDistanceKm = Math.min(existing.closestDistanceKm, crossing.distanceKm);
+    }
+
+    const otherUsers = await this.prisma.user.findMany({
+      where: { id: { in: [...byOtherUserId.keys()] } },
+      select: { id: true, name: true, profilePhotoUrl: true },
+    });
+    const otherUserById = new Map(otherUsers.map((user) => [user.id, user]));
+
+    return [...byOtherUserId.entries()]
+      .map(([otherUserId, summary]) => {
+        const otherUser = otherUserById.get(otherUserId);
+        return {
+          id: otherUserId,
+          name: otherUser?.name ?? null,
+          profilePhotoUrl: otherUser?.profilePhotoUrl ?? null,
+          crossCount: summary.crossCount,
+          closestDistanceKm: summary.closestDistanceKm,
+          lastCrossedAt: summary.lastCrossedAt.toISOString(),
+        };
+      })
+      .sort((a, b) => b.lastCrossedAt.localeCompare(a.lastCrossedAt));
+  }
+
+  /**
+   * Logs a "crossing" for every other user who is both within
+   * CROSSING_RADIUS_KM of the given location and has pinged their own
+   * location within CROSSING_RECENCY_MINUTES, so crossings reflect real or
+   * near-real-time proximity rather than stale locations. Deduped per pair
+   * within CROSSING_DEDUPE_MINUTES so lingering near someone doesn't spam
+   * the log.
+   */
+  private async recordCrossings(
+    userId: string,
+    latitude: number,
+    longitude: number,
+    now: Date,
+  ): Promise<void> {
+    const recencyWindowStart = new Date(now.getTime() - CROSSING_RECENCY_MINUTES * 60 * 1000);
+
+    const nearbyRecentUsers = await this.prisma.user.findMany({
+      where: {
+        id: { not: userId },
+        latitude: { not: null },
+        longitude: { not: null },
+        locationUpdatedAt: { gte: recencyWindowStart },
+      },
+      select: { id: true, latitude: true, longitude: true },
+    });
+
+    const dedupeWindowStart = new Date(now.getTime() - CROSSING_DEDUPE_MINUTES * 60 * 1000);
+
+    for (const other of nearbyRecentUsers) {
+      const distanceKm = haversineDistanceKm(latitude, longitude, other.latitude!, other.longitude!);
+      if (distanceKm > CROSSING_RADIUS_KM) {
+        continue;
+      }
+
+      const [userAId, userBId] = [userId, other.id].sort();
+      const recentCrossing = await this.prisma.pathCrossing.findFirst({
+        where: { userAId, userBId, crossedAt: { gte: dedupeWindowStart } },
+      });
+      if (recentCrossing) {
+        continue;
+      }
+
+      await this.prisma.pathCrossing.create({
+        data: { userAId, userBId, latitude, longitude, distanceKm, crossedAt: now },
+      });
+    }
   }
 }

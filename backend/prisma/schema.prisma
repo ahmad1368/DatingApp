@@ -197,6 +197,20 @@ model DateCheckIn {
   @@map("date_check_ins")
 }
 
+model PathCrossing {
+  id         String   @id @default(uuid())
+  userAId    String
+  userBId    String
+  latitude   Float
+  longitude  Float
+  distanceKm Float
+  crossedAt  DateTime @default(now())
+
+  @@index([userAId, crossedAt])
+  @@index([userBId, crossedAt])
+  @@map("path_crossings")
+}
+
 model Question {
   id        String   @id @default(uuid())
   text      String

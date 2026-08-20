@@ -6,13 +6,21 @@ const USER_ID = 'user-1';
 
 describe('LocationService', () => {
   let service: LocationService;
-  let prisma: { user: { update: jest.Mock; findUnique: jest.Mock; findMany: jest.Mock } };
+  let prisma: {
+    user: { update: jest.Mock; findUnique: jest.Mock; findMany: jest.Mock };
+    pathCrossing: { findFirst: jest.Mock; create: jest.Mock; findMany: jest.Mock };
+  };
 
   beforeEach(() => {
     prisma = {
       user: {
         update: jest.fn(),
         findUnique: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      pathCrossing: {
+        findFirst: jest.fn(),
+        create: jest.fn(),
         findMany: jest.fn(),
       },
     };
@@ -38,6 +46,125 @@ describe('LocationService', () => {
         longitude: -0.12,
         locationUpdatedAt: '2026-01-01T00:00:00.000Z',
       });
+    });
+  });
+
+  describe('updateLocation crossing detection', () => {
+    it('logs a crossing with a recently-active user inside the crossing radius', async () => {
+      prisma.user.update.mockResolvedValue({
+        latitude: 0,
+        longitude: 0,
+        locationUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+      prisma.user.findMany.mockResolvedValue([
+        { id: 'other-user', latitude: 0.0005, longitude: 0 }, // ~55m away
+      ]);
+      prisma.pathCrossing.findFirst.mockResolvedValue(null);
+
+      await service.updateLocation(USER_ID, 0, 0);
+
+      expect(prisma.pathCrossing.create).toHaveBeenCalledWith({
+        data: {
+          userAId: [USER_ID, 'other-user'].sort()[0],
+          userBId: [USER_ID, 'other-user'].sort()[1],
+          latitude: 0,
+          longitude: 0,
+          distanceKm: expect.any(Number),
+          crossedAt: expect.any(Date),
+        },
+      });
+    });
+
+    it('does not log a crossing with a user outside the crossing radius', async () => {
+      prisma.user.update.mockResolvedValue({
+        latitude: 0,
+        longitude: 0,
+        locationUpdatedAt: new Date(),
+      });
+      prisma.user.findMany.mockResolvedValue([
+        { id: 'far-user', latitude: 1, longitude: 1 }, // far beyond 100m
+      ]);
+
+      await service.updateLocation(USER_ID, 0, 0);
+
+      expect(prisma.pathCrossing.create).not.toHaveBeenCalled();
+    });
+
+    it('does not log a duplicate crossing within the dedupe window', async () => {
+      prisma.user.update.mockResolvedValue({
+        latitude: 0,
+        longitude: 0,
+        locationUpdatedAt: new Date(),
+      });
+      prisma.user.findMany.mockResolvedValue([{ id: 'other-user', latitude: 0.0005, longitude: 0 }]);
+      prisma.pathCrossing.findFirst.mockResolvedValue({ id: 'existing-crossing' });
+
+      await service.updateLocation(USER_ID, 0, 0);
+
+      expect(prisma.pathCrossing.create).not.toHaveBeenCalled();
+    });
+
+    it('only considers users who pinged their location recently', async () => {
+      prisma.user.update.mockResolvedValue({
+        latitude: 0,
+        longitude: 0,
+        locationUpdatedAt: new Date(),
+      });
+
+      await service.updateLocation(USER_ID, 0, 0);
+
+      expect(prisma.user.findMany).toHaveBeenCalledWith({
+        where: {
+          id: { not: USER_ID },
+          latitude: { not: null },
+          longitude: { not: null },
+          locationUpdatedAt: { gte: expect.any(Date) },
+        },
+        select: { id: true, latitude: true, longitude: true },
+      });
+    });
+  });
+
+  describe('getCrossedPaths', () => {
+    it('returns an empty list when there are no recent crossings', async () => {
+      prisma.pathCrossing.findMany.mockResolvedValue([]);
+
+      const result = await service.getCrossedPaths(USER_ID);
+
+      expect(result).toEqual([]);
+    });
+
+    it('groups crossings by the other user, counting and taking the closest distance', async () => {
+      prisma.pathCrossing.findMany.mockResolvedValue([
+        {
+          userAId: USER_ID,
+          userBId: 'other-user',
+          distanceKm: 0.08,
+          crossedAt: new Date('2026-01-01T12:00:00.000Z'),
+        },
+        {
+          userAId: 'other-user',
+          userBId: USER_ID,
+          distanceKm: 0.03,
+          crossedAt: new Date('2026-01-01T09:00:00.000Z'),
+        },
+      ]);
+      prisma.user.findMany.mockResolvedValue([
+        { id: 'other-user', name: 'Alex', profilePhotoUrl: 'alex.jpg' },
+      ]);
+
+      const result = await service.getCrossedPaths(USER_ID);
+
+      expect(result).toEqual([
+        {
+          id: 'other-user',
+          name: 'Alex',
+          profilePhotoUrl: 'alex.jpg',
+          crossCount: 2,
+          closestDistanceKm: 0.03,
+          lastCrossedAt: '2026-01-01T12:00:00.000Z',
+        },
+      ]);
     });
   });
 

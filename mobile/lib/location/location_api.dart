@@ -19,6 +19,24 @@ class NearbyUser {
   final double distanceKm;
 }
 
+class CrossedPath {
+  CrossedPath({
+    required this.id,
+    this.name,
+    this.profilePhotoUrl,
+    required this.crossCount,
+    required this.closestDistanceKm,
+    required this.lastCrossedAt,
+  });
+
+  final String id;
+  final String? name;
+  final String? profilePhotoUrl;
+  final int crossCount;
+  final double closestDistanceKm;
+  final DateTime lastCrossedAt;
+}
+
 /// Talks to the backend's GPS location and search-radius endpoints. Requires
 /// a signed-in user's access token.
 class LocationApi {
@@ -82,6 +100,35 @@ class LocationApi {
             id: json['id'] as String,
             name: json['name'] as String?,
             distanceKm: (json['distanceKm'] as num).toDouble(),
+          ),
+        )
+        .toList();
+  }
+
+  /// Everyone the current user has been physically close to recently (see
+  /// backend's crossing detection), most recently crossed first.
+  Future<List<CrossedPath>> fetchCrossedPaths() async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/location/crossed-paths'),
+      headers: _headers,
+    );
+
+    if (response.statusCode != 200) {
+      final body = _decode(response);
+      throw LocationApiException(_errorMessage(body, response.statusCode));
+    }
+
+    final list = jsonDecode(response.body) as List;
+    return list
+        .cast<Map<String, dynamic>>()
+        .map(
+          (json) => CrossedPath(
+            id: json['id'] as String,
+            name: json['name'] as String?,
+            profilePhotoUrl: json['profilePhotoUrl'] as String?,
+            crossCount: json['crossCount'] as int,
+            closestDistanceKm: (json['closestDistanceKm'] as num).toDouble(),
+            lastCrossedAt: DateTime.parse(json['lastCrossedAt'] as String),
           ),
         )
         .toList();

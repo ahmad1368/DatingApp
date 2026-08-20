@@ -28,6 +28,11 @@ export class LocationController {
     return this.locationService.findNearbyUsers(user.id);
   }
 
+  @Get('crossed-paths')
+  getCrossedPaths(@CurrentUser() user: AuthenticatedUser) {
+    return this.locationService.getCrossedPaths(user.id);
+  }
+
   @Put('passport')
   @HttpCode(HttpStatus.OK)
   setPassportLocation(@CurrentUser() user: AuthenticatedUser, @Body() dto: SetPassportLocationDto) {
