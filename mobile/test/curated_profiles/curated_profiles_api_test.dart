@@ -27,6 +27,25 @@ void main() {
       expect(picks.first.id, 'user-2');
       expect(picks.first.name, 'Jane');
       expect(picks.first.compatibilityPercentage, 92);
+      expect(picks.first.isStandout, isFalse);
+    });
+
+    test('parses isStandout when the backend includes it', () async {
+      final api = CuratedProfilesApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '[{"id":"user-2","name":"Jane","age":25,"profilePhotoUrl":null,'
+            '"compatibilityPercentage":92,"isStandout":true}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      final picks = await api.fetchDailyPicks();
+
+      expect(picks.first.isStandout, isTrue);
     });
 
     test('throws CuratedProfilesApiException on a non-200 response', () async {

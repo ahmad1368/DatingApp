@@ -68,4 +68,27 @@ void main() {
     expect(capturedRequest!.body, '{"targetUserId":"user-2","action":"LIKE"}');
     expect(find.text('Jane, 25'), findsNothing);
   });
+
+  testWidgets('shows a standout badge for highly-engaged picks', (tester) async {
+    const standoutResponse = '[{"id":"user-2","name":"Jane","age":25,"profilePhotoUrl":null,'
+        '"compatibilityPercentage":92,"isStandout":true}]';
+    final curatedApi = CuratedProfilesApi(
+      accessToken: 'a-jwt',
+      client: MockClient(
+        (request) async =>
+            http.Response(standoutResponse, 200, headers: {'content-type': 'application/json'}),
+      ),
+    );
+    final discoveryApi = DiscoveryApi(accessToken: 'a-jwt', client: MockClient((request) async => http.Response('{}', 200)));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: DailyPicksScreen(curatedProfilesApi: curatedApi, discoveryApi: discoveryApi),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('92% compatible · Standout'), findsOneWidget);
+    expect(find.byIcon(Icons.local_fire_department), findsOneWidget);
+  });
 }

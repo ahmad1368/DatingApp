@@ -18,6 +18,7 @@ class CuratedProfile {
     this.age,
     this.profilePhotoUrl,
     this.compatibilityPercentage,
+    this.isStandout = false,
   });
 
   final String id;
@@ -25,6 +26,7 @@ class CuratedProfile {
   final int? age;
   final String? profilePhotoUrl;
   final int? compatibilityPercentage;
+  final bool isStandout;
 }
 
 /// Talks to the backend's daily curated profiles ("bagels") endpoint.
@@ -63,6 +65,7 @@ class CuratedProfilesApi {
             age: json['age'] as int?,
             profilePhotoUrl: json['profilePhotoUrl'] as String?,
             compatibilityPercentage: json['compatibilityPercentage'] as int?,
+            isStandout: json['isStandout'] as bool? ?? false,
           ),
         )
         .toList();

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-20T02:48:24.114Z",
+  "generated_at": "2026-08-20T03:22:20.875Z",
   "snapshot": [
     {
       "number": 454,
@@ -2115,18 +2115,9 @@
       "number": 32,
       "title": "Standouts / Top Picks Feed",
       "updatedAt": "2026-08-10T20:38:06Z"
-    },
-    {
-      "number": 31,
-      "title": "See Who Liked You (Likes You Grid)",
-      "updatedAt": "2026-08-10T20:38:04Z"
     }
   ],
   "queue": [
-    {
-      "number": 32,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 33,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"

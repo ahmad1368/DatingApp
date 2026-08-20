@@ -46,10 +46,10 @@ describe('CuratedProfilesService', () => {
         profilePhotoUrl: 'https://example.com/jane.jpg',
       },
     ]);
+    prisma.swipe.findMany.mockResolvedValue([]); // no recent likes -> not a standout
 
     const picks = await service.getDailyPicks(USER_ID);
 
-    expect(prisma.swipe.findMany).not.toHaveBeenCalled();
     expect(matchingService.getCompatibility).not.toHaveBeenCalled();
     expect(picks).toEqual([
       {
@@ -58,8 +58,28 @@ describe('CuratedProfilesService', () => {
         age: 30,
         profilePhotoUrl: 'https://example.com/jane.jpg',
         compatibilityPercentage: 88,
+        isStandout: false,
       },
     ]);
+  });
+
+  it('flags a cached pick as a standout once it has enough recent likes', async () => {
+    prisma.user.findUnique.mockResolvedValue({ id: USER_ID });
+    prisma.dailyPick.findMany.mockResolvedValueOnce([
+      { candidateId: 'candidate-1', compatibilityScore: 88 },
+    ]);
+    prisma.user.findMany.mockResolvedValue([
+      { id: 'candidate-1', name: 'Jane', dateOfBirth: null, profilePhotoUrl: null },
+    ]);
+    prisma.swipe.findMany.mockResolvedValue([
+      { targetUserId: 'candidate-1' },
+      { targetUserId: 'candidate-1' },
+      { targetUserId: 'candidate-1' },
+    ]);
+
+    const picks = await service.getDailyPicks(USER_ID);
+
+    expect(picks[0].isStandout).toBe(true);
   });
 
   it('generates and persists a ranked batch when no picks exist yet', async () => {
@@ -108,6 +128,37 @@ describe('CuratedProfilesService', () => {
     });
     expect(picks.map((p) => p.id)).toEqual(['high-compat', 'low-compat']);
     expect(picks[0].compatibilityPercentage).toBe(95);
+  });
+
+  it('gives highly-liked candidates an engagement bonus that can move them ahead in ranking', async () => {
+    prisma.user.findUnique.mockResolvedValue({ id: USER_ID });
+    prisma.dailyPick.findMany.mockResolvedValueOnce([]); // nothing cached yet
+    prisma.swipe.findMany.mockImplementation(({ where }: { where: Record<string, unknown> }) => {
+      if (where.swiperId) {
+        return Promise.resolve([]); // nobody swiped on yet
+      }
+      // Recent-likes lookup: 'popular' has received several likes, 'quiet' none.
+      return Promise.resolve([
+        { targetUserId: 'popular' },
+        { targetUserId: 'popular' },
+        { targetUserId: 'popular' },
+      ]);
+    });
+    prisma.user.findMany
+      .mockResolvedValueOnce([{ id: 'quiet' }, { id: 'popular' }]) // candidate pool
+      .mockResolvedValueOnce([
+        { id: 'popular', name: 'Robin', dateOfBirth: null, profilePhotoUrl: null },
+        { id: 'quiet', name: 'Sam', dateOfBirth: null, profilePhotoUrl: null },
+      ]); // hydration of the chosen picks
+    matchingService.getCompatibility.mockImplementation((_userId: string, candidateId: string) =>
+      Promise.resolve({ percentage: candidateId === 'quiet' ? 60 : 55, sharedQuestionCount: 3 }),
+    );
+
+    const picks = await service.getDailyPicks(USER_ID);
+
+    expect(picks.map((p) => p.id)).toEqual(['popular', 'quiet']);
+    expect(picks[0].isStandout).toBe(true);
+    expect(picks[1].isStandout).toBe(false);
   });
 
   it('returns an empty batch without scoring when there are no eligible candidates', async () => {
