@@ -19,6 +19,7 @@ describe('DiscoveryService', () => {
     };
     match: { create: jest.Mock; findUnique: jest.Mock; delete: jest.Mock };
     boost: { findFirst: jest.Mock; findMany: jest.Mock; create: jest.Mock; updateMany: jest.Mock };
+    blockedContact: { findMany: jest.Mock };
   };
 
   beforeEach(() => {
@@ -39,6 +40,7 @@ describe('DiscoveryService', () => {
         create: jest.fn(),
         updateMany: jest.fn(),
       },
+      blockedContact: { findMany: jest.fn().mockResolvedValue([]) },
     };
     service = new DiscoveryService(prisma as unknown as PrismaService);
   });
@@ -322,6 +324,39 @@ describe('DiscoveryService', () => {
       expect(priorityWhere.OR).toEqual([{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }]);
       expect(remainingWhere.AND).toContainEqual({
         OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }],
+      });
+    });
+
+    it('excludes users blocked in either direction via synced contacts', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+      });
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      prisma.blockedContact.findMany
+        .mockResolvedValueOnce([{ blockedUserId: 'i-blocked-them' }])
+        .mockResolvedValueOnce([{ userId: 'they-blocked-me' }]);
+      prisma.user.findMany.mockResolvedValue([]);
+
+      await service.getDeck(USER_ID);
+
+      expect(prisma.user.findMany).toHaveBeenCalledWith({
+        where: {
+          id: { notIn: [USER_ID, 'i-blocked-them', 'they-blocked-me'] },
+          onboardingCompletedAt: { not: null },
+          activeMode: 'DATING',
+          AND: [
+            { OR: [{ incognitoEnabled: false }, { id: { in: [] } }] },
+            { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
+          ],
+        },
+        take: 20,
       });
     });
   });

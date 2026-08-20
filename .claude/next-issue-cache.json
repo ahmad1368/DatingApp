@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-20T04:25:14.926Z",
+  "generated_at": "2026-08-20T04:43:01.984Z",
   "snapshot": [
     {
       "number": 454,
@@ -2085,18 +2085,9 @@
       "number": 38,
       "title": "Block Contacts / Privacy Shields",
       "updatedAt": "2026-08-10T20:38:18Z"
-    },
-    {
-      "number": 37,
-      "title": "Interactive Date Question / Icebreaker Games",
-      "updatedAt": "2026-08-10T20:38:16Z"
     }
   ],
   "queue": [
-    {
-      "number": 38,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 39,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
