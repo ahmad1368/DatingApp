@@ -228,4 +228,68 @@ void main() {
       expect(() => api.searchGifs('cats'), throwsA(isA<MessagingApiException>()));
     });
   });
+
+  group('MessagingApi.checkMessage', () {
+    test('sends the draft text and parses the moderation result', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'POST');
+          expect(request.url.path, '/matches/moderation/check');
+          expect(request.body, '{"text":"you are the worst"}');
+          return http.Response(
+            '{"flagged":true,"categories":["harassment"]}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final result = await api.checkMessage('you are the worst');
+
+      expect(result.flagged, isTrue);
+      expect(result.categories, ['harassment']);
+    });
+
+    test('throws MessagingApiException on a non-200 response', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => http.Response('', 500)),
+      );
+
+      expect(() => api.checkMessage('hi'), throwsA(isA<MessagingApiException>()));
+    });
+  });
+
+  group('MessagingApi.reportMessage', () {
+    test('sends the reason to the report endpoint', () async {
+      http.Request? capturedRequest;
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          capturedRequest = request;
+          return http.Response('{}', 201, headers: {'content-type': 'application/json'});
+        }),
+      );
+
+      await api.reportMessage(matchId: 'match-1', messageId: 'm1', reason: 'harassing me');
+
+      expect(capturedRequest, isNotNull);
+      expect(capturedRequest!.method, 'POST');
+      expect(capturedRequest!.url.path, '/matches/match-1/messages/m1/report');
+      expect(capturedRequest!.body, '{"reason":"harassing me"}');
+    });
+
+    test('throws MessagingApiException on a non-201 response', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => http.Response('', 404)),
+      );
+
+      expect(
+        () => api.reportMessage(matchId: 'match-1', messageId: 'm1', reason: 'harassing me'),
+        throwsA(isA<MessagingApiException>()),
+      );
+    });
+  });
 }

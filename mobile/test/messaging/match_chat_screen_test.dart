@@ -43,6 +43,13 @@ void main() {
     final api = MessagingApi(
       accessToken: 'a-jwt',
       client: MockClient((request) async {
+        if (request.url.path == '/matches/moderation/check') {
+          return http.Response(
+            '{"flagged":false,"categories":[]}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
         if (request.method == 'POST') {
           sendRequest = request;
           return http.Response(
@@ -279,5 +286,109 @@ void main() {
 
     expect(sendRequest, isNotNull);
     expect(sendRequest!.body, '{"contentType":"GIF","mediaUrl":"https://example.com/g1.gif"}');
+  });
+
+  testWidgets('warns before sending a flagged message and only sends after confirming', (
+    tester,
+  ) async {
+    http.Request? sendRequest;
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/matches/moderation/check') {
+          return http.Response(
+            '{"flagged":true,"categories":["harassment"]}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (request.method == 'POST') {
+          sendRequest = request;
+          return http.Response(
+            '{"id":"m1","senderId":"user-woman","contentType":"TEXT","content":"you are the worst",'
+            '"mediaUrl":null,"isBlurred":false,"createdAt":"2026-01-01T00:00:00.000Z"}',
+            201,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(_emptyMessages, 200, headers: {'content-type': 'application/json'});
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":"2026-01-02T00:00:00.000Z",'
+          '"isExpired":false,"firstMessageSent":false,"canSendFirstMessage":true}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchChatScreen(messagingApi: api, matchId: 'match-1', currentUserId: 'user-woman'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), 'you are the worst');
+    await tester.tap(find.byIcon(Icons.send));
+    await tester.pumpAndSettle();
+
+    expect(sendRequest, isNull);
+    expect(find.text('Heads up'), findsOneWidget);
+    expect(find.textContaining('harassment'), findsOneWidget);
+
+    await tester.tap(find.text('Send anyway'));
+    await tester.pumpAndSettle();
+
+    expect(sendRequest, isNotNull);
+    expect(sendRequest!.body, '{"content":"you are the worst"}');
+  });
+
+  testWidgets('long-pressing a message from the other person reports it', (tester) async {
+    http.Request? reportRequest;
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path.endsWith('/report')) {
+          reportRequest = request;
+          return http.Response('{}', 201, headers: {'content-type': 'application/json'});
+        }
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(
+            '[{"id":"m1","senderId":"user-man","contentType":"TEXT","content":"hey",'
+            '"mediaUrl":null,"isBlurred":false,"createdAt":"2026-01-01T00:00:00.000Z"}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":null,"isExpired":false,'
+          '"firstMessageSent":true,"canSendFirstMessage":true}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchChatScreen(messagingApi: api, matchId: 'match-1', currentUserId: 'user-woman'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.longPress(find.text('hey'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Report this message'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField).last, 'harassing me');
+    await tester.tap(find.text('Report'));
+    await tester.pumpAndSettle();
+
+    expect(reportRequest, isNotNull);
+    expect(reportRequest!.url.path, '/matches/match-1/messages/m1/report');
+    expect(reportRequest!.body, '{"reason":"harassing me"}');
   });
 }

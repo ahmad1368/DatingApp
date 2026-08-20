@@ -1,0 +1,153 @@
+import { NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { ContentModerator } from './interfaces/content-moderator.interface';
+import { MessageModerationService } from './message-moderation.service';
+
+const REPORTER_ID = 'user-1';
+const OTHER_ID = 'user-2';
+const OUTSIDER_ID = 'user-3';
+const MATCH_ID = 'match-1';
+const MESSAGE_ID = 'message-1';
+
+describe('MessageModerationService', () => {
+  let service: MessageModerationService;
+  let prisma: {
+    match: { findUnique: jest.Mock };
+    message: { findUnique: jest.Mock };
+    messageReport: { create: jest.Mock };
+  };
+  let contentModerator: { moderate: jest.Mock };
+
+  beforeEach(() => {
+    prisma = {
+      match: { findUnique: jest.fn() },
+      message: { findUnique: jest.fn() },
+      messageReport: { create: jest.fn() },
+    };
+    contentModerator = { moderate: jest.fn() };
+    service = new MessageModerationService(
+      prisma as unknown as PrismaService,
+      contentModerator as unknown as ContentModerator,
+    );
+  });
+
+  describe('checkText', () => {
+    it('delegates directly to the content moderator', async () => {
+      contentModerator.moderate.mockResolvedValue({ flagged: true, categories: ['harassment'] });
+
+      const result = await service.checkText('you are the worst');
+
+      expect(contentModerator.moderate).toHaveBeenCalledWith('you are the worst');
+      expect(result).toEqual({ flagged: true, categories: ['harassment'] });
+    });
+  });
+
+  describe('reportMessage', () => {
+    it('throws when the reporter is not part of the match', async () => {
+      prisma.match.findUnique.mockResolvedValue({
+        id: MATCH_ID,
+        userAId: REPORTER_ID,
+        userBId: OTHER_ID,
+      });
+
+      await expect(
+        service.reportMessage(OUTSIDER_ID, MATCH_ID, MESSAGE_ID, 'harassing me'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(prisma.messageReport.create).not.toHaveBeenCalled();
+    });
+
+    it('throws when the message does not belong to the match', async () => {
+      prisma.match.findUnique.mockResolvedValue({
+        id: MATCH_ID,
+        userAId: REPORTER_ID,
+        userBId: OTHER_ID,
+      });
+      prisma.message.findUnique.mockResolvedValue({
+        id: MESSAGE_ID,
+        matchId: 'other-match',
+        content: 'hi',
+      });
+
+      await expect(
+        service.reportMessage(REPORTER_ID, MATCH_ID, MESSAGE_ID, 'harassing me'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('moderates the reported text and persists the report', async () => {
+      prisma.match.findUnique.mockResolvedValue({
+        id: MATCH_ID,
+        userAId: REPORTER_ID,
+        userBId: OTHER_ID,
+      });
+      prisma.message.findUnique.mockResolvedValue({
+        id: MESSAGE_ID,
+        matchId: MATCH_ID,
+        content: 'you are worthless',
+      });
+      contentModerator.moderate.mockResolvedValue({ flagged: true, categories: ['harassment'] });
+      prisma.messageReport.create.mockResolvedValue({
+        id: 'report-1',
+        messageId: MESSAGE_ID,
+        reporterId: REPORTER_ID,
+        reason: 'harassing me',
+        moderationFlagged: true,
+        moderationCategories: ['harassment'],
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const result = await service.reportMessage(REPORTER_ID, MATCH_ID, MESSAGE_ID, 'harassing me');
+
+      expect(contentModerator.moderate).toHaveBeenCalledWith('you are worthless');
+      expect(prisma.messageReport.create).toHaveBeenCalledWith({
+        data: {
+          messageId: MESSAGE_ID,
+          reporterId: REPORTER_ID,
+          reason: 'harassing me',
+          moderationFlagged: true,
+          moderationCategories: ['harassment'],
+        },
+      });
+      expect(result).toEqual({
+        id: 'report-1',
+        messageId: MESSAGE_ID,
+        reporterId: REPORTER_ID,
+        reason: 'harassing me',
+        moderationFlagged: true,
+        moderationCategories: ['harassment'],
+        createdAt: '2026-01-01T00:00:00.000Z',
+      });
+    });
+
+    it('skips moderation for a media message with no text content', async () => {
+      prisma.match.findUnique.mockResolvedValue({
+        id: MATCH_ID,
+        userAId: REPORTER_ID,
+        userBId: OTHER_ID,
+      });
+      prisma.message.findUnique.mockResolvedValue({
+        id: MESSAGE_ID,
+        matchId: MATCH_ID,
+        content: null,
+      });
+      prisma.messageReport.create.mockResolvedValue({
+        id: 'report-2',
+        messageId: MESSAGE_ID,
+        reporterId: REPORTER_ID,
+        reason: 'inappropriate photo',
+        moderationFlagged: false,
+        moderationCategories: [],
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const result = await service.reportMessage(
+        REPORTER_ID,
+        MATCH_ID,
+        MESSAGE_ID,
+        'inappropriate photo',
+      );
+
+      expect(contentModerator.moderate).not.toHaveBeenCalled();
+      expect(result.moderationFlagged).toBe(false);
+    });
+  });
+});

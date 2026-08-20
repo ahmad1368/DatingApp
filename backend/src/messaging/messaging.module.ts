@@ -6,6 +6,9 @@ import { MessagingService } from './messaging.service';
 import { GifSearchService } from './gif-search.service';
 import { GIF_PROVIDER } from './interfaces/gif-provider.interface';
 import { GiphyClient } from './providers/giphy.client';
+import { MessageModerationService } from './message-moderation.service';
+import { CONTENT_MODERATOR } from './interfaces/content-moderator.interface';
+import { OpenAiContentModerator } from './providers/openai-content-moderator.client';
 
 @Module({
   imports: [AuthModule, ConfigModule],
@@ -16,6 +19,11 @@ import { GiphyClient } from './providers/giphy.client';
     {
       provide: GIF_PROVIDER,
       useClass: GiphyClient,
+    },
+    MessageModerationService,
+    {
+      provide: CONTENT_MODERATOR,
+      useClass: OpenAiContentModerator,
     },
   ],
 })
