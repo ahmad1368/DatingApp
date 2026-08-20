@@ -222,6 +222,40 @@ model GiftTransaction {
   @@map("gift_transactions")
 }
 
+model BlindDateQueueEntry {
+  id       String   @id @default(uuid())
+  userId   String   @unique
+  joinedAt DateTime @default(now())
+
+  @@map("blind_date_queue_entries")
+}
+
+model BlindDateSession {
+  id                   String    @id @default(uuid())
+  userAId              String
+  userBId              String
+  startedAt            DateTime  @default(now())
+  expiresAt            DateTime
+  userARevealRequested Boolean   @default(false)
+  userBRevealRequested Boolean   @default(false)
+  revealedAt           DateTime?
+
+  @@index([userAId])
+  @@index([userBId])
+  @@map("blind_date_sessions")
+}
+
+model BlindDateMessage {
+  id        String   @id @default(uuid())
+  sessionId String
+  senderId  String
+  content   String
+  createdAt DateTime @default(now())
+
+  @@index([sessionId])
+  @@map("blind_date_messages")
+}
+
 model DateCheckIn {
   id                    String    @id @default(uuid())
   userId                String

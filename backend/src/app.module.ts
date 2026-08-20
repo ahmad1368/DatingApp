@@ -17,6 +17,7 @@ import { CallingModule } from './calling/calling.module';
 import { SafetyModule } from './safety/safety.module';
 import { BlockingModule } from './blocking/blocking.module';
 import { GiftingModule } from './gifting/gifting.module';
+import { BlindDatingModule } from './blind-dating/blind-dating.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { GiftingModule } from './gifting/gifting.module';
     SafetyModule,
     BlockingModule,
     GiftingModule,
+    BlindDatingModule,
   ],
 })
 export class AppModule {}
