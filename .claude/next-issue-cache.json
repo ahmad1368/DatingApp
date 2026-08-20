@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-20T01:56:12.879Z",
+  "generated_at": "2026-08-20T02:14:39.442Z",
   "snapshot": [
     {
       "number": 454,
@@ -2130,18 +2130,9 @@
       "number": 29,
       "title": "Profile Boost / Spotlight Traffic Spikes",
       "updatedAt": "2026-08-10T20:38:00Z"
-    },
-    {
-      "number": 28,
-      "title": "Real-Time Safety & Anti-Harassment Warnings",
-      "updatedAt": "2026-08-10T20:37:58Z"
     }
   ],
   "queue": [
-    {
-      "number": 29,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 30,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
