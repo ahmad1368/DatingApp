@@ -192,4 +192,64 @@ void main() {
       expect(() => api.setIncognitoMode(true), throwsA(isA<DiscoveryApiException>()));
     });
   });
+
+  group('DiscoveryApi.activateBoost', () {
+    test('sends a POST and parses the active boost status', () async {
+      final api = DiscoveryApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'POST');
+          expect(request.url.path, '/discovery/boost');
+          return http.Response(
+            '{"active":true,"expiresAt":"2026-01-01T00:30:00.000Z","viewCount":0}',
+            201,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final status = await api.activateBoost();
+
+      expect(status.active, isTrue);
+      expect(status.expiresAt, DateTime.parse('2026-01-01T00:30:00.000Z'));
+      expect(status.viewCount, 0);
+    });
+
+    test('throws DiscoveryApiException when the user is not premium', () async {
+      final api = DiscoveryApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '{"message":"Boost is a premium feature."}',
+            403,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      expect(() => api.activateBoost(), throwsA(isA<DiscoveryApiException>()));
+    });
+  });
+
+  group('DiscoveryApi.fetchBoostStatus', () {
+    test('parses an inactive status', () async {
+      final api = DiscoveryApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'GET');
+          expect(request.url.path, '/discovery/boost');
+          return http.Response(
+            '{"active":false,"expiresAt":null,"viewCount":0}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final status = await api.fetchBoostStatus();
+
+      expect(status.active, isFalse);
+      expect(status.expiresAt, isNull);
+    });
+  });
 }

@@ -305,3 +305,15 @@ model CallIceCandidate {
   @@index([callSessionId])
   @@map("call_ice_candidates")
 }
+
+model Boost {
+  id        String   @id @default(uuid())
+  userId    String
+  expiresAt DateTime
+  viewCount Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("boosts")
+}

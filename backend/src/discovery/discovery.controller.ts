@@ -32,4 +32,15 @@ export class DiscoveryController {
   setIncognitoMode(@CurrentUser() user: AuthenticatedUser, @Body() dto: SetIncognitoModeDto) {
     return this.discoveryService.setIncognitoMode(user.id, dto.enabled);
   }
+
+  @Post('boost')
+  @HttpCode(HttpStatus.CREATED)
+  activateBoost(@CurrentUser() user: AuthenticatedUser) {
+    return this.discoveryService.activateBoost(user.id);
+  }
+
+  @Get('boost')
+  getBoostStatus(@CurrentUser() user: AuthenticatedUser) {
+    return this.discoveryService.getBoostStatus(user.id);
+  }
 }

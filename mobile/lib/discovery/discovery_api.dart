@@ -21,6 +21,7 @@ class DeckCard {
     required this.interests,
     this.relationshipGoal,
     this.isSuperLike = false,
+    this.isBoosted = false,
   });
 
   final String id;
@@ -31,6 +32,15 @@ class DeckCard {
   final List<String> interests;
   final String? relationshipGoal;
   final bool isSuperLike;
+  final bool isBoosted;
+}
+
+class BoostStatus {
+  BoostStatus({required this.active, this.expiresAt, required this.viewCount});
+
+  final bool active;
+  final DateTime? expiresAt;
+  final int viewCount;
 }
 
 class SwipeResult {
@@ -87,6 +97,7 @@ class DiscoveryApi {
             interests: (json['interests'] as List).cast<String>(),
             relationshipGoal: json['relationshipGoal'] as String?,
             isSuperLike: json['isSuperLike'] as bool? ?? false,
+            isBoosted: json['isBoosted'] as bool? ?? false,
           ),
         )
         .toList();
@@ -148,6 +159,45 @@ class DiscoveryApi {
     }
 
     return body['incognitoEnabled'] as bool;
+  }
+
+  /// Premium "boost": pushes the user to the top of nearby decks for 30
+  /// minutes. Throws [DiscoveryApiException] (403) if the user isn't
+  /// premium, or (400) if a boost is already active.
+  Future<BoostStatus> activateBoost() async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/discovery/boost'),
+      headers: _headers,
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 201) {
+      throw DiscoveryApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return _toBoostStatus(body);
+  }
+
+  Future<BoostStatus> fetchBoostStatus() async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/discovery/boost'),
+      headers: _headers,
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 200) {
+      throw DiscoveryApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return _toBoostStatus(body);
+  }
+
+  BoostStatus _toBoostStatus(Map<String, dynamic> json) {
+    return BoostStatus(
+      active: json['active'] as bool,
+      expiresAt: json['expiresAt'] != null ? DateTime.parse(json['expiresAt'] as String) : null,
+      viewCount: json['viewCount'] as int,
+    );
   }
 
   Map<String, dynamic> _decode(http.Response response) {

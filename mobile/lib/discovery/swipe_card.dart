@@ -191,6 +191,29 @@ class _CardContent extends StatelessWidget {
                 ),
               ),
             ),
+          if (card.isBoosted)
+            Positioned(
+              top: 0,
+              left: 0,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.deepOrange,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.rocket_launch, color: Colors.white, size: 16),
+                    SizedBox(width: 4),
+                    Text(
+                      'Boosted',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );

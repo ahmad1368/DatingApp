@@ -18,6 +18,7 @@ describe('DiscoveryService', () => {
       delete: jest.Mock;
     };
     match: { create: jest.Mock; findUnique: jest.Mock; delete: jest.Mock };
+    boost: { findFirst: jest.Mock; findMany: jest.Mock; create: jest.Mock; updateMany: jest.Mock };
   };
 
   beforeEach(() => {
@@ -32,6 +33,12 @@ describe('DiscoveryService', () => {
         delete: jest.fn(),
       },
       match: { create: jest.fn(), findUnique: jest.fn(), delete: jest.fn() },
+      boost: {
+        findFirst: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
+        create: jest.fn(),
+        updateMany: jest.fn(),
+      },
     };
     service = new DiscoveryService(prisma as unknown as PrismaService);
   });
@@ -194,6 +201,44 @@ describe('DiscoveryService', () => {
           OR: [{ incognitoEnabled: false }, { id: { in: ['liker-1'] } }],
         },
         take: 20,
+      });
+    });
+
+    it('places boosted users ahead of super likers and increments their view count', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        ...noFilters,
+      });
+      prisma.swipe.findMany
+        .mockResolvedValueOnce([]) // not swiped on anyone yet
+        .mockResolvedValueOnce([{ swiperId: 'super-liker-1', action: 'SUPER_LIKE' }]);
+      prisma.boost.findMany.mockResolvedValueOnce([
+        { userId: 'boosted-1', expiresAt: new Date(Date.now() + 60_000) },
+      ]);
+      prisma.user.findMany
+        .mockResolvedValueOnce([
+          { id: 'boosted-1', name: 'Robin', dateOfBirth: null, profilePhotoUrl: null, interests: [], relationshipGoal: null },
+          { id: 'super-liker-1', name: 'Sam', dateOfBirth: null, profilePhotoUrl: null, interests: [], relationshipGoal: null },
+        ]) // priority candidates (order not guaranteed from DB)
+        .mockResolvedValueOnce([
+          { id: 'other-user', name: 'Alex', dateOfBirth: null, profilePhotoUrl: null, interests: [], relationshipGoal: null },
+        ]); // remaining candidates
+
+      const deck = await service.getDeck(USER_ID);
+
+      expect(deck.map((card) => card.id)).toEqual(['boosted-1', 'super-liker-1', 'other-user']);
+      expect(deck[0].isBoosted).toBe(true);
+      expect(deck[0].isSuperLike).toBe(false);
+      expect(deck[1].isBoosted).toBe(false);
+      expect(deck[1].isSuperLike).toBe(true);
+      expect(prisma.boost.updateMany).toHaveBeenCalledWith({
+        where: { userId: { in: ['boosted-1'] }, expiresAt: { gt: expect.any(Date) } },
+        data: { viewCount: { increment: 1 } },
       });
     });
   });
@@ -402,6 +447,61 @@ describe('DiscoveryService', () => {
         data: { incognitoEnabled: true },
       });
       expect(result).toEqual({ incognitoEnabled: true });
+    });
+  });
+
+  describe('activateBoost', () => {
+    it('throws when the current user does not exist', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(service.activateBoost(USER_ID)).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('rejects non-premium users', async () => {
+      prisma.user.findUnique.mockResolvedValue({ isPremium: false });
+
+      await expect(service.activateBoost(USER_ID)).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('rejects activating a boost while one is already active', async () => {
+      prisma.user.findUnique.mockResolvedValue({ isPremium: true });
+      prisma.boost.findFirst.mockResolvedValue({ id: 'boost-1' });
+
+      await expect(service.activateBoost(USER_ID)).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.boost.create).not.toHaveBeenCalled();
+    });
+
+    it('creates a 30-minute boost for a premium user', async () => {
+      prisma.user.findUnique.mockResolvedValue({ isPremium: true });
+      prisma.boost.findFirst.mockResolvedValue(null);
+      const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+      prisma.boost.create.mockResolvedValue({ id: 'boost-1', expiresAt, viewCount: 0 });
+
+      const result = await service.activateBoost(USER_ID);
+
+      expect(prisma.boost.create).toHaveBeenCalledWith({
+        data: { userId: USER_ID, expiresAt: expect.any(Date) },
+      });
+      expect(result).toEqual({ active: true, expiresAt: expiresAt.toISOString(), viewCount: 0 });
+    });
+  });
+
+  describe('getBoostStatus', () => {
+    it('reports inactive when there is no current boost', async () => {
+      prisma.boost.findFirst.mockResolvedValue(null);
+
+      const result = await service.getBoostStatus(USER_ID);
+
+      expect(result).toEqual({ active: false, expiresAt: null, viewCount: 0 });
+    });
+
+    it('reports the active boost with its view count', async () => {
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+      prisma.boost.findFirst.mockResolvedValue({ id: 'boost-1', expiresAt, viewCount: 5 });
+
+      const result = await service.getBoostStatus(USER_ID);
+
+      expect(result).toEqual({ active: true, expiresAt: expiresAt.toISOString(), viewCount: 5 });
     });
   });
 });
