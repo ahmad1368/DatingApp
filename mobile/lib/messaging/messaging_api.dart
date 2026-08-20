@@ -18,6 +18,7 @@ class MatchStatus {
     required this.isExpired,
     required this.firstMessageSent,
     required this.canSendFirstMessage,
+    required this.canExtend,
   });
 
   final String matchId;
@@ -25,6 +26,7 @@ class MatchStatus {
   final bool isExpired;
   final bool firstMessageSent;
   final bool canSendFirstMessage;
+  final bool canExtend;
 }
 
 class MatchSummary {
@@ -35,6 +37,7 @@ class MatchSummary {
     this.otherUserPhotoUrl,
     this.expiresAt,
     required this.firstMessageSent,
+    required this.canExtend,
     required this.createdAt,
   });
 
@@ -44,6 +47,7 @@ class MatchSummary {
   final String? otherUserPhotoUrl;
   final DateTime? expiresAt;
   final bool firstMessageSent;
+  final bool canExtend;
   final DateTime createdAt;
 }
 
@@ -158,6 +162,7 @@ class MessagingApi {
         otherUserPhotoUrl: json['otherUserPhotoUrl'] as String?,
         expiresAt: json['expiresAt'] != null ? DateTime.parse(json['expiresAt'] as String) : null,
         firstMessageSent: json['firstMessageSent'] as bool,
+        canExtend: json['canExtend'] as bool? ?? false,
         createdAt: DateTime.parse(json['createdAt'] as String),
       );
     }).toList();
@@ -169,6 +174,22 @@ class MessagingApi {
       headers: _headers,
     );
 
+    return _parseMatchStatus(response);
+  }
+
+  /// Gives the match one extra 24 hours before it dissolves for never
+  /// messaging. Usable only once per match, before it expires and before
+  /// either side has sent the first message.
+  Future<MatchStatus> extendMatchTimeLimit(String matchId) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/matches/$matchId/extend'),
+      headers: _headers,
+    );
+
+    return _parseMatchStatus(response);
+  }
+
+  MatchStatus _parseMatchStatus(http.Response response) {
     final body = _decode(response);
     if (response.statusCode != 200) {
       throw MessagingApiException(_errorMessage(body, response.statusCode));
@@ -180,6 +201,7 @@ class MessagingApi {
       isExpired: body['isExpired'] as bool,
       firstMessageSent: body['firstMessageSent'] as bool,
       canSendFirstMessage: body['canSendFirstMessage'] as bool,
+      canExtend: body['canExtend'] as bool? ?? false,
     );
   }
 

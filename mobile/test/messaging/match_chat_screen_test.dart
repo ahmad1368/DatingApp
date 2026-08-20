@@ -642,4 +642,48 @@ void main() {
     expect(find.text('You: Tea'), findsOneWidget);
     expect(find.text('Them: Coffee'), findsOneWidget);
   });
+
+  testWidgets('extending the match time limit updates the button state', (tester) async {
+    http.Request? extendRequest;
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.method == 'POST' && request.url.path == '/matches/match-1/extend') {
+          extendRequest = request;
+          return http.Response(
+            '{"matchId":"match-1","expiresAt":"2026-01-03T00:00:00.000Z",'
+            '"isExpired":false,"firstMessageSent":false,"canSendFirstMessage":true,'
+            '"canExtend":false}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(_emptyMessages, 200, headers: {'content-type': 'application/json'});
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":"2026-01-02T00:00:00.000Z",'
+          '"isExpired":false,"firstMessageSent":false,"canSendFirstMessage":true,'
+          '"canExtend":true}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchChatScreen(messagingApi: api, matchId: 'match-1', currentUserId: 'user-woman'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Extend 24 hours'), findsOneWidget);
+
+    await tester.tap(find.text('Extend 24 hours'));
+    await tester.pumpAndSettle();
+
+    expect(extendRequest, isNotNull);
+    expect(find.text('Extend 24 hours'), findsNothing);
+  });
 }

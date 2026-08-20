@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-20T05:36:27.683Z",
+  "generated_at": "2026-08-20T05:46:54.039Z",
   "snapshot": [
     {
       "number": 454,
@@ -2060,18 +2060,9 @@
       "number": 43,
       "title": "Extend Match Time Limit",
       "updatedAt": "2026-08-10T20:38:28Z"
-    },
-    {
-      "number": 42,
-      "title": "Video Profile Snippets (Looping Video Headers)",
-      "updatedAt": "2026-08-10T20:38:26Z"
     }
   ],
   "queue": [
-    {
-      "number": 43,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 44,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"

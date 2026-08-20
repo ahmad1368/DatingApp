@@ -1,6 +1,12 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { findIcebreakerPrompt, ICEBREAKER_PROMPTS, IcebreakerPrompt, isWoman } from './messaging.constants';
+import {
+  computeExtendedExpiresAt,
+  findIcebreakerPrompt,
+  ICEBREAKER_PROMPTS,
+  IcebreakerPrompt,
+  isWoman,
+} from './messaging.constants';
 
 export interface MatchStatus {
   matchId: string;
@@ -8,6 +14,7 @@ export interface MatchStatus {
   isExpired: boolean;
   firstMessageSent: boolean;
   canSendFirstMessage: boolean;
+  canExtend: boolean;
 }
 
 export interface IcebreakerView {
@@ -42,6 +49,7 @@ export interface MatchSummaryView {
   otherUserPhotoUrl: string | null;
   expiresAt: string | null;
   firstMessageSent: boolean;
+  canExtend: boolean;
   createdAt: string;
 }
 
@@ -51,6 +59,7 @@ interface MatchRecord {
   userBId: string;
   firstMessageExpiresAt: Date;
   firstMessageSentAt: Date | null;
+  firstMessageExtendedAt: Date | null;
 }
 
 interface MatchListRecord extends MatchRecord {
@@ -63,23 +72,36 @@ export class MessagingService {
 
   async getMatchStatus(userId: string, matchId: string): Promise<MatchStatus> {
     const match = await this.getMatchForUser(userId, matchId);
+    return this.toMatchStatus(userId, match);
+  }
+
+  /**
+   * Gives a match one extra MATCH_EXTENSION_HOURS on its first-message
+   * window, so a pair that hasn't messaged yet gets more time before the
+   * match dissolves. Only usable once per match, before it expires and
+   * before either side has actually messaged (once unlocked there's no
+   * window left to extend).
+   */
+  async extendMatchTimeLimit(userId: string, matchId: string): Promise<MatchStatus> {
+    const match = await this.getMatchForUser(userId, matchId);
+
+    if (match.firstMessageSentAt != null) {
+      throw new BadRequestException('This match is already unlocked; there is nothing to extend.');
+    }
+    if (this.isExpired(match, new Date())) {
+      throw new BadRequestException('This match has already expired and can no longer be extended.');
+    }
+    if (match.firstMessageExtendedAt != null) {
+      throw new BadRequestException('This match has already been extended once.');
+    }
+
     const now = new Date();
-    const firstMessageSent = match.firstMessageSentAt != null;
-    const expired = this.isExpired(match, now);
+    const updated = await this.prisma.match.update({
+      where: { id: matchId },
+      data: { firstMessageExpiresAt: computeExtendedExpiresAt(now), firstMessageExtendedAt: now },
+    });
 
-    const canSendFirstMessage = firstMessageSent
-      ? true
-      : expired
-        ? false
-        : await this.senderMaySendFirstMessage(userId, match);
-
-    return {
-      matchId: match.id,
-      expiresAt: firstMessageSent ? null : match.firstMessageExpiresAt.toISOString(),
-      isExpired: expired,
-      firstMessageSent,
-      canSendFirstMessage,
-    };
+    return this.toMatchStatus(userId, updated);
   }
 
   async sendMessage(userId: string, matchId: string, content: string): Promise<MessageView> {
@@ -308,6 +330,7 @@ export class MessagingService {
         otherUserPhotoUrl: otherUser?.profilePhotoUrl ?? null,
         expiresAt: firstMessageSent ? null : match.firstMessageExpiresAt.toISOString(),
         firstMessageSent,
+        canExtend: !firstMessageSent && match.firstMessageExtendedAt == null,
         createdAt: match.createdAt.toISOString(),
       };
     });
@@ -373,6 +396,27 @@ export class MessagingService {
 
   private isExpired(match: MatchRecord, now: Date): boolean {
     return match.firstMessageSentAt == null && now > match.firstMessageExpiresAt;
+  }
+
+  private async toMatchStatus(userId: string, match: MatchRecord): Promise<MatchStatus> {
+    const now = new Date();
+    const firstMessageSent = match.firstMessageSentAt != null;
+    const expired = this.isExpired(match, now);
+
+    const canSendFirstMessage = firstMessageSent
+      ? true
+      : expired
+        ? false
+        : await this.senderMaySendFirstMessage(userId, match);
+
+    return {
+      matchId: match.id,
+      expiresAt: firstMessageSent ? null : match.firstMessageExpiresAt.toISOString(),
+      isExpired: expired,
+      firstMessageSent,
+      canSendFirstMessage,
+      canExtend: !firstMessageSent && !expired && match.firstMessageExtendedAt == null,
+    };
   }
 
   private async senderMaySendFirstMessage(senderId: string, match: MatchRecord): Promise<boolean> {
