@@ -7,5 +7,6 @@ import { GiftingService } from './gifting.service';
   imports: [AuthModule],
   controllers: [GiftingController],
   providers: [GiftingService],
+  exports: [GiftingService],
 })
 export class GiftingModule {}

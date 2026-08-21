@@ -460,3 +460,37 @@ model Boost {
   @@index([expiresAt])
   @@map("boosts")
 }
+
+// A public video broadcast a user hosts. The video transport itself isn't
+// modeled here (no media/SFU server exists in this codebase) - this tracks
+// the session lifecycle plus the real-time interactions (viewer count,
+// likes, comments) that ride alongside it.
+model LiveStream {
+  id          String    @id @default(uuid())
+  hostId      String
+  title       String
+  status      String    @default("LIVE")
+  viewerCount Int       @default(0)
+  likeCount   Int       @default(0)
+  startedAt   DateTime  @default(now())
+  endedAt     DateTime?
+
+  comments LiveStreamComment[]
+
+  @@index([hostId])
+  @@index([status])
+  @@map("live_streams")
+}
+
+model LiveStreamComment {
+  id        String   @id @default(uuid())
+  streamId  String
+  userId    String
+  text      String
+  createdAt DateTime @default(now())
+
+  stream LiveStream @relation(fields: [streamId], references: [id])
+
+  @@index([streamId])
+  @@map("live_stream_comments")
+}
