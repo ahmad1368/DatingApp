@@ -24,6 +24,7 @@ import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 import { ProfileVisitsModule } from './profile-visits/profile-visits.module';
 import { VaultModule } from './vault/vault.module';
 import { EventsModule } from './events/events.module';
+import { ProfilePhotosModule } from './profile-photos/profile-photos.module';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { EventsModule } from './events/events.module';
     ProfileVisitsModule,
     VaultModule,
     EventsModule,
+    ProfilePhotosModule,
   ],
 })
 export class AppModule {}

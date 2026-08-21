@@ -603,3 +603,22 @@ model LocalEventRsvp {
   @@index([userId])
   @@map("local_event_rsvps")
 }
+
+// A user's photo gallery, ordered by `position` (lowest = the lead photo
+// shown in the discovery deck, mirrored onto User.profilePhotoUrl).
+// `impressions`/`rightSwipes` accumulate while a photo is in the lead
+// position (see DiscoveryService.recordSwipe) so the lead can automatically
+// rotate to whichever photo is converting best.
+model ProfilePhoto {
+  id          String   @id @default(uuid())
+  ownerId     String
+  mediaUrl    String
+  position    Int
+  impressions Int      @default(0)
+  rightSwipes Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  @@index([ownerId])
+  @@index([ownerId, position])
+  @@map("profile_photos")
+}
