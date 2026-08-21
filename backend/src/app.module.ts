@@ -18,6 +18,7 @@ import { SafetyModule } from './safety/safety.module';
 import { BlockingModule } from './blocking/blocking.module';
 import { GiftingModule } from './gifting/gifting.module';
 import { BlindDatingModule } from './blind-dating/blind-dating.module';
+import { LiveStreamingModule } from './live-streaming/live-streaming.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { BlindDatingModule } from './blind-dating/blind-dating.module';
     BlockingModule,
     GiftingModule,
     BlindDatingModule,
+    LiveStreamingModule,
   ],
 })
 export class AppModule {}
