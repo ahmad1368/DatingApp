@@ -45,6 +45,7 @@ class MatchSummary {
     required this.firstMessageSent,
     required this.canExtend,
     required this.createdAt,
+    this.needsGhostingPrompt = false,
   });
 
   final String matchId;
@@ -55,6 +56,7 @@ class MatchSummary {
   final bool firstMessageSent;
   final bool canExtend;
   final DateTime createdAt;
+  final bool needsGhostingPrompt;
 }
 
 class ReconnectableMatch {
@@ -188,8 +190,21 @@ class MessagingApi {
         firstMessageSent: json['firstMessageSent'] as bool,
         canExtend: json['canExtend'] as bool? ?? false,
         createdAt: DateTime.parse(json['createdAt'] as String),
+        needsGhostingPrompt: json['needsGhostingPrompt'] as bool? ?? false,
       );
     }).toList();
+  }
+
+  /// Ends an ongoing match - the "politely unmatch" option on a ghosting prompt.
+  Future<void> unmatch(String matchId) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/matches/$matchId/unmatch'),
+      headers: _headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw MessagingApiException(_errorMessage(_decode(response), response.statusCode));
+    }
   }
 
   Future<MatchStatus> fetchMatchStatus(String matchId) async {

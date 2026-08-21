@@ -90,6 +90,12 @@ export class MessagingController {
     return this.messagingService.extendMatchTimeLimit(user.id, matchId);
   }
 
+  @Post(':matchId/unmatch')
+  @HttpCode(HttpStatus.OK)
+  unmatch(@CurrentUser() user: AuthenticatedUser, @Param('matchId') matchId: string) {
+    return this.messagingService.unmatch(user.id, matchId);
+  }
+
   @Post(':matchId/request-verification')
   @HttpCode(HttpStatus.OK)
   requestVerification(@CurrentUser() user: AuthenticatedUser, @Param('matchId') matchId: string) {

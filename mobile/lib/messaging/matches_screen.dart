@@ -113,6 +113,18 @@ class _MatchesScreenState extends State<MatchesScreen> {
     }
   }
 
+  Future<void> _unmatch(MatchSummary match) async {
+    setState(() => _errorText = null);
+    try {
+      await widget.messagingApi.unmatch(match.matchId);
+      setState(() {
+        _matches = _matches.where((existing) => existing.matchId != match.matchId).toList();
+      });
+    } on MessagingApiException catch (e) {
+      setState(() => _errorText = e.message);
+    }
+  }
+
   String _countdownLabel(MatchSummary match) {
     if (match.firstMessageSent || match.expiresAt == null) {
       return 'Chat unlocked';
@@ -165,14 +177,30 @@ class _MatchesScreenState extends State<MatchesScreen> {
                             final match = _matches[index];
                             return ListTile(
                               title: Text(match.otherUserName ?? 'Someone new'),
-                              subtitle: Text(_countdownLabel(match)),
-                              trailing: match.canExtend
-                                  ? IconButton(
+                              subtitle: Text(
+                                match.needsGhostingPrompt
+                                    ? "It's been a few days - reply, or it's okay to unmatch."
+                                    : _countdownLabel(match),
+                                style: match.needsGhostingPrompt
+                                    ? const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)
+                                    : null,
+                              ),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (match.needsGhostingPrompt)
+                                    TextButton(
+                                      onPressed: () => _unmatch(match),
+                                      child: const Text('Unmatch'),
+                                    ),
+                                  if (match.canExtend)
+                                    IconButton(
                                       icon: const Icon(Icons.timer_outlined),
                                       tooltip: 'Extend 24 hours',
                                       onPressed: () => _extendMatch(match),
-                                    )
-                                  : null,
+                                    ),
+                                ],
+                              ),
                               onTap: () => Navigator.of(context).push(
                                 MaterialPageRoute(
                                   builder: (_) => MatchChatScreen(

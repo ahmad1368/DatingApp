@@ -26,6 +26,7 @@ describe('MessagingService', () => {
       findUnique: jest.Mock;
       update: jest.Mock;
       updateMany: jest.Mock;
+      deleteMany: jest.Mock;
     };
     user: { findUnique: jest.Mock; findMany: jest.Mock; update: jest.Mock };
     icebreakerResponse: { findMany: jest.Mock; upsert: jest.Mock };
@@ -45,10 +46,11 @@ describe('MessagingService', () => {
       },
       message: {
         create: jest.fn(),
-        findMany: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
         findUnique: jest.fn(),
         update: jest.fn(),
         updateMany: jest.fn(),
+        deleteMany: jest.fn(),
       },
       user: { findUnique: jest.fn(), findMany: jest.fn(), update: jest.fn() },
       icebreakerResponse: { findMany: jest.fn().mockResolvedValue([]), upsert: jest.fn() },
@@ -905,6 +907,7 @@ describe('MessagingService', () => {
           firstMessageSent: false,
           canExtend: true,
           createdAt: '2026-01-01T00:00:00.000Z',
+          needsGhostingPrompt: false,
         },
       ]);
     });
@@ -943,6 +946,7 @@ describe('MessagingService', () => {
       const matches = await service.listMyMatches(WOMAN_ID);
 
       expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(prisma.message.deleteMany).toHaveBeenCalledWith({ where: { matchId: MATCH_ID } });
       expect(prisma.swipe.deleteMany).toHaveBeenCalledWith({
         where: {
           OR: [
@@ -957,6 +961,92 @@ describe('MessagingService', () => {
       });
       expect(matches).toEqual([]);
       expect(prisma.user.findMany).not.toHaveBeenCalled();
+    });
+
+    it('flags a match for a ghosting prompt when the other side sent the last message days ago', async () => {
+      prisma.match.findMany.mockResolvedValue([
+        {
+          id: MATCH_ID,
+          userAId: WOMAN_ID,
+          userBId: MAN_ID,
+          firstMessageExpiresAt: hoursFromNow(-100),
+          firstMessageSentAt: new Date('2026-01-01T00:00:00.000Z'),
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ]);
+      prisma.user.findMany.mockResolvedValue([{ id: MAN_ID, name: 'Sam', profilePhotoUrl: null }]);
+      prisma.message.findMany.mockResolvedValue([
+        { matchId: MATCH_ID, senderId: MAN_ID, createdAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000) },
+      ]);
+
+      const matches = await service.listMyMatches(WOMAN_ID);
+
+      expect(matches[0].needsGhostingPrompt).toBe(true);
+    });
+
+    it('does not flag a match when it is the current user who owes the reply', async () => {
+      prisma.match.findMany.mockResolvedValue([
+        {
+          id: MATCH_ID,
+          userAId: WOMAN_ID,
+          userBId: MAN_ID,
+          firstMessageExpiresAt: hoursFromNow(-100),
+          firstMessageSentAt: new Date('2026-01-01T00:00:00.000Z'),
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ]);
+      prisma.user.findMany.mockResolvedValue([{ id: MAN_ID, name: 'Sam', profilePhotoUrl: null }]);
+      prisma.message.findMany.mockResolvedValue([
+        { matchId: MATCH_ID, senderId: WOMAN_ID, createdAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000) },
+      ]);
+
+      const matches = await service.listMyMatches(WOMAN_ID);
+
+      expect(matches[0].needsGhostingPrompt).toBe(false);
+    });
+
+    it('does not flag a match still within the ghosting grace period', async () => {
+      prisma.match.findMany.mockResolvedValue([
+        {
+          id: MATCH_ID,
+          userAId: WOMAN_ID,
+          userBId: MAN_ID,
+          firstMessageExpiresAt: hoursFromNow(-100),
+          firstMessageSentAt: new Date('2026-01-01T00:00:00.000Z'),
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ]);
+      prisma.user.findMany.mockResolvedValue([{ id: MAN_ID, name: 'Sam', profilePhotoUrl: null }]);
+      prisma.message.findMany.mockResolvedValue([
+        { matchId: MATCH_ID, senderId: MAN_ID, createdAt: new Date(Date.now() - 60 * 60 * 1000) },
+      ]);
+
+      const matches = await service.listMyMatches(WOMAN_ID);
+
+      expect(matches[0].needsGhostingPrompt).toBe(false);
+    });
+  });
+
+  describe('unmatch', () => {
+    it('throws when the user is not part of the match', async () => {
+      mockMatch();
+
+      await expect(service.unmatch('someone-else', MATCH_ID)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+
+    it('deletes the messages, swipes, and match, and records a reconnect trace', async () => {
+      mockMatch({ firstMessageSentAt: new Date() });
+
+      const result = await service.unmatch(WOMAN_ID, MATCH_ID);
+
+      expect(prisma.message.deleteMany).toHaveBeenCalledWith({ where: { matchId: MATCH_ID } });
+      expect(prisma.match.delete).toHaveBeenCalledWith({ where: { id: MATCH_ID } });
+      expect(prisma.dissolvedMatch.create).toHaveBeenCalledWith({
+        data: { userAId: WOMAN_ID, userBId: MAN_ID },
+      });
+      expect(result).toEqual({ unmatched: true });
     });
   });
 

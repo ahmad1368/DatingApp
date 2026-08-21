@@ -3,7 +3,9 @@ import { PrismaService } from '../prisma/prisma.service';
 import {
   computeExtendedExpiresAt,
   computeFirstMessageExpiresAt,
+  daysSince,
   findIcebreakerPrompt,
+  GHOSTING_PROMPT_THRESHOLD_DAYS,
   ICEBREAKER_PROMPTS,
   IcebreakerPrompt,
   isWoman,
@@ -65,6 +67,7 @@ export interface MatchSummaryView {
   firstMessageSent: boolean;
   canExtend: boolean;
   createdAt: string;
+  needsGhostingPrompt: boolean;
 }
 
 interface MatchRecord {
@@ -331,7 +334,9 @@ export class MessagingService {
    * Lists the current user's active matches. Any match whose 24-hour first
    * message window has passed with no message ever sent is dissolved here
    * (the match and the underlying swipes are deleted, so the two users
-   * become rediscoverable) rather than merely marked expired.
+   * become rediscoverable) rather than merely marked expired. Ongoing
+   * threads that have gone quiet for GHOSTING_PROMPT_THRESHOLD_DAYS get a
+   * `needsGhostingPrompt` flag for whichever side owes the next reply.
    */
   async listMyMatches(userId: string): Promise<MatchSummaryView[]> {
     const matches: MatchListRecord[] = await this.prisma.match.findMany({
@@ -344,7 +349,7 @@ export class MessagingService {
 
     for (const match of matches) {
       if (this.isExpired(match, now)) {
-        await this.dissolveExpiredMatch(match);
+        await this.dissolveMatch(match);
         continue;
       }
       alive.push(match);
@@ -355,16 +360,24 @@ export class MessagingService {
     }
 
     const otherUserIds = alive.map((match) => (match.userAId === userId ? match.userBId : match.userAId));
-    const otherUsers = await this.prisma.user.findMany({
-      where: { id: { in: otherUserIds } },
-      select: { id: true, name: true, profilePhotoUrl: true },
-    });
+    const [otherUsers, lastMessageByMatchId] = await Promise.all([
+      this.prisma.user.findMany({
+        where: { id: { in: otherUserIds } },
+        select: { id: true, name: true, profilePhotoUrl: true },
+      }),
+      this.getLastMessageByMatchId(alive.filter((m) => m.firstMessageSentAt != null).map((m) => m.id)),
+    ]);
     const otherUserById = new Map(otherUsers.map((user) => [user.id, user]));
 
     return alive.map((match) => {
       const otherUserId = match.userAId === userId ? match.userBId : match.userAId;
       const otherUser = otherUserById.get(otherUserId);
       const firstMessageSent = match.firstMessageSentAt != null;
+      const lastMessage = lastMessageByMatchId.get(match.id);
+      const needsGhostingPrompt =
+        lastMessage != null &&
+        lastMessage.senderId !== userId &&
+        daysSince(lastMessage.createdAt, now) >= GHOSTING_PROMPT_THRESHOLD_DAYS;
 
       return {
         matchId: match.id,
@@ -375,12 +388,43 @@ export class MessagingService {
         firstMessageSent,
         canExtend: !firstMessageSent && match.firstMessageExtendedAt == null,
         createdAt: match.createdAt.toISOString(),
+        needsGhostingPrompt,
       };
     });
   }
 
-  private async dissolveExpiredMatch(match: MatchRecord): Promise<void> {
+  /** Ends an ongoing (already-unlocked) match - the ghosting-prompt's "politely unmatch" option. */
+  async unmatch(userId: string, matchId: string): Promise<{ unmatched: boolean }> {
+    const match = await this.getMatchForUser(userId, matchId);
+    await this.dissolveMatch(match);
+    return { unmatched: true };
+  }
+
+  private async getLastMessageByMatchId(
+    matchIds: string[],
+  ): Promise<Map<string, { senderId: string; createdAt: Date }>> {
+    if (matchIds.length === 0) {
+      return new Map();
+    }
+
+    const messages = await this.prisma.message.findMany({
+      where: { matchId: { in: matchIds } },
+      orderBy: { createdAt: 'desc' },
+      select: { matchId: true, senderId: true, createdAt: true },
+    });
+
+    const lastByMatchId = new Map<string, { senderId: string; createdAt: Date }>();
+    for (const message of messages) {
+      if (!lastByMatchId.has(message.matchId)) {
+        lastByMatchId.set(message.matchId, { senderId: message.senderId, createdAt: message.createdAt });
+      }
+    }
+    return lastByMatchId;
+  }
+
+  private async dissolveMatch(match: MatchRecord): Promise<void> {
     await this.prisma.$transaction([
+      this.prisma.message.deleteMany({ where: { matchId: match.id } }),
       this.prisma.swipe.deleteMany({
         where: {
           OR: [
