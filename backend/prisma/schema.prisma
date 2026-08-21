@@ -494,3 +494,19 @@ model LiveStreamComment {
   @@index([streamId])
   @@map("live_stream_comments")
 }
+
+// A trace of a match dissolved because its first-message window expired
+// with nobody messaging. Kept (unlike the Match/Swipe rows it replaces, which
+// are hard-deleted so the pair becomes rediscoverable in the deck) so a
+// premium user can explicitly reconnect instead of relying on organically
+// re-swiping each other.
+model DissolvedMatch {
+  id          String   @id @default(uuid())
+  userAId     String
+  userBId     String
+  dissolvedAt DateTime @default(now())
+
+  @@index([userAId])
+  @@index([userBId])
+  @@map("dissolved_matches")
+}

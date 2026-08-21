@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { PrismaService } from '../prisma/prisma.service';
 import {
   computeExtendedExpiresAt,
+  computeFirstMessageExpiresAt,
   findIcebreakerPrompt,
   ICEBREAKER_PROMPTS,
   IcebreakerPrompt,
@@ -42,6 +43,14 @@ export interface MessageView {
 
 export interface ReadReceiptsResult {
   readReceiptsEnabled: boolean;
+}
+
+export interface ReconnectableMatchView {
+  dissolvedMatchId: string;
+  otherUserId: string;
+  otherUserName: string | null;
+  otherUserPhotoUrl: string | null;
+  dissolvedAt: string;
 }
 
 export interface MatchSummaryView {
@@ -376,7 +385,85 @@ export class MessagingService {
         },
       }),
       this.prisma.match.delete({ where: { id: match.id } }),
+      this.prisma.dissolvedMatch.create({
+        data: { userAId: match.userAId, userBId: match.userBId },
+      }),
     ]);
+  }
+
+  /**
+   * Premium "reconnect": matches that expired unmessaged are dissolved (see
+   * [dissolveExpiredMatch]) rather than kept around, so this lists the trace
+   * records left behind, most recent first, for a user to explicitly revive.
+   */
+  async listReconnectableMatches(userId: string): Promise<ReconnectableMatchView[]> {
+    const dissolved = await this.prisma.dissolvedMatch.findMany({
+      where: { OR: [{ userAId: userId }, { userBId: userId }] },
+      orderBy: { dissolvedAt: 'desc' },
+    });
+
+    if (dissolved.length === 0) {
+      return [];
+    }
+
+    const otherUserIds = dissolved.map((d) => (d.userAId === userId ? d.userBId : d.userAId));
+    const otherUsers = await this.prisma.user.findMany({
+      where: { id: { in: otherUserIds } },
+      select: { id: true, name: true, profilePhotoUrl: true },
+    });
+    const otherUserById = new Map(otherUsers.map((user) => [user.id, user]));
+
+    return dissolved.map((d) => {
+      const otherUserId = d.userAId === userId ? d.userBId : d.userAId;
+      const otherUser = otherUserById.get(otherUserId);
+      return {
+        dissolvedMatchId: d.id,
+        otherUserId,
+        otherUserName: otherUser?.name ?? null,
+        otherUserPhotoUrl: otherUser?.profilePhotoUrl ?? null,
+        dissolvedAt: d.dissolvedAt.toISOString(),
+      };
+    });
+  }
+
+  /**
+   * Premium-only: revives a dissolved match with a fresh first-message
+   * window, without either side having to re-swipe and hope for a
+   * reciprocal like.
+   */
+  async reconnectMatch(userId: string, dissolvedMatchId: string): Promise<MatchStatus> {
+    const currentUser = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!currentUser) {
+      throw new NotFoundException('User not found.');
+    }
+    if (!currentUser.isPremium) {
+      throw new ForbiddenException('Reconnecting an expired match is a premium feature.');
+    }
+
+    const dissolved = await this.prisma.dissolvedMatch.findUnique({ where: { id: dissolvedMatchId } });
+    if (!dissolved || (dissolved.userAId !== userId && dissolved.userBId !== userId)) {
+      throw new NotFoundException('Dissolved match not found.');
+    }
+
+    const existingMatch = await this.prisma.match.findUnique({
+      where: { userAId_userBId: { userAId: dissolved.userAId, userBId: dissolved.userBId } },
+    });
+    if (existingMatch) {
+      throw new BadRequestException('You already have an active match with this person.');
+    }
+
+    const [match] = await this.prisma.$transaction([
+      this.prisma.match.create({
+        data: {
+          userAId: dissolved.userAId,
+          userBId: dissolved.userBId,
+          firstMessageExpiresAt: computeFirstMessageExpiresAt(new Date()),
+        },
+      }),
+      this.prisma.dissolvedMatch.delete({ where: { id: dissolvedMatchId } }),
+    ]);
+
+    return this.toMatchStatus(userId, match);
   }
 
   private async assertCanSend(

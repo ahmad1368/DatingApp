@@ -21,6 +21,7 @@ class MatchesScreen extends StatefulWidget {
 
 class _MatchesScreenState extends State<MatchesScreen> {
   List<MatchSummary> _matches = [];
+  List<ReconnectableMatch> _reconnectable = [];
   bool _isLoading = true;
   String? _errorText;
   Timer? _ticker;
@@ -50,13 +51,38 @@ class _MatchesScreenState extends State<MatchesScreen> {
     });
     try {
       final matches = await widget.messagingApi.fetchMyMatches();
-      setState(() => _matches = matches);
+      List<ReconnectableMatch> reconnectable = [];
+      try {
+        reconnectable = await widget.messagingApi.fetchReconnectableMatches();
+      } on MessagingApiException {
+        // Non-premium users get a 403 here; reconnecting is optional, so
+        // just show no reconnect section rather than an error banner.
+      }
+      setState(() {
+        _matches = matches;
+        _reconnectable = reconnectable;
+      });
     } on MessagingApiException catch (e) {
       setState(() => _errorText = e.message);
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
       }
+    }
+  }
+
+  Future<void> _reconnect(ReconnectableMatch match) async {
+    setState(() => _errorText = null);
+    try {
+      await widget.messagingApi.reconnectMatch(match.dissolvedMatchId);
+      setState(() {
+        _reconnectable = _reconnectable
+            .where((existing) => existing.dissolvedMatchId != match.dissolvedMatchId)
+            .toList();
+      });
+      await _load();
+    } on MessagingApiException catch (e) {
+      setState(() => _errorText = e.message);
     }
   }
 
@@ -114,6 +140,22 @@ class _MatchesScreenState extends State<MatchesScreen> {
                     padding: const EdgeInsets.all(16),
                     child: Text(_errorText!, style: const TextStyle(color: Colors.red)),
                   ),
+                if (_reconnectable.isNotEmpty) ...[
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
+                    child: Text('Reconnect', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                  for (final match in _reconnectable)
+                    ListTile(
+                      title: Text(match.otherUserName ?? 'Someone new'),
+                      subtitle: const Text('This match expired without a first message'),
+                      trailing: ElevatedButton(
+                        onPressed: () => _reconnect(match),
+                        child: const Text('Reconnect'),
+                      ),
+                    ),
+                  const Divider(height: 1),
+                ],
                 Expanded(
                   child: _matches.isEmpty
                       ? const Center(child: Text('No matches yet.'))
