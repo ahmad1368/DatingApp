@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../profile/voice_player_controller.dart';
 import '../profile/voice_recorder_controller.dart';
+import 'date_suggestions_api.dart';
 import 'messaging_api.dart';
 
 const int _maxVoiceNoteSeconds = 60;
@@ -21,14 +22,18 @@ class MatchChatScreen extends StatefulWidget {
     required this.currentUserId,
     VoiceRecorderController? recorder,
     VoicePlayerController? player,
+    DateSuggestionsApi? dateSuggestionsApi,
   })  : recorder = recorder ?? DeviceVoiceRecorderController(),
-        player = player ?? DeviceVoicePlayerController();
+        player = player ?? DeviceVoicePlayerController(),
+        dateSuggestionsApi =
+            dateSuggestionsApi ?? DateSuggestionsApi(accessToken: messagingApi.accessToken);
 
   final MessagingApi messagingApi;
   final String matchId;
   final String currentUserId;
   final VoiceRecorderController recorder;
   final VoicePlayerController player;
+  final DateSuggestionsApi dateSuggestionsApi;
 
   @override
   State<MatchChatScreen> createState() => _MatchChatScreenState();
@@ -220,6 +225,52 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
     }
   }
 
+  Future<void> _showMeetupSuggestions() async {
+    MeetupSuggestions? suggestions;
+    String? error;
+    try {
+      suggestions = await widget.dateSuggestionsApi.fetchMeetupSuggestions(widget.matchId);
+    } on DateSuggestionsApiException catch (e) {
+      error = e.message;
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (context) {
+        if (error != null) {
+          return Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(error, style: const TextStyle(color: Colors.red)),
+          );
+        }
+        final result = suggestions!;
+        return SafeArea(
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: Text(
+                  'Meetup spots ~${result.distanceKm.toStringAsFixed(1)} km apart',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+              ),
+              for (final suggestion in result.suggestions)
+                ListTile(
+                  title: Text(suggestion.label),
+                  subtitle: Text(suggestion.description),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _startRecording() async {
     setState(() => _errorText = null);
 
@@ -379,6 +430,11 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
       appBar: AppBar(
         title: const Text('Chat'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.place_outlined),
+            tooltip: 'Suggest a place to meet',
+            onPressed: _showMeetupSuggestions,
+          ),
           IconButton(
             icon: Icon(_readReceiptsEnabled ? Icons.done_all : Icons.done),
             color: _readReceiptsEnabled ? Colors.indigo : null,
