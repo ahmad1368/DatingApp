@@ -23,6 +23,8 @@ import { SPOTIFY_CLIENT } from './interfaces/spotify-client.interface';
 import { SpotifyWebApiClient } from './providers/spotify-web-api.client';
 import { ZodiacController } from './zodiac.controller';
 import { ZodiacService } from './zodiac.service';
+import { LoveStyleController } from './love-style.controller';
+import { LoveStyleService } from './love-style.service';
 
 @Module({
   imports: [AuthModule, ConfigModule],
@@ -36,6 +38,7 @@ import { ZodiacService } from './zodiac.service';
     InstagramController,
     SpotifyController,
     ZodiacController,
+    LoveStyleController,
   ],
   providers: [
     VoiceIntroService,
@@ -55,6 +58,7 @@ import { ZodiacService } from './zodiac.service';
       useClass: SpotifyWebApiClient,
     },
     ZodiacService,
+    LoveStyleService,
   ],
 })
 export class ProfileModule {}

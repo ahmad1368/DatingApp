@@ -63,6 +63,10 @@ model User {
   petOwnership                          String?
   showLifestyleBadgesOnProfile          Boolean   @default(true)
   showZodiacOnProfile                   Boolean   @default(true)
+  loveLanguages                         String[]  @default([])
+  showLoveLanguagesOnProfile            Boolean   @default(true)
+  attachmentStyle                       String?
+  showAttachmentStyleOnProfile          Boolean   @default(true)
   filterSmokingHabits                   String[]  @default([])
   filterDrinkingHabits                  String[]  @default([])
   filterEducationLevels                 String[]  @default([])

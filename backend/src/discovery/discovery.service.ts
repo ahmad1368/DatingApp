@@ -29,6 +29,7 @@ export interface DeckCard {
   relationshipIntentBadges: string[];
   lifestyleBadges: string[];
   zodiacSign: string | null;
+  loveStyleBadges: string[];
   isSuperLike: boolean;
   isBoosted: boolean;
   isPriorityLike: boolean;
@@ -291,6 +292,10 @@ export class DiscoveryService {
       drinkingHabit: string | null;
       showLifestyleBadgesOnProfile: boolean;
       showZodiacOnProfile: boolean;
+      loveLanguages: string[];
+      showLoveLanguagesOnProfile: boolean;
+      attachmentStyle: string | null;
+      showAttachmentStyleOnProfile: boolean;
     },
     now: Date,
     origin: { latitude: number | null; longitude: number | null },
@@ -323,6 +328,7 @@ export class DiscoveryService {
         candidate.showZodiacOnProfile && candidate.dateOfBirth
           ? getZodiacSign(candidate.dateOfBirth)
           : null,
+      loveStyleBadges: this.buildLoveStyleBadges(candidate),
       isSuperLike: flags.isSuperLike,
       isBoosted: flags.isBoosted,
       isPriorityLike: flags.isPriorityLike,
@@ -382,6 +388,26 @@ export class DiscoveryService {
     }
     if (candidate.drinkingHabit) {
       badges.push(`Drinking: ${candidate.drinkingHabit}`);
+    }
+    return badges;
+  }
+
+  /**
+   * Love language and attachment style badges - each respects its own
+   * display toggle independently, like the relationship-intent badges.
+   */
+  private buildLoveStyleBadges(candidate: {
+    loveLanguages: string[];
+    showLoveLanguagesOnProfile: boolean;
+    attachmentStyle: string | null;
+    showAttachmentStyleOnProfile: boolean;
+  }): string[] {
+    const badges: string[] = [];
+    if (candidate.showLoveLanguagesOnProfile) {
+      badges.push(...candidate.loveLanguages);
+    }
+    if (candidate.showAttachmentStyleOnProfile && candidate.attachmentStyle) {
+      badges.push(`${candidate.attachmentStyle} Attachment`);
     }
     return badges;
   }
