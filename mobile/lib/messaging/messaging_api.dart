@@ -19,6 +19,9 @@ class MatchStatus {
     required this.firstMessageSent,
     required this.canSendFirstMessage,
     required this.canExtend,
+    this.otherUserIsVerified = false,
+    this.verificationRequested = false,
+    this.verificationRequestedByMe = false,
   });
 
   final String matchId;
@@ -27,6 +30,9 @@ class MatchStatus {
   final bool firstMessageSent;
   final bool canSendFirstMessage;
   final bool canExtend;
+  final bool otherUserIsVerified;
+  final bool verificationRequested;
+  final bool verificationRequestedByMe;
 }
 
 class MatchSummary {
@@ -207,6 +213,18 @@ class MessagingApi {
     return _parseMatchStatus(response);
   }
 
+  /// Asks an unverified match to complete real-time selfie verification.
+  /// Throws [MessagingApiException] (400) if they're already verified or a
+  /// request has already been made for this match.
+  Future<MatchStatus> requestVerification(String matchId) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/matches/$matchId/request-verification'),
+      headers: _headers,
+    );
+
+    return _parseMatchStatus(response);
+  }
+
   /// Premium "reconnect": matches that expired unmessaged are dissolved so
   /// the two users become rediscoverable in the deck; this lists those
   /// dissolved traces so a premium user can explicitly revive one instead
@@ -258,6 +276,9 @@ class MessagingApi {
       firstMessageSent: body['firstMessageSent'] as bool,
       canSendFirstMessage: body['canSendFirstMessage'] as bool,
       canExtend: body['canExtend'] as bool? ?? false,
+      otherUserIsVerified: body['otherUserIsVerified'] as bool? ?? false,
+      verificationRequested: body['verificationRequested'] as bool? ?? false,
+      verificationRequestedByMe: body['verificationRequestedByMe'] as bool? ?? false,
     );
   }
 

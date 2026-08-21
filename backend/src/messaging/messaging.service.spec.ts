@@ -68,6 +68,8 @@ describe('MessagingService', () => {
     firstMessageExpiresAt: Date;
     firstMessageSentAt: Date | null;
     firstMessageExtendedAt: Date | null;
+    verificationRequestedAt: Date | null;
+    verificationRequestedById: string | null;
   }> = {}) {
     prisma.match.findUnique.mockResolvedValue({
       id: MATCH_ID,
@@ -76,6 +78,8 @@ describe('MessagingService', () => {
       firstMessageExpiresAt: hoursFromNow(24),
       firstMessageSentAt: null,
       firstMessageExtendedAt: null,
+      verificationRequestedAt: null,
+      verificationRequestedById: null,
       ...overrides,
     });
   }
@@ -229,6 +233,61 @@ describe('MessagingService', () => {
       });
       expect(status.canExtend).toBe(false);
       expect(status.isExpired).toBe(false);
+    });
+  });
+
+  describe('requestVerification', () => {
+    it('throws when the user is not part of the match', async () => {
+      mockMatch();
+
+      await expect(
+        service.requestVerification('someone-else', MATCH_ID),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('rejects when the other user is already verified', async () => {
+      mockMatch();
+      prisma.user.findUnique.mockResolvedValue({ isVerified: true });
+
+      await expect(service.requestVerification(WOMAN_ID, MATCH_ID)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(prisma.match.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects a duplicate request for the same match', async () => {
+      mockMatch({ verificationRequestedAt: new Date(), verificationRequestedById: WOMAN_ID });
+      prisma.user.findUnique.mockResolvedValue({ isVerified: false });
+
+      await expect(service.requestVerification(WOMAN_ID, MATCH_ID)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(prisma.match.update).not.toHaveBeenCalled();
+    });
+
+    it('records the request against the other (unverified) user', async () => {
+      mockMatch();
+      prisma.user.findUnique.mockResolvedValue({ isVerified: false });
+      prisma.match.update.mockResolvedValue({
+        id: MATCH_ID,
+        userAId: WOMAN_ID,
+        userBId: MAN_ID,
+        firstMessageExpiresAt: hoursFromNow(24),
+        firstMessageSentAt: null,
+        firstMessageExtendedAt: null,
+        verificationRequestedAt: new Date(),
+        verificationRequestedById: WOMAN_ID,
+      });
+
+      const status = await service.requestVerification(WOMAN_ID, MATCH_ID);
+
+      expect(prisma.match.update).toHaveBeenCalledWith({
+        where: { id: MATCH_ID },
+        data: { verificationRequestedAt: expect.any(Date), verificationRequestedById: WOMAN_ID },
+      });
+      expect(status.verificationRequested).toBe(true);
+      expect(status.verificationRequestedByMe).toBe(true);
+      expect(status.otherUserIsVerified).toBe(false);
     });
   });
 

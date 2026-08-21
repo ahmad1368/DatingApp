@@ -719,6 +719,54 @@ void main() {
     expect(find.text('Extend 24 hours'), findsNothing);
   });
 
+  testWidgets('requesting verification updates the banner', (tester) async {
+    http.Request? verificationRequest;
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.method == 'POST' &&
+            request.url.path == '/matches/match-1/request-verification') {
+          verificationRequest = request;
+          return http.Response(
+            '{"matchId":"match-1","expiresAt":null,"isExpired":false,'
+            '"firstMessageSent":true,"canSendFirstMessage":true,"canExtend":false,'
+            '"otherUserIsVerified":false,"verificationRequested":true,'
+            '"verificationRequestedByMe":true}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(_emptyMessages, 200, headers: {'content-type': 'application/json'});
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":null,"isExpired":false,'
+          '"firstMessageSent":true,"canSendFirstMessage":true,"canExtend":false,'
+          '"otherUserIsVerified":false,"verificationRequested":false,'
+          '"verificationRequestedByMe":false}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchChatScreen(messagingApi: api, matchId: 'match-1', currentUserId: 'user-woman'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Request photo verification'), findsOneWidget);
+
+    await tester.tap(find.text('Request photo verification'));
+    await tester.pumpAndSettle();
+
+    expect(verificationRequest, isNotNull);
+    expect(find.text('Request photo verification'), findsNothing);
+    expect(find.text("You've requested photo verification."), findsOneWidget);
+  });
+
   testWidgets('records and sends a voice note', (tester) async {
     http.Request? sendRequest;
     final api = MessagingApi(
