@@ -70,19 +70,58 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
     }
   }
 
-  Future<void> _handleSwipe(DeckCard card, String action) async {
+  Future<void> _handleSwipe(
+    DeckCard card,
+    String action, {
+    String? complimentText,
+    String? complimentTarget,
+  }) async {
     setState(() {
       _deck = _deck.where((c) => c.id != card.id).toList();
       _matchText = null;
     });
     try {
-      final result = await widget.discoveryApi.recordSwipe(targetUserId: card.id, action: action);
+      final result = await widget.discoveryApi.recordSwipe(
+        targetUserId: card.id,
+        action: action,
+        complimentText: complimentText,
+        complimentTarget: complimentTarget,
+      );
       if (result.matched) {
         setState(() => _matchText = "It's a match with ${card.name ?? 'someone new'}!");
       }
     } on DiscoveryApiException catch (e) {
       setState(() => _errorText = e.message);
     }
+  }
+
+  /// Composes a short pre-match compliment, then likes with it attached.
+  Future<void> _handleComplimentLike(DeckCard card) async {
+    final controller = TextEditingController();
+    final text = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Send a compliment'),
+        content: TextField(
+          controller: controller,
+          maxLength: 200,
+          decoration: const InputDecoration(hintText: 'Say something nice…'),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+            child: const Text('Send with like'),
+          ),
+        ],
+      ),
+    );
+
+    if (text == null || text.isEmpty) {
+      return;
+    }
+    await _handleSwipe(card, 'LIKE', complimentText: text);
   }
 
   Future<void> _handleUndo() async {
@@ -263,6 +302,13 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
                     backgroundColor: Colors.green,
                     onPressed: () => _handleSwipe(_deck.first, 'LIKE'),
                     child: const Icon(Icons.favorite),
+                  ),
+                  FloatingActionButton(
+                    heroTag: 'complimentLike',
+                    backgroundColor: Colors.purple,
+                    tooltip: 'Like with a compliment',
+                    onPressed: () => _handleComplimentLike(_deck.first),
+                    child: const Icon(Icons.comment),
                   ),
                 ],
               ),

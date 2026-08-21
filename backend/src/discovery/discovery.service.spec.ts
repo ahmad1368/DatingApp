@@ -548,6 +548,37 @@ describe('DiscoveryService', () => {
       expect(prisma.match.create).not.toHaveBeenCalled();
     });
 
+    it('rejects attaching a compliment to a PASS', async () => {
+      await expect(
+        service.recordSwipe(USER_ID, TARGET_ID, 'PASS', 'Nice smile!'),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.swipe.create).not.toHaveBeenCalled();
+    });
+
+    it('stores a compliment attached to a like', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: TARGET_ID });
+      prisma.swipe.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+      prisma.swipe.create.mockResolvedValue({});
+
+      await service.recordSwipe(
+        USER_ID,
+        TARGET_ID,
+        'LIKE',
+        'Love your hiking photo!',
+        'your hiking photo',
+      );
+
+      expect(prisma.swipe.create).toHaveBeenCalledWith({
+        data: {
+          swiperId: USER_ID,
+          targetUserId: TARGET_ID,
+          action: 'LIKE',
+          complimentText: 'Love your hiking photo!',
+          complimentTarget: 'your hiking photo',
+        },
+      });
+    });
+
     it('creates a match when the target already liked the current user back', async () => {
       prisma.user.findUnique.mockResolvedValue({ id: TARGET_ID });
       prisma.swipe.findUnique
@@ -604,7 +635,13 @@ describe('DiscoveryService', () => {
       const result = await service.recordSwipe(USER_ID, TARGET_ID, 'SUPER_LIKE');
 
       expect(prisma.swipe.create).toHaveBeenCalledWith({
-        data: { swiperId: USER_ID, targetUserId: TARGET_ID, action: 'SUPER_LIKE' },
+        data: {
+          swiperId: USER_ID,
+          targetUserId: TARGET_ID,
+          action: 'SUPER_LIKE',
+          complimentText: null,
+          complimentTarget: null,
+        },
       });
       expect(result).toEqual({ matched: true, matchId: 'match-1' });
     });
@@ -816,8 +853,13 @@ describe('DiscoveryService', () => {
       prisma.swipe.findMany
         .mockResolvedValueOnce([{ targetUserId: 'already-swiped' }]) // already swiped by me
         .mockResolvedValueOnce([
-          { swiperId: 'liker-2', action: 'SUPER_LIKE' },
-          { swiperId: 'liker-1', action: 'LIKE' },
+          { swiperId: 'liker-2', action: 'SUPER_LIKE', complimentText: null, complimentTarget: null },
+          {
+            swiperId: 'liker-1',
+            action: 'LIKE',
+            complimentText: 'Love your hiking photo!',
+            complimentTarget: 'your hiking photo',
+          },
         ]); // likers, most recent first
       prisma.user.findMany.mockResolvedValue([
         { id: 'liker-1', name: 'Alex', dateOfBirth: null, profilePhotoUrl: null, interests: [], relationshipGoal: null },
@@ -832,7 +874,7 @@ describe('DiscoveryService', () => {
           action: { in: ['LIKE', 'SUPER_LIKE'] },
           swiperId: { notIn: [USER_ID, 'already-swiped'] },
         },
-        select: { swiperId: true, action: true },
+        select: { swiperId: true, action: true, complimentText: true, complimentTarget: true },
         orderBy: { createdAt: 'desc' },
       });
       expect(prisma.user.findMany).toHaveBeenCalledWith({
@@ -845,7 +887,10 @@ describe('DiscoveryService', () => {
       expect(grid.map((card) => card.id)).toEqual(['liker-2', 'liker-1']);
       expect(grid[0].isSuperLike).toBe(true);
       expect(grid[0].isBoosted).toBe(false);
+      expect(grid[0].complimentText).toBeNull();
       expect(grid[1].isSuperLike).toBe(false);
+      expect(grid[1].complimentText).toBe('Love your hiking photo!');
+      expect(grid[1].complimentTarget).toBe('your hiking photo');
     });
 
     it('returns an empty grid without querying users when nobody has liked the user', async () => {

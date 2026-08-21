@@ -125,6 +125,26 @@ void main() {
       expect(deck.first.isPriorityLike, isTrue);
     });
 
+    test('parses a compliment attached to a liked-by card', () async {
+      final api = DiscoveryApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '[{"id":"user-2","name":"Jane","age":25,"profilePhotoUrl":null,'
+            '"distanceKm":3.4,"interests":["Hiking"],"relationshipGoal":"CASUAL",'
+            '"complimentText":"Love your hiking photo!","complimentTarget":"your hiking photo"}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      final deck = await api.fetchDeck();
+
+      expect(deck.first.complimentText, 'Love your hiking photo!');
+      expect(deck.first.complimentTarget, 'your hiking photo');
+    });
+
     test('throws DiscoveryApiException on a non-200 response', () async {
       final api = DiscoveryApi(
         accessToken: 'a-jwt',
@@ -173,6 +193,31 @@ void main() {
       final result = await api.recordSwipe(targetUserId: 'user-2', action: 'SUPER_LIKE');
 
       expect(result.matched, isFalse);
+    });
+
+    test('sends a compliment when liking with one attached', () async {
+      final api = DiscoveryApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(
+            request.body,
+            '{"targetUserId":"user-2","action":"LIKE",'
+            '"complimentText":"Love your hiking photo!","complimentTarget":"your hiking photo"}',
+          );
+          return http.Response(
+            '{"matched":false}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      await api.recordSwipe(
+        targetUserId: 'user-2',
+        action: 'LIKE',
+        complimentText: 'Love your hiking photo!',
+        complimentTarget: 'your hiking photo',
+      );
     });
 
     test('throws DiscoveryApiException when the backend rejects the request', () async {
