@@ -1,0 +1,173 @@
+import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { SubscriptionsService } from './subscriptions.service';
+
+const USER_ID = 'user-1';
+
+function hoursFromNow(hours: number): Date {
+  return new Date(Date.now() + hours * 60 * 60 * 1000);
+}
+
+describe('SubscriptionsService', () => {
+  let service: SubscriptionsService;
+  let prisma: { user: { findUnique: jest.Mock; update: jest.Mock } };
+
+  beforeEach(() => {
+    prisma = { user: { findUnique: jest.fn(), update: jest.fn() } };
+    service = new SubscriptionsService(prisma as unknown as PrismaService);
+  });
+
+  describe('getCatalog', () => {
+    it('includes the free tier and all three paid tiers', () => {
+      const catalog = service.getCatalog();
+
+      expect(catalog.map((plan) => plan.tier)).toEqual(['FREE', 'PLUS', 'GOLD', 'PLATINUM']);
+    });
+  });
+
+  describe('getStatus', () => {
+    it('throws when the user does not exist', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(service.getStatus(USER_ID)).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('reports the free tier as inactive with no expiry', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        subscriptionTier: 'FREE',
+        subscriptionExpiresAt: null,
+        subscriptionCanceledAt: null,
+        isPremium: false,
+      });
+
+      const status = await service.getStatus(USER_ID);
+
+      expect(status).toEqual({ tier: 'FREE', isActive: false, expiresAt: null, canceledAt: null });
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it('reports an unexpired paid tier as active', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        subscriptionTier: 'GOLD',
+        subscriptionExpiresAt: hoursFromNow(24),
+        subscriptionCanceledAt: null,
+        isPremium: true,
+      });
+
+      const status = await service.getStatus(USER_ID);
+
+      expect(status.tier).toBe('GOLD');
+      expect(status.isActive).toBe(true);
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it('lazily downgrades and self-heals isPremium once a paid tier has lapsed', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        subscriptionTier: 'PLUS',
+        subscriptionExpiresAt: hoursFromNow(-1),
+        subscriptionCanceledAt: null,
+        isPremium: true,
+      });
+      prisma.user.update.mockResolvedValue({
+        subscriptionTier: 'FREE',
+        subscriptionExpiresAt: null,
+        subscriptionCanceledAt: null,
+        isPremium: false,
+      });
+
+      const status = await service.getStatus(USER_ID);
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: USER_ID },
+        data: { subscriptionTier: 'FREE', subscriptionExpiresAt: null, isPremium: false },
+      });
+      expect(status).toEqual({ tier: 'FREE', isActive: false, expiresAt: null, canceledAt: null });
+    });
+  });
+
+  describe('subscribe', () => {
+    it('activates the tier for one billing period', async () => {
+      prisma.user.update.mockResolvedValue({
+        subscriptionTier: 'PLATINUM',
+        subscriptionExpiresAt: hoursFromNow(30 * 24),
+        subscriptionCanceledAt: null,
+        isPremium: true,
+      });
+
+      const status = await service.subscribe(USER_ID, 'PLATINUM');
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: USER_ID },
+        data: {
+          subscriptionTier: 'PLATINUM',
+          subscriptionExpiresAt: expect.any(Date),
+          subscriptionCanceledAt: null,
+          isPremium: true,
+        },
+      });
+      expect(status.tier).toBe('PLATINUM');
+      expect(status.isActive).toBe(true);
+    });
+  });
+
+  describe('cancel', () => {
+    it('rejects canceling when already on the free tier', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        subscriptionTier: 'FREE',
+        subscriptionExpiresAt: null,
+        subscriptionCanceledAt: null,
+        isPremium: false,
+      });
+
+      await expect(service.cancel(USER_ID)).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects canceling a subscription that has already lapsed', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        subscriptionTier: 'GOLD',
+        subscriptionExpiresAt: hoursFromNow(-1),
+        subscriptionCanceledAt: null,
+        isPremium: true,
+      });
+      prisma.user.update.mockResolvedValue({
+        subscriptionTier: 'FREE',
+        subscriptionExpiresAt: null,
+        subscriptionCanceledAt: null,
+        isPremium: false,
+      });
+
+      await expect(service.cancel(USER_ID)).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('reverts an active paid tier to free immediately', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        subscriptionTier: 'GOLD',
+        subscriptionExpiresAt: hoursFromNow(24),
+        subscriptionCanceledAt: null,
+        isPremium: true,
+      });
+      prisma.user.update.mockResolvedValue({
+        subscriptionTier: 'FREE',
+        subscriptionExpiresAt: null,
+        subscriptionCanceledAt: new Date('2026-01-01T00:00:00.000Z'),
+        isPremium: false,
+      });
+
+      const status = await service.cancel(USER_ID);
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: USER_ID },
+        data: {
+          subscriptionTier: 'FREE',
+          subscriptionExpiresAt: null,
+          subscriptionCanceledAt: expect.any(Date),
+          isPremium: false,
+        },
+      });
+      expect(status.tier).toBe('FREE');
+      expect(status.isActive).toBe(false);
+      expect(status.canceledAt).toBe('2026-01-01T00:00:00.000Z');
+    });
+  });
+});

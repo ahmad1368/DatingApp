@@ -29,6 +29,9 @@ model User {
   interests                             String[]  @default([])
   onboardingCompletedAt                 DateTime?
   isPremium                             Boolean   @default(false)
+  subscriptionTier                      String    @default("FREE")
+  subscriptionExpiresAt                 DateTime?
+  subscriptionCanceledAt                DateTime?
   giftTokenBalance                      Int       @default(100)
   latitude                              Float?
   longitude                             Float?
