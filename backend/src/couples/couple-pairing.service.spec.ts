@@ -4,25 +4,40 @@ import { CouplePairingService } from './couple-pairing.service';
 
 const REQUESTER_ID = 'requester-1';
 const PARTNER_ID = 'partner-1';
+const OTHER_PARTNER_ID = 'partner-2';
 const PAIRING_ID = 'pairing-1';
+const LINK_ID = 'link-1';
 
 describe('CouplePairingService', () => {
   let service: CouplePairingService;
   let prisma: {
-    user: { findUnique: jest.Mock; update: jest.Mock };
-    couplePairing: { findFirst: jest.Mock; findUnique: jest.Mock; findMany: jest.Mock; create: jest.Mock; update: jest.Mock };
+    user: { findUnique: jest.Mock };
+    couplePairing: {
+      findFirst: jest.Mock;
+      findUnique: jest.Mock;
+      findMany: jest.Mock;
+      create: jest.Mock;
+      update: jest.Mock;
+    };
+    partnerLink: { findFirst: jest.Mock; findMany: jest.Mock; create: jest.Mock; delete: jest.Mock };
     $transaction: jest.Mock;
   };
 
   beforeEach(() => {
     prisma = {
-      user: { findUnique: jest.fn(), update: jest.fn() },
+      user: { findUnique: jest.fn() },
       couplePairing: {
         findFirst: jest.fn(),
         findUnique: jest.fn(),
         findMany: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
+      },
+      partnerLink: {
+        findFirst: jest.fn(),
+        findMany: jest.fn(),
+        create: jest.fn(),
+        delete: jest.fn(),
       },
       $transaction: jest.fn(),
     };
@@ -37,37 +52,31 @@ describe('CouplePairingService', () => {
     });
 
     it('throws when the target user does not exist', async () => {
-      prisma.user.findUnique.mockResolvedValueOnce({ partnerUserId: null }).mockResolvedValueOnce(null);
+      prisma.user.findUnique.mockResolvedValue(null);
 
       await expect(service.invite(REQUESTER_ID, PARTNER_ID)).rejects.toBeInstanceOf(
         NotFoundException,
       );
     });
 
-    it('rejects when the requester is already paired', async () => {
-      prisma.user.findUnique
-        .mockResolvedValueOnce({ partnerUserId: 'someone-else' })
-        .mockResolvedValueOnce({ partnerUserId: null });
+    it('rejects when the two users are already linked', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: PARTNER_ID });
+      prisma.partnerLink.findFirst.mockResolvedValue({
+        id: LINK_ID,
+        userAId: PARTNER_ID,
+        userBId: REQUESTER_ID,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
 
       await expect(service.invite(REQUESTER_ID, PARTNER_ID)).rejects.toBeInstanceOf(
         BadRequestException,
       );
-    });
-
-    it('rejects when the target is already paired', async () => {
-      prisma.user.findUnique
-        .mockResolvedValueOnce({ partnerUserId: null })
-        .mockResolvedValueOnce({ partnerUserId: 'someone-else' });
-
-      await expect(service.invite(REQUESTER_ID, PARTNER_ID)).rejects.toBeInstanceOf(
-        BadRequestException,
-      );
+      expect(prisma.couplePairing.create).not.toHaveBeenCalled();
     });
 
     it('rejects a duplicate pending invite between the same two users', async () => {
-      prisma.user.findUnique
-        .mockResolvedValueOnce({ partnerUserId: null })
-        .mockResolvedValueOnce({ partnerUserId: null });
+      prisma.user.findUnique.mockResolvedValue({ id: PARTNER_ID });
+      prisma.partnerLink.findFirst.mockResolvedValue(null);
       prisma.couplePairing.findFirst.mockResolvedValue({ id: 'existing-invite' });
 
       await expect(service.invite(REQUESTER_ID, PARTNER_ID)).rejects.toBeInstanceOf(
@@ -76,10 +85,9 @@ describe('CouplePairingService', () => {
       expect(prisma.couplePairing.create).not.toHaveBeenCalled();
     });
 
-    it('creates a pending invite', async () => {
-      prisma.user.findUnique
-        .mockResolvedValueOnce({ partnerUserId: null })
-        .mockResolvedValueOnce({ partnerUserId: null });
+    it('creates a pending invite even when the requester already has other partners', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: PARTNER_ID });
+      prisma.partnerLink.findFirst.mockResolvedValue(null);
       prisma.couplePairing.findFirst.mockResolvedValue(null);
       prisma.couplePairing.create.mockResolvedValue({
         id: PAIRING_ID,
@@ -96,6 +104,32 @@ describe('CouplePairingService', () => {
         data: { requesterId: REQUESTER_ID, partnerId: PARTNER_ID },
       });
       expect(result.status).toBe('PENDING');
+    });
+  });
+
+  describe('listPartners', () => {
+    it('maps each link to the other participant', async () => {
+      prisma.partnerLink.findMany.mockResolvedValue([
+        {
+          id: LINK_ID,
+          userAId: REQUESTER_ID,
+          userBId: PARTNER_ID,
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+        {
+          id: 'link-2',
+          userAId: OTHER_PARTNER_ID,
+          userBId: REQUESTER_ID,
+          createdAt: new Date('2026-01-02T00:00:00.000Z'),
+        },
+      ]);
+
+      const result = await service.listPartners(REQUESTER_ID);
+
+      expect(result).toEqual([
+        { id: LINK_ID, partnerId: PARTNER_ID, linkedAt: '2026-01-01T00:00:00.000Z' },
+        { id: 'link-2', partnerId: OTHER_PARTNER_ID, linkedAt: '2026-01-02T00:00:00.000Z' },
+      ]);
     });
   });
 
@@ -146,16 +180,18 @@ describe('CouplePairingService', () => {
       expect(result.status).toBe('DECLINED');
     });
 
-    it('accepting links both users and marks the invite accepted', async () => {
+    it('accepting creates a partner link and marks the invite accepted', async () => {
       prisma.couplePairing.findUnique.mockResolvedValue({
         id: PAIRING_ID,
         requesterId: REQUESTER_ID,
         partnerId: PARTNER_ID,
         status: 'PENDING',
       });
+      prisma.partnerLink.findFirst.mockResolvedValue(null);
+      prisma.partnerLink.create.mockReturnValue('create-op');
+      prisma.couplePairing.update.mockReturnValue('update-op');
       prisma.$transaction.mockResolvedValue([
-        {},
-        {},
+        { id: LINK_ID, userAId: REQUESTER_ID, userBId: PARTNER_ID },
         {
           id: PAIRING_ID,
           requesterId: REQUESTER_ID,
@@ -168,41 +204,66 @@ describe('CouplePairingService', () => {
 
       const result = await service.respond(PARTNER_ID, PAIRING_ID, true);
 
-      expect(prisma.user.update).toHaveBeenCalledWith({
-        where: { id: REQUESTER_ID },
-        data: { partnerUserId: PARTNER_ID },
+      expect(prisma.partnerLink.create).toHaveBeenCalledWith({
+        data: { userAId: REQUESTER_ID, userBId: PARTNER_ID },
       });
-      expect(prisma.user.update).toHaveBeenCalledWith({
-        where: { id: PARTNER_ID },
-        data: { partnerUserId: REQUESTER_ID },
-      });
-      expect(prisma.$transaction).toHaveBeenCalled();
+      expect(prisma.$transaction).toHaveBeenCalledWith(['create-op', 'update-op']);
       expect(result.status).toBe('ACCEPTED');
+    });
+
+    it('accepting when already linked only updates the invite status', async () => {
+      prisma.couplePairing.findUnique.mockResolvedValue({
+        id: PAIRING_ID,
+        requesterId: REQUESTER_ID,
+        partnerId: PARTNER_ID,
+        status: 'PENDING',
+      });
+      prisma.partnerLink.findFirst.mockResolvedValue({
+        id: LINK_ID,
+        userAId: REQUESTER_ID,
+        userBId: PARTNER_ID,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+      prisma.couplePairing.update.mockReturnValue('update-op');
+      prisma.$transaction.mockResolvedValue([
+        {
+          id: PAIRING_ID,
+          requesterId: REQUESTER_ID,
+          partnerId: PARTNER_ID,
+          status: 'ACCEPTED',
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+          respondedAt: new Date('2026-01-02T00:00:00.000Z'),
+        },
+      ]);
+
+      await service.respond(PARTNER_ID, PAIRING_ID, true);
+
+      expect(prisma.partnerLink.create).not.toHaveBeenCalled();
+      expect(prisma.$transaction).toHaveBeenCalledWith(['update-op']);
     });
   });
 
   describe('unpair', () => {
-    it('rejects when the user is not currently paired', async () => {
-      prisma.user.findUnique.mockResolvedValue({ partnerUserId: null });
+    it('rejects when the two users are not currently linked', async () => {
+      prisma.partnerLink.findFirst.mockResolvedValue(null);
 
-      await expect(service.unpair(REQUESTER_ID)).rejects.toBeInstanceOf(BadRequestException);
-      expect(prisma.$transaction).not.toHaveBeenCalled();
+      await expect(service.unpair(REQUESTER_ID, PARTNER_ID)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(prisma.partnerLink.delete).not.toHaveBeenCalled();
     });
 
-    it('clears partnerUserId on both sides', async () => {
-      prisma.user.findUnique.mockResolvedValue({ partnerUserId: PARTNER_ID });
-      prisma.$transaction.mockResolvedValue([{}, {}]);
-
-      const result = await service.unpair(REQUESTER_ID);
-
-      expect(prisma.user.update).toHaveBeenCalledWith({
-        where: { id: REQUESTER_ID },
-        data: { partnerUserId: null },
+    it('deletes only the link with the given partner', async () => {
+      prisma.partnerLink.findFirst.mockResolvedValue({
+        id: LINK_ID,
+        userAId: REQUESTER_ID,
+        userBId: PARTNER_ID,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
       });
-      expect(prisma.user.update).toHaveBeenCalledWith({
-        where: { id: PARTNER_ID },
-        data: { partnerUserId: null },
-      });
+
+      const result = await service.unpair(REQUESTER_ID, PARTNER_ID);
+
+      expect(prisma.partnerLink.delete).toHaveBeenCalledWith({ where: { id: LINK_ID } });
       expect(result).toEqual({ unpaired: true });
     });
   });

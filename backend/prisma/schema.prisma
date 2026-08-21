@@ -49,7 +49,6 @@ model User {
   showRelationshipDesiresOnProfile      Boolean   @default(true)
   customRelationshipIntent              String?
   showCustomRelationshipIntentOnProfile Boolean   @default(true)
-  partnerUserId                         String?   @unique
   smokingHabit                          String?
   drinkingHabit                         String?
   education                             String?
@@ -391,6 +390,21 @@ model CouplePairing {
   @@index([requesterId])
   @@index([partnerId])
   @@map("couple_pairings")
+}
+
+// A confirmed, active link between two users. A user may hold multiple
+// concurrent PartnerLink rows to support polyamorous relationship
+// structures rather than a single exclusive partner.
+model PartnerLink {
+  id        String   @id @default(uuid())
+  userAId   String
+  userBId   String
+  createdAt DateTime @default(now())
+
+  @@unique([userAId, userBId])
+  @@index([userAId])
+  @@index([userBId])
+  @@map("partner_links")
 }
 
 model PersonalityProfile {
