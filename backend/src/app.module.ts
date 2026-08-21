@@ -23,6 +23,7 @@ import { DateSuggestionsModule } from './date-suggestions/date-suggestions.modul
 import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 import { ProfileVisitsModule } from './profile-visits/profile-visits.module';
 import { VaultModule } from './vault/vault.module';
+import { EventsModule } from './events/events.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { VaultModule } from './vault/vault.module';
     SubscriptionsModule,
     ProfileVisitsModule,
     VaultModule,
+    EventsModule,
   ],
 })
 export class AppModule {}

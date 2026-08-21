@@ -567,3 +567,39 @@ model VaultPhotoGrant {
   @@index([matchId])
   @@map("vault_photo_grants")
 }
+
+// App-sponsored offline singles events (mixers, meetups, activities).
+// There's no admin panel anywhere in this codebase, so creation is gated by
+// the existing `isCommitteeMember` flag (already used the same way to gate
+// committee actions in the vetting module) rather than a new admin role.
+model LocalEvent {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  location    String
+  latitude    Float?
+  longitude   Float?
+  category    String
+  startsAt    DateTime
+  createdById String
+  createdAt   DateTime @default(now())
+
+  rsvps LocalEventRsvp[]
+
+  @@index([startsAt])
+  @@map("local_events")
+}
+
+model LocalEventRsvp {
+  id        String   @id @default(uuid())
+  eventId   String
+  userId    String
+  createdAt DateTime @default(now())
+
+  event LocalEvent @relation(fields: [eventId], references: [id])
+
+  @@unique([eventId, userId])
+  @@index([eventId])
+  @@index([userId])
+  @@map("local_event_rsvps")
+}
