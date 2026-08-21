@@ -110,6 +110,73 @@ void main() {
     expect(capturedRequest!.body, '{"targetUserId":"user-2","action":"SUPER_LIKE"}');
   });
 
+  testWidgets('composing a compliment sends a LIKE with the text attached', (tester) async {
+    http.Request? capturedRequest;
+    final api = DiscoveryApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/discovery/deck') {
+          return http.Response(_deckResponse, 200, headers: {'content-type': 'application/json'});
+        }
+        capturedRequest = request;
+        return http.Response(
+          '{"matched":false}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: SwipeDeckScreen(discoveryApi: api)));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.comment));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), 'Love your hiking photo!');
+    await tester.tap(find.text('Send with like'));
+    await tester.pumpAndSettle();
+
+    expect(capturedRequest, isNotNull);
+    expect(
+      capturedRequest!.body,
+      '{"targetUserId":"user-2","action":"LIKE","complimentText":"Love your hiking photo!"}',
+    );
+  });
+
+  testWidgets('canceling the compliment dialog does not send a swipe', (tester) async {
+    var swipeRequested = false;
+    final api = DiscoveryApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/discovery/deck') {
+          return http.Response(_deckResponse, 200, headers: {'content-type': 'application/json'});
+        }
+        if (request.url.path == '/discovery/swipe') {
+          swipeRequested = true;
+          return http.Response('{"matched":false}', 200, headers: {'content-type': 'application/json'});
+        }
+        return http.Response(
+          '{"active":false,"expiresAt":null,"viewCount":0}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: SwipeDeckScreen(discoveryApi: api)));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.comment));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+
+    expect(swipeRequested, isFalse);
+    expect(find.text('Jane, 25'), findsOneWidget);
+  });
+
   testWidgets('shows a super-like badge when the candidate super liked the user', (tester) async {
     const superLikedDeckResponse =
         '[{"id":"user-2","name":"Jane","age":25,"profilePhotoUrl":null,'

@@ -58,6 +58,25 @@ void main() {
     expect(find.byIcon(Icons.star), findsOneWidget);
   });
 
+  testWidgets('shows a compliment attached to a liker card', (tester) async {
+    const complimentedResponse =
+        '[{"id":"user-3","name":"Sam","age":29,"profilePhotoUrl":null,'
+        '"distanceKm":1.2,"interests":["Coffee"],"relationshipGoal":"CASUAL",'
+        '"complimentText":"Love your hiking photo!","complimentTarget":"your hiking photo"}]';
+    final api = DiscoveryApi(
+      accessToken: 'a-jwt',
+      client: MockClient(
+        (request) async =>
+            http.Response(complimentedResponse, 200, headers: {'content-type': 'application/json'}),
+      ),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: LikedByGridScreen(discoveryApi: api)));
+    await tester.pumpAndSettle();
+
+    expect(find.text('"Love your hiking photo!"'), findsOneWidget);
+  });
+
   testWidgets('liking back records a swipe and shows a match banner', (tester) async {
     http.Request? capturedRequest;
     final api = DiscoveryApi(

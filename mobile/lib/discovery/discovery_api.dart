@@ -26,6 +26,8 @@ class DeckCard {
     this.isSuperLike = false,
     this.isBoosted = false,
     this.isPriorityLike = false,
+    this.complimentText,
+    this.complimentTarget,
   });
 
   final String id;
@@ -41,6 +43,8 @@ class DeckCard {
   final bool isSuperLike;
   final bool isBoosted;
   final bool isPriorityLike;
+  final String? complimentText;
+  final String? complimentTarget;
 }
 
 class BoostStatus {
@@ -112,14 +116,29 @@ class DiscoveryApi {
       isSuperLike: json['isSuperLike'] as bool? ?? false,
       isBoosted: json['isBoosted'] as bool? ?? false,
       isPriorityLike: json['isPriorityLike'] as bool? ?? false,
+      complimentText: json['complimentText'] as String?,
+      complimentTarget: json['complimentTarget'] as String?,
     );
   }
 
-  Future<SwipeResult> recordSwipe({required String targetUserId, required String action}) async {
+  /// [complimentText] attaches a short pre-match compliment to this like
+  /// (e.g. praising a specific photo or prompt, named by [complimentTarget]);
+  /// the backend rejects a compliment on a PASS.
+  Future<SwipeResult> recordSwipe({
+    required String targetUserId,
+    required String action,
+    String? complimentText,
+    String? complimentTarget,
+  }) async {
     final response = await _client.post(
       Uri.parse('$_baseUrl/discovery/swipe'),
       headers: _headers,
-      body: jsonEncode({'targetUserId': targetUserId, 'action': action}),
+      body: jsonEncode({
+        'targetUserId': targetUserId,
+        'action': action,
+        'complimentText': ?complimentText,
+        'complimentTarget': ?complimentTarget,
+      }),
     );
 
     final body = _decode(response);

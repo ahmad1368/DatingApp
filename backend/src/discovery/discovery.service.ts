@@ -30,6 +30,8 @@ export interface DeckCard {
   isSuperLike: boolean;
   isBoosted: boolean;
   isPriorityLike: boolean;
+  complimentText: string | null;
+  complimentTarget: string | null;
 }
 
 export interface SwipeResult {
@@ -183,6 +185,8 @@ export class DiscoveryService {
         isSuperLike: superLikerIdSet.has(candidate.id),
         isBoosted: boostedIdSet.has(candidate.id),
         isPriorityLike: priorityLikerIdSet.has(candidate.id),
+        complimentText: null,
+        complimentTarget: null,
       }),
     );
   }
@@ -214,12 +218,15 @@ export class DiscoveryService {
         action: { in: LIKE_ACTIONS },
         swiperId: { notIn: excludedIds },
       },
-      select: { swiperId: true, action: true },
+      select: { swiperId: true, action: true, complimentText: true, complimentTarget: true },
       orderBy: { createdAt: 'desc' },
     });
     const likerIdsOrdered = likersOfMe.map((s) => s.swiperId);
     const superLikerIdSet = new Set(
       likersOfMe.filter((s) => s.action === 'SUPER_LIKE').map((s) => s.swiperId),
+    );
+    const complimentBySwiperId = new Map(
+      likersOfMe.map((s) => [s.swiperId, { text: s.complimentText, target: s.complimentTarget }]),
     );
 
     const lifestyleWhere = this.buildLifestyleFilterWhere(currentUser);
@@ -254,6 +261,8 @@ export class DiscoveryService {
         isSuperLike: superLikerIdSet.has(liker.id),
         isBoosted: false,
         isPriorityLike: false,
+        complimentText: complimentBySwiperId.get(liker.id)?.text ?? null,
+        complimentTarget: complimentBySwiperId.get(liker.id)?.target ?? null,
       }),
     );
   }
@@ -282,7 +291,13 @@ export class DiscoveryService {
     },
     now: Date,
     origin: { latitude: number | null; longitude: number | null },
-    flags: { isSuperLike: boolean; isBoosted: boolean; isPriorityLike: boolean },
+    flags: {
+      isSuperLike: boolean;
+      isBoosted: boolean;
+      isPriorityLike: boolean;
+      complimentText: string | null;
+      complimentTarget: string | null;
+    },
   ): DeckCard {
     return {
       id: candidate.id,
@@ -304,6 +319,8 @@ export class DiscoveryService {
       isSuperLike: flags.isSuperLike,
       isBoosted: flags.isBoosted,
       isPriorityLike: flags.isPriorityLike,
+      complimentText: flags.complimentText,
+      complimentTarget: flags.complimentTarget,
     };
   }
 
@@ -362,9 +379,19 @@ export class DiscoveryService {
     return badges;
   }
 
-  async recordSwipe(userId: string, targetUserId: string, action: string): Promise<SwipeResult> {
+  async recordSwipe(
+    userId: string,
+    targetUserId: string,
+    action: string,
+    complimentText?: string,
+    complimentTarget?: string,
+  ): Promise<SwipeResult> {
     if (targetUserId === userId) {
       throw new BadRequestException('You cannot swipe on yourself.');
+    }
+
+    if (complimentText && !LIKE_ACTIONS.includes(action as (typeof LIKE_ACTIONS)[number])) {
+      throw new BadRequestException('Compliments can only be attached to a like.');
     }
 
     const target = await this.prisma.user.findUnique({ where: { id: targetUserId } });
@@ -388,7 +415,15 @@ export class DiscoveryService {
       }
     }
 
-    await this.prisma.swipe.create({ data: { swiperId: userId, targetUserId, action } });
+    await this.prisma.swipe.create({
+      data: {
+        swiperId: userId,
+        targetUserId,
+        action,
+        complimentText: complimentText ?? null,
+        complimentTarget: complimentTarget ?? null,
+      },
+    });
 
     if (!LIKE_ACTIONS.includes(action as (typeof LIKE_ACTIONS)[number])) {
       return { matched: false };
