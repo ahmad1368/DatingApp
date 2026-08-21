@@ -221,6 +221,29 @@ class _CardContent extends StatelessWidget {
                 ),
               ),
             ),
+          if (card.isPriorityLike)
+            Positioned(
+              top: 0,
+              right: 0,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.purple,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.favorite, color: Colors.white, size: 16),
+                    SizedBox(width: 4),
+                    Text(
+                      'Liked You',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           if (card.isBoosted)
             Positioned(
               top: 0,

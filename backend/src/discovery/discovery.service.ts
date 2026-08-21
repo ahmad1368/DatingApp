@@ -29,6 +29,7 @@ export interface DeckCard {
   lifestyleBadges: string[];
   isSuperLike: boolean;
   isBoosted: boolean;
+  isPriorityLike: boolean;
 }
 
 export interface SwipeResult {
@@ -103,11 +104,25 @@ export class DiscoveryService {
     });
     const boostedIdSet = new Set(activeBoosts.map((boost) => boost.userId));
 
+    // "Priority likes": a premium user's regular (non-super) like also
+    // earns a spot near the top, one tier below an outright super like.
+    const regularLikerIds = likedMeIds.filter((id) => !superLikerIdSet.has(id));
+    const premiumRegularLikers =
+      regularLikerIds.length > 0
+        ? await this.prisma.user.findMany({
+            where: { id: { in: regularLikerIds }, isPremium: true },
+            select: { id: true },
+          })
+        : [];
+    const priorityLikerIdSet = new Set(premiumRegularLikers.map((user) => user.id));
+
     // Boosted profiles get top priority ("pushed to the top"), then anyone
-    // who has super-liked the viewer, de-duplicated in that order.
+    // who has super-liked the viewer, then premium priority likes -
+    // de-duplicated in that order.
     const priorityIdsOrdered = [
       ...boostedIdSet,
       ...[...superLikerIdSet].filter((id) => !boostedIdSet.has(id)),
+      ...[...priorityLikerIdSet].filter((id) => !boostedIdSet.has(id) && !superLikerIdSet.has(id)),
     ];
 
     const priorityCandidatesRaw =
@@ -167,6 +182,7 @@ export class DiscoveryService {
       this.toDeckCard(candidate, now, origin, {
         isSuperLike: superLikerIdSet.has(candidate.id),
         isBoosted: boostedIdSet.has(candidate.id),
+        isPriorityLike: priorityLikerIdSet.has(candidate.id),
       }),
     );
   }
@@ -237,6 +253,7 @@ export class DiscoveryService {
       this.toDeckCard(liker, now, origin, {
         isSuperLike: superLikerIdSet.has(liker.id),
         isBoosted: false,
+        isPriorityLike: false,
       }),
     );
   }
@@ -265,7 +282,7 @@ export class DiscoveryService {
     },
     now: Date,
     origin: { latitude: number | null; longitude: number | null },
-    flags: { isSuperLike: boolean; isBoosted: boolean },
+    flags: { isSuperLike: boolean; isBoosted: boolean; isPriorityLike: boolean },
   ): DeckCard {
     return {
       id: candidate.id,
@@ -286,6 +303,7 @@ export class DiscoveryService {
       lifestyleBadges: this.buildLifestyleBadges(candidate),
       isSuperLike: flags.isSuperLike,
       isBoosted: flags.isBoosted,
+      isPriorityLike: flags.isPriorityLike,
     };
   }
 
