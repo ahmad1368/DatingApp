@@ -537,3 +537,32 @@ model ProfileVisit {
   @@index([visitedUserId])
   @@map("profile_visits")
 }
+
+// An extra photo that stays private by default; the owner explicitly grants
+// a specific match access to it (see VaultPhotoGrant) rather than it being
+// visible on the profile or in chat.
+model VaultPhoto {
+  id        String   @id @default(uuid())
+  ownerId   String
+  mediaUrl  String
+  createdAt DateTime @default(now())
+
+  grants VaultPhotoGrant[]
+
+  @@index([ownerId])
+  @@map("vault_photos")
+}
+
+model VaultPhotoGrant {
+  id           String   @id @default(uuid())
+  vaultPhotoId String
+  matchId      String
+  grantedAt    DateTime @default(now())
+
+  vaultPhoto VaultPhoto @relation(fields: [vaultPhotoId], references: [id])
+
+  @@unique([vaultPhotoId, matchId])
+  @@index([vaultPhotoId])
+  @@index([matchId])
+  @@map("vault_photo_grants")
+}

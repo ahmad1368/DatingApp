@@ -22,6 +22,7 @@ import { LiveStreamingModule } from './live-streaming/live-streaming.module';
 import { DateSuggestionsModule } from './date-suggestions/date-suggestions.module';
 import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 import { ProfileVisitsModule } from './profile-visits/profile-visits.module';
+import { VaultModule } from './vault/vault.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { ProfileVisitsModule } from './profile-visits/profile-visits.module';
     DateSuggestionsModule,
     SubscriptionsModule,
     ProfileVisitsModule,
+    VaultModule,
   ],
 })
 export class AppModule {}
