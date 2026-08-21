@@ -2,6 +2,7 @@ import { Body, Controller, Get, HttpCode, HttpStatus, Put, UseGuards } from '@ne
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AuthenticatedUser, JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RELATIONSHIP_GOALS } from '../onboarding/onboarding.constants';
+import { KINK_TAGS, RELATIONSHIP_DESIRES } from './relationship-profile.constants';
 import { SetLifestyleFiltersDto } from './dto/set-lifestyle-filters.dto';
 import {
   CHILDREN_PREFERENCES,
@@ -31,6 +32,8 @@ export class LifestyleFiltersController {
       dietaryPreferences: DIETARY_PREFERENCES,
       childrenPreferences: CHILDREN_PREFERENCES,
       relationshipGoals: RELATIONSHIP_GOALS,
+      kinkTags: KINK_TAGS,
+      relationshipDesires: RELATIONSHIP_DESIRES,
       workoutHabits: WORKOUT_HABITS,
       petOwnershipOptions: PET_OWNERSHIP_OPTIONS,
       minHeightCm: MIN_HEIGHT_CM,

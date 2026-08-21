@@ -61,6 +61,8 @@ describe('DiscoveryService', () => {
     filterDietaryPreferences: [],
     filterWantsChildren: [],
     filterRelationshipGoals: [],
+    filterKinkTags: [],
+    filterRelationshipDesires: [],
     filterSharedInterestsOnly: false,
     interests: [],
   };
@@ -353,6 +355,40 @@ describe('DiscoveryService', () => {
           smokingHabit: { in: ['Never'] },
           education: { in: ['Bachelors', 'Masters'] },
           relationshipGoal: { in: ['LONG_TERM'] },
+        },
+        take: 20,
+      });
+    });
+
+    it('applies kink tag and relationship desire filters to the candidate query', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+        filterKinkTags: ['BDSM', 'Roleplay'],
+        filterRelationshipDesires: ['Long-Term Relationship'],
+      });
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      prisma.user.findMany.mockResolvedValue([]);
+
+      await service.getDeck(USER_ID);
+
+      expect(prisma.user.findMany).toHaveBeenCalledWith({
+        where: {
+          id: { notIn: [USER_ID] },
+          onboardingCompletedAt: { not: null },
+          activeMode: 'DATING',
+          AND: [
+            { OR: [{ incognitoEnabled: false }, { id: { in: [] } }] },
+            { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
+          ],
+          kinkTags: { hasSome: ['BDSM', 'Roleplay'] },
+          relationshipDesires: { hasSome: ['Long-Term Relationship'] },
         },
         take: 20,
       });

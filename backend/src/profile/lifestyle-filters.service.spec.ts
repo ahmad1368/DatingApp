@@ -37,6 +37,8 @@ describe('LifestyleFiltersService', () => {
         filterDietaryPreferences: [],
         filterWantsChildren: [],
         filterRelationshipGoals: [],
+        filterKinkTags: [],
+        filterRelationshipDesires: [],
         filterSharedInterestsOnly: false,
       });
     });
@@ -62,6 +64,8 @@ describe('LifestyleFiltersService', () => {
         filterDietaryPreferences: ['Vegetarian', 'Vegan'],
         filterWantsChildren: ['Wants Children', 'Open to Children'],
         filterRelationshipGoals: ['LONG_TERM'],
+        filterKinkTags: ['BDSM'],
+        filterRelationshipDesires: ['Long-Term Relationship'],
         filterSharedInterestsOnly: true,
       };
       prisma.user.update.mockResolvedValue({ ...dto });
@@ -88,6 +92,8 @@ describe('LifestyleFiltersService', () => {
           filterDietaryPreferences: ['Vegetarian', 'Vegan'],
           filterWantsChildren: ['Wants Children', 'Open to Children'],
           filterRelationshipGoals: ['LONG_TERM'],
+          filterKinkTags: ['BDSM'],
+          filterRelationshipDesires: ['Long-Term Relationship'],
           filterSharedInterestsOnly: true,
         },
         select: expect.any(Object),
@@ -107,6 +113,8 @@ describe('LifestyleFiltersService', () => {
         filterDietaryPreferences: [],
         filterWantsChildren: [],
         filterRelationshipGoals: [],
+        filterKinkTags: [],
+        filterRelationshipDesires: [],
         filterSharedInterestsOnly: false,
       };
       prisma.user.update.mockResolvedValue({

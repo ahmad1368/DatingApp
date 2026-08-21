@@ -20,6 +20,8 @@ export interface LifestyleFiltersResult {
   filterDietaryPreferences: string[];
   filterWantsChildren: string[];
   filterRelationshipGoals: string[];
+  filterKinkTags: string[];
+  filterRelationshipDesires: string[];
   filterSharedInterestsOnly: boolean;
 }
 
@@ -41,6 +43,8 @@ interface LifestyleFiltersRecord {
   filterDietaryPreferences: string[];
   filterWantsChildren: string[];
   filterRelationshipGoals: string[];
+  filterKinkTags: string[];
+  filterRelationshipDesires: string[];
   filterSharedInterestsOnly: boolean;
 }
 
@@ -62,6 +66,8 @@ const SELECT = {
   filterDietaryPreferences: true,
   filterWantsChildren: true,
   filterRelationshipGoals: true,
+  filterKinkTags: true,
+  filterRelationshipDesires: true,
   filterSharedInterestsOnly: true,
 } as const;
 
@@ -98,6 +104,8 @@ export class LifestyleFiltersService {
         filterDietaryPreferences: dto.filterDietaryPreferences,
         filterWantsChildren: dto.filterWantsChildren,
         filterRelationshipGoals: dto.filterRelationshipGoals,
+        filterKinkTags: dto.filterKinkTags,
+        filterRelationshipDesires: dto.filterRelationshipDesires,
         filterSharedInterestsOnly: dto.filterSharedInterestsOnly,
       },
       select: SELECT,
@@ -125,6 +133,8 @@ export class LifestyleFiltersService {
       filterDietaryPreferences: user?.filterDietaryPreferences ?? [],
       filterWantsChildren: user?.filterWantsChildren ?? [],
       filterRelationshipGoals: user?.filterRelationshipGoals ?? [],
+      filterKinkTags: user?.filterKinkTags ?? [],
+      filterRelationshipDesires: user?.filterRelationshipDesires ?? [],
       filterSharedInterestsOnly: user?.filterSharedInterestsOnly ?? false,
     };
   }

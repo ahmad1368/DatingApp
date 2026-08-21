@@ -738,6 +738,8 @@ export class DiscoveryService {
     filterDietaryPreferences: string[];
     filterWantsChildren: string[];
     filterRelationshipGoals: string[];
+    filterKinkTags?: string[];
+    filterRelationshipDesires?: string[];
     filterSharedInterestsOnly: boolean;
     interests: string[];
   }): Prisma.UserWhereInput {
@@ -763,6 +765,12 @@ export class DiscoveryService {
     }
     if (currentUser.filterRelationshipGoals.length > 0) {
       where.relationshipGoal = { in: currentUser.filterRelationshipGoals };
+    }
+    if ((currentUser.filterKinkTags ?? []).length > 0) {
+      where.kinkTags = { hasSome: currentUser.filterKinkTags };
+    }
+    if ((currentUser.filterRelationshipDesires ?? []).length > 0) {
+      where.relationshipDesires = { hasSome: currentUser.filterRelationshipDesires };
     }
     if (currentUser.filterSharedInterestsOnly && currentUser.interests.length > 0) {
       where.interests = { hasSome: currentUser.interests };
