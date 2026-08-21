@@ -189,6 +189,15 @@ class _CardContent extends StatelessWidget {
                   ],
                 ),
               ],
+              if (card.zodiacSign != null) ...[
+                const SizedBox(height: 8),
+                Chip(
+                  avatar: const Icon(Icons.auto_awesome, size: 16),
+                  label: Text(card.zodiacSign!),
+                  backgroundColor: Colors.deepPurple.shade100,
+                  visualDensity: VisualDensity.compact,
+                ),
+              ],
               if (card.interests.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Wrap(

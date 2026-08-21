@@ -145,6 +145,24 @@ void main() {
       expect(deck.first.complimentTarget, 'your hiking photo');
     });
 
+    test('parses zodiacSign when the backend includes it', () async {
+      final api = DiscoveryApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '[{"id":"user-2","name":"Jane","age":25,"profilePhotoUrl":null,'
+            '"distanceKm":3.4,"interests":["Hiking"],"relationshipGoal":"CASUAL","zodiacSign":"Leo"}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      final deck = await api.fetchDeck();
+
+      expect(deck.first.zodiacSign, 'Leo');
+    });
+
     test('throws DiscoveryApiException on a non-200 response', () async {
       final api = DiscoveryApi(
         accessToken: 'a-jwt',

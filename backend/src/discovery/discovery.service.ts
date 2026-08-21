@@ -14,6 +14,7 @@ import {
   SNOOZE_MAX_DURATION_DAYS,
   startOfUtcDay,
 } from './discovery.constants';
+import { getZodiacSign } from '../matching/zodiac.utils';
 import { calculateAge } from './utils/age';
 
 export interface DeckCard {
@@ -27,6 +28,7 @@ export interface DeckCard {
   relationshipGoal: string | null;
   relationshipIntentBadges: string[];
   lifestyleBadges: string[];
+  zodiacSign: string | null;
   isSuperLike: boolean;
   isBoosted: boolean;
   isPriorityLike: boolean;
@@ -288,6 +290,7 @@ export class DiscoveryService {
       smokingHabit: string | null;
       drinkingHabit: string | null;
       showLifestyleBadgesOnProfile: boolean;
+      showZodiacOnProfile: boolean;
     },
     now: Date,
     origin: { latitude: number | null; longitude: number | null },
@@ -316,6 +319,10 @@ export class DiscoveryService {
       relationshipGoal: candidate.relationshipGoal,
       relationshipIntentBadges: this.buildRelationshipIntentBadges(candidate),
       lifestyleBadges: this.buildLifestyleBadges(candidate),
+      zodiacSign:
+        candidate.showZodiacOnProfile && candidate.dateOfBirth
+          ? getZodiacSign(candidate.dateOfBirth)
+          : null,
       isSuperLike: flags.isSuperLike,
       isBoosted: flags.isBoosted,
       isPriorityLike: flags.isPriorityLike,

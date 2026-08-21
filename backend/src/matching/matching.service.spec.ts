@@ -11,12 +11,14 @@ describe('MatchingService', () => {
   let prisma: {
     question: { findMany: jest.Mock; findUnique: jest.Mock };
     questionAnswer: { upsert: jest.Mock; findMany: jest.Mock };
+    user: { findUnique: jest.Mock };
   };
 
   beforeEach(() => {
     prisma = {
       question: { findMany: jest.fn(), findUnique: jest.fn() },
       questionAnswer: { upsert: jest.fn(), findMany: jest.fn() },
+      user: { findUnique: jest.fn().mockResolvedValue({ dateOfBirth: null }) },
     };
     service = new MatchingService(prisma as unknown as PrismaService);
   });
@@ -119,7 +121,13 @@ describe('MatchingService', () => {
 
       const result = await service.getCompatibility(USER_ID, OTHER_ID);
 
-      expect(result).toEqual({ percentage: null, sharedQuestionCount: 0 });
+      expect(result).toEqual({
+        percentage: null,
+        sharedQuestionCount: 0,
+        zodiacSign: null,
+        otherZodiacSign: null,
+        zodiacHarmony: null,
+      });
     });
 
     it('computes 100% when both sides fully satisfy each other', async () => {
@@ -143,7 +151,13 @@ describe('MatchingService', () => {
 
       const result = await service.getCompatibility(USER_ID, OTHER_ID);
 
-      expect(result).toEqual({ percentage: 100, sharedQuestionCount: 1 });
+      expect(result).toEqual({
+        percentage: 100,
+        sharedQuestionCount: 1,
+        zodiacSign: null,
+        otherZodiacSign: null,
+        zodiacHarmony: null,
+      });
     });
 
     it('zeroes out compatibility when a mandatory dealbreaker is unmet', async () => {
@@ -167,7 +181,13 @@ describe('MatchingService', () => {
 
       const result = await service.getCompatibility(USER_ID, OTHER_ID);
 
-      expect(result).toEqual({ percentage: 0, sharedQuestionCount: 1 });
+      expect(result).toEqual({
+        percentage: 0,
+        sharedQuestionCount: 1,
+        zodiacSign: null,
+        otherZodiacSign: null,
+        zodiacHarmony: null,
+      });
     });
 
     it('only counts questions both users have answered', async () => {
@@ -199,6 +219,32 @@ describe('MatchingService', () => {
 
       expect(result.sharedQuestionCount).toBe(1);
       expect(result.percentage).toBe(100);
+    });
+
+    it('computes zodiac signs and harmony when both users have a date of birth', async () => {
+      prisma.questionAnswer.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      prisma.user.findUnique
+        .mockResolvedValueOnce({ dateOfBirth: new Date(Date.UTC(1995, 6, 25)) }) // Leo
+        .mockResolvedValueOnce({ dateOfBirth: new Date(Date.UTC(1997, 2, 25)) }); // Aries
+
+      const result = await service.getCompatibility(USER_ID, OTHER_ID);
+
+      expect(result.zodiacSign).toBe('Leo');
+      expect(result.otherZodiacSign).toBe('Aries');
+      expect(result.zodiacHarmony).toBe('Highly Compatible');
+    });
+
+    it('leaves zodiac fields null when either user has no date of birth', async () => {
+      prisma.questionAnswer.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      prisma.user.findUnique
+        .mockResolvedValueOnce({ dateOfBirth: new Date(Date.UTC(1995, 6, 25)) })
+        .mockResolvedValueOnce({ dateOfBirth: null });
+
+      const result = await service.getCompatibility(USER_ID, OTHER_ID);
+
+      expect(result.zodiacSign).toBeNull();
+      expect(result.otherZodiacSign).toBeNull();
+      expect(result.zodiacHarmony).toBeNull();
     });
   });
 });
