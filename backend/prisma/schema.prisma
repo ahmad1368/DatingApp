@@ -520,3 +520,17 @@ model DissolvedMatch {
   @@index([userBId])
   @@map("dissolved_matches")
 }
+
+// A recorded profile view. Anonymous (premium-only) visits are simply never
+// written here - see ProfileVisitsService.recordVisit - rather than being
+// stored with a "hidden" flag, so there's truly no footprint to leak.
+model ProfileVisit {
+  id            String   @id @default(uuid())
+  visitorId     String
+  visitedUserId String
+  createdAt     DateTime @default(now())
+
+  @@index([visitorId])
+  @@index([visitedUserId])
+  @@map("profile_visits")
+}

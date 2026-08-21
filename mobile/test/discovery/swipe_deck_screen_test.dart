@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'package:mobile/discovery/discovery_api.dart';
+import 'package:mobile/discovery/profile_visits_api.dart';
 import 'package:mobile/discovery/swipe_deck_screen.dart';
 
 const _deckResponse = '[{"id":"user-2","name":"Jane","age":25,"profilePhotoUrl":null,'
@@ -22,6 +23,83 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('No more profiles nearby. Check back later!'), findsOneWidget);
+  });
+
+  testWidgets('tapping a card records a profile visit', (tester) async {
+    http.Request? visitRequest;
+    final discoveryApi = DiscoveryApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/discovery/deck') {
+          return http.Response(_deckResponse, 200, headers: {'content-type': 'application/json'});
+        }
+        return http.Response(
+          '{"active":false,"expiresAt":null,"viewCount":0}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+    final profileVisitsApi = ProfileVisitsApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        visitRequest = request;
+        return http.Response('', 201);
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SwipeDeckScreen(discoveryApi: discoveryApi, profileVisitsApi: profileVisitsApi),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Jane, 25'));
+    await tester.pumpAndSettle();
+
+    expect(visitRequest, isNotNull);
+    expect(visitRequest!.url.path, '/profile-visits/user-2');
+    expect(visitRequest!.body, '{"anonymous":false}');
+  });
+
+  testWidgets('toggling anonymous browsing records the next visit anonymously', (tester) async {
+    http.Request? visitRequest;
+    final discoveryApi = DiscoveryApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/discovery/deck') {
+          return http.Response(_deckResponse, 200, headers: {'content-type': 'application/json'});
+        }
+        return http.Response(
+          '{"active":false,"expiresAt":null,"viewCount":0}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+    final profileVisitsApi = ProfileVisitsApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        visitRequest = request;
+        return http.Response('', 201);
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SwipeDeckScreen(discoveryApi: discoveryApi, profileVisitsApi: profileVisitsApi),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Browse anonymously (premium)'));
+    await tester.pump();
+
+    await tester.tap(find.text('Jane, 25'));
+    await tester.pumpAndSettle();
+
+    expect(visitRequest!.body, '{"anonymous":true}');
   });
 
   testWidgets('tapping like records a swipe and shows a match banner', (tester) async {

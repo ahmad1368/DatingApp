@@ -10,10 +10,11 @@ const double _maxRotationRadians = 0.4;
 /// Flings off-screen and calls [onSwiped] with 'LIKE' or 'PASS' once past
 /// the threshold; otherwise springs back to center.
 class SwipeCard extends StatefulWidget {
-  const SwipeCard({super.key, required this.card, required this.onSwiped});
+  const SwipeCard({super.key, required this.card, required this.onSwiped, this.onTap});
 
   final DeckCard card;
   final ValueChanged<String> onSwiped;
+  final VoidCallback? onTap;
 
   @override
   State<SwipeCard> createState() => _SwipeCardState();
@@ -86,6 +87,7 @@ class _SwipeCardState extends State<SwipeCard> with SingleTickerProviderStateMix
     final passOpacity = (-_dragOffset.dx / _swipeThreshold).clamp(0.0, 1.0);
 
     return GestureDetector(
+      onTap: widget.onTap,
       onPanUpdate: _onPanUpdate,
       onPanEnd: _onPanEnd,
       child: Transform.translate(
