@@ -2,12 +2,17 @@ import 'package:flutter/material.dart';
 
 import 'discovery_api.dart';
 import 'liked_by_grid_screen.dart';
+import 'profile_visitors_screen.dart';
+import 'profile_visits_api.dart';
 import 'swipe_card.dart';
 
 class SwipeDeckScreen extends StatefulWidget {
-  const SwipeDeckScreen({super.key, required this.discoveryApi});
+  SwipeDeckScreen({super.key, required this.discoveryApi, ProfileVisitsApi? profileVisitsApi})
+      : profileVisitsApi =
+            profileVisitsApi ?? ProfileVisitsApi(accessToken: discoveryApi.accessToken);
 
   final DiscoveryApi discoveryApi;
+  final ProfileVisitsApi profileVisitsApi;
 
   @override
   State<SwipeDeckScreen> createState() => _SwipeDeckScreenState();
@@ -19,6 +24,7 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
   String? _errorText;
   String? _matchText;
   bool _incognitoEnabled = false;
+  bool _browseAnonymously = false;
   BoostStatus? _boostStatus;
   String _activeMode = 'DATING';
   DateTime? _snoozedUntil;
@@ -134,6 +140,17 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
     }
   }
 
+  /// Records a profile view for the given card. Fire-and-forget: a failure
+  /// here (e.g. a non-premium user requesting anonymous browsing) shouldn't
+  /// block looking at the card, so it's silently ignored.
+  Future<void> _recordVisit(DeckCard card) async {
+    try {
+      await widget.profileVisitsApi.recordVisit(card.id, anonymous: _browseAnonymously);
+    } on ProfileVisitsApiException {
+      // Non-critical: viewing the card should never fail because of this.
+    }
+  }
+
   Future<void> _toggleIncognito() async {
     setState(() => _errorText = null);
     try {
@@ -223,6 +240,23 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
             color: _incognitoEnabled ? Colors.purple : null,
             tooltip: _incognitoEnabled ? 'Incognito mode on' : 'Go incognito',
             onPressed: _isLoading ? null : _toggleIncognito,
+          ),
+          IconButton(
+            icon: Icon(_browseAnonymously ? Icons.person_off : Icons.person_off_outlined),
+            color: _browseAnonymously ? Colors.purple : null,
+            tooltip: _browseAnonymously
+                ? "Browsing anonymously - your visits aren't recorded"
+                : 'Browse anonymously (premium)',
+            onPressed: () => setState(() => _browseAnonymously = !_browseAnonymously),
+          ),
+          IconButton(
+            icon: const Icon(Icons.remove_red_eye_outlined),
+            tooltip: 'Profile visitors',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => ProfileVisitorsScreen(profileVisitsApi: widget.profileVisitsApi),
+              ),
+            ),
           ),
           IconButton(
             icon: const Icon(Icons.undo),
@@ -336,6 +370,7 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
           key: ValueKey(_deck.first.id),
           card: _deck.first,
           onSwiped: (action) => _handleSwipe(_deck.first, action),
+          onTap: () => _recordVisit(_deck.first),
         ),
       ],
     );
