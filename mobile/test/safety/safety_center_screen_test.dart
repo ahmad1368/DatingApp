@@ -129,6 +129,70 @@ void main() {
     expect(checkInsCallCount, greaterThanOrEqualTo(2));
   });
 
+  testWidgets('scheduling a check-in includes the emergency contact details', (tester) async {
+    http.Request? createRequest;
+    final api = SafetyApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/safety/resources') {
+          return _jsonResponse('[]', 200);
+        }
+        if (request.method == 'POST' && request.url.path == '/safety/check-ins') {
+          createRequest = request;
+          return _jsonResponse(
+            '{"id":"check-in-1","matchId":null,"location":null,"scheduledAt":"2026-01-01T20:00:00.000Z",'
+            '"emergencyContactName":"Sam","emergencyContactPhone":"+15551234567","notes":null,'
+            '"confirmedAt":null,"status":"SCHEDULED"}',
+            201,
+          );
+        }
+        return _jsonResponse('[]', 200);
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: SafetyCenterScreen(safetyApi: api)));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Schedule'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Emergency contact name (optional)'),
+      'Sam',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Emergency contact phone (optional)'),
+      '+15551234567',
+    );
+    await tester.tap(find.text('Schedule').last);
+    await tester.pumpAndSettle();
+
+    expect(createRequest, isNotNull);
+    expect(createRequest!.body, contains('"emergencyContactName":"Sam"'));
+    expect(createRequest!.body, contains('"emergencyContactPhone":"+15551234567"'));
+  });
+
+  testWidgets('shows when a missed check-in alerted the emergency contact', (tester) async {
+    final api = SafetyApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/safety/resources') {
+          return _jsonResponse('[]', 200);
+        }
+        return _jsonResponse(
+          '[{"id":"check-in-1","matchId":null,"location":null,"scheduledAt":"2026-01-01T20:00:00.000Z",'
+          '"emergencyContactName":"Sam","emergencyContactPhone":"+15551234567","notes":null,'
+          '"confirmedAt":null,"status":"OVERDUE","alertSent":true}]',
+          200,
+        );
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: SafetyCenterScreen(safetyApi: api)));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('contact alerted'), findsOneWidget);
+  });
+
   testWidgets('reporting a user submits the dialog', (tester) async {
     http.Request? reportRequest;
     final api = SafetyApi(

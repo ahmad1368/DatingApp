@@ -285,6 +285,7 @@ model DateCheckIn {
   emergencyContactPhone String?
   notes                 String?
   confirmedAt           DateTime?
+  alertSentAt           DateTime?
   createdAt             DateTime  @default(now())
 
   @@index([userId])

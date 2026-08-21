@@ -8,4 +8,8 @@ export class ConsoleSmsProvider implements SmsProvider {
   async sendOtp(phoneNumber: string, code: string): Promise<void> {
     this.logger.log(`OTP for ${phoneNumber}: ${code}`);
   }
+
+  async sendMessage(phoneNumber: string, message: string): Promise<void> {
+    this.logger.log(`SMS for ${phoneNumber}: ${message}`);
+  }
 }
