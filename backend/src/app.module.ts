@@ -20,6 +20,7 @@ import { GiftingModule } from './gifting/gifting.module';
 import { BlindDatingModule } from './blind-dating/blind-dating.module';
 import { LiveStreamingModule } from './live-streaming/live-streaming.module';
 import { DateSuggestionsModule } from './date-suggestions/date-suggestions.module';
+import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { DateSuggestionsModule } from './date-suggestions/date-suggestions.modul
     BlindDatingModule,
     LiveStreamingModule,
     DateSuggestionsModule,
+    SubscriptionsModule,
   ],
 })
 export class AppModule {}
