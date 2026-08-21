@@ -20,6 +20,7 @@ class DeckCard {
     this.videoSnippetUrl,
     this.distanceKm,
     required this.interests,
+    this.sharedInterests = const [],
     this.relationshipGoal,
     this.relationshipIntentBadges = const [],
     this.lifestyleBadges = const [],
@@ -39,6 +40,7 @@ class DeckCard {
   final String? videoSnippetUrl;
   final double? distanceKm;
   final List<String> interests;
+  final List<String> sharedInterests;
   final String? relationshipGoal;
   final List<String> relationshipIntentBadges;
   final List<String> lifestyleBadges;
@@ -113,6 +115,7 @@ class DiscoveryApi {
       videoSnippetUrl: json['videoSnippetUrl'] as String?,
       distanceKm: (json['distanceKm'] as num?)?.toDouble(),
       interests: (json['interests'] as List).cast<String>(),
+      sharedInterests: (json['sharedInterests'] as List?)?.cast<String>() ?? const [],
       relationshipGoal: json['relationshipGoal'] as String?,
       relationshipIntentBadges:
           (json['relationshipIntentBadges'] as List?)?.cast<String>() ?? const [],

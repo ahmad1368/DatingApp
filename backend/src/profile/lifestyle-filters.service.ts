@@ -20,6 +20,7 @@ export interface LifestyleFiltersResult {
   filterDietaryPreferences: string[];
   filterWantsChildren: string[];
   filterRelationshipGoals: string[];
+  filterSharedInterestsOnly: boolean;
 }
 
 interface LifestyleFiltersRecord {
@@ -40,6 +41,7 @@ interface LifestyleFiltersRecord {
   filterDietaryPreferences: string[];
   filterWantsChildren: string[];
   filterRelationshipGoals: string[];
+  filterSharedInterestsOnly: boolean;
 }
 
 const SELECT = {
@@ -60,6 +62,7 @@ const SELECT = {
   filterDietaryPreferences: true,
   filterWantsChildren: true,
   filterRelationshipGoals: true,
+  filterSharedInterestsOnly: true,
 } as const;
 
 @Injectable()
@@ -95,6 +98,7 @@ export class LifestyleFiltersService {
         filterDietaryPreferences: dto.filterDietaryPreferences,
         filterWantsChildren: dto.filterWantsChildren,
         filterRelationshipGoals: dto.filterRelationshipGoals,
+        filterSharedInterestsOnly: dto.filterSharedInterestsOnly,
       },
       select: SELECT,
     });
@@ -121,6 +125,7 @@ export class LifestyleFiltersService {
       filterDietaryPreferences: user?.filterDietaryPreferences ?? [],
       filterWantsChildren: user?.filterWantsChildren ?? [],
       filterRelationshipGoals: user?.filterRelationshipGoals ?? [],
+      filterSharedInterestsOnly: user?.filterSharedInterestsOnly ?? false,
     };
   }
 }

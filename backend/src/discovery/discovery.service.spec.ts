@@ -53,6 +53,8 @@ describe('DiscoveryService', () => {
     filterDietaryPreferences: [],
     filterWantsChildren: [],
     filterRelationshipGoals: [],
+    filterSharedInterestsOnly: false,
+    interests: [],
   };
 
   describe('getDeck', () => {
@@ -346,6 +348,82 @@ describe('DiscoveryService', () => {
         },
         take: 20,
       });
+    });
+
+    it('filters the deck to shared-interest candidates only when opted in', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+        filterSharedInterestsOnly: true,
+        interests: ['Hiking', 'Cooking'],
+      });
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      prisma.user.findMany.mockResolvedValue([]);
+
+      await service.getDeck(USER_ID);
+
+      expect(prisma.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ interests: { hasSome: ['Hiking', 'Cooking'] } }),
+        }),
+      );
+    });
+
+    it('does not filter by interests when the toggle is off', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+        interests: ['Hiking', 'Cooking'],
+      });
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      prisma.user.findMany.mockResolvedValue([]);
+
+      await service.getDeck(USER_ID);
+
+      const call = prisma.user.findMany.mock.calls[0][0];
+      expect(call.where.interests).toBeUndefined();
+    });
+
+    it('highlights which of a candidate\'s interests overlap with the viewer\'s own', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+        interests: ['Hiking', 'Cooking'],
+      });
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      prisma.user.findMany.mockResolvedValue([
+        {
+          id: TARGET_ID,
+          name: 'Jane',
+          dateOfBirth: null,
+          profilePhotoUrl: null,
+          interests: ['Hiking', 'Gaming', 'Photography'],
+          relationshipGoal: 'CASUAL',
+        },
+      ]);
+
+      const deck = await service.getDeck(USER_ID);
+
+      expect(deck[0].interests).toEqual(['Hiking', 'Gaming', 'Photography']);
+      expect(deck[0].sharedInterests).toEqual(['Hiking']);
     });
 
     it('places super likers first and flags them as isSuperLike', async () => {

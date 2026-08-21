@@ -74,6 +74,7 @@ model User {
   filterDietaryPreferences              String[]  @default([])
   filterWantsChildren                   String[]  @default([])
   filterRelationshipGoals               String[]  @default([])
+  filterSharedInterestsOnly             Boolean   @default(false)
   incognitoEnabled                      Boolean   @default(false)
   activeMode                            String    @default("DATING")
   snoozedUntil                          DateTime?

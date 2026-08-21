@@ -25,6 +25,7 @@ export interface DeckCard {
   videoSnippetUrl: string | null;
   distanceKm: number | null;
   interests: string[];
+  sharedInterests: string[];
   relationshipGoal: string | null;
   relationshipIntentBadges: string[];
   lifestyleBadges: string[];
@@ -190,6 +191,7 @@ export class DiscoveryService {
         isPriorityLike: priorityLikerIdSet.has(candidate.id),
         complimentText: null,
         complimentTarget: null,
+        viewerInterests: currentUser.interests,
       }),
     );
   }
@@ -266,6 +268,7 @@ export class DiscoveryService {
         isPriorityLike: false,
         complimentText: complimentBySwiperId.get(liker.id)?.text ?? null,
         complimentTarget: complimentBySwiperId.get(liker.id)?.target ?? null,
+        viewerInterests: currentUser.interests,
       }),
     );
   }
@@ -305,6 +308,7 @@ export class DiscoveryService {
       isPriorityLike: boolean;
       complimentText: string | null;
       complimentTarget: string | null;
+      viewerInterests: string[];
     },
   ): DeckCard {
     return {
@@ -321,6 +325,9 @@ export class DiscoveryService {
           ? haversineDistanceKm(origin.latitude, origin.longitude, candidate.latitude, candidate.longitude)
           : null,
       interests: candidate.interests,
+      sharedInterests: candidate.interests.filter((interest) =>
+        flags.viewerInterests.includes(interest),
+      ),
       relationshipGoal: candidate.relationshipGoal,
       relationshipIntentBadges: this.buildRelationshipIntentBadges(candidate),
       lifestyleBadges: this.buildLifestyleBadges(candidate),
@@ -657,6 +664,8 @@ export class DiscoveryService {
     filterDietaryPreferences: string[];
     filterWantsChildren: string[];
     filterRelationshipGoals: string[];
+    filterSharedInterestsOnly: boolean;
+    interests: string[];
   }): Prisma.UserWhereInput {
     const where: Prisma.UserWhereInput = {};
 
@@ -680,6 +689,9 @@ export class DiscoveryService {
     }
     if (currentUser.filterRelationshipGoals.length > 0) {
       where.relationshipGoal = { in: currentUser.filterRelationshipGoals };
+    }
+    if (currentUser.filterSharedInterestsOnly && currentUser.interests.length > 0) {
+      where.interests = { hasSome: currentUser.interests };
     }
 
     return where;

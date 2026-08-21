@@ -219,7 +219,18 @@ class _CardContent extends StatelessWidget {
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
-                  children: [for (final interest in card.interests) Chip(label: Text(interest))],
+                  children: [
+                    for (final interest in card.interests)
+                      Chip(
+                        label: Text(interest),
+                        backgroundColor: card.sharedInterests.contains(interest)
+                            ? Colors.amber.shade200
+                            : null,
+                        avatar: card.sharedInterests.contains(interest)
+                            ? const Icon(Icons.favorite, size: 14)
+                            : null,
+                      ),
+                  ],
                 ),
               ],
             ],
