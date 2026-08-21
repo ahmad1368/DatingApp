@@ -1,5 +1,6 @@
 import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsInt, IsOptional, Max, Min } from 'class-validator';
 import { RELATIONSHIP_GOALS } from '../../onboarding/onboarding.constants';
+import { KINK_TAGS, RELATIONSHIP_DESIRES } from '../relationship-profile.constants';
 import {
   CHILDREN_PREFERENCES,
   DIETARY_PREFERENCES,
@@ -90,6 +91,16 @@ export class SetLifestyleFiltersDto {
   @ArrayMaxSize(MAX_FILTER_SELECTIONS)
   @IsIn(RELATIONSHIP_GOALS, { each: true })
   filterRelationshipGoals!: string[];
+
+  @IsArray()
+  @ArrayMaxSize(MAX_FILTER_SELECTIONS)
+  @IsIn(KINK_TAGS, { each: true })
+  filterKinkTags!: string[];
+
+  @IsArray()
+  @ArrayMaxSize(MAX_FILTER_SELECTIONS)
+  @IsIn(RELATIONSHIP_DESIRES, { each: true })
+  filterRelationshipDesires!: string[];
 
   /** When true, the deck only shows candidates who share at least one interest tag. */
   @IsBoolean()
