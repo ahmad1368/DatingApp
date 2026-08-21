@@ -65,6 +65,37 @@ describe('CuratedProfilesService', () => {
     ]);
   });
 
+  it('excludes a cached pick the user has already rated (liked or passed)', async () => {
+    prisma.user.findUnique.mockResolvedValue({ id: USER_ID });
+    prisma.dailyPick.findMany.mockResolvedValueOnce([
+      { candidateId: 'candidate-1', compatibilityScore: 88 },
+      { candidateId: 'candidate-2', compatibilityScore: 70 },
+    ]);
+    prisma.swipe.findMany
+      .mockResolvedValueOnce([{ targetUserId: 'candidate-1' }]) // already rated
+      .mockResolvedValueOnce([]); // recent likes received, for the standout flag
+    prisma.user.findMany.mockResolvedValue([
+      { id: 'candidate-2', name: 'Sam', dateOfBirth: null, profilePhotoUrl: null },
+    ]);
+
+    const picks = await service.getDailyPicks(USER_ID);
+
+    expect(picks.map((p) => p.id)).toEqual(['candidate-2']);
+  });
+
+  it('returns an empty batch once every pick in the window has been rated', async () => {
+    prisma.user.findUnique.mockResolvedValue({ id: USER_ID });
+    prisma.dailyPick.findMany.mockResolvedValueOnce([
+      { candidateId: 'candidate-1', compatibilityScore: 88 },
+    ]);
+    prisma.swipe.findMany.mockResolvedValueOnce([{ targetUserId: 'candidate-1' }]);
+
+    const picks = await service.getDailyPicks(USER_ID);
+
+    expect(picks).toEqual([]);
+    expect(prisma.user.findMany).not.toHaveBeenCalled();
+  });
+
   it('flags a cached pick as a standout once it has enough recent likes', async () => {
     prisma.user.findUnique.mockResolvedValue({ id: USER_ID });
     prisma.dailyPick.findMany.mockResolvedValueOnce([
@@ -73,11 +104,13 @@ describe('CuratedProfilesService', () => {
     prisma.user.findMany.mockResolvedValue([
       { id: 'candidate-1', name: 'Jane', dateOfBirth: null, profilePhotoUrl: null },
     ]);
-    prisma.swipe.findMany.mockResolvedValue([
-      { targetUserId: 'candidate-1' },
-      { targetUserId: 'candidate-1' },
-      { targetUserId: 'candidate-1' },
-    ]);
+    prisma.swipe.findMany
+      .mockResolvedValueOnce([]) // this user's own swipes, for the already-rated filter
+      .mockResolvedValueOnce([
+        { targetUserId: 'candidate-1' },
+        { targetUserId: 'candidate-1' },
+        { targetUserId: 'candidate-1' },
+      ]); // recent likes received, for the standout flag
 
     const picks = await service.getDailyPicks(USER_ID);
 
