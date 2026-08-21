@@ -13,7 +13,13 @@ function hoursFromNow(hours: number): Date {
 describe('MessagingService', () => {
   let service: MessagingService;
   let prisma: {
-    match: { findUnique: jest.Mock; update: jest.Mock; findMany: jest.Mock; delete: jest.Mock };
+    match: {
+      findUnique: jest.Mock;
+      update: jest.Mock;
+      findMany: jest.Mock;
+      delete: jest.Mock;
+      create: jest.Mock;
+    };
     message: {
       create: jest.Mock;
       findMany: jest.Mock;
@@ -24,12 +30,19 @@ describe('MessagingService', () => {
     user: { findUnique: jest.Mock; findMany: jest.Mock; update: jest.Mock };
     icebreakerResponse: { findMany: jest.Mock; upsert: jest.Mock };
     swipe: { deleteMany: jest.Mock };
+    dissolvedMatch: { findMany: jest.Mock; findUnique: jest.Mock; create: jest.Mock; delete: jest.Mock };
     $transaction: jest.Mock;
   };
 
   beforeEach(() => {
     prisma = {
-      match: { findUnique: jest.fn(), update: jest.fn(), findMany: jest.fn(), delete: jest.fn() },
+      match: {
+        findUnique: jest.fn(),
+        update: jest.fn(),
+        findMany: jest.fn(),
+        delete: jest.fn(),
+        create: jest.fn(),
+      },
       message: {
         create: jest.fn(),
         findMany: jest.fn(),
@@ -40,6 +53,12 @@ describe('MessagingService', () => {
       user: { findUnique: jest.fn(), findMany: jest.fn(), update: jest.fn() },
       icebreakerResponse: { findMany: jest.fn().mockResolvedValue([]), upsert: jest.fn() },
       swipe: { deleteMany: jest.fn() },
+      dissolvedMatch: {
+        findMany: jest.fn(),
+        findUnique: jest.fn(),
+        create: jest.fn(),
+        delete: jest.fn(),
+      },
       $transaction: jest.fn((ops: unknown[]) => Promise.all(ops)),
     };
     service = new MessagingService(prisma as unknown as PrismaService);
@@ -874,8 +893,118 @@ describe('MessagingService', () => {
         },
       });
       expect(prisma.match.delete).toHaveBeenCalledWith({ where: { id: MATCH_ID } });
+      expect(prisma.dissolvedMatch.create).toHaveBeenCalledWith({
+        data: { userAId: WOMAN_ID, userBId: MAN_ID },
+      });
       expect(matches).toEqual([]);
       expect(prisma.user.findMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('listReconnectableMatches', () => {
+    it('returns an empty list when there is nothing to reconnect', async () => {
+      prisma.dissolvedMatch.findMany.mockResolvedValue([]);
+
+      const result = await service.listReconnectableMatches(WOMAN_ID);
+
+      expect(result).toEqual([]);
+      expect(prisma.user.findMany).not.toHaveBeenCalled();
+    });
+
+    it('maps each dissolved match to the other participant', async () => {
+      prisma.dissolvedMatch.findMany.mockResolvedValue([
+        {
+          id: 'dissolved-1',
+          userAId: WOMAN_ID,
+          userBId: MAN_ID,
+          dissolvedAt: new Date('2026-01-02T00:00:00.000Z'),
+        },
+      ]);
+      prisma.user.findMany.mockResolvedValue([{ id: MAN_ID, name: 'Sam', profilePhotoUrl: 'sam.jpg' }]);
+
+      const result = await service.listReconnectableMatches(WOMAN_ID);
+
+      expect(result).toEqual([
+        {
+          dissolvedMatchId: 'dissolved-1',
+          otherUserId: MAN_ID,
+          otherUserName: 'Sam',
+          otherUserPhotoUrl: 'sam.jpg',
+          dissolvedAt: '2026-01-02T00:00:00.000Z',
+        },
+      ]);
+    });
+  });
+
+  describe('reconnectMatch', () => {
+    it('rejects a non-premium user', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: WOMAN_ID, isPremium: false });
+
+      await expect(service.reconnectMatch(WOMAN_ID, 'dissolved-1')).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+      expect(prisma.dissolvedMatch.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('throws when the dissolved match does not belong to the user', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: WOMAN_ID, isPremium: true });
+      prisma.dissolvedMatch.findUnique.mockResolvedValue({
+        id: 'dissolved-1',
+        userAId: MAN_ID,
+        userBId: 'someone-else',
+      });
+
+      await expect(service.reconnectMatch(WOMAN_ID, 'dissolved-1')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+
+    it('rejects when an active match already exists between the two', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: WOMAN_ID, isPremium: true });
+      prisma.dissolvedMatch.findUnique.mockResolvedValue({
+        id: 'dissolved-1',
+        userAId: WOMAN_ID,
+        userBId: MAN_ID,
+      });
+      prisma.match.findUnique.mockResolvedValue({ id: 'already-matched' });
+
+      await expect(service.reconnectMatch(WOMAN_ID, 'dissolved-1')).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('creates a fresh match and removes the dissolved record', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: WOMAN_ID, isPremium: true });
+      prisma.dissolvedMatch.findUnique.mockResolvedValue({
+        id: 'dissolved-1',
+        userAId: WOMAN_ID,
+        userBId: MAN_ID,
+      });
+      prisma.match.findUnique.mockResolvedValue(null);
+      const newMatch = {
+        id: 'new-match',
+        userAId: WOMAN_ID,
+        userBId: MAN_ID,
+        firstMessageExpiresAt: hoursFromNow(24),
+        firstMessageSentAt: null,
+        firstMessageExtendedAt: null,
+      };
+      prisma.match.create.mockReturnValue(newMatch);
+      prisma.dissolvedMatch.delete.mockReturnValue(undefined);
+
+      const result = await service.reconnectMatch(WOMAN_ID, 'dissolved-1');
+
+      expect(prisma.match.create).toHaveBeenCalledWith({
+        data: {
+          userAId: WOMAN_ID,
+          userBId: MAN_ID,
+          firstMessageExpiresAt: expect.any(Date),
+        },
+      });
+      expect(prisma.dissolvedMatch.delete).toHaveBeenCalledWith({ where: { id: 'dissolved-1' } });
+      expect(result.matchId).toBe('new-match');
+      expect(result.isExpired).toBe(false);
     });
   });
 });

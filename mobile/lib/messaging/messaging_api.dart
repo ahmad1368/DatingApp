@@ -51,6 +51,22 @@ class MatchSummary {
   final DateTime createdAt;
 }
 
+class ReconnectableMatch {
+  ReconnectableMatch({
+    required this.dissolvedMatchId,
+    required this.otherUserId,
+    this.otherUserName,
+    this.otherUserPhotoUrl,
+    required this.dissolvedAt,
+  });
+
+  final String dissolvedMatchId;
+  final String otherUserId;
+  final String? otherUserName;
+  final String? otherUserPhotoUrl;
+  final DateTime dissolvedAt;
+}
+
 class ChatMessage {
   ChatMessage({
     required this.id,
@@ -185,6 +201,44 @@ class MessagingApi {
   Future<MatchStatus> extendMatchTimeLimit(String matchId) async {
     final response = await _client.post(
       Uri.parse('$_baseUrl/matches/$matchId/extend'),
+      headers: _headers,
+    );
+
+    return _parseMatchStatus(response);
+  }
+
+  /// Premium "reconnect": matches that expired unmessaged are dissolved so
+  /// the two users become rediscoverable in the deck; this lists those
+  /// dissolved traces so a premium user can explicitly revive one instead
+  /// of hoping to organically re-swipe each other.
+  Future<List<ReconnectableMatch>> fetchReconnectableMatches() async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/matches/reconnectable'),
+      headers: _headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw MessagingApiException(_errorMessage(_decode(response), response.statusCode));
+    }
+
+    final list = jsonDecode(response.body) as List;
+    return list.cast<Map<String, dynamic>>().map((json) {
+      return ReconnectableMatch(
+        dissolvedMatchId: json['dissolvedMatchId'] as String,
+        otherUserId: json['otherUserId'] as String,
+        otherUserName: json['otherUserName'] as String?,
+        otherUserPhotoUrl: json['otherUserPhotoUrl'] as String?,
+        dissolvedAt: DateTime.parse(json['dissolvedAt'] as String),
+      );
+    }).toList();
+  }
+
+  /// Premium-only: revives a dissolved match with a fresh first-message
+  /// window. Throws [MessagingApiException] (403) if the user isn't
+  /// premium, or (400) if the two already have an active match.
+  Future<MatchStatus> reconnectMatch(String dissolvedMatchId) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/matches/reconnect/$dissolvedMatchId'),
       headers: _headers,
     );
 

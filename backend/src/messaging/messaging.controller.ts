@@ -48,6 +48,20 @@ export class MessagingController {
     return this.messagingService.getIcebreakerPrompts();
   }
 
+  @Get('reconnectable')
+  listReconnectableMatches(@CurrentUser() user: AuthenticatedUser) {
+    return this.messagingService.listReconnectableMatches(user.id);
+  }
+
+  @Post('reconnect/:dissolvedMatchId')
+  @HttpCode(HttpStatus.OK)
+  reconnectMatch(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('dissolvedMatchId') dissolvedMatchId: string,
+  ) {
+    return this.messagingService.reconnectMatch(user.id, dissolvedMatchId);
+  }
+
   @Put('read-receipts')
   @HttpCode(HttpStatus.OK)
   setReadReceiptsEnabled(@CurrentUser() user: AuthenticatedUser, @Body() dto: SetReadReceiptsDto) {

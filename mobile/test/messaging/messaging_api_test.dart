@@ -117,6 +117,79 @@ void main() {
     });
   });
 
+  group('MessagingApi.fetchReconnectableMatches', () {
+    test('sends the bearer token and parses the dissolved matches', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.headers['Authorization'], 'Bearer a-jwt');
+          expect(request.url.path, '/matches/reconnectable');
+          return http.Response(
+            '[{"dissolvedMatchId":"dissolved-1","otherUserId":"user-2",'
+            '"otherUserName":"Sam","otherUserPhotoUrl":"sam.jpg",'
+            '"dissolvedAt":"2026-01-02T00:00:00.000Z"}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final matches = await api.fetchReconnectableMatches();
+
+      expect(matches, hasLength(1));
+      expect(matches.first.dissolvedMatchId, 'dissolved-1');
+      expect(matches.first.otherUserName, 'Sam');
+    });
+
+    test('throws MessagingApiException on a non-200 response', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => http.Response('', 500)),
+      );
+
+      expect(() => api.fetchReconnectableMatches(), throwsA(isA<MessagingApiException>()));
+    });
+  });
+
+  group('MessagingApi.reconnectMatch', () {
+    test('sends a POST and parses the new match status', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'POST');
+          expect(request.url.path, '/matches/reconnect/dissolved-1');
+          return http.Response(
+            '{"matchId":"match-2","expiresAt":"2026-01-05T00:00:00.000Z",'
+            '"isExpired":false,"firstMessageSent":false,"canSendFirstMessage":true,'
+            '"canExtend":true}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final status = await api.reconnectMatch('dissolved-1');
+
+      expect(status.matchId, 'match-2');
+      expect(status.isExpired, isFalse);
+    });
+
+    test('throws MessagingApiException when the user is not premium', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '{"message":"Reconnecting an expired match is a premium feature."}',
+            403,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      expect(() => api.reconnectMatch('dissolved-1'), throwsA(isA<MessagingApiException>()));
+    });
+  });
+
   group('MessagingApi.fetchMessages', () {
     test('parses a list of messages', () async {
       final api = MessagingApi(
