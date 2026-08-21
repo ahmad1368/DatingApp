@@ -17,6 +17,9 @@ export interface MatchStatus {
   firstMessageSent: boolean;
   canSendFirstMessage: boolean;
   canExtend: boolean;
+  otherUserIsVerified: boolean;
+  verificationRequested: boolean;
+  verificationRequestedByMe: boolean;
 }
 
 export interface IcebreakerView {
@@ -71,6 +74,8 @@ interface MatchRecord {
   firstMessageExpiresAt: Date;
   firstMessageSentAt: Date | null;
   firstMessageExtendedAt: Date | null;
+  verificationRequestedAt: Date | null;
+  verificationRequestedById: string | null;
 }
 
 interface MatchListRecord extends MatchRecord {
@@ -466,6 +471,35 @@ export class MessagingService {
     return this.toMatchStatus(userId, match);
   }
 
+  /**
+   * Asks an unverified match to complete real-time selfie verification
+   * before the conversation continues. Purely a flag/notification on top of
+   * the existing self-service verification flow (VerificationService) -
+   * this doesn't trigger the check itself, just records that it was asked.
+   */
+  async requestVerification(userId: string, matchId: string): Promise<MatchStatus> {
+    const match = await this.getMatchForUser(userId, matchId);
+    const otherUserId = match.userAId === userId ? match.userBId : match.userAId;
+
+    const otherUser = await this.prisma.user.findUnique({ where: { id: otherUserId } });
+    if (!otherUser) {
+      throw new NotFoundException('User not found.');
+    }
+    if (otherUser.isVerified) {
+      throw new BadRequestException('This person is already verified.');
+    }
+    if (match.verificationRequestedAt != null) {
+      throw new BadRequestException('Verification has already been requested for this match.');
+    }
+
+    const updated = await this.prisma.match.update({
+      where: { id: matchId },
+      data: { verificationRequestedAt: new Date(), verificationRequestedById: userId },
+    });
+
+    return this.toMatchStatus(userId, updated);
+  }
+
   private async assertCanSend(
     userId: string,
     matchId: string,
@@ -525,6 +559,12 @@ export class MessagingService {
         ? false
         : await this.senderMaySendFirstMessage(userId, match);
 
+    const otherUserId = match.userAId === userId ? match.userBId : match.userAId;
+    const otherUser = await this.prisma.user.findUnique({
+      where: { id: otherUserId },
+      select: { isVerified: true },
+    });
+
     return {
       matchId: match.id,
       expiresAt: firstMessageSent ? null : match.firstMessageExpiresAt.toISOString(),
@@ -532,6 +572,9 @@ export class MessagingService {
       firstMessageSent,
       canSendFirstMessage,
       canExtend: !firstMessageSent && !expired && match.firstMessageExtendedAt == null,
+      otherUserIsVerified: otherUser?.isVerified ?? false,
+      verificationRequested: match.verificationRequestedAt != null,
+      verificationRequestedByMe: match.verificationRequestedById === userId,
     };
   }
 

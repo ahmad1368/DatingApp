@@ -117,6 +117,46 @@ void main() {
     });
   });
 
+  group('MessagingApi.requestVerification', () {
+    test('sends a POST and parses the updated status', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'POST');
+          expect(request.url.path, '/matches/match-1/request-verification');
+          return http.Response(
+            '{"matchId":"match-1","expiresAt":null,"isExpired":false,'
+            '"firstMessageSent":true,"canSendFirstMessage":true,"canExtend":false,'
+            '"otherUserIsVerified":false,"verificationRequested":true,'
+            '"verificationRequestedByMe":true}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final status = await api.requestVerification('match-1');
+
+      expect(status.verificationRequested, isTrue);
+      expect(status.verificationRequestedByMe, isTrue);
+    });
+
+    test('throws MessagingApiException when the other user is already verified', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '{"message":"This person is already verified."}',
+            400,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      expect(() => api.requestVerification('match-1'), throwsA(isA<MessagingApiException>()));
+    });
+  });
+
   group('MessagingApi.fetchReconnectableMatches', () {
     test('sends the bearer token and parses the dissolved matches', () async {
       final api = MessagingApi(

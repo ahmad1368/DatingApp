@@ -193,6 +193,9 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
         firstMessageSent: true,
         canSendFirstMessage: true,
         canExtend: false,
+        otherUserIsVerified: _status?.otherUserIsVerified ?? false,
+        verificationRequested: _status?.verificationRequested ?? false,
+        verificationRequestedByMe: _status?.verificationRequestedByMe ?? false,
       );
     });
   }
@@ -402,6 +405,16 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
     }
   }
 
+  Future<void> _requestVerification() async {
+    setState(() => _errorText = null);
+    try {
+      final status = await widget.messagingApi.requestVerification(widget.matchId);
+      setState(() => _status = status);
+    } on MessagingApiException catch (e) {
+      setState(() => _errorText = e.message);
+    }
+  }
+
   bool get _canType {
     final status = _status;
     if (status == null) {
@@ -464,6 +477,26 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
                       onPressed: _extendMatchTimeLimit,
                       icon: const Icon(Icons.timer_outlined),
                       label: const Text('Extend 24 hours'),
+                    ),
+                  ),
+                if (!(_status?.otherUserIsVerified ?? true) &&
+                    !(_status?.verificationRequested ?? false))
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    child: OutlinedButton.icon(
+                      onPressed: _requestVerification,
+                      icon: const Icon(Icons.verified_outlined),
+                      label: const Text('Request photo verification'),
+                    ),
+                  ),
+                if (_status?.verificationRequested ?? false)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    child: Text(
+                      _status!.verificationRequestedByMe
+                          ? "You've requested photo verification."
+                          : 'They requested photo verification from you.',
+                      style: const TextStyle(fontStyle: FontStyle.italic),
                     ),
                   ),
                 Expanded(
