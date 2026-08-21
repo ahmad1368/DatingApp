@@ -322,6 +322,36 @@ void main() {
     expect(find.text('Leo'), findsOneWidget);
   });
 
+  testWidgets('shows love style badges when the candidate has them', (tester) async {
+    const loveStyleDeckResponse =
+        '[{"id":"user-2","name":"Jane","age":25,"profilePhotoUrl":null,'
+        '"distanceKm":3.4,"interests":["Hiking"],"relationshipGoal":"CASUAL",'
+        '"loveStyleBadges":["Physical Touch","Secure Attachment"]}]';
+    final api = DiscoveryApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/discovery/deck') {
+          return http.Response(
+            loveStyleDeckResponse,
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"active":false,"expiresAt":null,"viewCount":0}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: SwipeDeckScreen(discoveryApi: api)));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Physical Touch'), findsOneWidget);
+    expect(find.text('Secure Attachment'), findsOneWidget);
+  });
+
   testWidgets('shows a boosted badge when the candidate is boosted', (tester) async {
     const boostedDeckResponse =
         '[{"id":"user-2","name":"Jane","age":25,"profilePhotoUrl":null,'

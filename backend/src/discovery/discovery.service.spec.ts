@@ -277,6 +277,38 @@ describe('DiscoveryService', () => {
       expect(deck[0].zodiacSign).toBeNull();
     });
 
+    it('builds love style badges respecting each toggle independently', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+      });
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      prisma.user.findMany.mockResolvedValue([
+        {
+          id: TARGET_ID,
+          name: 'Jane',
+          dateOfBirth: null,
+          profilePhotoUrl: null,
+          interests: [],
+          relationshipGoal: 'CASUAL',
+          loveLanguages: ['Physical Touch', 'Time Together'],
+          showLoveLanguagesOnProfile: true,
+          attachmentStyle: 'Secure',
+          showAttachmentStyleOnProfile: false,
+        },
+      ]);
+
+      const deck = await service.getDeck(USER_ID);
+
+      expect(deck[0].loveStyleBadges).toEqual(['Physical Touch', 'Time Together']);
+    });
+
     it('applies the current user lifestyle filters to the candidate query', async () => {
       prisma.user.findUnique.mockResolvedValue({
         id: USER_ID,

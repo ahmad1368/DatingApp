@@ -198,6 +198,21 @@ class _CardContent extends StatelessWidget {
                   visualDensity: VisualDensity.compact,
                 ),
               ],
+              if (card.loveStyleBadges.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    for (final badge in card.loveStyleBadges)
+                      Chip(
+                        label: Text(badge),
+                        backgroundColor: Colors.red.shade100,
+                        visualDensity: VisualDensity.compact,
+                      ),
+                  ],
+                ),
+              ],
               if (card.interests.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Wrap(
