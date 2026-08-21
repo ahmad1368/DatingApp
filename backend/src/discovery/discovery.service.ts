@@ -11,6 +11,7 @@ import {
   DAILY_SUPER_LIKE_LIMIT,
   DEFAULT_DECK_SIZE,
   LIKE_ACTIONS,
+  MIN_SWIPES_FOR_PHOTO_ROTATION,
   SNOOZE_MAX_DURATION_DAYS,
   startOfUtcDay,
 } from './discovery.constants';
@@ -465,7 +466,10 @@ export class DiscoveryService {
       },
     });
 
-    if (!LIKE_ACTIONS.includes(action as (typeof LIKE_ACTIONS)[number])) {
+    const isLike = LIKE_ACTIONS.includes(action as (typeof LIKE_ACTIONS)[number]);
+    await this.recordPhotoTestOutcome(targetUserId, isLike);
+
+    if (!isLike) {
       return { matched: false };
     }
 
@@ -654,6 +658,76 @@ export class DiscoveryService {
 
     const isActive = currentUser.snoozedUntil != null && currentUser.snoozedUntil.getTime() > Date.now();
     return { snoozedUntil: isActive && currentUser.snoozedUntil ? currentUser.snoozedUntil.toISOString() : null };
+  }
+
+  /**
+   * Smart photo rotation: attributes this swipe's outcome to whichever
+   * photo is currently the target's lead (lowest `position`) photo, then
+   * checks whether a better-converting photo should take over the lead
+   * slot. Users who haven't added anything to their photo gallery yet have
+   * no ProfilePhoto rows, so this is a no-op for them.
+   */
+  private async recordPhotoTestOutcome(ownerId: string, isRightSwipe: boolean): Promise<void> {
+    const leadPhoto = await this.prisma.profilePhoto.findFirst({
+      where: { ownerId },
+      orderBy: { position: 'asc' },
+    });
+    if (!leadPhoto) {
+      return;
+    }
+
+    await this.prisma.profilePhoto.update({
+      where: { id: leadPhoto.id },
+      data: {
+        impressions: { increment: 1 },
+        ...(isRightSwipe ? { rightSwipes: { increment: 1 } } : {}),
+      },
+    });
+
+    await this.maybeRotateLeadPhoto(ownerId);
+  }
+
+  private async maybeRotateLeadPhoto(ownerId: string): Promise<void> {
+    const photos = await this.prisma.profilePhoto.findMany({
+      where: { ownerId },
+      orderBy: { position: 'asc' },
+    });
+    if (photos.length < 2) {
+      return;
+    }
+
+    const eligible = photos.filter((photo) => photo.impressions >= MIN_SWIPES_FOR_PHOTO_ROTATION);
+    if (eligible.length === 0) {
+      return;
+    }
+
+    const best = eligible.reduce((top, candidate) =>
+      candidate.rightSwipes / candidate.impressions > top.rightSwipes / top.impressions ? candidate : top,
+    );
+
+    const currentLead = photos[0];
+    if (best.id === currentLead.id) {
+      return;
+    }
+
+    const currentLeadRate =
+      currentLead.impressions > 0 ? currentLead.rightSwipes / currentLead.impressions : -1;
+    const bestRate = best.rightSwipes / best.impressions;
+    if (bestRate <= currentLeadRate) {
+      return;
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.profilePhoto.update({
+        where: { id: currentLead.id },
+        data: { position: best.position },
+      }),
+      this.prisma.profilePhoto.update({
+        where: { id: best.id },
+        data: { position: currentLead.position },
+      }),
+      this.prisma.user.update({ where: { id: ownerId }, data: { profilePhotoUrl: best.mediaUrl } }),
+    ]);
   }
 
   private buildLifestyleFilterWhere(currentUser: {

@@ -17,6 +17,10 @@ export const BOOST_DURATION_MINUTES = 30;
 export const SNOOZE_MAX_DURATION_DAYS = 90;
 export const SNOOZE_DEFAULT_DURATION_DAYS = 7;
 
+/** Minimum swipes a photo must have been shown for before it's eligible to be
+ * rotated into the lead position based on its conversion rate. */
+export const MIN_SWIPES_FOR_PHOTO_ROTATION = 5;
+
 export function startOfUtcDay(now: Date): Date {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 }

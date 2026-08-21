@@ -20,6 +20,8 @@ describe('DiscoveryService', () => {
     match: { create: jest.Mock; findUnique: jest.Mock; delete: jest.Mock };
     boost: { findFirst: jest.Mock; findMany: jest.Mock; create: jest.Mock; updateMany: jest.Mock };
     blockedContact: { findMany: jest.Mock };
+    profilePhoto: { findFirst: jest.Mock; findMany: jest.Mock; update: jest.Mock };
+    $transaction: jest.Mock;
   };
 
   beforeEach(() => {
@@ -41,6 +43,12 @@ describe('DiscoveryService', () => {
         updateMany: jest.fn(),
       },
       blockedContact: { findMany: jest.fn().mockResolvedValue([]) },
+      profilePhoto: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        findMany: jest.fn().mockResolvedValue([]),
+        update: jest.fn(),
+      },
+      $transaction: jest.fn((ops: unknown[]) => Promise.all(ops)),
     };
     service = new DiscoveryService(prisma as unknown as PrismaService);
   });
@@ -812,6 +820,72 @@ describe('DiscoveryService', () => {
         },
       });
       expect(result).toEqual({ matched: true, matchId: 'match-1' });
+    });
+
+    it('does nothing to photos when the target has no gallery', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: TARGET_ID });
+      prisma.swipe.findUnique.mockResolvedValueOnce(null);
+      prisma.swipe.create.mockResolvedValue({});
+      prisma.profilePhoto.findFirst.mockResolvedValue(null);
+
+      await service.recordSwipe(USER_ID, TARGET_ID, 'LIKE');
+
+      expect(prisma.profilePhoto.update).not.toHaveBeenCalled();
+      expect(prisma.profilePhoto.findMany).not.toHaveBeenCalled();
+    });
+
+    it('records an impression and right-swipe against the lead photo', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: TARGET_ID });
+      prisma.swipe.findUnique.mockResolvedValueOnce(null);
+      prisma.swipe.create.mockResolvedValue({});
+      prisma.profilePhoto.findFirst.mockResolvedValue({ id: 'photo-1', position: 0 });
+      prisma.profilePhoto.findMany.mockResolvedValue([{ id: 'photo-1', position: 0, impressions: 1, rightSwipes: 1 }]);
+
+      await service.recordSwipe(USER_ID, TARGET_ID, 'LIKE');
+
+      expect(prisma.profilePhoto.update).toHaveBeenCalledWith({
+        where: { id: 'photo-1' },
+        data: { impressions: { increment: 1 }, rightSwipes: { increment: 1 } },
+      });
+    });
+
+    it('rotates the lead photo once a better-converting photo clears the sample-size threshold', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: TARGET_ID });
+      prisma.swipe.findUnique.mockResolvedValueOnce(null);
+      prisma.swipe.create.mockResolvedValue({});
+      prisma.profilePhoto.findFirst.mockResolvedValue({ id: 'lead', position: 0 });
+      prisma.profilePhoto.findMany.mockResolvedValue([
+        { id: 'lead', mediaUrl: 'https://example.com/lead.jpg', position: 0, impressions: 10, rightSwipes: 1 },
+        { id: 'challenger', mediaUrl: 'https://example.com/challenger.jpg', position: 1, impressions: 8, rightSwipes: 6 },
+      ]);
+
+      await service.recordSwipe(USER_ID, TARGET_ID, 'PASS');
+
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(prisma.profilePhoto.update).toHaveBeenCalledWith({ where: { id: 'lead' }, data: { position: 1 } });
+      expect(prisma.profilePhoto.update).toHaveBeenCalledWith({
+        where: { id: 'challenger' },
+        data: { position: 0 },
+      });
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: TARGET_ID },
+        data: { profilePhotoUrl: 'https://example.com/challenger.jpg' },
+      });
+    });
+
+    it('does not rotate when no photo has cleared the minimum sample size', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: TARGET_ID });
+      prisma.swipe.findUnique.mockResolvedValueOnce(null);
+      prisma.swipe.create.mockResolvedValue({});
+      prisma.profilePhoto.findFirst.mockResolvedValue({ id: 'lead', position: 0 });
+      prisma.profilePhoto.findMany.mockResolvedValue([
+        { id: 'lead', mediaUrl: 'https://example.com/lead.jpg', position: 0, impressions: 2, rightSwipes: 0 },
+        { id: 'challenger', mediaUrl: 'https://example.com/challenger.jpg', position: 1, impressions: 1, rightSwipes: 1 },
+      ]);
+
+      await service.recordSwipe(USER_ID, TARGET_ID, 'PASS');
+
+      expect(prisma.$transaction).not.toHaveBeenCalled();
     });
   });
 

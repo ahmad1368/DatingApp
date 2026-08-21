@@ -1,0 +1,115 @@
+import 'dart:convert';
+
+import 'package:http/http.dart' as http;
+
+class ProfilePhotosApiException implements Exception {
+  ProfilePhotosApiException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
+class ProfilePhoto {
+  ProfilePhoto({
+    required this.id,
+    required this.mediaUrl,
+    required this.isLead,
+    required this.impressions,
+    required this.rightSwipes,
+    required this.conversionRate,
+  });
+
+  final String id;
+  final String mediaUrl;
+  final bool isLead;
+  final int impressions;
+  final int rightSwipes;
+  final double? conversionRate;
+}
+
+/// Talks to the backend's profile photo gallery endpoints. The lead photo
+/// (first in the list) is what's shown in other users' discovery decks, and
+/// automatically rotates server-side to whichever photo is converting best
+/// once it has enough swipes - see DiscoveryService.recordSwipe.
+class ProfilePhotosApi {
+  ProfilePhotosApi({required this.accessToken, http.Client? client, String? baseUrl})
+      : _client = client ?? http.Client(),
+        _baseUrl = baseUrl ?? 'http://10.0.2.2:3000';
+
+  final String accessToken;
+  final http.Client _client;
+  final String _baseUrl;
+
+  Map<String, String> get _headers => {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $accessToken',
+      };
+
+  Future<List<ProfilePhoto>> fetchMyPhotos() async {
+    final response = await _client.get(Uri.parse('$_baseUrl/profile-photos'), headers: _headers);
+
+    if (response.statusCode != 200) {
+      throw ProfilePhotosApiException(_errorMessage(_decode(response), response.statusCode));
+    }
+
+    final list = jsonDecode(response.body) as List;
+    return list.cast<Map<String, dynamic>>().map(_toProfilePhoto).toList();
+  }
+
+  Future<ProfilePhoto> addPhoto(String mediaUrl) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/profile-photos'),
+      headers: _headers,
+      body: jsonEncode({'mediaUrl': mediaUrl}),
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 201) {
+      throw ProfilePhotosApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return _toProfilePhoto(body);
+  }
+
+  Future<void> deletePhoto(String photoId) async {
+    final response = await _client.delete(
+      Uri.parse('$_baseUrl/profile-photos/$photoId'),
+      headers: _headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw ProfilePhotosApiException(_errorMessage(_decode(response), response.statusCode));
+    }
+  }
+
+  ProfilePhoto _toProfilePhoto(Map<String, dynamic> json) {
+    return ProfilePhoto(
+      id: json['id'] as String,
+      mediaUrl: json['mediaUrl'] as String,
+      isLead: json['isLead'] as bool,
+      impressions: json['impressions'] as int,
+      rightSwipes: json['rightSwipes'] as int,
+      conversionRate: (json['conversionRate'] as num?)?.toDouble(),
+    );
+  }
+
+  Map<String, dynamic> _decode(http.Response response) {
+    if (response.body.isEmpty) {
+      return const {};
+    }
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  String _errorMessage(Map<String, dynamic> body, int statusCode) {
+    final message = body['message'];
+    if (message is String) {
+      return message;
+    }
+    if (message is List && message.isNotEmpty) {
+      return message.first.toString();
+    }
+    return 'Request failed with status $statusCode';
+  }
+}

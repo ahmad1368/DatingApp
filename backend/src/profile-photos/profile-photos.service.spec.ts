@@ -1,0 +1,145 @@
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { ProfilePhotosService } from './profile-photos.service';
+
+const OWNER_ID = 'owner-1';
+const OTHER_ID = 'other-1';
+const PHOTO_ID = 'photo-1';
+
+describe('ProfilePhotosService', () => {
+  let service: ProfilePhotosService;
+  let prisma: {
+    profilePhoto: {
+      count: jest.Mock;
+      findFirst: jest.Mock;
+      findMany: jest.Mock;
+      findUnique: jest.Mock;
+      create: jest.Mock;
+      delete: jest.Mock;
+    };
+    user: { update: jest.Mock };
+  };
+
+  beforeEach(() => {
+    prisma = {
+      profilePhoto: {
+        count: jest.fn(),
+        findFirst: jest.fn(),
+        findMany: jest.fn(),
+        findUnique: jest.fn(),
+        create: jest.fn(),
+        delete: jest.fn(),
+      },
+      user: { update: jest.fn() },
+    };
+    service = new ProfilePhotosService(prisma as unknown as PrismaService);
+  });
+
+  describe('addPhoto', () => {
+    it('rejects adding beyond the max photo count', async () => {
+      prisma.profilePhoto.count.mockResolvedValue(9);
+
+      await expect(service.addPhoto(OWNER_ID, 'https://example.com/a.jpg')).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(prisma.profilePhoto.create).not.toHaveBeenCalled();
+    });
+
+    it('creates the first photo at position 0 and syncs profilePhotoUrl', async () => {
+      prisma.profilePhoto.count.mockResolvedValue(0);
+      prisma.profilePhoto.findFirst.mockResolvedValue(null);
+      prisma.profilePhoto.create.mockResolvedValue({
+        id: PHOTO_ID,
+        mediaUrl: 'https://example.com/a.jpg',
+        impressions: 0,
+        rightSwipes: 0,
+      });
+
+      const result = await service.addPhoto(OWNER_ID, 'https://example.com/a.jpg');
+
+      expect(prisma.profilePhoto.create).toHaveBeenCalledWith({
+        data: { ownerId: OWNER_ID, mediaUrl: 'https://example.com/a.jpg', position: 0 },
+      });
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: OWNER_ID },
+        data: { profilePhotoUrl: 'https://example.com/a.jpg' },
+      });
+      expect(result.isLead).toBe(true);
+    });
+
+    it('appends subsequent photos after the highest position without touching profilePhotoUrl', async () => {
+      prisma.profilePhoto.count.mockResolvedValue(1);
+      prisma.profilePhoto.findFirst.mockResolvedValue({ position: 0 });
+      prisma.profilePhoto.create.mockResolvedValue({
+        id: 'photo-2',
+        mediaUrl: 'https://example.com/b.jpg',
+        impressions: 0,
+        rightSwipes: 0,
+      });
+
+      const result = await service.addPhoto(OWNER_ID, 'https://example.com/b.jpg');
+
+      expect(prisma.profilePhoto.create).toHaveBeenCalledWith({
+        data: { ownerId: OWNER_ID, mediaUrl: 'https://example.com/b.jpg', position: 1 },
+      });
+      expect(prisma.user.update).not.toHaveBeenCalled();
+      expect(result.isLead).toBe(false);
+    });
+  });
+
+  describe('listMyPhotos', () => {
+    it('marks the lowest-position photo as the lead and computes conversion rate', async () => {
+      prisma.profilePhoto.findMany.mockResolvedValue([
+        { id: 'lead', mediaUrl: 'https://example.com/a.jpg', impressions: 10, rightSwipes: 4 },
+        { id: 'second', mediaUrl: 'https://example.com/b.jpg', impressions: 0, rightSwipes: 0 },
+      ]);
+
+      const result = await service.listMyPhotos(OWNER_ID);
+
+      expect(result).toEqual([
+        { id: 'lead', mediaUrl: 'https://example.com/a.jpg', isLead: true, impressions: 10, rightSwipes: 4, conversionRate: 0.4 },
+        { id: 'second', mediaUrl: 'https://example.com/b.jpg', isLead: false, impressions: 0, rightSwipes: 0, conversionRate: null },
+      ]);
+    });
+  });
+
+  describe('deletePhoto', () => {
+    it('throws when the photo does not exist', async () => {
+      prisma.profilePhoto.findUnique.mockResolvedValue(null);
+
+      await expect(service.deletePhoto(OWNER_ID, PHOTO_ID)).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('rejects deleting a photo owned by someone else', async () => {
+      prisma.profilePhoto.findUnique.mockResolvedValue({ id: PHOTO_ID, ownerId: OTHER_ID });
+
+      await expect(service.deletePhoto(OWNER_ID, PHOTO_ID)).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('promotes the next photo to lead and syncs profilePhotoUrl', async () => {
+      prisma.profilePhoto.findUnique.mockResolvedValue({ id: PHOTO_ID, ownerId: OWNER_ID });
+      prisma.profilePhoto.findFirst.mockResolvedValue({ mediaUrl: 'https://example.com/b.jpg' });
+
+      const result = await service.deletePhoto(OWNER_ID, PHOTO_ID);
+
+      expect(prisma.profilePhoto.delete).toHaveBeenCalledWith({ where: { id: PHOTO_ID } });
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: OWNER_ID },
+        data: { profilePhotoUrl: 'https://example.com/b.jpg' },
+      });
+      expect(result).toEqual({ deleted: true });
+    });
+
+    it('clears profilePhotoUrl when the last photo is deleted', async () => {
+      prisma.profilePhoto.findUnique.mockResolvedValue({ id: PHOTO_ID, ownerId: OWNER_ID });
+      prisma.profilePhoto.findFirst.mockResolvedValue(null);
+
+      await service.deletePhoto(OWNER_ID, PHOTO_ID);
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: OWNER_ID },
+        data: { profilePhotoUrl: null },
+      });
+    });
+  });
+});
