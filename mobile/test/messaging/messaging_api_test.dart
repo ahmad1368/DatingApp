@@ -230,6 +230,34 @@ void main() {
     });
   });
 
+  group('MessagingApi.unmatch', () {
+    test('sends a POST to the unmatch endpoint', () async {
+      http.Request? capturedRequest;
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          capturedRequest = request;
+          return http.Response('', 200);
+        }),
+      );
+
+      await api.unmatch('match-1');
+
+      expect(capturedRequest, isNotNull);
+      expect(capturedRequest!.method, 'POST');
+      expect(capturedRequest!.url.path, '/matches/match-1/unmatch');
+    });
+
+    test('throws MessagingApiException on a non-200 response', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => http.Response('', 500)),
+      );
+
+      expect(() => api.unmatch('match-1'), throwsA(isA<MessagingApiException>()));
+    });
+  });
+
   group('MessagingApi.fetchMessages', () {
     test('parses a list of messages', () async {
       final api = MessagingApi(

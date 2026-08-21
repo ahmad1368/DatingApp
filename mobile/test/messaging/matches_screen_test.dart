@@ -185,4 +185,43 @@ void main() {
     expect(reconnected, isTrue);
     expect(find.widgetWithText(ElevatedButton, 'Reconnect'), findsNothing);
   });
+
+  testWidgets('shows a ghosting nudge and unmatching removes the match', (tester) async {
+    http.Request? unmatchRequest;
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.method == 'POST' && request.url.path == '/matches/match-1/unmatch') {
+          unmatchRequest = request;
+          return http.Response('', 200);
+        }
+        if (request.url.path == '/matches/reconnectable') {
+          return http.Response('[]', 200, headers: {'content-type': 'application/json'});
+        }
+        return http.Response(
+          '[{"matchId":"match-1","otherUserId":"user-2","otherUserName":"Jane",'
+          '"otherUserPhotoUrl":null,"expiresAt":null,"firstMessageSent":true,'
+          '"createdAt":"2026-01-01T00:00:00.000Z","needsGhostingPrompt":true}]',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(home: MatchesScreen(messagingApi: api, currentUserId: 'user-1')),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.textContaining("okay to unmatch"), findsOneWidget);
+    expect(find.text('Unmatch'), findsOneWidget);
+
+    await tester.tap(find.text('Unmatch'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(unmatchRequest, isNotNull);
+    expect(find.text('No matches yet.'), findsOneWidget);
+  });
 }

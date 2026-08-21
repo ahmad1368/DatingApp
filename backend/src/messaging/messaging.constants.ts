@@ -6,6 +6,14 @@ export const MATCH_EXTENSION_HOURS = 24;
 
 export const WOMAN_GENDER_IDENTITIES = ['Woman', 'Transgender Woman'];
 
+// A conversation that's gone this many days without a reply from whoever's
+// turn it is to answer gets a "reply or unmatch" nudge on their match list.
+export const GHOSTING_PROMPT_THRESHOLD_DAYS = 3;
+
+export function daysSince(date: Date, now: Date): number {
+  return (now.getTime() - date.getTime()) / (24 * 60 * 60 * 1000);
+}
+
 export const MEDIA_CONTENT_TYPES = ['IMAGE', 'GIF'] as const;
 
 export const DEFAULT_GIF_SEARCH_LIMIT = 20;
