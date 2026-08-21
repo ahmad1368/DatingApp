@@ -322,7 +322,9 @@ describe('DiscoveryService', () => {
       prisma.swipe.findMany
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce([{ swiperId: 'liker-1', action: 'LIKE' }]);
-      prisma.user.findMany.mockResolvedValueOnce([]); // no super likers -> no priority query result used
+      prisma.user.findMany
+        .mockResolvedValueOnce([]) // liker-1 is not premium -> no priority likes either
+        .mockResolvedValueOnce([]); // remaining pool
 
       await service.getDeck(USER_ID);
 
@@ -377,6 +379,46 @@ describe('DiscoveryService', () => {
         where: { userId: { in: ['boosted-1'] }, expiresAt: { gt: expect.any(Date) } },
         data: { viewCount: { increment: 1 } },
       });
+    });
+
+    it('places a premium user\'s plain like between super likers and the remaining pool', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+      });
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([
+        { swiperId: 'super-liker-1', action: 'SUPER_LIKE' },
+        { swiperId: 'premium-liker-1', action: 'LIKE' },
+        { swiperId: 'free-liker-1', action: 'LIKE' },
+      ]);
+      prisma.user.findMany
+        .mockResolvedValueOnce([{ id: 'premium-liker-1' }]) // only premium-liker-1 is premium
+        .mockResolvedValueOnce([
+          { id: 'super-liker-1', name: 'Sam', dateOfBirth: null, profilePhotoUrl: null, interests: [], relationshipGoal: null },
+          { id: 'premium-liker-1', name: 'Priya', dateOfBirth: null, profilePhotoUrl: null, interests: [], relationshipGoal: null },
+        ]) // priority candidates
+        .mockResolvedValueOnce([
+          { id: 'free-liker-1', name: 'Fran', dateOfBirth: null, profilePhotoUrl: null, interests: [], relationshipGoal: null },
+        ]); // remaining candidates
+
+      const deck = await service.getDeck(USER_ID);
+
+      expect(prisma.user.findMany).toHaveBeenNthCalledWith(1, {
+        where: { id: { in: ['premium-liker-1', 'free-liker-1'] }, isPremium: true },
+        select: { id: true },
+      });
+      expect(deck.map((card) => card.id)).toEqual(['super-liker-1', 'premium-liker-1', 'free-liker-1']);
+      expect(deck[0].isSuperLike).toBe(true);
+      expect(deck[0].isPriorityLike).toBe(false);
+      expect(deck[1].isSuperLike).toBe(false);
+      expect(deck[1].isPriorityLike).toBe(true);
+      expect(deck[2].isPriorityLike).toBe(false);
     });
 
     it('only surfaces candidates who share the current active mode', async () => {

@@ -25,6 +25,7 @@ class DeckCard {
     this.lifestyleBadges = const [],
     this.isSuperLike = false,
     this.isBoosted = false,
+    this.isPriorityLike = false,
   });
 
   final String id;
@@ -39,6 +40,7 @@ class DeckCard {
   final List<String> lifestyleBadges;
   final bool isSuperLike;
   final bool isBoosted;
+  final bool isPriorityLike;
 }
 
 class BoostStatus {
@@ -109,6 +111,7 @@ class DiscoveryApi {
       lifestyleBadges: (json['lifestyleBadges'] as List?)?.cast<String>() ?? const [],
       isSuperLike: json['isSuperLike'] as bool? ?? false,
       isBoosted: json['isBoosted'] as bool? ?? false,
+      isPriorityLike: json['isPriorityLike'] as bool? ?? false,
     );
   }
 

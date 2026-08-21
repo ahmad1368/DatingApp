@@ -107,6 +107,24 @@ void main() {
       expect(deck.first.isSuperLike, isTrue);
     });
 
+    test('parses isPriorityLike when the backend includes it', () async {
+      final api = DiscoveryApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '[{"id":"user-2","name":"Jane","age":25,"profilePhotoUrl":null,'
+            '"distanceKm":3.4,"interests":["Hiking"],"relationshipGoal":"CASUAL","isPriorityLike":true}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      final deck = await api.fetchDeck();
+
+      expect(deck.first.isPriorityLike, isTrue);
+    });
+
     test('throws DiscoveryApiException on a non-200 response', () async {
       final api = DiscoveryApi(
         accessToken: 'a-jwt',
