@@ -90,4 +90,8 @@ export class SetLifestyleFiltersDto {
   @ArrayMaxSize(MAX_FILTER_SELECTIONS)
   @IsIn(RELATIONSHIP_GOALS, { each: true })
   filterRelationshipGoals!: string[];
+
+  /** When true, the deck only shows candidates who share at least one interest tag. */
+  @IsBoolean()
+  filterSharedInterestsOnly!: boolean;
 }

@@ -430,6 +430,39 @@ void main() {
     expect(find.text('Secure Attachment'), findsOneWidget);
   });
 
+  testWidgets('highlights shared interests among the candidate\'s interest chips', (tester) async {
+    const sharedInterestsDeckResponse =
+        '[{"id":"user-2","name":"Jane","age":25,"profilePhotoUrl":null,'
+        '"distanceKm":3.4,"interests":["Hiking","Gaming"],"relationshipGoal":"CASUAL",'
+        '"sharedInterests":["Hiking"]}]';
+    final api = DiscoveryApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/discovery/deck') {
+          return http.Response(
+            sharedInterestsDeckResponse,
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"active":false,"expiresAt":null,"viewCount":0}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: SwipeDeckScreen(discoveryApi: api)));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Hiking'), findsOneWidget);
+    expect(find.text('Gaming'), findsOneWidget);
+    // One favorite icon for the shared-interest chip, plus one for the
+    // persistent "like" floating action button.
+    expect(find.byIcon(Icons.favorite), findsNWidgets(2));
+  });
+
   testWidgets('shows a boosted badge when the candidate is boosted', (tester) async {
     const boostedDeckResponse =
         '[{"id":"user-2","name":"Jane","age":25,"profilePhotoUrl":null,'
