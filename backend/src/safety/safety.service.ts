@@ -1,5 +1,6 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { SMS_PROVIDER, SmsProvider } from '../auth/interfaces/sms-provider.interface';
 import { SAFETY_RESOURCES, SafetyResource, isCheckInOverdue } from './safety.constants';
 
 export interface UserReportView {
@@ -22,11 +23,15 @@ export interface CheckInView {
   notes: string | null;
   confirmedAt: string | null;
   status: CheckInStatus;
+  alertSent: boolean;
 }
 
 @Injectable()
 export class SafetyService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(SMS_PROVIDER) private readonly smsProvider: SmsProvider,
+  ) {}
 
   getResources(): SafetyResource[] {
     return SAFETY_RESOURCES;
@@ -85,13 +90,23 @@ export class SafetyService {
     return this.toCheckInView(checkIn);
   }
 
+  /**
+   * There's no background job in this codebase to eagerly detect a missed
+   * check-in, so - like the lazy match/boost expiry elsewhere - the alert
+   * to the emergency contact is sent (once, via [alertSentAt]) the next
+   * time this list is read after the check-in goes overdue.
+   */
   async listCheckIns(userId: string): Promise<CheckInView[]> {
     const checkIns = await this.prisma.dateCheckIn.findMany({
       where: { userId },
       orderBy: { scheduledAt: 'desc' },
     });
 
-    return checkIns.map((checkIn) => this.toCheckInView(checkIn));
+    const withAlertsSent = await Promise.all(
+      checkIns.map((checkIn) => this.sendOverdueAlertIfNeeded(checkIn)),
+    );
+
+    return withAlertsSent.map((checkIn) => this.toCheckInView(checkIn));
   }
 
   async confirmCheckIn(userId: string, checkInId: string): Promise<CheckInView> {
@@ -124,6 +139,36 @@ export class SafetyService {
     };
   }
 
+  private async sendOverdueAlertIfNeeded<
+    T extends {
+      id: string;
+      location: string | null;
+      scheduledAt: Date;
+      emergencyContactPhone: string | null;
+      confirmedAt: Date | null;
+      alertSentAt: Date | null;
+    },
+  >(checkIn: T): Promise<T> {
+    const now = new Date();
+    const overdue = isCheckInOverdue(checkIn.scheduledAt, checkIn.confirmedAt, now);
+
+    if (!overdue || !checkIn.emergencyContactPhone || checkIn.alertSentAt != null) {
+      return checkIn;
+    }
+
+    const message = checkIn.location
+      ? `Safety alert: a date check-in scheduled for ${checkIn.scheduledAt.toLocaleString()} at ${checkIn.location} was missed. Please check on them.`
+      : `Safety alert: a date check-in scheduled for ${checkIn.scheduledAt.toLocaleString()} was missed. Please check on them.`;
+
+    await this.smsProvider.sendMessage(checkIn.emergencyContactPhone, message);
+    await this.prisma.dateCheckIn.update({
+      where: { id: checkIn.id },
+      data: { alertSentAt: now },
+    });
+
+    return { ...checkIn, alertSentAt: now };
+  }
+
   private toCheckInView(checkIn: {
     id: string;
     matchId: string | null;
@@ -133,6 +178,7 @@ export class SafetyService {
     emergencyContactPhone: string | null;
     notes: string | null;
     confirmedAt: Date | null;
+    alertSentAt: Date | null;
   }): CheckInView {
     const now = new Date();
     const status: CheckInStatus =
@@ -152,6 +198,7 @@ export class SafetyService {
       notes: checkIn.notes,
       confirmedAt: checkIn.confirmedAt ? checkIn.confirmedAt.toISOString() : null,
       status,
+      alertSent: checkIn.alertSentAt != null,
     };
   }
 }

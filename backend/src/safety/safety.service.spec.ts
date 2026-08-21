@@ -1,5 +1,6 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { SmsProvider } from '../auth/interfaces/sms-provider.interface';
 import { SafetyService } from './safety.service';
 import { SAFETY_RESOURCES } from './safety.constants';
 
@@ -15,6 +16,7 @@ describe('SafetyService', () => {
     userReport: { create: jest.Mock };
     dateCheckIn: { create: jest.Mock; findMany: jest.Mock; findUnique: jest.Mock; update: jest.Mock };
   };
+  let smsProvider: SmsProvider;
 
   beforeEach(() => {
     prisma = {
@@ -27,7 +29,11 @@ describe('SafetyService', () => {
         update: jest.fn(),
       },
     };
-    service = new SafetyService(prisma as unknown as PrismaService);
+    smsProvider = {
+      sendOtp: jest.fn().mockResolvedValue(undefined),
+      sendMessage: jest.fn().mockResolvedValue(undefined),
+    };
+    service = new SafetyService(prisma as unknown as PrismaService, smsProvider);
   });
 
   describe('getResources', () => {
@@ -153,6 +159,80 @@ describe('SafetyService', () => {
         orderBy: { scheduledAt: 'desc' },
       });
       expect(checkIns[0].status).toBe('OVERDUE');
+      expect(checkIns[0].alertSent).toBe(false);
+    });
+
+    it('sends an alert to the emergency contact once a check-in goes overdue', async () => {
+      const overdueScheduledAt = new Date(Date.now() - 60 * 60 * 1000);
+      prisma.dateCheckIn.findMany.mockResolvedValue([
+        {
+          id: CHECK_IN_ID,
+          matchId: null,
+          location: 'Blue Bottle Coffee',
+          scheduledAt: overdueScheduledAt,
+          emergencyContactName: 'Sam',
+          emergencyContactPhone: '+15551234567',
+          notes: null,
+          confirmedAt: null,
+          alertSentAt: null,
+        },
+      ]);
+
+      const checkIns = await service.listCheckIns(USER_ID);
+
+      expect(smsProvider.sendMessage).toHaveBeenCalledWith(
+        '+15551234567',
+        expect.stringContaining('Blue Bottle Coffee'),
+      );
+      expect(prisma.dateCheckIn.update).toHaveBeenCalledWith({
+        where: { id: CHECK_IN_ID },
+        data: { alertSentAt: expect.any(Date) },
+      });
+      expect(checkIns[0].alertSent).toBe(true);
+    });
+
+    it('does not re-send an alert that has already gone out', async () => {
+      const overdueScheduledAt = new Date(Date.now() - 60 * 60 * 1000);
+      prisma.dateCheckIn.findMany.mockResolvedValue([
+        {
+          id: CHECK_IN_ID,
+          matchId: null,
+          location: null,
+          scheduledAt: overdueScheduledAt,
+          emergencyContactName: 'Sam',
+          emergencyContactPhone: '+15551234567',
+          notes: null,
+          confirmedAt: null,
+          alertSentAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ]);
+
+      const checkIns = await service.listCheckIns(USER_ID);
+
+      expect(smsProvider.sendMessage).not.toHaveBeenCalled();
+      expect(prisma.dateCheckIn.update).not.toHaveBeenCalled();
+      expect(checkIns[0].alertSent).toBe(true);
+    });
+
+    it('does not send an alert when there is no emergency contact phone', async () => {
+      const overdueScheduledAt = new Date(Date.now() - 60 * 60 * 1000);
+      prisma.dateCheckIn.findMany.mockResolvedValue([
+        {
+          id: CHECK_IN_ID,
+          matchId: null,
+          location: null,
+          scheduledAt: overdueScheduledAt,
+          emergencyContactName: null,
+          emergencyContactPhone: null,
+          notes: null,
+          confirmedAt: null,
+          alertSentAt: null,
+        },
+      ]);
+
+      await service.listCheckIns(USER_ID);
+
+      expect(smsProvider.sendMessage).not.toHaveBeenCalled();
     });
 
     it('does not flag a just-past check-in inside the grace window', async () => {

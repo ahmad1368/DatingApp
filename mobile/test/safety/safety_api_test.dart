@@ -150,6 +150,25 @@ void main() {
 
       expect(checkIns.first.isOverdue, isTrue);
     });
+
+    test('parses alertSent when the backend includes it', () async {
+      final api = SafetyApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '[{"id":"check-in-1","matchId":null,"location":null,"scheduledAt":"2026-01-01T20:00:00.000Z",'
+            '"emergencyContactName":"Sam","emergencyContactPhone":"+15551234567","notes":null,'
+            '"confirmedAt":null,"status":"OVERDUE","alertSent":true}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      final checkIns = await api.fetchCheckIns();
+
+      expect(checkIns.first.alertSent, isTrue);
+    });
   });
 
   group('SafetyApi.confirmCheckIn', () {

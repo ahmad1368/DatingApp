@@ -36,6 +36,7 @@ class CheckIn {
     this.notes,
     this.confirmedAt,
     required this.status,
+    this.alertSent = false,
   });
 
   final String id;
@@ -47,6 +48,7 @@ class CheckIn {
   final String? notes;
   final DateTime? confirmedAt;
   final String status;
+  final bool alertSent;
 
   bool get isOverdue => status == 'OVERDUE';
   bool get isConfirmed => status == 'CONFIRMED';
@@ -180,6 +182,7 @@ class SafetyApi {
       notes: json['notes'] as String?,
       confirmedAt: json['confirmedAt'] != null ? DateTime.parse(json['confirmedAt'] as String) : null,
       status: json['status'] as String,
+      alertSent: json['alertSent'] as bool? ?? false,
     );
   }
 

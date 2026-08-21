@@ -58,12 +58,19 @@ class _SafetyCenterScreenState extends State<SafetyCenterScreen> {
     }
   }
 
-  Future<void> _scheduleCheckIn(int minutesFromNow, String? location) async {
+  Future<void> _scheduleCheckIn(
+    int minutesFromNow,
+    String? location,
+    String? emergencyContactName,
+    String? emergencyContactPhone,
+  ) async {
     setState(() => _errorText = null);
     try {
       await widget.safetyApi.createCheckIn(
         scheduledAt: DateTime.now().add(Duration(minutes: minutesFromNow)),
         location: location,
+        emergencyContactName: emergencyContactName,
+        emergencyContactPhone: emergencyContactPhone,
       );
       setState(() => _statusText = 'Check-in scheduled.');
       await _load();
@@ -97,6 +104,8 @@ class _SafetyCenterScreenState extends State<SafetyCenterScreen> {
 
   Future<void> _openScheduleCheckInDialog() async {
     final locationController = TextEditingController();
+    final contactNameController = TextEditingController();
+    final contactPhoneController = TextEditingController();
     var minutes = 120;
 
     final scheduled = await showDialog<bool>(
@@ -104,24 +113,40 @@ class _SafetyCenterScreenState extends State<SafetyCenterScreen> {
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           title: const Text('Schedule a check-in'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: locationController,
-                decoration: const InputDecoration(labelText: 'Location (optional)'),
-              ),
-              const SizedBox(height: 12),
-              DropdownButton<int>(
-                value: minutes,
-                items: const [
-                  DropdownMenuItem(value: 60, child: Text('In 1 hour')),
-                  DropdownMenuItem(value: 120, child: Text('In 2 hours')),
-                  DropdownMenuItem(value: 240, child: Text('In 4 hours')),
-                ],
-                onChanged: (value) => setDialogState(() => minutes = value ?? minutes),
-              ),
-            ],
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: locationController,
+                  decoration: const InputDecoration(labelText: 'Location (optional)'),
+                ),
+                const SizedBox(height: 12),
+                DropdownButton<int>(
+                  value: minutes,
+                  items: const [
+                    DropdownMenuItem(value: 60, child: Text('In 1 hour')),
+                    DropdownMenuItem(value: 120, child: Text('In 2 hours')),
+                    DropdownMenuItem(value: 240, child: Text('In 4 hours')),
+                  ],
+                  onChanged: (value) => setDialogState(() => minutes = value ?? minutes),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: contactNameController,
+                  decoration: const InputDecoration(labelText: 'Emergency contact name (optional)'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: contactPhoneController,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(
+                    labelText: 'Emergency contact phone (optional)',
+                    helperText: "They'll get a text if you miss your check-in.",
+                  ),
+                ),
+              ],
+            ),
           ),
           actions: [
             TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
@@ -135,6 +160,8 @@ class _SafetyCenterScreenState extends State<SafetyCenterScreen> {
       await _scheduleCheckIn(
         minutes,
         locationController.text.trim().isEmpty ? null : locationController.text.trim(),
+        contactNameController.text.trim().isEmpty ? null : contactNameController.text.trim(),
+        contactPhoneController.text.trim().isEmpty ? null : contactPhoneController.text.trim(),
       );
     }
   }
@@ -263,7 +290,8 @@ class _CheckInTile extends StatelessWidget {
     return ListTile(
       title: Text(checkIn.location ?? 'Date check-in'),
       subtitle: Text(
-        '${checkIn.scheduledAt.toLocal()} · ${checkIn.status}',
+        '${checkIn.scheduledAt.toLocal()} · ${checkIn.status}'
+        '${checkIn.alertSent ? ' · contact alerted' : ''}',
         style: TextStyle(color: _statusColor),
       ),
       trailing: checkIn.isConfirmed

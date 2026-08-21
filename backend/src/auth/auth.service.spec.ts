@@ -44,7 +44,10 @@ describe('AuthService', () => {
       },
     };
     jwtService = { signAsync: jest.fn().mockResolvedValue('signed-jwt') };
-    smsProvider = { sendOtp: jest.fn().mockResolvedValue(undefined) };
+    smsProvider = {
+      sendOtp: jest.fn().mockResolvedValue(undefined),
+      sendMessage: jest.fn().mockResolvedValue(undefined),
+    };
     googleTokenVerifier = { verify: jest.fn() };
     appleTokenVerifier = { verify: jest.fn() };
 
