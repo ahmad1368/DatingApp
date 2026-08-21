@@ -219,6 +219,64 @@ describe('DiscoveryService', () => {
       expect(deck[0].lifestyleBadges).toEqual([]);
     });
 
+    it('shows the zodiac sign only when the candidate opts in and has a date of birth', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+      });
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      prisma.user.findMany.mockResolvedValue([
+        {
+          id: TARGET_ID,
+          name: 'Jane',
+          dateOfBirth: new Date(Date.UTC(1995, 6, 25)),
+          profilePhotoUrl: null,
+          interests: [],
+          relationshipGoal: 'CASUAL',
+          showZodiacOnProfile: true,
+        },
+      ]);
+
+      const deck = await service.getDeck(USER_ID);
+
+      expect(deck[0].zodiacSign).toBe('Leo');
+    });
+
+    it('hides the zodiac sign when the candidate has opted out', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+      });
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      prisma.user.findMany.mockResolvedValue([
+        {
+          id: TARGET_ID,
+          name: 'Jane',
+          dateOfBirth: new Date(Date.UTC(1995, 6, 25)),
+          profilePhotoUrl: null,
+          interests: [],
+          relationshipGoal: 'CASUAL',
+          showZodiacOnProfile: false,
+        },
+      ]);
+
+      const deck = await service.getDeck(USER_ID);
+
+      expect(deck[0].zodiacSign).toBeNull();
+    });
+
     it('applies the current user lifestyle filters to the candidate query', async () => {
       prisma.user.findUnique.mockResolvedValue({
         id: USER_ID,

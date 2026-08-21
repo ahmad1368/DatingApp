@@ -21,6 +21,8 @@ import { SpotifyController } from './spotify.controller';
 import { SpotifySyncService } from './spotify-sync.service';
 import { SPOTIFY_CLIENT } from './interfaces/spotify-client.interface';
 import { SpotifyWebApiClient } from './providers/spotify-web-api.client';
+import { ZodiacController } from './zodiac.controller';
+import { ZodiacService } from './zodiac.service';
 
 @Module({
   imports: [AuthModule, ConfigModule],
@@ -33,6 +35,7 @@ import { SpotifyWebApiClient } from './providers/spotify-web-api.client';
     LifestyleFiltersController,
     InstagramController,
     SpotifyController,
+    ZodiacController,
   ],
   providers: [
     VoiceIntroService,
@@ -51,6 +54,7 @@ import { SpotifyWebApiClient } from './providers/spotify-web-api.client';
       provide: SPOTIFY_CLIENT,
       useClass: SpotifyWebApiClient,
     },
+    ZodiacService,
   ],
 })
 export class ProfileModule {}

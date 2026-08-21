@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service';
 import { SubmitAnswerDto } from './dto/submit-answer.dto';
 import { ANSWER_IMPORTANCE_WEIGHTS, AnswerImportance } from './matching.constants';
+import { computeZodiacHarmony, getZodiacSign } from './zodiac.utils';
 
 export interface QuestionView {
   id: string;
@@ -19,6 +20,9 @@ export interface AnswerView {
 export interface CompatibilityResult {
   percentage: number | null;
   sharedQuestionCount: number;
+  zodiacSign: string | null;
+  otherZodiacSign: string | null;
+  zodiacHarmony: string | null;
 }
 
 interface AnswerRecord {
@@ -83,10 +87,13 @@ export class MatchingService {
       throw new BadRequestException('Cannot calculate compatibility with yourself.');
     }
 
-    const [mine, theirs] = await Promise.all([
+    const [mine, theirs, me, other] = await Promise.all([
       this.prisma.questionAnswer.findMany({ where: { userId } }),
       this.prisma.questionAnswer.findMany({ where: { userId: otherUserId } }),
+      this.prisma.user.findUnique({ where: { id: userId }, select: { dateOfBirth: true } }),
+      this.prisma.user.findUnique({ where: { id: otherUserId }, select: { dateOfBirth: true } }),
     ]);
+    const zodiac = this.computeZodiac(me?.dateOfBirth ?? null, other?.dateOfBirth ?? null);
 
     const theirsByQuestion = new Map(theirs.map((answer) => [answer.questionId, answer]));
     const mineByQuestion = new Map(mine.map((answer) => [answer.questionId, answer]));
@@ -95,14 +102,31 @@ export class MatchingService {
       .length;
 
     if (sharedQuestionCount === 0) {
-      return { percentage: null, sharedQuestionCount: 0 };
+      return { percentage: null, sharedQuestionCount: 0, ...zodiac };
     }
 
     const mySatisfaction = this.satisfaction(mine, theirsByQuestion);
     const theirSatisfaction = this.satisfaction(theirs, mineByQuestion);
     const percentage = Math.round(Math.sqrt(mySatisfaction * theirSatisfaction) * 100);
 
-    return { percentage, sharedQuestionCount };
+    return { percentage, sharedQuestionCount, ...zodiac };
+  }
+
+  private computeZodiac(
+    dateOfBirth: Date | null,
+    otherDateOfBirth: Date | null,
+  ): Pick<CompatibilityResult, 'zodiacSign' | 'otherZodiacSign' | 'zodiacHarmony'> {
+    if (!dateOfBirth || !otherDateOfBirth) {
+      return { zodiacSign: null, otherZodiacSign: null, zodiacHarmony: null };
+    }
+
+    const zodiacSign = getZodiacSign(dateOfBirth);
+    const otherZodiacSign = getZodiacSign(otherDateOfBirth);
+    return {
+      zodiacSign,
+      otherZodiacSign,
+      zodiacHarmony: computeZodiacHarmony(zodiacSign, otherZodiacSign),
+    };
   }
 
   private satisfaction(from: AnswerRecord[], to: Map<string, AnswerRecord>): number {
