@@ -10,6 +10,12 @@ export interface CouplePairingView {
   respondedAt: string | null;
 }
 
+export interface PartnerLinkView {
+  id: string;
+  partnerId: string;
+  linkedAt: string;
+}
+
 interface CouplePairingRecord {
   id: string;
   requesterId: string;
@@ -17,6 +23,13 @@ interface CouplePairingRecord {
   status: string;
   createdAt: Date;
   respondedAt: Date | null;
+}
+
+interface PartnerLinkRecord {
+  id: string;
+  userAId: string;
+  userBId: string;
+  createdAt: Date;
 }
 
 @Injectable()
@@ -28,19 +41,14 @@ export class CouplePairingService {
       throw new BadRequestException('You cannot pair with yourself.');
     }
 
-    const [requester, partner] = await Promise.all([
-      this.prisma.user.findUnique({ where: { id: requesterId } }),
-      this.prisma.user.findUnique({ where: { id: partnerUserId } }),
-    ]);
-
+    const partner = await this.prisma.user.findUnique({ where: { id: partnerUserId } });
     if (!partner) {
       throw new NotFoundException('User not found.');
     }
-    if (requester?.partnerUserId) {
-      throw new BadRequestException('You are already paired with someone.');
-    }
-    if (partner.partnerUserId) {
-      throw new BadRequestException('This user is already paired with someone.');
+
+    const existingLink = await this.findLink(requesterId, partnerUserId);
+    if (existingLink) {
+      throw new BadRequestException('You are already linked with this person.');
     }
 
     const existingPending = await this.prisma.couplePairing.findFirst({
@@ -72,6 +80,19 @@ export class CouplePairingService {
     return pairings.map((pairing) => this.toView(pairing));
   }
 
+  /**
+   * All of a user's currently active partner links. A user may hold more
+   * than one concurrently, to support polyamorous relationship structures.
+   */
+  async listPartners(userId: string): Promise<PartnerLinkView[]> {
+    const links = await this.prisma.partnerLink.findMany({
+      where: { OR: [{ userAId: userId }, { userBId: userId }] },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return links.map((link) => this.toPartnerLinkView(userId, link));
+  }
+
   async respond(userId: string, pairingId: string, accept: boolean): Promise<CouplePairingView> {
     const pairing = await this.prisma.couplePairing.findUnique({ where: { id: pairingId } });
     if (!pairing || pairing.partnerId !== userId) {
@@ -91,36 +112,50 @@ export class CouplePairingService {
       return this.toView(declined);
     }
 
-    const [, , acceptedPairing] = await this.prisma.$transaction([
-      this.prisma.user.update({
-        where: { id: pairing.requesterId },
-        data: { partnerUserId: pairing.partnerId },
-      }),
-      this.prisma.user.update({
-        where: { id: pairing.partnerId },
-        data: { partnerUserId: pairing.requesterId },
-      }),
+    const existingLink = await this.findLink(pairing.requesterId, pairing.partnerId);
+
+    const operations = [];
+    if (!existingLink) {
+      operations.push(
+        this.prisma.partnerLink.create({
+          data: { userAId: pairing.requesterId, userBId: pairing.partnerId },
+        }),
+      );
+    }
+    operations.push(
       this.prisma.couplePairing.update({
         where: { id: pairingId },
         data: { status: 'ACCEPTED', respondedAt: now },
       }),
-    ]);
+    );
 
-    return this.toView(acceptedPairing as CouplePairingRecord);
+    const results = await this.prisma.$transaction(operations);
+    const acceptedPairing = results[results.length - 1] as CouplePairingRecord;
+
+    return this.toView(acceptedPairing);
   }
 
-  async unpair(userId: string): Promise<{ unpaired: boolean }> {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user?.partnerUserId) {
-      throw new BadRequestException('You are not currently paired.');
+  /** Unlinks the caller from one specific partner, leaving any others intact. */
+  async unpair(userId: string, partnerId: string): Promise<{ unpaired: boolean }> {
+    const link = await this.findLink(userId, partnerId);
+    if (!link) {
+      throw new BadRequestException('You are not currently linked with this person.');
     }
 
-    await this.prisma.$transaction([
-      this.prisma.user.update({ where: { id: userId }, data: { partnerUserId: null } }),
-      this.prisma.user.update({ where: { id: user.partnerUserId }, data: { partnerUserId: null } }),
-    ]);
+    await this.prisma.partnerLink.delete({ where: { id: link.id } });
 
     return { unpaired: true };
+  }
+
+  private async findLink(userId: string, otherUserId: string): Promise<PartnerLinkRecord | null> {
+    return this.prisma.partnerLink.findFirst({
+      where: {
+        OR: [
+          { userAId: userId, userBId: otherUserId },
+          { userAId: otherUserId, userBId: userId },
+        ],
+      },
+    });
   }
 
   private toView(pairing: CouplePairingRecord): CouplePairingView {
@@ -131,6 +166,14 @@ export class CouplePairingService {
       status: pairing.status,
       createdAt: pairing.createdAt.toISOString(),
       respondedAt: pairing.respondedAt ? pairing.respondedAt.toISOString() : null,
+    };
+  }
+
+  private toPartnerLinkView(userId: string, link: PartnerLinkRecord): PartnerLinkView {
+    return {
+      id: link.id,
+      partnerId: link.userAId === userId ? link.userBId : link.userAId,
+      linkedAt: link.createdAt.toISOString(),
     };
   }
 }
