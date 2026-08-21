@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 
 import '../profile/voice_player_controller.dart';
 import '../profile/voice_recorder_controller.dart';
+import '../vault/vault_api.dart';
+import '../vault/vault_granted_screen.dart';
 import 'date_suggestions_api.dart';
 import 'messaging_api.dart';
 
@@ -23,10 +25,12 @@ class MatchChatScreen extends StatefulWidget {
     VoiceRecorderController? recorder,
     VoicePlayerController? player,
     DateSuggestionsApi? dateSuggestionsApi,
+    VaultApi? vaultApi,
   })  : recorder = recorder ?? DeviceVoiceRecorderController(),
         player = player ?? DeviceVoicePlayerController(),
         dateSuggestionsApi =
-            dateSuggestionsApi ?? DateSuggestionsApi(accessToken: messagingApi.accessToken);
+            dateSuggestionsApi ?? DateSuggestionsApi(accessToken: messagingApi.accessToken),
+        vaultApi = vaultApi ?? VaultApi(accessToken: messagingApi.accessToken);
 
   final MessagingApi messagingApi;
   final String matchId;
@@ -34,6 +38,7 @@ class MatchChatScreen extends StatefulWidget {
   final VoiceRecorderController recorder;
   final VoicePlayerController player;
   final DateSuggestionsApi dateSuggestionsApi;
+  final VaultApi vaultApi;
 
   @override
   State<MatchChatScreen> createState() => _MatchChatScreenState();
@@ -447,6 +452,16 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
             icon: const Icon(Icons.place_outlined),
             tooltip: 'Suggest a place to meet',
             onPressed: _showMeetupSuggestions,
+          ),
+          IconButton(
+            icon: const Icon(Icons.photo_library_outlined),
+            tooltip: 'Shared private photos',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) =>
+                    VaultGrantedScreen(vaultApi: widget.vaultApi, matchId: widget.matchId),
+              ),
+            ),
           ),
           IconButton(
             icon: Icon(_readReceiptsEnabled ? Icons.done_all : Icons.done),

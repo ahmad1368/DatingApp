@@ -8,6 +8,7 @@ import 'package:mobile/messaging/match_chat_screen.dart';
 import 'package:mobile/messaging/messaging_api.dart';
 import 'package:mobile/profile/voice_player_controller.dart';
 import 'package:mobile/profile/voice_recorder_controller.dart';
+import 'package:mobile/vault/vault_api.dart';
 
 const _emptyMessages = '[]';
 
@@ -955,5 +956,50 @@ void main() {
 
     expect(find.text('Meetup spots ~3.4 km apart'), findsOneWidget);
     expect(find.text('Coffee Shop'), findsOneWidget);
+  });
+
+  testWidgets('opens shared private photos for this match', (tester) async {
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(_emptyMessages, 200, headers: {'content-type': 'application/json'});
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":null,'
+          '"isExpired":false,"firstMessageSent":true,"canSendFirstMessage":true}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+    final vaultApi = VaultApi(
+      accessToken: 'a-jwt',
+      client: MockClient(
+        (request) async => http.Response(
+          '[{"id":"photo-1","mediaUrl":"https://example.com/a.jpg",'
+          '"grantedAt":"2026-01-01T00:00:00.000Z"}]',
+          200,
+          headers: {'content-type': 'application/json'},
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchChatScreen(
+          messagingApi: api,
+          matchId: 'match-1',
+          currentUserId: 'user-woman',
+          vaultApi: vaultApi,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.photo_library_outlined));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Shared Private Photos'), findsOneWidget);
   });
 }
