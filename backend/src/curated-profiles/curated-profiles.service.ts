@@ -35,6 +35,12 @@ export class CuratedProfilesService {
     private readonly matchingService: MatchingService,
   ) {}
 
+  /**
+   * A pick that's already been rated (via the normal swipe endpoint - rating
+   * a curated pick is just a regular Like/Pass swipe) drops out of the
+   * batch for the rest of the window, so the user must act on all of
+   * today's picks before the next 24-hour cycle brings new ones.
+   */
   async getDailyPicks(userId: string): Promise<CuratedProfile[]> {
     const currentUser = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!currentUser) {
@@ -42,6 +48,7 @@ export class CuratedProfilesService {
     }
 
     const windowStart = computeWindowStart(new Date());
+    const swipedTargetIds = await this.getSwipedTargetIds(userId);
 
     let picks: DailyPickRecord[] = await this.prisma.dailyPick.findMany({
       where: { userId, windowStart },
@@ -50,23 +57,32 @@ export class CuratedProfilesService {
     });
 
     if (picks.length === 0) {
-      picks = await this.generatePicks(userId, windowStart);
+      picks = await this.generatePicks(userId, windowStart, swipedTargetIds);
     }
 
-    if (picks.length === 0) {
+    const unratedPicks = picks.filter((pick) => !swipedTargetIds.has(pick.candidateId));
+    if (unratedPicks.length === 0) {
       return [];
     }
 
-    return this.toCuratedProfiles(picks);
+    return this.toCuratedProfiles(unratedPicks);
   }
 
-  private async generatePicks(userId: string, windowStart: Date): Promise<DailyPickRecord[]> {
+  private async getSwipedTargetIds(userId: string): Promise<Set<string>> {
     const swiped = await this.prisma.swipe.findMany({
       where: { swiperId: userId },
       select: { targetUserId: true },
     });
+    return new Set(swiped.map((s) => s.targetUserId));
+  }
+
+  private async generatePicks(
+    userId: string,
+    windowStart: Date,
+    swipedTargetIds: Set<string>,
+  ): Promise<DailyPickRecord[]> {
     const blockedIds = await getBlockedUserIds(this.prisma, userId);
-    const excludedIds = [userId, ...swiped.map((s) => s.targetUserId), ...blockedIds];
+    const excludedIds = [userId, ...swipedTargetIds, ...blockedIds];
 
     const candidates = await this.prisma.user.findMany({
       where: {
