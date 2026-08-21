@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+import 'package:mobile/messaging/date_suggestions_api.dart';
 import 'package:mobile/messaging/match_chat_screen.dart';
 import 'package:mobile/messaging/messaging_api.dart';
 import 'package:mobile/profile/voice_player_controller.dart';
@@ -858,5 +859,53 @@ void main() {
     await tester.pump();
 
     expect(player.lastPlayedPath, 'file:///tmp/incoming-note.m4a');
+  });
+
+  testWidgets('shows meetup suggestions in a bottom sheet', (tester) async {
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(_emptyMessages, 200, headers: {'content-type': 'application/json'});
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":null,'
+          '"isExpired":false,"firstMessageSent":true,"canSendFirstMessage":true}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+    final dateSuggestionsApi = DateSuggestionsApi(
+      accessToken: 'a-jwt',
+      client: MockClient(
+        (request) async => http.Response(
+          '{"midpoint":{"latitude":41.0,"longitude":-73.0},"distanceKm":3.4,'
+          '"suggestions":[{"id":"cafe","label":"Coffee Shop","searchQuery":"coffee shop",'
+          '"description":"Low-pressure and easy to leave whenever.",'
+          '"mapsSearchUrl":"https://www.google.com/maps/search/x"}]}',
+          200,
+          headers: {'content-type': 'application/json'},
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchChatScreen(
+          messagingApi: api,
+          matchId: 'match-1',
+          currentUserId: 'user-woman',
+          dateSuggestionsApi: dateSuggestionsApi,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.place_outlined));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Meetup spots ~3.4 km apart'), findsOneWidget);
+    expect(find.text('Coffee Shop'), findsOneWidget);
   });
 }

@@ -19,6 +19,7 @@ import { BlockingModule } from './blocking/blocking.module';
 import { GiftingModule } from './gifting/gifting.module';
 import { BlindDatingModule } from './blind-dating/blind-dating.module';
 import { LiveStreamingModule } from './live-streaming/live-streaming.module';
+import { DateSuggestionsModule } from './date-suggestions/date-suggestions.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { LiveStreamingModule } from './live-streaming/live-streaming.module';
     GiftingModule,
     BlindDatingModule,
     LiveStreamingModule,
+    DateSuggestionsModule,
   ],
 })
 export class AppModule {}
