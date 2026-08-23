@@ -9,6 +9,8 @@ import { GiphyClient } from './providers/giphy.client';
 import { MessageModerationService } from './message-moderation.service';
 import { CONTENT_MODERATOR } from './interfaces/content-moderator.interface';
 import { OpenAiContentModerator } from './providers/openai-content-moderator.client';
+import { IMAGE_MODERATOR } from './interfaces/image-moderator.interface';
+import { OpenAiImageModerator } from './providers/openai-image-moderator.client';
 
 @Module({
   imports: [AuthModule, ConfigModule],
@@ -24,6 +26,10 @@ import { OpenAiContentModerator } from './providers/openai-content-moderator.cli
     {
       provide: CONTENT_MODERATOR,
       useClass: OpenAiContentModerator,
+    },
+    {
+      provide: IMAGE_MODERATOR,
+      useClass: OpenAiImageModerator,
     },
   ],
 })

@@ -1,5 +1,6 @@
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { ImageModerator } from './interfaces/image-moderator.interface';
 import { MessagingService } from './messaging.service';
 
 const MATCH_ID = 'match-1';
@@ -34,8 +35,10 @@ describe('MessagingService', () => {
     dissolvedMatch: { findMany: jest.Mock; findUnique: jest.Mock; create: jest.Mock; delete: jest.Mock };
     $transaction: jest.Mock;
   };
+  let imageModerator: { moderate: jest.Mock };
 
   beforeEach(() => {
+    imageModerator = { moderate: jest.fn().mockResolvedValue({ flagged: false, categories: [] }) };
     prisma = {
       match: {
         findUnique: jest.fn(),
@@ -63,7 +66,10 @@ describe('MessagingService', () => {
       },
       $transaction: jest.fn((ops: unknown[]) => Promise.all(ops)),
     };
-    service = new MessagingService(prisma as unknown as PrismaService);
+    service = new MessagingService(
+      prisma as unknown as PrismaService,
+      imageModerator as unknown as ImageModerator,
+    );
   });
 
   function mockMatch(overrides: Partial<{
@@ -376,6 +382,8 @@ describe('MessagingService', () => {
         content: 'hi',
         mediaUrl: null,
         isBlurred: false,
+        moderationFlagged: false,
+        moderationCategories: [],
         readAt: null,
         icebreaker: null,
         createdAt: '2026-01-01T00:00:00.000Z',
@@ -447,9 +455,76 @@ describe('MessagingService', () => {
           contentType: 'IMAGE',
           mediaUrl: 'https://example.com/photo.jpg',
           isBlurred: true,
+          moderationFlagged: false,
+          moderationCategories: [],
         },
       });
       expect(result.isBlurred).toBe(true);
+      expect(imageModerator.moderate).toHaveBeenCalledWith('https://example.com/photo.jpg');
+    });
+
+    it('flags an image the moderator detects as explicit', async () => {
+      mockMatch();
+      mockUsers({ [WOMAN_ID]: ['Woman'], [MAN_ID]: ['Man'] });
+      imageModerator.moderate.mockResolvedValue({ flagged: true, categories: ['sexual'] });
+      prisma.message.create.mockResolvedValue({
+        id: 'message-3',
+        senderId: WOMAN_ID,
+        contentType: 'IMAGE',
+        content: null,
+        mediaUrl: 'https://example.com/photo.jpg',
+        isBlurred: true,
+        moderationFlagged: true,
+        moderationCategories: ['sexual'],
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const result = await service.sendMediaMessage(
+        WOMAN_ID,
+        MATCH_ID,
+        'IMAGE',
+        'https://example.com/photo.jpg',
+      );
+
+      expect(prisma.message.create).toHaveBeenCalledWith({
+        data: {
+          matchId: MATCH_ID,
+          senderId: WOMAN_ID,
+          contentType: 'IMAGE',
+          mediaUrl: 'https://example.com/photo.jpg',
+          isBlurred: true,
+          moderationFlagged: true,
+          moderationCategories: ['sexual'],
+        },
+      });
+      expect(result.moderationFlagged).toBe(true);
+      expect(result.moderationCategories).toEqual(['sexual']);
+    });
+
+    it('sends the image unflagged when the moderation check fails', async () => {
+      mockMatch();
+      mockUsers({ [WOMAN_ID]: ['Woman'], [MAN_ID]: ['Man'] });
+      imageModerator.moderate.mockRejectedValue(new Error('service unavailable'));
+      prisma.message.create.mockResolvedValue({
+        id: 'message-3',
+        senderId: WOMAN_ID,
+        contentType: 'IMAGE',
+        content: null,
+        mediaUrl: 'https://example.com/photo.jpg',
+        isBlurred: true,
+        moderationFlagged: false,
+        moderationCategories: [],
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const result = await service.sendMediaMessage(
+        WOMAN_ID,
+        MATCH_ID,
+        'IMAGE',
+        'https://example.com/photo.jpg',
+      );
+
+      expect(result.moderationFlagged).toBe(false);
     });
 
     it('sends a GIF unblurred', async () => {
@@ -479,9 +554,12 @@ describe('MessagingService', () => {
           contentType: 'GIF',
           mediaUrl: 'https://example.com/fun.gif',
           isBlurred: false,
+          moderationFlagged: false,
+          moderationCategories: [],
         },
       });
       expect(result.isBlurred).toBe(false);
+      expect(imageModerator.moderate).not.toHaveBeenCalled();
     });
   });
 
@@ -643,6 +721,8 @@ describe('MessagingService', () => {
           content: 'hi',
           mediaUrl: null,
           isBlurred: false,
+          moderationFlagged: false,
+          moderationCategories: [],
           readAt: null,
           icebreaker: null,
           createdAt: '2026-01-01T00:00:00.000Z',

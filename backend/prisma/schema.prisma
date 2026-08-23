@@ -174,16 +174,18 @@ model Match {
 }
 
 model Message {
-  id              String    @id @default(uuid())
-  matchId         String
-  senderId        String
-  contentType     String    @default("TEXT")
-  content         String?
-  mediaUrl        String?
-  isBlurred       Boolean   @default(false)
-  durationSeconds Int?
-  readAt          DateTime?
-  createdAt       DateTime  @default(now())
+  id                   String    @id @default(uuid())
+  matchId              String
+  senderId             String
+  contentType          String    @default("TEXT")
+  content              String?
+  mediaUrl             String?
+  isBlurred            Boolean   @default(false)
+  moderationFlagged    Boolean   @default(false)
+  moderationCategories String[]  @default([])
+  durationSeconds      Int?
+  readAt               DateTime?
+  createdAt            DateTime  @default(now())
 
   match Match @relation(fields: [matchId], references: [id])
 

@@ -1,5 +1,6 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { IMAGE_MODERATOR, ImageModerator } from './interfaces/image-moderator.interface';
 import {
   computeExtendedExpiresAt,
   computeFirstMessageExpiresAt,
@@ -41,6 +42,8 @@ export interface MessageView {
   content: string | null;
   mediaUrl: string | null;
   isBlurred: boolean;
+  moderationFlagged: boolean;
+  moderationCategories: string[];
   durationSeconds: number | null;
   readAt: string | null;
   icebreaker: IcebreakerView | null;
@@ -88,7 +91,10 @@ interface MatchListRecord extends MatchRecord {
 
 @Injectable()
 export class MessagingService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(IMAGE_MODERATOR) private readonly imageModerator: ImageModerator,
+  ) {}
 
   async getMatchStatus(userId: string, matchId: string): Promise<MatchStatus> {
     const match = await this.getMatchForUser(userId, matchId);
@@ -140,6 +146,10 @@ export class MessagingService {
    * Sends an image or GIF in-chat, subject to the same match-expiry and
    * women-first-message rules as a text message. Images default to
    * blurred; the recipient must explicitly reveal them via [revealImage].
+   * Images also run through on-device-style automatic explicit-content
+   * detection so the reveal prompt can carry an extra warning - a failure
+   * of that check (e.g. the moderation service being unavailable) doesn't
+   * block sending, it just leaves the image unflagged.
    */
   async sendMediaMessage(
     userId: string,
@@ -149,6 +159,9 @@ export class MessagingService {
   ): Promise<MessageView> {
     const { firstMessageSent } = await this.assertCanSend(userId, matchId);
 
+    const moderation =
+      contentType === 'IMAGE' ? await this.moderateImageSafely(mediaUrl) : null;
+
     const message = await this.prisma.message.create({
       data: {
         matchId,
@@ -156,6 +169,8 @@ export class MessagingService {
         contentType,
         mediaUrl,
         isBlurred: contentType === 'IMAGE',
+        moderationFlagged: moderation?.flagged ?? false,
+        moderationCategories: moderation?.categories ?? [],
       },
     });
 
@@ -189,6 +204,16 @@ export class MessagingService {
     await this.markFirstMessageIfNeeded(matchId, firstMessageSent);
 
     return this.toMessageView(message, userId);
+  }
+
+  private async moderateImageSafely(
+    mediaUrl: string,
+  ): Promise<{ flagged: boolean; categories: string[] } | null> {
+    try {
+      return await this.imageModerator.moderate(mediaUrl);
+    } catch {
+      return null;
+    }
   }
 
   async revealImage(userId: string, matchId: string, messageId: string): Promise<MessageView> {
@@ -668,6 +693,8 @@ export class MessagingService {
       content: string | null;
       mediaUrl: string | null;
       isBlurred: boolean;
+      moderationFlagged?: boolean;
+      moderationCategories?: string[];
       durationSeconds: number | null;
       readAt: Date | null;
       createdAt: Date;
@@ -682,6 +709,8 @@ export class MessagingService {
       content: message.content,
       mediaUrl: message.mediaUrl,
       isBlurred: message.isBlurred,
+      moderationFlagged: message.moderationFlagged ?? false,
+      moderationCategories: message.moderationCategories ?? [],
       durationSeconds: message.durationSeconds,
       readAt: message.readAt ? message.readAt.toISOString() : null,
       icebreaker: this.toIcebreakerView(message.contentType, message.content, userId, icebreakerResponses),

@@ -85,6 +85,8 @@ class ChatMessage {
     this.content,
     this.mediaUrl,
     required this.isBlurred,
+    this.moderationFlagged = false,
+    this.moderationCategories = const [],
     this.durationSeconds,
     this.readAt,
     this.icebreaker,
@@ -97,6 +99,8 @@ class ChatMessage {
   final String? content;
   final String? mediaUrl;
   final bool isBlurred;
+  final bool moderationFlagged;
+  final List<String> moderationCategories;
   final int? durationSeconds;
   final DateTime? readAt;
   final Icebreaker? icebreaker;
@@ -531,6 +535,8 @@ class MessagingApi {
       content: json['content'] as String?,
       mediaUrl: json['mediaUrl'] as String?,
       isBlurred: json['isBlurred'] as bool,
+      moderationFlagged: json['moderationFlagged'] as bool? ?? false,
+      moderationCategories: (json['moderationCategories'] as List?)?.cast<String>() ?? const [],
       durationSeconds: json['durationSeconds'] as int?,
       readAt: json['readAt'] != null ? DateTime.parse(json['readAt'] as String) : null,
       icebreaker: icebreakerJson != null
