@@ -1,10 +1,11 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { SpotifyClient } from './interfaces/spotify-client.interface';
 import { SpotifySyncService } from './spotify-sync.service';
 
 const USER_ID = 'user-1';
+const OTHER_USER_ID = 'user-2';
 
 describe('SpotifySyncService', () => {
   let service: SpotifySyncService;
@@ -246,6 +247,44 @@ describe('SpotifySyncService', () => {
         },
         syncedAt: '2026-01-01T00:00:00.000Z',
       });
+    });
+  });
+
+  describe('getMusicCompatibility', () => {
+    it('rejects comparing a user with themselves', async () => {
+      await expect(
+        service.getMusicCompatibility(USER_ID, USER_ID),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('throws when the other user does not exist', async () => {
+      prisma.user.findUnique.mockResolvedValueOnce({ spotifyTopArtists: ['Artist One'] }).mockResolvedValueOnce(null);
+
+      await expect(
+        service.getMusicCompatibility(USER_ID, OTHER_USER_ID),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('returns null when either user has not synced Spotify top artists', async () => {
+      prisma.user.findUnique
+        .mockResolvedValueOnce({ spotifyTopArtists: [] })
+        .mockResolvedValueOnce({ spotifyTopArtists: ['Artist One'] });
+
+      const result = await service.getMusicCompatibility(USER_ID, OTHER_USER_ID);
+
+      expect(result).toEqual({ percentage: null, sharedArtists: [] });
+    });
+
+    it('computes Jaccard similarity over shared top artists', async () => {
+      prisma.user.findUnique
+        .mockResolvedValueOnce({ spotifyTopArtists: ['Artist One', 'Artist Two', 'Artist Three'] })
+        .mockResolvedValueOnce({ spotifyTopArtists: ['Artist Two', 'Artist Three', 'Artist Four'] });
+
+      const result = await service.getMusicCompatibility(USER_ID, OTHER_USER_ID);
+
+      // shared = {Two, Three} (2), union = {One, Two, Three, Four} (4) -> 50%
+      expect(result.percentage).toBe(50);
+      expect(result.sharedArtists.sort()).toEqual(['Artist Three', 'Artist Two']);
     });
   });
 
