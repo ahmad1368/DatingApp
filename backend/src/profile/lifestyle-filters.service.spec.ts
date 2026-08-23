@@ -40,6 +40,7 @@ describe('LifestyleFiltersService', () => {
         filterKinkTags: [],
         filterRelationshipDesires: [],
         filterSharedInterestsOnly: false,
+        filterVerifiedOnly: false,
       });
     });
   });
@@ -67,6 +68,7 @@ describe('LifestyleFiltersService', () => {
         filterKinkTags: ['BDSM'],
         filterRelationshipDesires: ['Long-Term Relationship'],
         filterSharedInterestsOnly: true,
+        filterVerifiedOnly: true,
       };
       prisma.user.update.mockResolvedValue({ ...dto });
 
@@ -95,6 +97,7 @@ describe('LifestyleFiltersService', () => {
           filterKinkTags: ['BDSM'],
           filterRelationshipDesires: ['Long-Term Relationship'],
           filterSharedInterestsOnly: true,
+          filterVerifiedOnly: true,
         },
         select: expect.any(Object),
       });
@@ -116,6 +119,7 @@ describe('LifestyleFiltersService', () => {
         filterKinkTags: [],
         filterRelationshipDesires: [],
         filterSharedInterestsOnly: false,
+        filterVerifiedOnly: false,
       };
       prisma.user.update.mockResolvedValue({
         smokingHabit: null,

@@ -30,7 +30,8 @@ String _fullFiltersJson({String relationshipGoals = '[]'}) => '''
   "filterRelationshipGoals": $relationshipGoals,
   "filterKinkTags": [],
   "filterRelationshipDesires": [],
-  "filterSharedInterestsOnly": false
+  "filterSharedInterestsOnly": false,
+  "filterVerifiedOnly": false
 }
 ''';
 

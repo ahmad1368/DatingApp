@@ -79,6 +79,7 @@ model User {
   filterKinkTags                        String[]  @default([])
   filterRelationshipDesires             String[]  @default([])
   filterSharedInterestsOnly             Boolean   @default(false)
+  filterVerifiedOnly                    Boolean   @default(false)
   incognitoEnabled                      Boolean   @default(false)
   activeMode                            String    @default("DATING")
   snoozedUntil                          DateTime?

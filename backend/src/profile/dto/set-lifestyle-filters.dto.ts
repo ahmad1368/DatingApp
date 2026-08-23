@@ -105,4 +105,8 @@ export class SetLifestyleFiltersDto {
   /** When true, the deck only shows candidates who share at least one interest tag. */
   @IsBoolean()
   filterSharedInterestsOnly!: boolean;
+
+  /** When true, the deck only shows photo-verified candidates. */
+  @IsBoolean()
+  filterVerifiedOnly!: boolean;
 }

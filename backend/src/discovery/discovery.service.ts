@@ -953,6 +953,7 @@ export class DiscoveryService {
     filterKinkTags?: string[];
     filterRelationshipDesires?: string[];
     filterSharedInterestsOnly: boolean;
+    filterVerifiedOnly?: boolean;
     interests: string[];
   }): Prisma.UserWhereInput {
     const where: Prisma.UserWhereInput = {};
@@ -986,6 +987,9 @@ export class DiscoveryService {
     }
     if (currentUser.filterSharedInterestsOnly && currentUser.interests.length > 0) {
       where.interests = { hasSome: currentUser.interests };
+    }
+    if (currentUser.filterVerifiedOnly) {
+      where.isVerified = true;
     }
 
     return where;
