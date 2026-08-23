@@ -145,6 +145,52 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
     }
   }
 
+  /// Private per-user note about this match (conversation details, date
+  /// plans) - only visible to the current user, never shared with the match.
+  Future<void> _editNote() async {
+    MatchNote note;
+    try {
+      note = await widget.messagingApi.fetchMatchNote(widget.matchId);
+    } on MessagingApiException catch (e) {
+      setState(() => _errorText = e.message);
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+
+    final controller = TextEditingController(text: note.content ?? '');
+    final content = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Private note'),
+        content: TextField(
+          controller: controller,
+          maxLines: 5,
+          maxLength: 1000,
+          decoration: const InputDecoration(hintText: 'Only you can see this note…'),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(controller.text),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    if (content == null) {
+      return;
+    }
+
+    try {
+      await widget.messagingApi.setMatchNote(widget.matchId, content);
+    } on MessagingApiException catch (e) {
+      setState(() => _errorText = e.message);
+    }
+  }
+
   Future<void> _send() async {
     final content = _controller.text.trim();
     if (content.isEmpty || _isSending) {
@@ -536,6 +582,11 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
                 ),
               ),
             ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.sticky_note_2_outlined),
+            tooltip: 'Private note',
+            onPressed: _editNote,
           ),
         ],
       ),

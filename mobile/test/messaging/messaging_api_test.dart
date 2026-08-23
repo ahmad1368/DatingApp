@@ -277,6 +277,80 @@ void main() {
     });
   });
 
+  group('MessagingApi.fetchMatchNote', () {
+    test('sends the bearer token and parses the saved note', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.headers['Authorization'], 'Bearer a-jwt');
+          expect(request.url.path, '/matches/match-1/note');
+          return http.Response(
+            '{"content":"Loves hiking","updatedAt":"2026-01-01T00:00:00.000Z"}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final note = await api.fetchMatchNote('match-1');
+
+      expect(note.content, 'Loves hiking');
+      expect(note.updatedAt, DateTime.parse('2026-01-01T00:00:00.000Z'));
+    });
+
+    test('parses a null content when nothing has been saved yet', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '{"content":null,"updatedAt":null}',
+            200,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      final note = await api.fetchMatchNote('match-1');
+
+      expect(note.content, isNull);
+      expect(note.updatedAt, isNull);
+    });
+  });
+
+  group('MessagingApi.setMatchNote', () {
+    test('sends the content and parses the updated note', () async {
+      http.Request? putRequest;
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          putRequest = request;
+          return http.Response(
+            '{"content":"Loves hiking","updatedAt":"2026-01-01T00:00:00.000Z"}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final note = await api.setMatchNote('match-1', 'Loves hiking');
+
+      expect(putRequest, isNotNull);
+      expect(putRequest!.method, 'PUT');
+      expect(putRequest!.url.path, '/matches/match-1/note');
+      expect(putRequest!.body, '{"content":"Loves hiking"}');
+      expect(note.content, 'Loves hiking');
+    });
+
+    test('throws MessagingApiException on a non-200 response', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => http.Response('', 500)),
+      );
+
+      expect(() => api.setMatchNote('match-1', 'x'), throwsA(isA<MessagingApiException>()));
+    });
+  });
+
   group('MessagingApi.fetchMessages', () {
     test('parses a list of messages', () async {
       final api = MessagingApi(

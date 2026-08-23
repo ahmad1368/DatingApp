@@ -20,6 +20,7 @@ import { SetReadReceiptsDto } from './dto/set-read-receipts.dto';
 import { SendIcebreakerDto } from './dto/send-icebreaker.dto';
 import { RespondIcebreakerDto } from './dto/respond-icebreaker.dto';
 import { SendVoiceNoteDto } from './dto/send-voice-note.dto';
+import { SetMatchNoteDto } from './dto/set-match-note.dto';
 import { GifSearchService } from './gif-search.service';
 import { MessagingService } from './messaging.service';
 import { MessageModerationService } from './message-moderation.service';
@@ -82,6 +83,21 @@ export class MessagingController {
   @Get(':matchId/messages')
   listMessages(@CurrentUser() user: AuthenticatedUser, @Param('matchId') matchId: string) {
     return this.messagingService.listMessages(user.id, matchId);
+  }
+
+  @Get(':matchId/note')
+  getMatchNote(@CurrentUser() user: AuthenticatedUser, @Param('matchId') matchId: string) {
+    return this.messagingService.getMatchNote(user.id, matchId);
+  }
+
+  @Put(':matchId/note')
+  @HttpCode(HttpStatus.OK)
+  setMatchNote(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('matchId') matchId: string,
+    @Body() dto: SetMatchNoteDto,
+  ) {
+    return this.messagingService.setMatchNote(user.id, matchId, dto.content);
   }
 
   @Post(':matchId/extend')

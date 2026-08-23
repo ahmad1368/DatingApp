@@ -1065,4 +1065,56 @@ void main() {
 
     expect(find.text('Shared Private Photos'), findsOneWidget);
   });
+
+  testWidgets('saves a private note only the current user can see', (tester) async {
+    http.Request? putRequest;
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(_emptyMessages, 200, headers: {'content-type': 'application/json'});
+        }
+        if (request.url.path.endsWith('/note')) {
+          if (request.method == 'PUT') {
+            putRequest = request;
+            return http.Response(
+              '{"content":"Loves hiking","updatedAt":"2026-01-01T00:00:00.000Z"}',
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+          return http.Response(
+            '{"content":null,"updatedAt":null}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":null,'
+          '"isExpired":false,"firstMessageSent":true,"canSendFirstMessage":true}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchChatScreen(messagingApi: api, matchId: 'match-1', currentUserId: 'user-woman'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.sticky_note_2_outlined));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Private note'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField).last, 'Loves hiking');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    expect(putRequest, isNotNull);
+    expect(putRequest!.body, '{"content":"Loves hiking"}');
+  });
 }

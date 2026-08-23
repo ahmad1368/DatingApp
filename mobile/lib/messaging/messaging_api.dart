@@ -37,6 +37,13 @@ class MatchStatus {
   final String? otherUserSnoozeStatusMessage;
 }
 
+class MatchNote {
+  MatchNote({this.content, this.updatedAt});
+
+  final String? content;
+  final DateTime? updatedAt;
+}
+
 class MatchSummary {
   MatchSummary({
     required this.matchId,
@@ -211,6 +218,40 @@ class MessagingApi {
     if (response.statusCode != 200) {
       throw MessagingApiException(_errorMessage(_decode(response), response.statusCode));
     }
+  }
+
+  /// A private note only the current user can see - never shared with the
+  /// match. Returns null content when nothing has been saved yet.
+  Future<MatchNote> fetchMatchNote(String matchId) async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/matches/$matchId/note'),
+      headers: _headers,
+    );
+
+    return _parseMatchNote(response);
+  }
+
+  /// Saving blank content clears the note.
+  Future<MatchNote> setMatchNote(String matchId, String content) async {
+    final response = await _client.put(
+      Uri.parse('$_baseUrl/matches/$matchId/note'),
+      headers: _headers,
+      body: jsonEncode({'content': content}),
+    );
+
+    return _parseMatchNote(response);
+  }
+
+  MatchNote _parseMatchNote(http.Response response) {
+    final body = _decode(response);
+    if (response.statusCode != 200) {
+      throw MessagingApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return MatchNote(
+      content: body['content'] as String?,
+      updatedAt: body['updatedAt'] != null ? DateTime.parse(body['updatedAt'] as String) : null,
+    );
   }
 
   Future<MatchStatus> fetchMatchStatus(String matchId) async {
