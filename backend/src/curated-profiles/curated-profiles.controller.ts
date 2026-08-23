@@ -12,4 +12,9 @@ export class CuratedProfilesController {
   getDailyPicks(@CurrentUser() user: AuthenticatedUser) {
     return this.curatedProfilesService.getDailyPicks(user.id);
   }
+
+  @Get('refresh-countdown')
+  getRefreshCountdown() {
+    return this.curatedProfilesService.getRefreshCountdown();
+  }
 }

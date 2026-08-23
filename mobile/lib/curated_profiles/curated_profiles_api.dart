@@ -45,6 +45,20 @@ class CuratedProfilesApi {
         'Authorization': 'Bearer $accessToken',
       };
 
+  Future<DateTime> fetchNextRefreshAt() async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/curated-profiles/refresh-countdown'),
+      headers: _headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw CuratedProfilesApiException(_errorMessage(_decode(response), response.statusCode));
+    }
+
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    return DateTime.parse(body['nextRefreshAt'] as String);
+  }
+
   Future<List<CuratedProfile>> fetchDailyPicks() async {
     final response = await _client.get(
       Uri.parse('$_baseUrl/curated-profiles/daily'),

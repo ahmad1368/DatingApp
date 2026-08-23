@@ -265,4 +265,27 @@ describe('CuratedProfilesService', () => {
     expect(prisma.dailyPick.createMany).not.toHaveBeenCalled();
     expect(picks).toEqual([]);
   });
+
+  describe('getRefreshCountdown', () => {
+    it('returns the start of the next curation window, 24 hours after the current one', () => {
+      jest.useFakeTimers().setSystemTime(new Date('2026-01-01T15:00:00.000Z'));
+
+      const result = service.getRefreshCountdown();
+
+      // Current window started at 12:00 UTC (DAILY_REFRESH_HOUR_UTC); next is 24h later.
+      expect(result).toEqual({ nextRefreshAt: '2026-01-02T12:00:00.000Z' });
+
+      jest.useRealTimers();
+    });
+
+    it('rolls over correctly when called just before the daily refresh hour', () => {
+      jest.useFakeTimers().setSystemTime(new Date('2026-01-01T11:00:00.000Z'));
+
+      const result = service.getRefreshCountdown();
+
+      expect(result).toEqual({ nextRefreshAt: '2026-01-01T12:00:00.000Z' });
+
+      jest.useRealTimers();
+    });
+  });
 });

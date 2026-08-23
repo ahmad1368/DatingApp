@@ -57,4 +57,34 @@ void main() {
       expect(() => api.fetchDailyPicks(), throwsA(isA<CuratedProfilesApiException>()));
     });
   });
+
+  group('CuratedProfilesApi.fetchNextRefreshAt', () {
+    test('sends the bearer token and parses the next refresh time', () async {
+      final api = CuratedProfilesApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.url.path, '/curated-profiles/refresh-countdown');
+          expect(request.headers['Authorization'], 'Bearer a-jwt');
+          return http.Response(
+            '{"nextRefreshAt":"2026-01-02T12:00:00.000Z"}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final nextRefreshAt = await api.fetchNextRefreshAt();
+
+      expect(nextRefreshAt, DateTime.parse('2026-01-02T12:00:00.000Z'));
+    });
+
+    test('throws CuratedProfilesApiException on a non-200 response', () async {
+      final api = CuratedProfilesApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => http.Response('', 500)),
+      );
+
+      expect(() => api.fetchNextRefreshAt(), throwsA(isA<CuratedProfilesApiException>()));
+    });
+  });
 }
