@@ -89,6 +89,26 @@ void main() {
       expect(deck.first.videoSnippetUrl, 'https://example.com/snippet.mp4');
     });
 
+    test('parses voiceIntroUrl and voiceIntroDurationSeconds when the backend includes them', () async {
+      final api = DiscoveryApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '[{"id":"user-2","name":"Jane","age":25,"profilePhotoUrl":null,'
+            '"voiceIntroUrl":"https://example.com/voice-intro.m4a","voiceIntroDurationSeconds":18,'
+            '"distanceKm":3.4,"interests":["Hiking"],"relationshipGoal":"CASUAL"}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      final deck = await api.fetchDeck();
+
+      expect(deck.first.voiceIntroUrl, 'https://example.com/voice-intro.m4a');
+      expect(deck.first.voiceIntroDurationSeconds, 18);
+    });
+
     test('parses isSuperLike when the backend includes it', () async {
       final api = DiscoveryApi(
         accessToken: 'a-jwt',

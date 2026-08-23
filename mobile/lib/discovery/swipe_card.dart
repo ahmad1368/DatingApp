@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../profile/voice_intro_player.dart';
 import '../safety/watermark_overlay.dart';
 import 'discovery_api.dart';
 
@@ -166,7 +167,29 @@ class _CardContent extends StatelessWidget {
       ),
       padding: const EdgeInsets.all(16),
       child: Stack(
+        alignment: Alignment.topCenter,
         children: [
+          if (card.voiceIntroUrl != null)
+            Positioned(
+              top: 8,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: IconTheme(
+                  data: const IconThemeData(color: Colors.white),
+                  child: DefaultTextStyle(
+                    style: const TextStyle(color: Colors.white),
+                    child: VoiceIntroPlayer(
+                      url: card.voiceIntroUrl!,
+                      durationSeconds: card.voiceIntroDurationSeconds,
+                    ),
+                  ),
+                ),
+              ),
+            ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.end,

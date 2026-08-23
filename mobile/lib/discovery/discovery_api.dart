@@ -33,6 +33,8 @@ class DeckCard {
     this.complimentTarget,
     this.mutualConnectionCount = 0,
     this.communicationBoundaries,
+    this.voiceIntroUrl,
+    this.voiceIntroDurationSeconds,
   });
 
   final String id;
@@ -40,6 +42,8 @@ class DeckCard {
   final int? age;
   final String? profilePhotoUrl;
   final String? videoSnippetUrl;
+  final String? voiceIntroUrl;
+  final int? voiceIntroDurationSeconds;
   final double? distanceKm;
   final List<String> interests;
   final List<String> sharedInterests;
@@ -140,6 +144,8 @@ class DiscoveryApi {
       complimentTarget: json['complimentTarget'] as String?,
       mutualConnectionCount: json['mutualConnectionCount'] as int? ?? 0,
       communicationBoundaries: json['communicationBoundaries'] as String?,
+      voiceIntroUrl: json['voiceIntroUrl'] as String?,
+      voiceIntroDurationSeconds: json['voiceIntroDurationSeconds'] as int?,
     );
   }
 
