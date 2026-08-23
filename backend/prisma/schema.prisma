@@ -245,6 +245,18 @@ model GiftTransaction {
   @@map("gift_transactions")
 }
 
+model CoinPurchase {
+  id             String   @id @default(uuid())
+  userId         String
+  packageId      String
+  coinAmount     Int
+  priceUsdCents  Int
+  createdAt      DateTime @default(now())
+
+  @@index([userId])
+  @@map("coin_purchases")
+}
+
 model BlindDateQueueEntry {
   id       String   @id @default(uuid())
   userId   String   @unique

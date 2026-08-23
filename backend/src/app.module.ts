@@ -27,6 +27,7 @@ import { EventsModule } from './events/events.module';
 import { ProfilePhotosModule } from './profile-photos/profile-photos.module';
 import { RelationshipCoachModule } from './relationship-coach/relationship-coach.module';
 import { ScreenSecurityModule } from './screen-security/screen-security.module';
+import { WalletModule } from './wallet/wallet.module';
 
 @Module({
   imports: [
@@ -58,6 +59,7 @@ import { ScreenSecurityModule } from './screen-security/screen-security.module';
     ProfilePhotosModule,
     RelationshipCoachModule,
     ScreenSecurityModule,
+    WalletModule,
   ],
 })
 export class AppModule {}
