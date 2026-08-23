@@ -80,6 +80,8 @@ model User {
   filterRelationshipDesires             String[]  @default([])
   filterSharedInterestsOnly             Boolean   @default(false)
   filterVerifiedOnly                    Boolean   @default(false)
+  communityGroupIds                     String[]  @default([])
+  filterCommunityGroups                 String[]  @default([])
   incognitoEnabled                      Boolean   @default(false)
   activeMode                            String    @default("DATING")
   snoozedUntil                          DateTime?

@@ -646,6 +646,52 @@ describe('DiscoveryService', () => {
       expect(call.where.isVerified).toBeUndefined();
     });
 
+    it('filters the deck to shared community groups when set', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+        filterCommunityGroups: ['book-lovers', 'foodies'],
+      });
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      prisma.user.findMany.mockResolvedValue([]);
+
+      await service.getDeck(USER_ID);
+
+      expect(prisma.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            communityGroupIds: { hasSome: ['book-lovers', 'foodies'] },
+          }),
+        }),
+      );
+    });
+
+    it('does not filter by community group when none are selected', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+      });
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      prisma.user.findMany.mockResolvedValue([]);
+
+      await service.getDeck(USER_ID);
+
+      const call = prisma.user.findMany.mock.calls[0][0];
+      expect(call.where.communityGroupIds).toBeUndefined();
+    });
+
     it('highlights which of a candidate\'s interests overlap with the viewer\'s own', async () => {
       prisma.user.findUnique.mockResolvedValue({
         id: USER_ID,

@@ -14,6 +14,7 @@ import { VettingModule } from './vetting/vetting.module';
 import { CouplesModule } from './couples/couples.module';
 import { PersonalityModule } from './personality/personality.module';
 import { TopicQuizModule } from './topic-quiz/topic-quiz.module';
+import { CommunityGroupsModule } from './community-groups/community-groups.module';
 import { CallingModule } from './calling/calling.module';
 import { SafetyModule } from './safety/safety.module';
 import { BlockingModule } from './blocking/blocking.module';
@@ -51,6 +52,7 @@ import { PostMatchSurveyModule } from './post-match-survey/post-match-survey.mod
     CouplesModule,
     PersonalityModule,
     TopicQuizModule,
+    CommunityGroupsModule,
     CallingModule,
     SafetyModule,
     BlockingModule,

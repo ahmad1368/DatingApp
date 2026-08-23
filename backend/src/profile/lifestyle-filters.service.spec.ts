@@ -41,6 +41,7 @@ describe('LifestyleFiltersService', () => {
         filterRelationshipDesires: [],
         filterSharedInterestsOnly: false,
         filterVerifiedOnly: false,
+        filterCommunityGroups: [],
       });
     });
   });
@@ -69,6 +70,7 @@ describe('LifestyleFiltersService', () => {
         filterRelationshipDesires: ['Long-Term Relationship'],
         filterSharedInterestsOnly: true,
         filterVerifiedOnly: true,
+        filterCommunityGroups: ['book-lovers'],
       };
       prisma.user.update.mockResolvedValue({ ...dto });
 
@@ -98,6 +100,7 @@ describe('LifestyleFiltersService', () => {
           filterRelationshipDesires: ['Long-Term Relationship'],
           filterSharedInterestsOnly: true,
           filterVerifiedOnly: true,
+          filterCommunityGroups: ['book-lovers'],
         },
         select: expect.any(Object),
       });
@@ -120,6 +123,7 @@ describe('LifestyleFiltersService', () => {
         filterRelationshipDesires: [],
         filterSharedInterestsOnly: false,
         filterVerifiedOnly: false,
+        filterCommunityGroups: [],
       };
       prisma.user.update.mockResolvedValue({
         smokingHabit: null,

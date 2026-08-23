@@ -31,7 +31,8 @@ String _fullFiltersJson({String relationshipGoals = '[]'}) => '''
   "filterKinkTags": [],
   "filterRelationshipDesires": [],
   "filterSharedInterestsOnly": false,
-  "filterVerifiedOnly": false
+  "filterVerifiedOnly": false,
+  "filterCommunityGroups": []
 }
 ''';
 

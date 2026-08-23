@@ -38,6 +38,7 @@ class LifestyleFilters {
     required this.filterRelationshipDesires,
     required this.filterSharedInterestsOnly,
     required this.filterVerifiedOnly,
+    required this.filterCommunityGroups,
   });
 
   final String? smokingHabit;
@@ -61,8 +62,13 @@ class LifestyleFilters {
   final List<String> filterRelationshipDesires;
   final bool filterSharedInterestsOnly;
   final bool filterVerifiedOnly;
+  final List<String> filterCommunityGroups;
 
-  LifestyleFilters copyWith({List<String>? filterRelationshipGoals, bool? filterVerifiedOnly}) {
+  LifestyleFilters copyWith({
+    List<String>? filterRelationshipGoals,
+    bool? filterVerifiedOnly,
+    List<String>? filterCommunityGroups,
+  }) {
     return LifestyleFilters(
       smokingHabit: smokingHabit,
       drinkingHabit: drinkingHabit,
@@ -85,6 +91,7 @@ class LifestyleFilters {
       filterRelationshipDesires: filterRelationshipDesires,
       filterSharedInterestsOnly: filterSharedInterestsOnly,
       filterVerifiedOnly: filterVerifiedOnly ?? this.filterVerifiedOnly,
+      filterCommunityGroups: filterCommunityGroups ?? this.filterCommunityGroups,
     );
   }
 }
@@ -154,6 +161,7 @@ class LifestyleFiltersApi {
         'filterRelationshipDesires': filters.filterRelationshipDesires,
         'filterSharedInterestsOnly': filters.filterSharedInterestsOnly,
         'filterVerifiedOnly': filters.filterVerifiedOnly,
+        'filterCommunityGroups': filters.filterCommunityGroups,
       }),
     );
 
@@ -188,6 +196,7 @@ class LifestyleFiltersApi {
       filterRelationshipDesires: (json['filterRelationshipDesires'] as List).cast<String>(),
       filterSharedInterestsOnly: json['filterSharedInterestsOnly'] as bool,
       filterVerifiedOnly: json['filterVerifiedOnly'] as bool,
+      filterCommunityGroups: (json['filterCommunityGroups'] as List).cast<String>(),
     );
   }
 

@@ -7,7 +7,12 @@ import 'package:mobile/profile/lifestyle_filters_api.dart';
 http.Response _jsonResponse(String body, int status) =>
     http.Response(body, status, headers: {'content-type': 'application/json'});
 
-String _fullFiltersJson({String relationshipGoals = '[]', bool verifiedOnly = false}) => '''
+String _fullFiltersJson({
+  String relationshipGoals = '[]',
+  bool verifiedOnly = false,
+  String communityGroups = '[]',
+}) =>
+    '''
 {
   "smokingHabit": null,
   "drinkingHabit": null,
@@ -29,7 +34,8 @@ String _fullFiltersJson({String relationshipGoals = '[]', bool verifiedOnly = fa
   "filterKinkTags": [],
   "filterRelationshipDesires": [],
   "filterSharedInterestsOnly": false,
-  "filterVerifiedOnly": $verifiedOnly
+  "filterVerifiedOnly": $verifiedOnly,
+  "filterCommunityGroups": $communityGroups
 }
 ''';
 
@@ -119,6 +125,7 @@ void main() {
         filterRelationshipDesires: const [],
         filterSharedInterestsOnly: false,
         filterVerifiedOnly: false,
+        filterCommunityGroups: const [],
       );
 
       expect(() => api.setFilters(filters), throwsA(isA<LifestyleFiltersApiException>()));
@@ -142,6 +149,28 @@ void main() {
 
       expect(putRequest!.body, contains('"filterVerifiedOnly":true'));
       expect(updated.filterVerifiedOnly, isTrue);
+    });
+
+    test('sends the updated filterCommunityGroups list', () async {
+      http.Request? putRequest;
+      final api = LifestyleFiltersApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          putRequest = request;
+          return _jsonResponse(_fullFiltersJson(communityGroups: '["book-lovers"]'), 200);
+        }),
+      );
+      final current = await LifestyleFiltersApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => _jsonResponse(_fullFiltersJson(), 200)),
+      ).fetchFilters();
+
+      final updated = await api.setFilters(
+        current.copyWith(filterCommunityGroups: ['book-lovers']),
+      );
+
+      expect(putRequest!.body, contains('"filterCommunityGroups":["book-lovers"]'));
+      expect(updated.filterCommunityGroups, ['book-lovers']);
     });
   });
 }
