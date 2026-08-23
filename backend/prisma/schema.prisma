@@ -491,6 +491,16 @@ model PersonalityProfile {
   @@map("personality_profiles")
 }
 
+model TopicQuizProfile {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  responses   Json
+  completedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("topic_quiz_profiles")
+}
+
 model CallSession {
   id                       String    @id @default(uuid())
   matchId                  String
