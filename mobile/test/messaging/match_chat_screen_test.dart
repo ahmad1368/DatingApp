@@ -768,6 +768,35 @@ void main() {
     expect(find.text("You've requested photo verification."), findsOneWidget);
   });
 
+  testWidgets("shows a banner when the other user has an active snooze status message", (
+    tester,
+  ) async {
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(_emptyMessages, 200, headers: {'content-type': 'application/json'});
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":null,"isExpired":false,'
+          '"firstMessageSent":true,"canSendFirstMessage":true,"canExtend":false,'
+          '"otherUserSnoozeStatusMessage":"On Vacation"}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchChatScreen(messagingApi: api, matchId: 'match-1', currentUserId: 'user-woman'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text("They're currently away: On Vacation"), findsOneWidget);
+  });
+
   testWidgets('records and sends a voice note', (tester) async {
     http.Request? sendRequest;
     final api = MessagingApi(

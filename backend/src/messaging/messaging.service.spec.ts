@@ -178,6 +178,32 @@ describe('MessagingService', () => {
 
       expect(status.canExtend).toBe(false);
     });
+
+    it("surfaces the other user's active snooze status message", async () => {
+      mockMatch();
+      prisma.user.findUnique.mockResolvedValue({
+        isVerified: false,
+        snoozedUntil: new Date(Date.now() + 60_000),
+        snoozeStatusMessage: 'On Vacation',
+      });
+
+      const status = await service.getMatchStatus(MAN_ID, MATCH_ID);
+
+      expect(status.otherUserSnoozeStatusMessage).toBe('On Vacation');
+    });
+
+    it('hides the status message once the snooze has expired', async () => {
+      mockMatch();
+      prisma.user.findUnique.mockResolvedValue({
+        isVerified: false,
+        snoozedUntil: new Date(Date.now() - 60_000),
+        snoozeStatusMessage: 'On Vacation',
+      });
+
+      const status = await service.getMatchStatus(MAN_ID, MATCH_ID);
+
+      expect(status.otherUserSnoozeStatusMessage).toBeNull();
+    });
   });
 
   describe('extendMatchTimeLimit', () => {

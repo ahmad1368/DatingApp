@@ -22,6 +22,7 @@ export interface MatchStatus {
   otherUserIsVerified: boolean;
   verificationRequested: boolean;
   verificationRequestedByMe: boolean;
+  otherUserSnoozeStatusMessage: string | null;
 }
 
 export interface IcebreakerView {
@@ -606,8 +607,10 @@ export class MessagingService {
     const otherUserId = match.userAId === userId ? match.userBId : match.userAId;
     const otherUser = await this.prisma.user.findUnique({
       where: { id: otherUserId },
-      select: { isVerified: true },
+      select: { isVerified: true, snoozedUntil: true, snoozeStatusMessage: true },
     });
+    const otherUserSnoozeIsActive =
+      otherUser?.snoozedUntil != null && otherUser.snoozedUntil.getTime() > now.getTime();
 
     return {
       matchId: match.id,
@@ -619,6 +622,7 @@ export class MessagingService {
       otherUserIsVerified: otherUser?.isVerified ?? false,
       verificationRequested: match.verificationRequestedAt != null,
       verificationRequestedByMe: match.verificationRequestedById === userId,
+      otherUserSnoozeStatusMessage: otherUserSnoozeIsActive ? otherUser!.snoozeStatusMessage : null,
     };
   }
 

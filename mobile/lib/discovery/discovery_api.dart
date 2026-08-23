@@ -55,6 +55,13 @@ class DeckCard {
   final int mutualConnectionCount;
 }
 
+class SnoozeStatus {
+  SnoozeStatus({this.snoozedUntil, this.statusMessage});
+
+  final DateTime? snoozedUntil;
+  final String? statusMessage;
+}
+
 class BoostStatus {
   BoostStatus({required this.active, this.expiresAt, required this.viewCount});
 
@@ -273,16 +280,19 @@ class DiscoveryApi {
   /// "Snooze"/travel mode: temporarily hides the user from other people's
   /// discovery decks and the daily picks feed without touching their
   /// existing swipes or matches. Pass `until` (ISO-8601) for a custom end
-  /// date, or omit it for the backend's default duration. Disabling always
-  /// succeeds; enabling with a past or too-far-future `until` throws
+  /// date, or omit it for the backend's default duration. [statusMessage]
+  /// is shown to matches in active chats while snoozed (e.g. "On
+  /// Vacation"). Disabling always succeeds and clears the status message;
+  /// enabling with a past or too-far-future `until` throws
   /// [DiscoveryApiException] (400).
-  Future<DateTime?> setSnoozeMode(bool enabled, {DateTime? until}) async {
+  Future<SnoozeStatus> setSnoozeMode(bool enabled, {DateTime? until, String? statusMessage}) async {
     final response = await _client.put(
       Uri.parse('$_baseUrl/discovery/snooze'),
       headers: _headers,
       body: jsonEncode({
         'enabled': enabled,
         if (until != null) 'until': until.toUtc().toIso8601String(),
+        'statusMessage': ?statusMessage,
       }),
     );
 
@@ -291,10 +301,10 @@ class DiscoveryApi {
       throw DiscoveryApiException(_errorMessage(body, response.statusCode));
     }
 
-    return _toSnoozedUntil(body);
+    return _toSnoozeStatus(body);
   }
 
-  Future<DateTime?> fetchSnoozeStatus() async {
+  Future<SnoozeStatus> fetchSnoozeStatus() async {
     final response = await _client.get(
       Uri.parse('$_baseUrl/discovery/snooze'),
       headers: _headers,
@@ -305,12 +315,15 @@ class DiscoveryApi {
       throw DiscoveryApiException(_errorMessage(body, response.statusCode));
     }
 
-    return _toSnoozedUntil(body);
+    return _toSnoozeStatus(body);
   }
 
-  DateTime? _toSnoozedUntil(Map<String, dynamic> json) {
+  SnoozeStatus _toSnoozeStatus(Map<String, dynamic> json) {
     final snoozedUntil = json['snoozedUntil'];
-    return snoozedUntil != null ? DateTime.parse(snoozedUntil as String) : null;
+    return SnoozeStatus(
+      snoozedUntil: snoozedUntil != null ? DateTime.parse(snoozedUntil as String) : null,
+      statusMessage: json['statusMessage'] as String?,
+    );
   }
 
   BoostStatus _toBoostStatus(Map<String, dynamic> json) {

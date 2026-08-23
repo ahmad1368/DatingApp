@@ -250,6 +250,7 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
         otherUserIsVerified: _status?.otherUserIsVerified ?? false,
         verificationRequested: _status?.verificationRequested ?? false,
         verificationRequestedByMe: _status?.verificationRequestedByMe ?? false,
+        otherUserSnoozeStatusMessage: _status?.otherUserSnoozeStatusMessage,
       );
     });
   }
@@ -533,6 +534,14 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
                   Padding(
                     padding: const EdgeInsets.all(16),
                     child: Text(_lockedBanner!, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                if (_status?.otherUserSnoozeStatusMessage != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    child: Text(
+                      "They're currently away: ${_status!.otherUserSnoozeStatusMessage}",
+                      style: const TextStyle(fontStyle: FontStyle.italic, color: Colors.indigo),
+                    ),
                   ),
                 if (_status?.canExtend ?? false)
                   Padding(

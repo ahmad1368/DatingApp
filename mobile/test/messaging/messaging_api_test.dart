@@ -76,6 +76,25 @@ void main() {
 
       expect(() => api.fetchMatchStatus('missing'), throwsA(isA<MessagingApiException>()));
     });
+
+    test("parses the other user's snooze status message when present", () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '{"matchId":"match-1","expiresAt":null,'
+            '"isExpired":false,"firstMessageSent":true,"canSendFirstMessage":true,'
+            '"canExtend":false,"otherUserSnoozeStatusMessage":"On Vacation"}',
+            200,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      final status = await api.fetchMatchStatus('match-1');
+
+      expect(status.otherUserSnoozeStatusMessage, 'On Vacation');
+    });
   });
 
   group('MessagingApi.extendMatchTimeLimit', () {

@@ -1,4 +1,4 @@
-import { IsBoolean, IsISO8601, IsOptional } from 'class-validator';
+import { IsBoolean, IsISO8601, IsOptional, IsString, Length } from 'class-validator';
 
 export class SetSnoozeModeDto {
   @IsBoolean()
@@ -7,4 +7,10 @@ export class SetSnoozeModeDto {
   @IsOptional()
   @IsISO8601()
   until?: string;
+
+  /** Shown to matches in active chats while snoozed, e.g. "On Vacation". */
+  @IsOptional()
+  @IsString()
+  @Length(1, 100)
+  statusMessage?: string;
 }

@@ -66,7 +66,7 @@ export class DiscoveryController {
   @Put('snooze')
   @HttpCode(HttpStatus.OK)
   setSnoozeMode(@CurrentUser() user: AuthenticatedUser, @Body() dto: SetSnoozeModeDto) {
-    return this.discoveryService.setSnoozeMode(user.id, dto.enabled, dto.until);
+    return this.discoveryService.setSnoozeMode(user.id, dto.enabled, dto.until, dto.statusMessage);
   }
 
   @Get('snooze')
