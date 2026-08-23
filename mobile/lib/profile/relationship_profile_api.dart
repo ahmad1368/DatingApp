@@ -33,6 +33,8 @@ class RelationshipProfileResult {
     required this.showRelationshipDesiresOnProfile,
     this.customRelationshipIntent,
     required this.showCustomRelationshipIntentOnProfile,
+    this.communicationBoundaries,
+    required this.showCommunicationBoundariesOnProfile,
   });
 
   final String? relationshipStructure;
@@ -43,6 +45,8 @@ class RelationshipProfileResult {
   final bool showRelationshipDesiresOnProfile;
   final String? customRelationshipIntent;
   final bool showCustomRelationshipIntentOnProfile;
+  final String? communicationBoundaries;
+  final bool showCommunicationBoundariesOnProfile;
 }
 
 /// Talks to the backend's relationship-profile endpoints ("relationship
@@ -95,6 +99,8 @@ class RelationshipProfileApi {
     required bool showRelationshipDesiresOnProfile,
     String? customRelationshipIntent,
     required bool showCustomRelationshipIntentOnProfile,
+    String? communicationBoundaries,
+    required bool showCommunicationBoundariesOnProfile,
   }) async {
     final response = await _client.put(
       Uri.parse('$_baseUrl/profile/relationship'),
@@ -108,6 +114,8 @@ class RelationshipProfileApi {
         'showRelationshipDesiresOnProfile': showRelationshipDesiresOnProfile,
         'customRelationshipIntent': ?customRelationshipIntent,
         'showCustomRelationshipIntentOnProfile': showCustomRelationshipIntentOnProfile,
+        'communicationBoundaries': ?communicationBoundaries,
+        'showCommunicationBoundariesOnProfile': showCommunicationBoundariesOnProfile,
       }),
     );
 
@@ -129,6 +137,8 @@ class RelationshipProfileApi {
       showRelationshipDesiresOnProfile: body['showRelationshipDesiresOnProfile'] as bool,
       customRelationshipIntent: body['customRelationshipIntent'] as String?,
       showCustomRelationshipIntentOnProfile: body['showCustomRelationshipIntentOnProfile'] as bool,
+      communicationBoundaries: body['communicationBoundaries'] as String?,
+      showCommunicationBoundariesOnProfile: body['showCommunicationBoundariesOnProfile'] as bool,
     );
   }
 

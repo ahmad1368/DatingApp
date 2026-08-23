@@ -13,7 +13,8 @@ const _emptyProfileResponse =
     '{"relationshipStructure":null,"showRelationshipStructureOnProfile":true,'
     '"kinkTags":[],"showKinkTagsOnProfile":true,"relationshipDesires":[],'
     '"showRelationshipDesiresOnProfile":true,"customRelationshipIntent":null,'
-    '"showCustomRelationshipIntentOnProfile":true}';
+    '"showCustomRelationshipIntentOnProfile":true,"communicationBoundaries":null,'
+    '"showCommunicationBoundariesOnProfile":true}';
 
 void main() {
   testWidgets('selecting a desire badge and saving submits the payload', (tester) async {
@@ -52,7 +53,8 @@ void main() {
     await tester.pump();
     await tester.tap(find.widgetWithText(ChoiceChip, 'Monogamous'));
     await tester.pump();
-    await tester.enterText(find.byType(TextField), 'Open to relocating');
+    await tester.enterText(find.byType(TextField).first, 'Open to relocating');
+    await tester.enterText(find.byType(TextField).last, 'No calls before 9am');
 
     await tester.tap(find.widgetWithText(ElevatedButton, 'Save'));
     await tester.pumpAndSettle();
@@ -62,6 +64,7 @@ void main() {
     expect(putRequest!.body, contains('"relationshipDesires":["Marriage"]'));
     expect(putRequest!.body, contains('"relationshipStructure":"Monogamous"'));
     expect(putRequest!.body, contains('"customRelationshipIntent":"Open to relocating"'));
+    expect(putRequest!.body, contains('"communicationBoundaries":"No calls before 9am"'));
     expect(find.text('Saved.'), findsOneWidget);
   });
 
@@ -81,7 +84,9 @@ void main() {
           '{"relationshipStructure":"Polyamorous","showRelationshipStructureOnProfile":false,'
           '"kinkTags":["BDSM"],"showKinkTagsOnProfile":true,"relationshipDesires":["Marriage"],'
           '"showRelationshipDesiresOnProfile":true,"customRelationshipIntent":"Long distance ok",'
-          '"showCustomRelationshipIntentOnProfile":true}',
+          '"showCustomRelationshipIntentOnProfile":true,'
+          '"communicationBoundaries":"No calls before 9am",'
+          '"showCommunicationBoundariesOnProfile":true}',
           200,
           headers: {'content-type': 'application/json'},
         );
@@ -100,5 +105,6 @@ void main() {
       isTrue,
     );
     expect(find.text('Long distance ok'), findsOneWidget);
+    expect(find.text('No calls before 9am'), findsOneWidget);
   });
 }

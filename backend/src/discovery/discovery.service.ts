@@ -42,6 +42,7 @@ export interface DeckCard {
   complimentText: string | null;
   complimentTarget: string | null;
   mutualConnectionCount: number;
+  communicationBoundaries: string | null;
 }
 
 export interface SwipeResult {
@@ -337,6 +338,8 @@ export class DiscoveryService {
       showRelationshipDesiresOnProfile: boolean;
       customRelationshipIntent: string | null;
       showCustomRelationshipIntentOnProfile: boolean;
+      communicationBoundaries: string | null;
+      showCommunicationBoundariesOnProfile: boolean;
       heightCm: number | null;
       workoutHabit: string | null;
       petOwnership: string | null;
@@ -392,6 +395,9 @@ export class DiscoveryService {
       complimentText: flags.complimentText,
       complimentTarget: flags.complimentTarget,
       mutualConnectionCount: flags.mutualConnectionCount,
+      communicationBoundaries: candidate.showCommunicationBoundariesOnProfile
+        ? candidate.communicationBoundaries
+        : null,
     };
   }
 

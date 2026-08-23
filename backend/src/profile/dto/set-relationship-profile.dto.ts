@@ -1,6 +1,7 @@
 import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsOptional, IsString, Length } from 'class-validator';
 import {
   KINK_TAGS,
+  MAX_COMMUNICATION_BOUNDARIES_LENGTH,
   MAX_CUSTOM_RELATIONSHIP_INTENT_LENGTH,
   MAX_KINK_TAG_SELECTIONS,
   MAX_RELATIONSHIP_DESIRE_SELECTIONS,
@@ -39,4 +40,12 @@ export class SetRelationshipProfileDto {
 
   @IsBoolean()
   showCustomRelationshipIntentOnProfile!: boolean;
+
+  @IsOptional()
+  @IsString()
+  @Length(1, MAX_COMMUNICATION_BOUNDARIES_LENGTH)
+  communicationBoundaries?: string;
+
+  @IsBoolean()
+  showCommunicationBoundariesOnProfile!: boolean;
 }

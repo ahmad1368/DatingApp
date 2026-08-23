@@ -420,6 +420,35 @@ void main() {
     expect(find.text('Long-Term Relationship'), findsOneWidget);
   });
 
+  testWidgets('shows communication boundaries when the candidate shares them', (tester) async {
+    const boundariesDeckResponse =
+        '[{"id":"user-2","name":"Jane","age":25,"profilePhotoUrl":null,'
+        '"distanceKm":3.4,"interests":["Hiking"],"relationshipGoal":"CASUAL",'
+        '"communicationBoundaries":"Texting only until we meet"}]';
+    final api = DiscoveryApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/discovery/deck') {
+          return http.Response(
+            boundariesDeckResponse,
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"active":false,"expiresAt":null,"viewCount":0}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: SwipeDeckScreen(discoveryApi: api)));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Texting only until we meet'), findsOneWidget);
+  });
+
   testWidgets('shows lifestyle badges when the candidate has them', (tester) async {
     const badgedDeckResponse =
         '[{"id":"user-2","name":"Jane","age":25,"profilePhotoUrl":null,'

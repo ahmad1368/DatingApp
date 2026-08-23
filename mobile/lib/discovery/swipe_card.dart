@@ -207,6 +207,15 @@ class _CardContent extends StatelessWidget {
                   ],
                 ),
               ],
+              if (card.communicationBoundaries != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  card.communicationBoundaries!,
+                  style: const TextStyle(fontStyle: FontStyle.italic),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
               if (card.lifestyleBadges.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Wrap(
