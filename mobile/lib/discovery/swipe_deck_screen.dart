@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../safety/screen_security_api.dart';
+import '../safety/screen_security_channel.dart';
 import 'discovery_api.dart';
 import 'liked_by_grid_screen.dart';
 import 'profile_visitors_screen.dart';
@@ -7,12 +9,22 @@ import 'profile_visits_api.dart';
 import 'swipe_card.dart';
 
 class SwipeDeckScreen extends StatefulWidget {
-  SwipeDeckScreen({super.key, required this.discoveryApi, ProfileVisitsApi? profileVisitsApi})
-      : profileVisitsApi =
-            profileVisitsApi ?? ProfileVisitsApi(accessToken: discoveryApi.accessToken);
+  SwipeDeckScreen({
+    super.key,
+    required this.discoveryApi,
+    ProfileVisitsApi? profileVisitsApi,
+    ScreenSecurityChannel? screenSecurityChannel,
+    ScreenSecurityApi? screenSecurityApi,
+  })  : profileVisitsApi =
+            profileVisitsApi ?? ProfileVisitsApi(accessToken: discoveryApi.accessToken),
+        screenSecurityChannel = screenSecurityChannel ?? ScreenSecurityChannel(),
+        screenSecurityApi =
+            screenSecurityApi ?? ScreenSecurityApi(accessToken: discoveryApi.accessToken);
 
   final DiscoveryApi discoveryApi;
   final ProfileVisitsApi profileVisitsApi;
+  final ScreenSecurityChannel screenSecurityChannel;
+  final ScreenSecurityApi screenSecurityApi;
 
   @override
   State<SwipeDeckScreen> createState() => _SwipeDeckScreenState();
@@ -32,9 +44,32 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
   @override
   void initState() {
     super.initState();
+    widget.screenSecurityChannel.onScreenshotDetected = _handleScreenshotDetected;
+    widget.screenSecurityChannel.setSecure(true);
     _loadDeck();
     _loadBoostStatus();
     _loadSnoozeStatus();
+  }
+
+  @override
+  void dispose() {
+    widget.screenSecurityChannel.setSecure(false);
+    super.dispose();
+  }
+
+  /// Fires when the OS reports a screenshot was taken while browsing
+  /// profiles (Android blocks captures outright via `FLAG_SECURE`, so this
+  /// only fires on iOS).
+  Future<void> _handleScreenshotDetected() async {
+    try {
+      final result = await widget.screenSecurityApi.reportViolation('PROFILE');
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result.warning)));
+    } on ScreenSecurityApiException {
+      // Best-effort reporting; don't block browsing if this fails.
+    }
   }
 
   Future<void> _loadBoostStatus() async {

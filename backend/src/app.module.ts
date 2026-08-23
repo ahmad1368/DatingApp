@@ -26,6 +26,7 @@ import { VaultModule } from './vault/vault.module';
 import { EventsModule } from './events/events.module';
 import { ProfilePhotosModule } from './profile-photos/profile-photos.module';
 import { RelationshipCoachModule } from './relationship-coach/relationship-coach.module';
+import { ScreenSecurityModule } from './screen-security/screen-security.module';
 
 @Module({
   imports: [
@@ -56,6 +57,7 @@ import { RelationshipCoachModule } from './relationship-coach/relationship-coach
     EventsModule,
     ProfilePhotosModule,
     RelationshipCoachModule,
+    ScreenSecurityModule,
   ],
 })
 export class AppModule {}
