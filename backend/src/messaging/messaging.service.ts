@@ -54,6 +54,11 @@ export interface ReadReceiptsResult {
   readReceiptsEnabled: boolean;
 }
 
+export interface MatchNoteView {
+  content: string | null;
+  updatedAt: string | null;
+}
+
 export interface ReconnectableMatchView {
   dissolvedMatchId: string;
   otherUserId: string;
@@ -99,6 +104,43 @@ export class MessagingService {
   async getMatchStatus(userId: string, matchId: string): Promise<MatchStatus> {
     const match = await this.getMatchForUser(userId, matchId);
     return this.toMatchStatus(userId, match);
+  }
+
+  async getMatchNote(userId: string, matchId: string): Promise<MatchNoteView> {
+    await this.getMatchForUser(userId, matchId);
+
+    const note = await this.prisma.matchNote.findUnique({
+      where: { userId_matchId: { userId, matchId } },
+    });
+
+    return {
+      content: note?.content ?? null,
+      updatedAt: note ? note.updatedAt.toISOString() : null,
+    };
+  }
+
+  /**
+   * A private per-user note about a match (conversation details, date
+   * plans) - visible only to whoever wrote it, never shared with the other
+   * side. Saving blank content deletes the note instead of keeping an
+   * empty row around.
+   */
+  async setMatchNote(userId: string, matchId: string, content: string): Promise<MatchNoteView> {
+    await this.getMatchForUser(userId, matchId);
+
+    const trimmed = content.trim();
+    if (trimmed.length === 0) {
+      await this.prisma.matchNote.deleteMany({ where: { userId, matchId } });
+      return { content: null, updatedAt: null };
+    }
+
+    const note = await this.prisma.matchNote.upsert({
+      where: { userId_matchId: { userId, matchId } },
+      create: { userId, matchId, content: trimmed },
+      update: { content: trimmed },
+    });
+
+    return { content: note.content, updatedAt: note.updatedAt.toISOString() };
   }
 
   /**

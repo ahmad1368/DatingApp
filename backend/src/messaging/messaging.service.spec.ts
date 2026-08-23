@@ -33,6 +33,7 @@ describe('MessagingService', () => {
     icebreakerResponse: { findMany: jest.Mock; upsert: jest.Mock };
     swipe: { deleteMany: jest.Mock };
     dissolvedMatch: { findMany: jest.Mock; findUnique: jest.Mock; create: jest.Mock; delete: jest.Mock };
+    matchNote: { findUnique: jest.Mock; upsert: jest.Mock; deleteMany: jest.Mock };
     $transaction: jest.Mock;
   };
   let imageModerator: { moderate: jest.Mock };
@@ -64,6 +65,7 @@ describe('MessagingService', () => {
         create: jest.fn(),
         delete: jest.fn(),
       },
+      matchNote: { findUnique: jest.fn(), upsert: jest.fn(), deleteMany: jest.fn() },
       $transaction: jest.fn((ops: unknown[]) => Promise.all(ops)),
     };
     service = new MessagingService(
@@ -209,6 +211,79 @@ describe('MessagingService', () => {
       const status = await service.getMatchStatus(MAN_ID, MATCH_ID);
 
       expect(status.otherUserSnoozeStatusMessage).toBeNull();
+    });
+  });
+
+  describe('getMatchNote', () => {
+    it('throws when the user is not part of the match', async () => {
+      mockMatch();
+
+      await expect(service.getMatchNote('stranger', MATCH_ID)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+
+    it('returns null content when no note has been saved yet', async () => {
+      mockMatch();
+      prisma.matchNote.findUnique.mockResolvedValue(null);
+
+      const note = await service.getMatchNote(WOMAN_ID, MATCH_ID);
+
+      expect(note).toEqual({ content: null, updatedAt: null });
+    });
+
+    it('returns the saved note', async () => {
+      mockMatch();
+      prisma.matchNote.findUnique.mockResolvedValue({
+        content: 'Loves hiking, mentioned a trip to Peru.',
+        updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const note = await service.getMatchNote(WOMAN_ID, MATCH_ID);
+
+      expect(note).toEqual({
+        content: 'Loves hiking, mentioned a trip to Peru.',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      });
+    });
+  });
+
+  describe('setMatchNote', () => {
+    it('throws when the user is not part of the match', async () => {
+      mockMatch();
+
+      await expect(
+        service.setMatchNote('stranger', MATCH_ID, 'some note'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('upserts a trimmed note', async () => {
+      mockMatch();
+      prisma.matchNote.upsert.mockResolvedValue({
+        content: 'Loves hiking',
+        updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const note = await service.setMatchNote(WOMAN_ID, MATCH_ID, '  Loves hiking  ');
+
+      expect(prisma.matchNote.upsert).toHaveBeenCalledWith({
+        where: { userId_matchId: { userId: WOMAN_ID, matchId: MATCH_ID } },
+        create: { userId: WOMAN_ID, matchId: MATCH_ID, content: 'Loves hiking' },
+        update: { content: 'Loves hiking' },
+      });
+      expect(note).toEqual({ content: 'Loves hiking', updatedAt: '2026-01-01T00:00:00.000Z' });
+    });
+
+    it('deletes the note instead of storing blank content', async () => {
+      mockMatch();
+
+      const note = await service.setMatchNote(WOMAN_ID, MATCH_ID, '   ');
+
+      expect(prisma.matchNote.deleteMany).toHaveBeenCalledWith({
+        where: { userId: WOMAN_ID, matchId: MATCH_ID },
+      });
+      expect(prisma.matchNote.upsert).not.toHaveBeenCalled();
+      expect(note).toEqual({ content: null, updatedAt: null });
     });
   });
 
