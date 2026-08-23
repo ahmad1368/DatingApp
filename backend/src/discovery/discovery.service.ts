@@ -68,6 +68,7 @@ export interface ActiveModeResult {
 
 export interface SnoozeResult {
   snoozedUntil: string | null;
+  statusMessage: string | null;
 }
 
 @Injectable()
@@ -635,18 +636,23 @@ export class DiscoveryService {
    * CuratedProfilesService) without touching their existing swipes or
    * matches, so a paused user can still message and browse normally.
    */
-  async setSnoozeMode(userId: string, enabled: boolean, until?: string): Promise<SnoozeResult> {
+  async setSnoozeMode(
+    userId: string,
+    enabled: boolean,
+    until?: string,
+    statusMessage?: string,
+  ): Promise<SnoozeResult> {
     const currentUser = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!currentUser) {
       throw new NotFoundException('User not found.');
     }
 
     if (!enabled) {
-      const updated = await this.prisma.user.update({
+      await this.prisma.user.update({
         where: { id: userId },
-        data: { snoozedUntil: null },
+        data: { snoozedUntil: null, snoozeStatusMessage: null },
       });
-      return { snoozedUntil: updated.snoozedUntil?.toISOString() ?? null };
+      return { snoozedUntil: null, statusMessage: null };
     }
 
     const now = new Date();
@@ -660,10 +666,13 @@ export class DiscoveryService {
 
     const updated = await this.prisma.user.update({
       where: { id: userId },
-      data: { snoozedUntil },
+      data: { snoozedUntil, snoozeStatusMessage: statusMessage ?? null },
     });
 
-    return { snoozedUntil: updated.snoozedUntil ? updated.snoozedUntil.toISOString() : null };
+    return {
+      snoozedUntil: updated.snoozedUntil ? updated.snoozedUntil.toISOString() : null,
+      statusMessage: updated.snoozeStatusMessage,
+    };
   }
 
   async getSnoozeStatus(userId: string): Promise<SnoozeResult> {
@@ -673,7 +682,10 @@ export class DiscoveryService {
     }
 
     const isActive = currentUser.snoozedUntil != null && currentUser.snoozedUntil.getTime() > Date.now();
-    return { snoozedUntil: isActive && currentUser.snoozedUntil ? currentUser.snoozedUntil.toISOString() : null };
+    return {
+      snoozedUntil: isActive && currentUser.snoozedUntil ? currentUser.snoozedUntil.toISOString() : null,
+      statusMessage: isActive ? currentUser.snoozeStatusMessage : null,
+    };
   }
 
   /**

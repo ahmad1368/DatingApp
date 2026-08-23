@@ -80,6 +80,7 @@ model User {
   incognitoEnabled                      Boolean   @default(false)
   activeMode                            String    @default("DATING")
   snoozedUntil                          DateTime?
+  snoozeStatusMessage                   String?
   readReceiptsEnabled                   Boolean   @default(true)
   instagramUserId                       String?
   instagramAccessToken                  String?

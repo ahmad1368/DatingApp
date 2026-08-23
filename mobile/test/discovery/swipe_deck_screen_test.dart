@@ -732,7 +732,9 @@ void main() {
     expect(deckCallCount, 2);
   });
 
-  testWidgets('toggling snooze shows the banner and colors the icon', (tester) async {
+  testWidgets('toggling snooze prompts for a status message, shows the banner, and colors the icon', (
+    tester,
+  ) async {
     http.Request? snoozeRequest;
     final api = DiscoveryApi(
       accessToken: 'a-jwt',
@@ -743,7 +745,7 @@ void main() {
         if (request.method == 'PUT' && request.url.path == '/discovery/snooze') {
           snoozeRequest = request;
           return http.Response(
-            '{"snoozedUntil":"2026-01-08T00:00:00.000Z"}',
+            '{"snoozedUntil":"2026-01-08T00:00:00.000Z","statusMessage":"On Vacation"}',
             200,
             headers: {'content-type': 'application/json'},
           );
@@ -769,9 +771,15 @@ void main() {
     await tester.tap(find.byIcon(Icons.bedtime));
     await tester.pumpAndSettle();
 
+    expect(find.text('Pause discovery'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'On Vacation');
+    await tester.tap(find.widgetWithText(TextButton, 'Snooze'));
+    await tester.pumpAndSettle();
+
     expect(snoozeRequest, isNotNull);
-    expect(snoozeRequest!.body, '{"enabled":true}');
+    expect(snoozeRequest!.body, '{"enabled":true,"statusMessage":"On Vacation"}');
     expect(find.textContaining("You're snoozed until"), findsOneWidget);
+    expect(find.textContaining('On Vacation'), findsOneWidget);
 
     final button = tester.widget<IconButton>(
       find.ancestor(of: find.byIcon(Icons.bedtime), matching: find.byType(IconButton)),

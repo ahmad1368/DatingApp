@@ -519,9 +519,9 @@ void main() {
         }),
       );
 
-      final snoozedUntil = await api.setSnoozeMode(true, until: until);
+      final status = await api.setSnoozeMode(true, until: until);
 
-      expect(snoozedUntil, until);
+      expect(status.snoozedUntil, until);
     });
 
     test('enabling without an until omits it from the body', () async {
@@ -540,6 +540,24 @@ void main() {
       await api.setSnoozeMode(true);
     });
 
+    test('enabling with a status message includes it and parses it back', () async {
+      final api = DiscoveryApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.body, '{"enabled":true,"statusMessage":"On Vacation"}');
+          return http.Response(
+            '{"snoozedUntil":"2026-01-08T00:00:00.000Z","statusMessage":"On Vacation"}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final status = await api.setSnoozeMode(true, statusMessage: 'On Vacation');
+
+      expect(status.statusMessage, 'On Vacation');
+    });
+
     test('disabling sends enabled:false and parses a null snoozedUntil', () async {
       final api = DiscoveryApi(
         accessToken: 'a-jwt',
@@ -553,9 +571,9 @@ void main() {
         }),
       );
 
-      final snoozedUntil = await api.setSnoozeMode(false);
+      final status = await api.setSnoozeMode(false);
 
-      expect(snoozedUntil, isNull);
+      expect(status.snoozedUntil, isNull);
     });
 
     test('throws DiscoveryApiException when the end date is invalid', () async {
@@ -589,26 +607,27 @@ void main() {
         }),
       );
 
-      final snoozedUntil = await api.fetchSnoozeStatus();
+      final status = await api.fetchSnoozeStatus();
 
-      expect(snoozedUntil, isNull);
+      expect(status.snoozedUntil, isNull);
     });
 
-    test('parses an active snooze', () async {
+    test('parses an active snooze with its status message', () async {
       final api = DiscoveryApi(
         accessToken: 'a-jwt',
         client: MockClient(
           (request) async => http.Response(
-            '{"snoozedUntil":"2026-01-08T00:00:00.000Z"}',
+            '{"snoozedUntil":"2026-01-08T00:00:00.000Z","statusMessage":"On Vacation"}',
             200,
             headers: {'content-type': 'application/json'},
           ),
         ),
       );
 
-      final snoozedUntil = await api.fetchSnoozeStatus();
+      final status = await api.fetchSnoozeStatus();
 
-      expect(snoozedUntil, DateTime.utc(2026, 1, 8));
+      expect(status.snoozedUntil, DateTime.utc(2026, 1, 8));
+      expect(status.statusMessage, 'On Vacation');
     });
   });
 }

@@ -1295,22 +1295,24 @@ describe('DiscoveryService', () => {
       await expect(service.setSnoozeMode(USER_ID, true)).rejects.toBeInstanceOf(NotFoundException);
     });
 
-    it('clears the snooze when disabling', async () => {
+    it('clears the snooze and status message when disabling', async () => {
       prisma.user.findUnique.mockResolvedValue({ id: USER_ID });
-      prisma.user.update.mockResolvedValue({ snoozedUntil: null });
+      prisma.user.update.mockResolvedValue({ snoozedUntil: null, snoozeStatusMessage: null });
 
       const result = await service.setSnoozeMode(USER_ID, false);
 
       expect(prisma.user.update).toHaveBeenCalledWith({
         where: { id: USER_ID },
-        data: { snoozedUntil: null },
+        data: { snoozedUntil: null, snoozeStatusMessage: null },
       });
-      expect(result).toEqual({ snoozedUntil: null });
+      expect(result).toEqual({ snoozedUntil: null, statusMessage: null });
     });
 
     it('defaults to a 7-day snooze when no end date is given', async () => {
       prisma.user.findUnique.mockResolvedValue({ id: USER_ID });
-      prisma.user.update.mockImplementation(({ data }) => Promise.resolve({ snoozedUntil: data.snoozedUntil }));
+      prisma.user.update.mockImplementation(({ data }) =>
+        Promise.resolve({ snoozedUntil: data.snoozedUntil, snoozeStatusMessage: data.snoozeStatusMessage }),
+      );
 
       const result = await service.setSnoozeMode(USER_ID, true);
 
@@ -1320,20 +1322,37 @@ describe('DiscoveryService', () => {
       expect(daysAhead).toBeGreaterThan(6.9);
       expect(daysAhead).toBeLessThan(7.1);
       expect(result.snoozedUntil).toBe(snoozedUntil.toISOString());
+      expect(result.statusMessage).toBeNull();
     });
 
     it('snoozes until the given date when provided', async () => {
       prisma.user.findUnique.mockResolvedValue({ id: USER_ID });
       const until = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString();
-      prisma.user.update.mockImplementation(({ data }) => Promise.resolve({ snoozedUntil: data.snoozedUntil }));
+      prisma.user.update.mockImplementation(({ data }) =>
+        Promise.resolve({ snoozedUntil: data.snoozedUntil, snoozeStatusMessage: data.snoozeStatusMessage }),
+      );
 
       const result = await service.setSnoozeMode(USER_ID, true, until);
 
       expect(prisma.user.update).toHaveBeenCalledWith({
         where: { id: USER_ID },
-        data: { snoozedUntil: new Date(until) },
+        data: { snoozedUntil: new Date(until), snoozeStatusMessage: null },
       });
       expect(result.snoozedUntil).toBe(until);
+    });
+
+    it('stores a custom out-of-office status message when snoozing', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: USER_ID });
+      prisma.user.update.mockImplementation(({ data }) =>
+        Promise.resolve({ snoozedUntil: data.snoozedUntil, snoozeStatusMessage: data.snoozeStatusMessage }),
+      );
+
+      const result = await service.setSnoozeMode(USER_ID, true, undefined, 'On Vacation');
+
+      expect(prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ snoozeStatusMessage: 'On Vacation' }) }),
+      );
+      expect(result.statusMessage).toBe('On Vacation');
     });
 
     it('rejects an end date that is not in the future', async () => {
@@ -1363,29 +1382,41 @@ describe('DiscoveryService', () => {
     });
 
     it('reports null when there is no active snooze', async () => {
-      prisma.user.findUnique.mockResolvedValue({ id: USER_ID, snoozedUntil: null });
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        snoozedUntil: null,
+        snoozeStatusMessage: null,
+      });
 
       const result = await service.getSnoozeStatus(USER_ID);
 
-      expect(result).toEqual({ snoozedUntil: null });
+      expect(result).toEqual({ snoozedUntil: null, statusMessage: null });
     });
 
-    it('reports the active snooze end date', async () => {
+    it('reports the active snooze end date and status message', async () => {
       const snoozedUntil = new Date(Date.now() + 60_000);
-      prisma.user.findUnique.mockResolvedValue({ id: USER_ID, snoozedUntil });
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        snoozedUntil,
+        snoozeStatusMessage: 'On Vacation',
+      });
 
       const result = await service.getSnoozeStatus(USER_ID);
 
-      expect(result).toEqual({ snoozedUntil: snoozedUntil.toISOString() });
+      expect(result).toEqual({ snoozedUntil: snoozedUntil.toISOString(), statusMessage: 'On Vacation' });
     });
 
-    it('treats an expired snooze as inactive', async () => {
+    it('treats an expired snooze as inactive and hides the status message', async () => {
       const expired = new Date(Date.now() - 60_000);
-      prisma.user.findUnique.mockResolvedValue({ id: USER_ID, snoozedUntil: expired });
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        snoozedUntil: expired,
+        snoozeStatusMessage: 'On Vacation',
+      });
 
       const result = await service.getSnoozeStatus(USER_ID);
 
-      expect(result).toEqual({ snoozedUntil: null });
+      expect(result).toEqual({ snoozedUntil: null, statusMessage: null });
     });
   });
 });

@@ -40,6 +40,7 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
   BoostStatus? _boostStatus;
   String _activeMode = 'DATING';
   DateTime? _snoozedUntil;
+  String? _snoozeStatusMessage;
 
   @override
   void initState() {
@@ -85,9 +86,12 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
 
   Future<void> _loadSnoozeStatus() async {
     try {
-      final snoozedUntil = await widget.discoveryApi.fetchSnoozeStatus();
+      final status = await widget.discoveryApi.fetchSnoozeStatus();
       if (mounted) {
-        setState(() => _snoozedUntil = snoozedUntil);
+        setState(() {
+          _snoozedUntil = status.snoozedUntil;
+          _snoozeStatusMessage = status.statusMessage;
+        });
       }
     } catch (_) {
       // Non-critical: leave the snooze banner hidden if this fails.
@@ -207,13 +211,54 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
   }
 
   Future<void> _toggleSnooze() async {
+    final enabling = _snoozedUntil == null;
+    String? statusMessage;
+    if (enabling) {
+      statusMessage = await _promptForSnoozeStatusMessage();
+      if (statusMessage == null) {
+        return;
+      }
+    }
+
     setState(() => _errorText = null);
     try {
-      final snoozedUntil = await widget.discoveryApi.setSnoozeMode(_snoozedUntil == null);
-      setState(() => _snoozedUntil = snoozedUntil);
+      final status = await widget.discoveryApi.setSnoozeMode(
+        enabling,
+        statusMessage: (statusMessage != null && statusMessage.isNotEmpty) ? statusMessage : null,
+      );
+      setState(() {
+        _snoozedUntil = status.snoozedUntil;
+        _snoozeStatusMessage = status.statusMessage;
+      });
     } on DiscoveryApiException catch (e) {
       setState(() => _errorText = e.message);
     }
+  }
+
+  Future<String?> _promptForSnoozeStatusMessage() {
+    final controller = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Pause discovery'),
+        content: TextField(
+          controller: controller,
+          maxLength: 100,
+          decoration: const InputDecoration(
+            labelText: 'Status message (optional)',
+            hintText: 'On Vacation',
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+            child: const Text('Snooze'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _switchMode(String mode) async {
@@ -332,7 +377,9 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
             Padding(
               padding: const EdgeInsets.all(16),
               child: Text(
-                "You're snoozed until ${_snoozedUntil!.toLocal()}. Hidden from new matches.",
+                _snoozeStatusMessage != null
+                    ? "You're snoozed until ${_snoozedUntil!.toLocal()} - $_snoozeStatusMessage"
+                    : "You're snoozed until ${_snoozedUntil!.toLocal()}. Hidden from new matches.",
                 style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.indigo),
               ),
             ),

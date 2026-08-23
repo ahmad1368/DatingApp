@@ -22,6 +22,7 @@ class MatchStatus {
     this.otherUserIsVerified = false,
     this.verificationRequested = false,
     this.verificationRequestedByMe = false,
+    this.otherUserSnoozeStatusMessage,
   });
 
   final String matchId;
@@ -33,6 +34,7 @@ class MatchStatus {
   final bool otherUserIsVerified;
   final bool verificationRequested;
   final bool verificationRequestedByMe;
+  final String? otherUserSnoozeStatusMessage;
 }
 
 class MatchSummary {
@@ -294,6 +296,7 @@ class MessagingApi {
       otherUserIsVerified: body['otherUserIsVerified'] as bool? ?? false,
       verificationRequested: body['verificationRequested'] as bool? ?? false,
       verificationRequestedByMe: body['verificationRequestedByMe'] as bool? ?? false,
+      otherUserSnoozeStatusMessage: body['otherUserSnoozeStatusMessage'] as String?,
     );
   }
 
