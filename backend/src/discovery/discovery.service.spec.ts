@@ -33,7 +33,7 @@ describe('DiscoveryService', () => {
     prisma = {
       user: { findUnique: jest.fn(), findMany: jest.fn(), update: jest.fn() },
       swipe: {
-        findMany: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
         findUnique: jest.fn(),
         findFirst: jest.fn(),
         create: jest.fn(),
@@ -126,7 +126,7 @@ describe('DiscoveryService', () => {
             { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
           ],
         },
-        take: 20,
+        take: 60,
       });
       expect(deck).toHaveLength(1);
       expect(deck[0].id).toBe(TARGET_ID);
@@ -576,7 +576,7 @@ describe('DiscoveryService', () => {
           education: { in: ['Bachelors', 'Masters'] },
           relationshipGoal: { in: ['LONG_TERM'] },
         },
-        take: 20,
+        take: 60,
       });
     });
 
@@ -610,7 +610,7 @@ describe('DiscoveryService', () => {
           kinkTags: { hasSome: ['BDSM', 'Roleplay'] },
           relationshipDesires: { hasSome: ['Long-Term Relationship'] },
         },
-        take: 20,
+        take: 60,
       });
     });
 
@@ -780,6 +780,58 @@ describe('DiscoveryService', () => {
       expect(deck[0].sharedInterests).toEqual(['Hiking']);
     });
 
+    it('ranks the remaining candidate pool closer-first when no one has recent engagement', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: 0,
+        longitude: 0,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+      });
+      prisma.swipe.findMany
+        .mockResolvedValueOnce([]) // not swiped on anyone yet
+        .mockResolvedValueOnce([]) // no likers
+        .mockResolvedValueOnce([]); // no recent right-swipes on anyone
+      prisma.user.findMany.mockResolvedValue([
+        { id: 'far-away', name: 'Far', dateOfBirth: null, profilePhotoUrl: null, interests: [], relationshipGoal: null, latitude: 10, longitude: 10 },
+        { id: 'nearby', name: 'Near', dateOfBirth: null, profilePhotoUrl: null, interests: [], relationshipGoal: null, latitude: 0.01, longitude: 0 },
+      ]);
+
+      const deck = await service.getDeck(USER_ID);
+
+      expect(deck.map((card) => card.id)).toEqual(['nearby', 'far-away']);
+    });
+
+    it('lets a recent right-swipe trend outweigh a small proximity gap', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: 0,
+        longitude: 0,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+      });
+      prisma.swipe.findMany
+        .mockResolvedValueOnce([]) // not swiped on anyone yet
+        .mockResolvedValueOnce([]) // no likers
+        .mockResolvedValueOnce(
+          Array.from({ length: 10 }, () => ({ targetUserId: 'trending' })),
+        ); // enough recent right-swipes to hit the trending bonus cap
+      prisma.user.findMany.mockResolvedValue([
+        { id: 'nearby', name: 'Near', dateOfBirth: null, profilePhotoUrl: null, interests: [], relationshipGoal: null, latitude: 0.1, longitude: 0 },
+        { id: 'trending', name: 'Trending', dateOfBirth: null, profilePhotoUrl: null, interests: [], relationshipGoal: null, latitude: 0.5, longitude: 0 },
+      ]);
+
+      const deck = await service.getDeck(USER_ID);
+
+      expect(deck.map((card) => card.id)).toEqual(['trending', 'nearby']);
+    });
+
     it('places super likers first and flags them as isSuperLike', async () => {
       prisma.user.findUnique.mockResolvedValue({
         id: USER_ID,
@@ -823,7 +875,7 @@ describe('DiscoveryService', () => {
             { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
           ],
         },
-        take: 19,
+        take: 60,
       });
       expect(deck.map((card) => card.id)).toEqual(['super-liker-1', 'other-user']);
       expect(deck[0].isSuperLike).toBe(true);
@@ -860,7 +912,7 @@ describe('DiscoveryService', () => {
             { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
           ],
         },
-        take: 20,
+        take: 60,
       });
     });
 
@@ -969,7 +1021,7 @@ describe('DiscoveryService', () => {
             { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
           ],
         },
-        take: 20,
+        take: 60,
       });
     });
 
@@ -1029,7 +1081,7 @@ describe('DiscoveryService', () => {
             { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
           ],
         },
-        take: 20,
+        take: 60,
       });
     });
   });
