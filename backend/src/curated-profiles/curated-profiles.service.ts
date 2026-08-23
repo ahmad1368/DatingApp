@@ -84,11 +84,23 @@ export class CuratedProfilesService {
     const blockedIds = await getBlockedUserIds(this.prisma, userId);
     const excludedIds = [userId, ...swipedTargetIds, ...blockedIds];
 
+    // Mirrors DiscoveryService.getDeck: an incognito user stays out of this
+    // curated batch too, unless they've already liked the viewer.
+    const likersOfMe = await this.prisma.swipe.findMany({
+      where: { targetUserId: userId, action: { in: LIKE_ACTIONS }, swiperId: { notIn: excludedIds } },
+      select: { swiperId: true },
+    });
+    const likedMeIds = likersOfMe.map((s) => s.swiperId);
+
+    const now = new Date();
     const candidates = await this.prisma.user.findMany({
       where: {
         id: { notIn: excludedIds },
         onboardingCompletedAt: { not: null },
-        OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: new Date() } }],
+        AND: [
+          { OR: [{ incognitoEnabled: false }, { id: { in: likedMeIds } }] },
+          { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: now } }] },
+        ],
       },
       take: CANDIDATE_POOL_SIZE,
       select: { id: true },
