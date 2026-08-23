@@ -5,6 +5,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Param,
   Post,
   Put,
   UseGuards,
@@ -28,6 +29,14 @@ export class SpotifyController {
   @Get()
   getConnection(@CurrentUser() user: AuthenticatedUser) {
     return this.spotifySyncService.getConnection(user.id);
+  }
+
+  @Get('compatibility/:otherUserId')
+  getMusicCompatibility(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('otherUserId') otherUserId: string,
+  ) {
+    return this.spotifySyncService.getMusicCompatibility(user.id, otherUserId);
   }
 
   @Post('callback')

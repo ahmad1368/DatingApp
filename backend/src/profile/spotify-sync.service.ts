@@ -1,4 +1,4 @@
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { SPOTIFY_CLIENT, SpotifyClient } from './interfaces/spotify-client.interface';
@@ -16,6 +16,11 @@ export interface SpotifyConnectionResult {
   topArtists: string[];
   anthem: SpotifyAnthemView | null;
   syncedAt: string | null;
+}
+
+export interface MusicCompatibilityResult {
+  percentage: number | null;
+  sharedArtists: string[];
 }
 
 interface SpotifyProfileRecord {
@@ -119,6 +124,44 @@ export class SpotifySyncService {
   async getConnection(userId: string): Promise<SpotifyConnectionResult> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     return this.toConnectionResult(user);
+  }
+
+  /**
+   * "Music personality" match: Jaccard similarity over each side's synced
+   * top-artist list (there's no genre or listening-habit data from Spotify
+   * synced anywhere in this codebase, only top artists - see syncTopArtists).
+   * Returns null when either side hasn't connected Spotify yet.
+   */
+  async getMusicCompatibility(
+    userId: string,
+    otherUserId: string,
+  ): Promise<MusicCompatibilityResult> {
+    if (userId === otherUserId) {
+      throw new BadRequestException('Cannot calculate music compatibility with yourself.');
+    }
+
+    const [mine, theirs] = await Promise.all([
+      this.prisma.user.findUnique({ where: { id: userId } }),
+      this.prisma.user.findUnique({ where: { id: otherUserId } }),
+    ]);
+    if (!theirs) {
+      throw new NotFoundException('User not found.');
+    }
+
+    const myArtists = mine?.spotifyTopArtists ?? [];
+    const theirArtists = theirs.spotifyTopArtists ?? [];
+    if (myArtists.length === 0 || theirArtists.length === 0) {
+      return { percentage: null, sharedArtists: [] };
+    }
+
+    const theirArtistSet = new Set(theirArtists);
+    const sharedArtists = myArtists.filter((artist) => theirArtistSet.has(artist));
+    const unionSize = new Set([...myArtists, ...theirArtists]).size;
+
+    return {
+      percentage: Math.round((sharedArtists.length / unionSize) * 100),
+      sharedArtists,
+    };
   }
 
   async disconnect(userId: string): Promise<SpotifyConnectionResult> {
