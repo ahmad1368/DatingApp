@@ -69,11 +69,19 @@ class SnoozeStatus {
 }
 
 class BoostStatus {
-  BoostStatus({required this.active, this.expiresAt, required this.viewCount});
+  BoostStatus({
+    required this.active,
+    this.expiresAt,
+    required this.viewCount,
+    this.tier,
+    this.viewMultiplier = 1,
+  });
 
   final bool active;
   final DateTime? expiresAt;
   final int viewCount;
+  final String? tier;
+  final int viewMultiplier;
 }
 
 class SwipeResult {
@@ -255,6 +263,24 @@ class DiscoveryApi {
     return _toBoostStatus(body);
   }
 
+  /// High-tier "Super Boost": like [activateBoost], but reserved for
+  /// Platinum subscribers and worth up to 100x the profile views during
+  /// local peak activity hours. Throws [DiscoveryApiException] (403) if the
+  /// user isn't Platinum, or (400) if a boost is already active.
+  Future<BoostStatus> activateSuperBoost() async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/discovery/boost/super'),
+      headers: _headers,
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 201) {
+      throw DiscoveryApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return _toBoostStatus(body);
+  }
+
   /// Premium "who liked you": everyone who has already swiped right on the
   /// current user. Defaults to most-recently-liked first; pass 'PROXIMITY'
   /// or 'COMPATIBILITY' to re-sort the same backlog by distance or
@@ -348,6 +374,8 @@ class DiscoveryApi {
       active: json['active'] as bool,
       expiresAt: json['expiresAt'] != null ? DateTime.parse(json['expiresAt'] as String) : null,
       viewCount: json['viewCount'] as int,
+      tier: json['tier'] as String?,
+      viewMultiplier: json['viewMultiplier'] as int? ?? 1,
     );
   }
 

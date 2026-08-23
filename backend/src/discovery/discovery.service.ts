@@ -17,6 +17,9 @@ import {
   MIN_SWIPES_FOR_PHOTO_ROTATION,
   SNOOZE_MAX_DURATION_DAYS,
   startOfUtcDay,
+  isSuperBoostPeakHour,
+  SUPER_BOOST_PEAK_VIEW_MULTIPLIER,
+  SUPER_BOOST_OFF_PEAK_VIEW_MULTIPLIER,
 } from './discovery.constants';
 import { getZodiacSign } from '../matching/zodiac.utils';
 import { calculateAge } from './utils/age';
@@ -66,6 +69,8 @@ export interface BoostStatus {
   active: boolean;
   expiresAt: string | null;
   viewCount: number;
+  tier: 'STANDARD' | 'SUPER' | null;
+  viewMultiplier: number;
 }
 
 export interface ActiveModeResult {
@@ -121,7 +126,13 @@ export class DiscoveryService {
       where: { expiresAt: { gt: new Date() }, userId: { notIn: excludedIds } },
       orderBy: { createdAt: 'asc' },
     });
-    const boostedIdSet = new Set(activeBoosts.map((boost) => boost.userId));
+    // Super Boosts outrank regular Boosts; the sort is stable, so createdAt
+    // order is preserved within each tier.
+    const orderedBoosts = [...activeBoosts].sort((a, b) =>
+      a.tier === b.tier ? 0 : a.tier === 'SUPER' ? -1 : 1,
+    );
+    const boostedIdSet = new Set(orderedBoosts.map((boost) => boost.userId));
+    const viewMultiplierByUserId = new Map(activeBoosts.map((boost) => [boost.userId, boost.viewMultiplier]));
 
     // "Priority likes": a premium user's regular (non-super) like also
     // earns a spot near the top, one tier below an outright super like.
@@ -182,10 +193,14 @@ export class DiscoveryService {
 
     const shownBoostedIds = priorityIds.filter((id) => boostedIdSet.has(id));
     if (shownBoostedIds.length > 0) {
-      await this.prisma.boost.updateMany({
-        where: { userId: { in: shownBoostedIds }, expiresAt: { gt: new Date() } },
-        data: { viewCount: { increment: 1 } },
-      });
+      await Promise.all(
+        shownBoostedIds.map((id) =>
+          this.prisma.boost.updateMany({
+            where: { userId: id, expiresAt: { gt: new Date() } },
+            data: { viewCount: { increment: viewMultiplierByUserId.get(id) ?? 1 } },
+          }),
+        ),
+      );
     }
 
     const usingPassport =
@@ -714,10 +729,45 @@ export class DiscoveryService {
     }
 
     const boost = await this.prisma.boost.create({
-      data: { userId, expiresAt: computeBoostExpiresAt(new Date()) },
+      data: { userId, expiresAt: computeBoostExpiresAt(new Date()), tier: 'STANDARD', viewMultiplier: 1 },
     });
 
-    return { active: true, expiresAt: boost.expiresAt.toISOString(), viewCount: boost.viewCount };
+    return this.toBoostStatus(boost);
+  }
+
+  /**
+   * High-tier premium boost: like [activateBoost], but reserved for
+   * Platinum subscribers and worth up to 100x the profile views - the full
+   * multiplier only applies during the (fixed, UTC-approximated) local
+   * peak-activity window; outside it, Super Boost still beats a regular
+   * Boost, just by less.
+   */
+  async activateSuperBoost(userId: string): Promise<BoostStatus> {
+    const currentUser = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!currentUser) {
+      throw new NotFoundException('User not found.');
+    }
+    if (currentUser.subscriptionTier !== 'PLATINUM') {
+      throw new ForbiddenException('Super Boost requires a Platinum subscription.');
+    }
+
+    const existing = await this.prisma.boost.findFirst({
+      where: { userId, expiresAt: { gt: new Date() } },
+    });
+    if (existing) {
+      throw new BadRequestException('You already have an active boost.');
+    }
+
+    const now = new Date();
+    const viewMultiplier = isSuperBoostPeakHour(now)
+      ? SUPER_BOOST_PEAK_VIEW_MULTIPLIER
+      : SUPER_BOOST_OFF_PEAK_VIEW_MULTIPLIER;
+
+    const boost = await this.prisma.boost.create({
+      data: { userId, expiresAt: computeBoostExpiresAt(now), tier: 'SUPER', viewMultiplier },
+    });
+
+    return this.toBoostStatus(boost);
   }
 
   async getBoostStatus(userId: string): Promise<BoostStatus> {
@@ -727,10 +777,25 @@ export class DiscoveryService {
     });
 
     if (!boost) {
-      return { active: false, expiresAt: null, viewCount: 0 };
+      return { active: false, expiresAt: null, viewCount: 0, tier: null, viewMultiplier: 1 };
     }
 
-    return { active: true, expiresAt: boost.expiresAt.toISOString(), viewCount: boost.viewCount };
+    return this.toBoostStatus(boost);
+  }
+
+  private toBoostStatus(boost: {
+    expiresAt: Date;
+    viewCount: number;
+    tier: string;
+    viewMultiplier: number;
+  }): BoostStatus {
+    return {
+      active: true,
+      expiresAt: boost.expiresAt.toISOString(),
+      viewCount: boost.viewCount,
+      tier: boost.tier as 'STANDARD' | 'SUPER',
+      viewMultiplier: boost.viewMultiplier,
+    };
   }
 
   /**

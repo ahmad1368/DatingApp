@@ -471,6 +471,45 @@ void main() {
     });
   });
 
+  group('DiscoveryApi.activateSuperBoost', () {
+    test('sends a POST and parses the super boost status', () async {
+      final api = DiscoveryApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'POST');
+          expect(request.url.path, '/discovery/boost/super');
+          return http.Response(
+            '{"active":true,"expiresAt":"2026-01-01T00:30:00.000Z","viewCount":0,'
+            '"tier":"SUPER","viewMultiplier":100}',
+            201,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final status = await api.activateSuperBoost();
+
+      expect(status.active, isTrue);
+      expect(status.tier, 'SUPER');
+      expect(status.viewMultiplier, 100);
+    });
+
+    test('throws DiscoveryApiException when the user is not Platinum', () async {
+      final api = DiscoveryApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '{"message":"Super Boost requires a Platinum subscription."}',
+            403,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      expect(() => api.activateSuperBoost(), throwsA(isA<DiscoveryApiException>()));
+    });
+  });
+
   group('DiscoveryApi.fetchLikedByGrid', () {
     test('sends the bearer token and parses the grid', () async {
       final api = DiscoveryApi(

@@ -530,11 +530,13 @@ model CallIceCandidate {
 }
 
 model Boost {
-  id        String   @id @default(uuid())
-  userId    String
-  expiresAt DateTime
-  viewCount Int      @default(0)
-  createdAt DateTime @default(now())
+  id             String   @id @default(uuid())
+  userId         String
+  expiresAt      DateTime
+  viewCount      Int      @default(0)
+  tier           String   @default("STANDARD")
+  viewMultiplier Int      @default(1)
+  createdAt      DateTime @default(now())
 
   @@index([userId])
   @@index([expiresAt])

@@ -277,6 +277,19 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
     }
   }
 
+  Future<void> _activateSuperBoost() async {
+    if (_boostStatus?.active ?? false) {
+      return;
+    }
+    setState(() => _errorText = null);
+    try {
+      final status = await widget.discoveryApi.activateSuperBoost();
+      setState(() => _boostStatus = status);
+    } on DiscoveryApiException catch (e) {
+      setState(() => _errorText = e.message);
+    }
+  }
+
   Future<void> _toggleSnooze() async {
     final enabling = _snoozedUntil == null;
     String? statusMessage;
@@ -411,11 +424,17 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
             tooltip: 'Rewind last swipe',
             onPressed: _isLoading ? null : _handleUndo,
           ),
-          IconButton(
-            icon: const Icon(Icons.rocket_launch),
-            color: (_boostStatus?.active ?? false) ? Colors.deepOrange : null,
-            tooltip: (_boostStatus?.active ?? false) ? 'Boost active' : 'Boost your profile',
-            onPressed: (_boostStatus?.active ?? false) ? null : _activateBoost,
+          // No `tooltip:` here deliberately: IconButton's built-in Tooltip
+          // shows on long-press on mobile, which would swallow the gesture
+          // meant for the GestureDetector below and Super Boost would never
+          // fire.
+          GestureDetector(
+            onLongPress: (_boostStatus?.active ?? false) ? null : _activateSuperBoost,
+            child: IconButton(
+              icon: const Icon(Icons.rocket_launch),
+              color: (_boostStatus?.active ?? false) ? Colors.deepOrange : null,
+              onPressed: (_boostStatus?.active ?? false) ? null : _activateBoost,
+            ),
           ),
           IconButton(
             icon: const Icon(Icons.bedtime),
@@ -436,7 +455,9 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
             Padding(
               padding: const EdgeInsets.all(16),
               child: Text(
-                'Boosted! ${_boostStatus!.viewCount} extra views so far.',
+                _boostStatus!.tier == 'SUPER'
+                    ? 'Super Boosted (${_boostStatus!.viewMultiplier}x views)! ${_boostStatus!.viewCount} extra views so far.'
+                    : 'Boosted! ${_boostStatus!.viewCount} extra views so far.',
                 style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.deepOrange),
               ),
             ),

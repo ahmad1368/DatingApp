@@ -19,6 +19,21 @@ export const DAILY_SUPER_LIKE_LIMIT = 1;
 
 export const BOOST_DURATION_MINUTES = 30;
 
+export const SUPER_BOOST_PEAK_HOUR_START_UTC = 18;
+export const SUPER_BOOST_PEAK_HOUR_END_UTC = 22;
+export const SUPER_BOOST_PEAK_VIEW_MULTIPLIER = 100;
+export const SUPER_BOOST_OFF_PEAK_VIEW_MULTIPLIER = 10;
+
+/**
+ * Stands in for real per-user local peak-activity detection (this codebase
+ * doesn't track user timezones): treats a fixed UTC evening window as "peak
+ * hours" for everyone.
+ */
+export function isSuperBoostPeakHour(now: Date): boolean {
+  const hour = now.getUTCHours();
+  return hour >= SUPER_BOOST_PEAK_HOUR_START_UTC && hour < SUPER_BOOST_PEAK_HOUR_END_UTC;
+}
+
 export const SNOOZE_MAX_DURATION_DAYS = 90;
 export const SNOOZE_DEFAULT_DURATION_DAYS = 7;
 

@@ -55,6 +55,12 @@ export class DiscoveryController {
     return this.discoveryService.getBoostStatus(user.id);
   }
 
+  @Post('boost/super')
+  @HttpCode(HttpStatus.CREATED)
+  activateSuperBoost(@CurrentUser() user: AuthenticatedUser) {
+    return this.discoveryService.activateSuperBoost(user.id);
+  }
+
   @Put('mode')
   @HttpCode(HttpStatus.OK)
   setActiveMode(@CurrentUser() user: AuthenticatedUser, @Body() dto: SetActiveModeDto) {
