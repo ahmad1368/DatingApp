@@ -120,7 +120,10 @@ describe('CuratedProfilesService', () => {
   it('generates and persists a ranked batch when no picks exist yet', async () => {
     prisma.user.findUnique.mockResolvedValue({ id: USER_ID });
     prisma.dailyPick.findMany.mockResolvedValueOnce([]); // nothing cached yet
-    prisma.swipe.findMany.mockResolvedValue([{ targetUserId: 'already-swiped' }]);
+    prisma.swipe.findMany
+      .mockResolvedValueOnce([{ targetUserId: 'already-swiped' }]) // own swipes -> excludedIds
+      .mockResolvedValueOnce([]) // likersOfMe -> nobody has liked this user yet
+      .mockResolvedValue([]); // engagement-count lookups -> no recent likes
     prisma.user.findMany
       .mockResolvedValueOnce([{ id: 'low-compat' }, { id: 'high-compat' }]) // candidate pool
       .mockResolvedValueOnce([
@@ -140,7 +143,10 @@ describe('CuratedProfilesService', () => {
       where: {
         id: { notIn: [USER_ID, 'already-swiped'] },
         onboardingCompletedAt: { not: null },
-        OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }],
+        AND: [
+          { OR: [{ incognitoEnabled: false }, { id: { in: [] } }] },
+          { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
+        ],
       },
       take: 30,
       select: { id: true },
@@ -181,7 +187,35 @@ describe('CuratedProfilesService', () => {
       where: {
         id: { notIn: [USER_ID, 'i-blocked-them', 'they-blocked-me'] },
         onboardingCompletedAt: { not: null },
-        OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }],
+        AND: [
+          { OR: [{ incognitoEnabled: false }, { id: { in: [] } }] },
+          { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
+        ],
+      },
+      take: 30,
+      select: { id: true },
+    });
+  });
+
+  it('lets an incognito candidate who already liked the viewer into the candidate pool', async () => {
+    prisma.user.findUnique.mockResolvedValue({ id: USER_ID });
+    prisma.dailyPick.findMany.mockResolvedValueOnce([]);
+    prisma.swipe.findMany
+      .mockResolvedValueOnce([]) // own swipes -> nothing excluded
+      .mockResolvedValueOnce([{ swiperId: 'incognito-liker' }]) // likersOfMe
+      .mockResolvedValue([]); // engagement-count lookups
+    prisma.user.findMany.mockResolvedValueOnce([]); // candidate pool (irrelevant to this assertion)
+
+    await service.getDailyPicks(USER_ID);
+
+    expect(prisma.user.findMany).toHaveBeenNthCalledWith(1, {
+      where: {
+        id: { notIn: [USER_ID] },
+        onboardingCompletedAt: { not: null },
+        AND: [
+          { OR: [{ incognitoEnabled: false }, { id: { in: ['incognito-liker'] } }] },
+          { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
+        ],
       },
       take: 30,
       select: { id: true },
