@@ -14,13 +14,22 @@ class _FakePicker implements ProfilePhotoPickerController {
   Future<String?> pickPhoto() async => nextPath;
 }
 
+http.Response _blurResponse([bool enabled = false]) => http.Response(
+      '{"blurPhotosUntilMatch":$enabled}',
+      200,
+      headers: {'content-type': 'application/json'},
+    );
+
 void main() {
   testWidgets('shows an empty state when there are no profile photos', (tester) async {
     final api = ProfilePhotosApi(
       accessToken: 'a-jwt',
-      client: MockClient(
-        (request) async => http.Response('[]', 200, headers: {'content-type': 'application/json'}),
-      ),
+      client: MockClient((request) async {
+        if (request.url.path == '/profile-photos/blur-until-match') {
+          return _blurResponse();
+        }
+        return http.Response('[]', 200, headers: {'content-type': 'application/json'});
+      }),
     );
 
     await tester.pumpWidget(MaterialApp(home: ProfilePhotosScreen(profilePhotosApi: api)));
@@ -32,14 +41,17 @@ void main() {
   testWidgets('lists photos and highlights the lead photo with its conversion rate', (tester) async {
     final api = ProfilePhotosApi(
       accessToken: 'a-jwt',
-      client: MockClient(
-        (request) async => http.Response(
+      client: MockClient((request) async {
+        if (request.url.path == '/profile-photos/blur-until-match') {
+          return _blurResponse();
+        }
+        return http.Response(
           '[{"id":"photo-1","mediaUrl":"https://example.com/a.jpg","isLead":true,'
           '"impressions":10,"rightSwipes":4,"conversionRate":0.4,"qualityScore":39}]',
           200,
           headers: {'content-type': 'application/json'},
-        ),
-      ),
+        );
+      }),
     );
 
     await tester.pumpWidget(MaterialApp(home: ProfilePhotosScreen(profilePhotosApi: api)));
@@ -56,6 +68,9 @@ void main() {
     final api = ProfilePhotosApi(
       accessToken: 'a-jwt',
       client: MockClient((request) async {
+        if (request.url.path == '/profile-photos/blur-until-match') {
+          return _blurResponse();
+        }
         if (request.method == 'POST' && request.url.path == '/profile-photos') {
           addRequest = request;
           return http.Response(
@@ -92,6 +107,9 @@ void main() {
     final api = ProfilePhotosApi(
       accessToken: 'a-jwt',
       client: MockClient((request) async {
+        if (request.url.path == '/profile-photos/blur-until-match') {
+          return _blurResponse();
+        }
         if (request.method == 'DELETE') {
           deleteRequest = request;
           return http.Response('', 200);
@@ -121,6 +139,9 @@ void main() {
     final api = ProfilePhotosApi(
       accessToken: 'a-jwt',
       client: MockClient((request) async {
+        if (request.url.path == '/profile-photos/blur-until-match') {
+          return _blurResponse();
+        }
         if (request.method == 'POST' && request.url.path == '/profile-photos/reorder-by-quality') {
           reorderRequest = request;
           return http.Response(
@@ -151,5 +172,36 @@ void main() {
 
     expect(reorderRequest, isNotNull);
     expect(find.textContaining('Quality score: 98'), findsOneWidget);
+  });
+
+  testWidgets('toggling blur until match sends the updated preference', (tester) async {
+    http.Request? putRequest;
+    final api = ProfilePhotosApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.method == 'PUT' && request.url.path == '/profile-photos/blur-until-match') {
+          putRequest = request;
+          return _blurResponse(true);
+        }
+        if (request.url.path == '/profile-photos/blur-until-match') {
+          return _blurResponse();
+        }
+        return http.Response('[]', 200, headers: {'content-type': 'application/json'});
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: ProfilePhotosScreen(profilePhotosApi: api)));
+    await tester.pumpAndSettle();
+
+    final switchTileBefore = tester.widget<SwitchListTile>(find.byType(SwitchListTile));
+    expect(switchTileBefore.value, isFalse);
+
+    await tester.tap(find.byType(SwitchListTile));
+    await tester.pumpAndSettle();
+
+    expect(putRequest, isNotNull);
+    expect(putRequest!.body, '{"enabled":true}');
+    final switchTileAfter = tester.widget<SwitchListTile>(find.byType(SwitchListTile));
+    expect(switchTileAfter.value, isTrue);
   });
 }

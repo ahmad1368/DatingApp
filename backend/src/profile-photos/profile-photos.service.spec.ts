@@ -18,7 +18,7 @@ describe('ProfilePhotosService', () => {
       update: jest.Mock;
       delete: jest.Mock;
     };
-    user: { update: jest.Mock };
+    user: { update: jest.Mock; findUnique: jest.Mock };
   };
 
   beforeEach(() => {
@@ -32,7 +32,7 @@ describe('ProfilePhotosService', () => {
         update: jest.fn(),
         delete: jest.fn(),
       },
-      user: { update: jest.fn() },
+      user: { update: jest.fn(), findUnique: jest.fn() },
     };
     service = new ProfilePhotosService(prisma as unknown as PrismaService);
   });
@@ -212,6 +212,39 @@ describe('ProfilePhotosService', () => {
         where: { id: OWNER_ID },
         data: { profilePhotoUrl: null },
       });
+    });
+  });
+
+  describe('getBlurUntilMatch', () => {
+    it('defaults to false when the user has nothing set', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      const result = await service.getBlurUntilMatch(OWNER_ID);
+
+      expect(result).toEqual({ blurPhotosUntilMatch: false });
+    });
+
+    it('returns the stored preference', async () => {
+      prisma.user.findUnique.mockResolvedValue({ blurPhotosUntilMatch: true });
+
+      const result = await service.getBlurUntilMatch(OWNER_ID);
+
+      expect(result).toEqual({ blurPhotosUntilMatch: true });
+    });
+  });
+
+  describe('setBlurUntilMatch', () => {
+    it('persists the new preference', async () => {
+      prisma.user.update.mockResolvedValue({ blurPhotosUntilMatch: true });
+
+      const result = await service.setBlurUntilMatch(OWNER_ID, true);
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: OWNER_ID },
+        data: { blurPhotosUntilMatch: true },
+        select: { blurPhotosUntilMatch: true },
+      });
+      expect(result).toEqual({ blurPhotosUntilMatch: true });
     });
   });
 });

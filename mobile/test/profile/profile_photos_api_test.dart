@@ -134,4 +134,59 @@ void main() {
       expect(() => api.reorderByQuality(), throwsA(isA<ProfilePhotosApiException>()));
     });
   });
+
+  group('ProfilePhotosApi.fetchBlurUntilMatch', () {
+    test('sends the bearer token and parses the preference', () async {
+      final api = ProfilePhotosApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.headers['Authorization'], 'Bearer a-jwt');
+          expect(request.url.path, '/profile-photos/blur-until-match');
+          return http.Response(
+            '{"blurPhotosUntilMatch":true}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final enabled = await api.fetchBlurUntilMatch();
+
+      expect(enabled, isTrue);
+    });
+  });
+
+  group('ProfilePhotosApi.setBlurUntilMatch', () {
+    test('sends a PUT with the enabled flag and parses the result', () async {
+      http.Request? putRequest;
+      final api = ProfilePhotosApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          putRequest = request;
+          return http.Response(
+            '{"blurPhotosUntilMatch":true}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final enabled = await api.setBlurUntilMatch(true);
+
+      expect(putRequest, isNotNull);
+      expect(putRequest!.method, 'PUT');
+      expect(putRequest!.url.path, '/profile-photos/blur-until-match');
+      expect(putRequest!.body, '{"enabled":true}');
+      expect(enabled, isTrue);
+    });
+
+    test('throws ProfilePhotosApiException on a non-200 response', () async {
+      final api = ProfilePhotosApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => http.Response('{"message":"boom"}', 500, headers: {'content-type': 'application/json'})),
+      );
+
+      expect(() => api.setBlurUntilMatch(true), throwsA(isA<ProfilePhotosApiException>()));
+    });
+  });
 }

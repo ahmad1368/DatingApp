@@ -118,6 +118,28 @@ export class ProfilePhotosService {
     return photos.map((photo, index) => this.toView(photo, index === 0));
   }
 
+  /**
+   * Incognito photo blur: when enabled, DiscoveryService marks this user's
+   * photos as blurred for anyone who hasn't matched with them yet
+   * (DeckCard.profilePhotoBlurred) - matches always see the clear photo.
+   */
+  async getBlurUntilMatch(userId: string): Promise<{ blurPhotosUntilMatch: boolean }> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { blurPhotosUntilMatch: true },
+    });
+    return { blurPhotosUntilMatch: user?.blurPhotosUntilMatch ?? false };
+  }
+
+  async setBlurUntilMatch(userId: string, enabled: boolean): Promise<{ blurPhotosUntilMatch: boolean }> {
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: { blurPhotosUntilMatch: enabled },
+      select: { blurPhotosUntilMatch: true },
+    });
+    return { blurPhotosUntilMatch: user.blurPhotosUntilMatch };
+  }
+
   private toView(
     photo: { id: string; mediaUrl: string; impressions: number; rightSwipes: number; qualityScore: number },
     isLead: boolean,

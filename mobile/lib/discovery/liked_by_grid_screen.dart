@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 import 'discovery_api.dart';
@@ -146,13 +148,7 @@ class _LikedByTile extends StatelessWidget {
               fit: StackFit.expand,
               children: [
                 card.profilePhotoUrl != null
-                    ? Image.network(
-                        card.profilePhotoUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => Container(
-                          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                        ),
-                      )
+                    ? _buildPhoto(context)
                     : Container(color: Theme.of(context).colorScheme.surfaceContainerHighest),
                 if (card.isSuperLike)
                   Positioned(
@@ -203,5 +199,19 @@ class _LikedByTile extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Widget _buildPhoto(BuildContext context) {
+    final image = Image.network(
+      card.profilePhotoUrl!,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) => Container(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      ),
+    );
+    if (!card.profilePhotoBlurred) {
+      return image;
+    }
+    return ImageFiltered(imageFilter: ImageFilter.blur(sigmaX: 25, sigmaY: 25), child: image);
   }
 }
