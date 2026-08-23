@@ -1,10 +1,11 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post, Put, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AuthenticatedUser, JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RecordSwipeDto } from './dto/record-swipe.dto';
 import { SetIncognitoModeDto } from './dto/set-incognito-mode.dto';
 import { SetActiveModeDto } from './dto/set-active-mode.dto';
 import { SetSnoozeModeDto } from './dto/set-snooze-mode.dto';
+import { LikedBySort } from './discovery.constants';
 import { DiscoveryService } from './discovery.service';
 
 @Controller('discovery')
@@ -59,8 +60,8 @@ export class DiscoveryController {
   }
 
   @Get('likes')
-  getLikedByGrid(@CurrentUser() user: AuthenticatedUser) {
-    return this.discoveryService.getLikedByGrid(user.id);
+  getLikedByGrid(@CurrentUser() user: AuthenticatedUser, @Query('sortBy') sortBy?: LikedBySort) {
+    return this.discoveryService.getLikedByGrid(user.id, sortBy);
   }
 
   @Put('snooze')

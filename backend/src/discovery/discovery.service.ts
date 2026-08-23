@@ -12,12 +12,15 @@ import {
   DAILY_SUPER_LIKE_LIMIT,
   DEFAULT_DECK_SIZE,
   LIKE_ACTIONS,
+  LikedBySort,
+  LIKED_BY_SORT_OPTIONS,
   MIN_SWIPES_FOR_PHOTO_ROTATION,
   SNOOZE_MAX_DURATION_DAYS,
   startOfUtcDay,
 } from './discovery.constants';
 import { getZodiacSign } from '../matching/zodiac.utils';
 import { calculateAge } from './utils/age';
+import { MatchingService } from '../matching/matching.service';
 
 export interface DeckCard {
   id: string;
@@ -73,7 +76,10 @@ export interface SnoozeResult {
 
 @Injectable()
 export class DiscoveryService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly matchingService: MatchingService,
+  ) {}
 
   async getDeck(userId: string): Promise<DeckCard[]> {
     const currentUser = await this.prisma.user.findUnique({ where: { id: userId } });
@@ -208,10 +214,17 @@ export class DiscoveryService {
 
   /**
    * Premium "who liked you": a grid of everyone who has already swiped
-   * right (or super-liked) the current user, most recent first, so they
-   * can match instantly instead of waiting to see them in the main deck.
+   * right (or super-liked) the current user, so they can match instantly
+   * instead of waiting to see them in the main deck. Defaults to most
+   * recently liked first; pass PROXIMITY or COMPATIBILITY to re-sort the
+   * same backlog by distance or compatibility score instead, so a large
+   * backlog of likes stays manageable.
    */
-  async getLikedByGrid(userId: string): Promise<DeckCard[]> {
+  async getLikedByGrid(userId: string, sortBy: LikedBySort = 'RECENT'): Promise<DeckCard[]> {
+    if (!LIKED_BY_SORT_OPTIONS.includes(sortBy)) {
+      throw new BadRequestException('Invalid sortBy option.');
+    }
+
     const currentUser = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!currentUser) {
       throw new NotFoundException('User not found.');
@@ -276,7 +289,7 @@ export class DiscoveryService {
       orderedLikers.map((liker) => liker.id),
     );
 
-    return orderedLikers.map((liker) =>
+    const cards = orderedLikers.map((liker) =>
       this.toDeckCard(liker, now, origin, {
         isSuperLike: superLikerIdSet.has(liker.id),
         isBoosted: false,
@@ -287,6 +300,26 @@ export class DiscoveryService {
         mutualConnectionCount: mutualConnectionCounts.get(liker.id) ?? 0,
       }),
     );
+
+    if (sortBy === 'PROXIMITY') {
+      return [...cards].sort((a, b) => {
+        if (a.distanceKm == null) return 1;
+        if (b.distanceKm == null) return -1;
+        return a.distanceKm - b.distanceKm;
+      });
+    }
+
+    if (sortBy === 'COMPATIBILITY') {
+      const scores = await Promise.all(
+        cards.map((card) => this.matchingService.getCompatibility(userId, card.id)),
+      );
+      const percentageById = new Map(cards.map((card, index) => [card.id, scores[index].percentage]));
+      return [...cards].sort(
+        (a, b) => (percentageById.get(b.id) ?? -1) - (percentageById.get(a.id) ?? -1),
+      );
+    }
+
+    return cards;
   }
 
   private toDeckCard(

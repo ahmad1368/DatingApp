@@ -469,6 +469,18 @@ void main() {
 
       expect(() => api.fetchLikedByGrid(), throwsA(isA<DiscoveryApiException>()));
     });
+
+    test('sends a sortBy query parameter when provided', () async {
+      final api = DiscoveryApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.url.queryParameters['sortBy'], 'PROXIMITY');
+          return http.Response('[]', 200, headers: {'content-type': 'application/json'});
+        }),
+      );
+
+      await api.fetchLikedByGrid(sortBy: 'PROXIMITY');
+    });
   });
 
   group('DiscoveryApi.setActiveMode', () {

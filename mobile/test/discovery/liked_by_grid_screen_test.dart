@@ -106,6 +106,27 @@ void main() {
     expect(find.text('No likes yet. Keep swiping!'), findsOneWidget);
   });
 
+  testWidgets('re-sorting by nearest reloads the grid with the sortBy query param', (tester) async {
+    final requestedSorts = <String?>[];
+    final api = DiscoveryApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        requestedSorts.add(request.url.queryParameters['sortBy']);
+        return http.Response(_gridResponse, 200, headers: {'content-type': 'application/json'});
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: LikedByGridScreen(discoveryApi: api)));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.sort));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Nearest'));
+    await tester.pumpAndSettle();
+
+    expect(requestedSorts, ['RECENT', 'PROXIMITY']);
+  });
+
   testWidgets('passing removes the card without a match banner', (tester) async {
     http.Request? capturedRequest;
     final api = DiscoveryApi(
