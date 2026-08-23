@@ -750,7 +750,7 @@ describe('DiscoveryService', () => {
       expect(deck[1].isBoosted).toBe(false);
       expect(deck[1].isSuperLike).toBe(true);
       expect(prisma.boost.updateMany).toHaveBeenCalledWith({
-        where: { userId: { in: ['boosted-1'] }, expiresAt: { gt: expect.any(Date) } },
+        where: { userId: 'boosted-1', expiresAt: { gt: expect.any(Date) } },
         data: { viewCount: { increment: 1 } },
       });
     });
@@ -1332,14 +1332,90 @@ describe('DiscoveryService', () => {
       prisma.user.findUnique.mockResolvedValue({ isPremium: true });
       prisma.boost.findFirst.mockResolvedValue(null);
       const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
-      prisma.boost.create.mockResolvedValue({ id: 'boost-1', expiresAt, viewCount: 0 });
+      prisma.boost.create.mockResolvedValue({
+        id: 'boost-1',
+        expiresAt,
+        viewCount: 0,
+        tier: 'STANDARD',
+        viewMultiplier: 1,
+      });
 
       const result = await service.activateBoost(USER_ID);
 
       expect(prisma.boost.create).toHaveBeenCalledWith({
-        data: { userId: USER_ID, expiresAt: expect.any(Date) },
+        data: { userId: USER_ID, expiresAt: expect.any(Date), tier: 'STANDARD', viewMultiplier: 1 },
       });
-      expect(result).toEqual({ active: true, expiresAt: expiresAt.toISOString(), viewCount: 0 });
+      expect(result).toEqual({
+        active: true,
+        expiresAt: expiresAt.toISOString(),
+        viewCount: 0,
+        tier: 'STANDARD',
+        viewMultiplier: 1,
+      });
+    });
+  });
+
+  describe('activateSuperBoost', () => {
+    it('throws when the current user does not exist', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(service.activateSuperBoost(USER_ID)).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('rejects users below the Platinum subscription tier', async () => {
+      prisma.user.findUnique.mockResolvedValue({ subscriptionTier: 'GOLD' });
+
+      await expect(service.activateSuperBoost(USER_ID)).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('rejects activating a boost while one is already active', async () => {
+      prisma.user.findUnique.mockResolvedValue({ subscriptionTier: 'PLATINUM' });
+      prisma.boost.findFirst.mockResolvedValue({ id: 'boost-1' });
+
+      await expect(service.activateSuperBoost(USER_ID)).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.boost.create).not.toHaveBeenCalled();
+    });
+
+    it('uses the peak-hour multiplier during the peak UTC window', async () => {
+      jest.useFakeTimers().setSystemTime(new Date(Date.UTC(2026, 0, 1, 19, 0, 0)));
+      prisma.user.findUnique.mockResolvedValue({ subscriptionTier: 'PLATINUM' });
+      prisma.boost.findFirst.mockResolvedValue(null);
+      prisma.boost.create.mockResolvedValue({
+        id: 'boost-1',
+        expiresAt: new Date(Date.UTC(2026, 0, 1, 19, 30, 0)),
+        viewCount: 0,
+        tier: 'SUPER',
+        viewMultiplier: 100,
+      });
+
+      const result = await service.activateSuperBoost(USER_ID);
+
+      expect(prisma.boost.create).toHaveBeenCalledWith({
+        data: { userId: USER_ID, expiresAt: expect.any(Date), tier: 'SUPER', viewMultiplier: 100 },
+      });
+      expect(result.viewMultiplier).toBe(100);
+      jest.useRealTimers();
+    });
+
+    it('uses the smaller off-peak multiplier outside the peak UTC window', async () => {
+      jest.useFakeTimers().setSystemTime(new Date(Date.UTC(2026, 0, 1, 5, 0, 0)));
+      prisma.user.findUnique.mockResolvedValue({ subscriptionTier: 'PLATINUM' });
+      prisma.boost.findFirst.mockResolvedValue(null);
+      prisma.boost.create.mockResolvedValue({
+        id: 'boost-1',
+        expiresAt: new Date(Date.UTC(2026, 0, 1, 5, 30, 0)),
+        viewCount: 0,
+        tier: 'SUPER',
+        viewMultiplier: 10,
+      });
+
+      const result = await service.activateSuperBoost(USER_ID);
+
+      expect(prisma.boost.create).toHaveBeenCalledWith({
+        data: { userId: USER_ID, expiresAt: expect.any(Date), tier: 'SUPER', viewMultiplier: 10 },
+      });
+      expect(result.viewMultiplier).toBe(10);
+      jest.useRealTimers();
     });
   });
 
@@ -1349,16 +1425,28 @@ describe('DiscoveryService', () => {
 
       const result = await service.getBoostStatus(USER_ID);
 
-      expect(result).toEqual({ active: false, expiresAt: null, viewCount: 0 });
+      expect(result).toEqual({ active: false, expiresAt: null, viewCount: 0, tier: null, viewMultiplier: 1 });
     });
 
     it('reports the active boost with its view count', async () => {
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-      prisma.boost.findFirst.mockResolvedValue({ id: 'boost-1', expiresAt, viewCount: 5 });
+      prisma.boost.findFirst.mockResolvedValue({
+        id: 'boost-1',
+        expiresAt,
+        viewCount: 5,
+        tier: 'STANDARD',
+        viewMultiplier: 1,
+      });
 
       const result = await service.getBoostStatus(USER_ID);
 
-      expect(result).toEqual({ active: true, expiresAt: expiresAt.toISOString(), viewCount: 5 });
+      expect(result).toEqual({
+        active: true,
+        expiresAt: expiresAt.toISOString(),
+        viewCount: 5,
+        tier: 'STANDARD',
+        viewMultiplier: 1,
+      });
     });
   });
 

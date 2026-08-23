@@ -777,6 +777,41 @@ void main() {
     expect(button.onPressed, isNull);
   });
 
+  testWidgets('long-pressing the boost button activates a Super Boost', (tester) async {
+    http.Request? superBoostRequest;
+    final api = DiscoveryApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/discovery/deck') {
+          return http.Response('[]', 200, headers: {'content-type': 'application/json'});
+        }
+        if (request.method == 'POST' && request.url.path == '/discovery/boost/super') {
+          superBoostRequest = request;
+          return http.Response(
+            '{"active":true,"expiresAt":"2026-01-01T00:30:00.000Z","viewCount":0,'
+            '"tier":"SUPER","viewMultiplier":100}',
+            201,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"active":false,"expiresAt":null,"viewCount":0}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: SwipeDeckScreen(discoveryApi: api)));
+    await tester.pumpAndSettle();
+
+    await tester.longPress(find.byIcon(Icons.rocket_launch));
+    await tester.pumpAndSettle();
+
+    expect(superBoostRequest, isNotNull);
+    expect(find.textContaining('Super Boosted (100x views)!'), findsOneWidget);
+  });
+
   testWidgets('shows an existing active boost on load', (tester) async {
     final api = DiscoveryApi(
       accessToken: 'a-jwt',
