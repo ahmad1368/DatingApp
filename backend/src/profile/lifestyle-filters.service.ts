@@ -24,6 +24,7 @@ export interface LifestyleFiltersResult {
   filterRelationshipDesires: string[];
   filterSharedInterestsOnly: boolean;
   filterVerifiedOnly: boolean;
+  filterCommunityGroups: string[];
 }
 
 interface LifestyleFiltersRecord {
@@ -48,6 +49,7 @@ interface LifestyleFiltersRecord {
   filterRelationshipDesires: string[];
   filterSharedInterestsOnly: boolean;
   filterVerifiedOnly: boolean;
+  filterCommunityGroups: string[];
 }
 
 const SELECT = {
@@ -72,6 +74,7 @@ const SELECT = {
   filterRelationshipDesires: true,
   filterSharedInterestsOnly: true,
   filterVerifiedOnly: true,
+  filterCommunityGroups: true,
 } as const;
 
 @Injectable()
@@ -111,6 +114,7 @@ export class LifestyleFiltersService {
         filterRelationshipDesires: dto.filterRelationshipDesires,
         filterSharedInterestsOnly: dto.filterSharedInterestsOnly,
         filterVerifiedOnly: dto.filterVerifiedOnly,
+        filterCommunityGroups: dto.filterCommunityGroups,
       },
       select: SELECT,
     });
@@ -141,6 +145,7 @@ export class LifestyleFiltersService {
       filterRelationshipDesires: user?.filterRelationshipDesires ?? [],
       filterSharedInterestsOnly: user?.filterSharedInterestsOnly ?? false,
       filterVerifiedOnly: user?.filterVerifiedOnly ?? false,
+      filterCommunityGroups: user?.filterCommunityGroups ?? [],
     };
   }
 }

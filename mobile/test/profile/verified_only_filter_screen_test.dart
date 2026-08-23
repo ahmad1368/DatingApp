@@ -31,7 +31,8 @@ String _fullFiltersJson({bool verifiedOnly = false}) => '''
   "filterKinkTags": [],
   "filterRelationshipDesires": [],
   "filterSharedInterestsOnly": false,
-  "filterVerifiedOnly": $verifiedOnly
+  "filterVerifiedOnly": $verifiedOnly,
+  "filterCommunityGroups": []
 }
 ''';
 

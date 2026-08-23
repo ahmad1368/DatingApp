@@ -1,5 +1,6 @@
 import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsInt, IsOptional, Max, Min } from 'class-validator';
 import { RELATIONSHIP_GOALS } from '../../onboarding/onboarding.constants';
+import { COMMUNITY_GROUP_IDS } from '../../community-groups/community-groups.constants';
 import { KINK_TAGS, RELATIONSHIP_DESIRES } from '../relationship-profile.constants';
 import {
   CHILDREN_PREFERENCES,
@@ -109,4 +110,10 @@ export class SetLifestyleFiltersDto {
   /** When true, the deck only shows photo-verified candidates. */
   @IsBoolean()
   filterVerifiedOnly!: boolean;
+
+  /** When non-empty, the deck only shows candidates who share at least one of these community groups. */
+  @IsArray()
+  @ArrayMaxSize(MAX_FILTER_SELECTIONS)
+  @IsIn(COMMUNITY_GROUP_IDS, { each: true })
+  filterCommunityGroups!: string[];
 }

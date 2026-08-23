@@ -954,6 +954,7 @@ export class DiscoveryService {
     filterRelationshipDesires?: string[];
     filterSharedInterestsOnly: boolean;
     filterVerifiedOnly?: boolean;
+    filterCommunityGroups?: string[];
     interests: string[];
   }): Prisma.UserWhereInput {
     const where: Prisma.UserWhereInput = {};
@@ -990,6 +991,9 @@ export class DiscoveryService {
     }
     if (currentUser.filterVerifiedOnly) {
       where.isVerified = true;
+    }
+    if ((currentUser.filterCommunityGroups ?? []).length > 0) {
+      where.communityGroupIds = { hasSome: currentUser.filterCommunityGroups };
     }
 
     return where;
