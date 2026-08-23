@@ -243,11 +243,15 @@ class DiscoveryApi {
   }
 
   /// Premium "who liked you": everyone who has already swiped right on the
-  /// current user, most recent first. Throws [DiscoveryApiException] (403)
-  /// if the user isn't premium.
-  Future<List<DeckCard>> fetchLikedByGrid() async {
+  /// current user. Defaults to most-recently-liked first; pass 'PROXIMITY'
+  /// or 'COMPATIBILITY' to re-sort the same backlog by distance or
+  /// compatibility score instead. Throws [DiscoveryApiException] (403) if
+  /// the user isn't premium.
+  Future<List<DeckCard>> fetchLikedByGrid({String? sortBy}) async {
     final response = await _client.get(
-      Uri.parse('$_baseUrl/discovery/likes'),
+      Uri.parse('$_baseUrl/discovery/likes').replace(
+        queryParameters: sortBy != null ? {'sortBy': sortBy} : null,
+      ),
       headers: _headers,
     );
 

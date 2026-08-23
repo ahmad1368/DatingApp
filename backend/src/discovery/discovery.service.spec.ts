@@ -1,5 +1,6 @@
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { MatchingService } from '../matching/matching.service';
 import { DiscoveryService } from './discovery.service';
 
 const USER_ID = 'user-1';
@@ -7,6 +8,7 @@ const TARGET_ID = 'user-2';
 
 describe('DiscoveryService', () => {
   let service: DiscoveryService;
+  let matchingService: { getCompatibility: jest.Mock };
   let prisma: {
     user: { findUnique: jest.Mock; findMany: jest.Mock; update: jest.Mock };
     swipe: {
@@ -52,7 +54,11 @@ describe('DiscoveryService', () => {
       },
       $transaction: jest.fn((ops: unknown[]) => Promise.all(ops)),
     };
-    service = new DiscoveryService(prisma as unknown as PrismaService);
+    matchingService = { getCompatibility: jest.fn() };
+    service = new DiscoveryService(
+      prisma as unknown as PrismaService,
+      matchingService as unknown as MatchingService,
+    );
   });
 
   const noFilters = {
@@ -1285,6 +1291,90 @@ describe('DiscoveryService', () => {
           smokingHabit: { in: ['Never'] },
         },
       });
+    });
+
+    it('rejects an unknown sortBy value', async () => {
+      await expect(
+        service.getLikedByGrid(USER_ID, 'NOT_A_REAL_SORT' as never),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('re-sorts the backlog nearest-first for PROXIMITY', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        isPremium: true,
+        latitude: 40.7128,
+        longitude: -74.006,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+      });
+      prisma.swipe.findMany
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([
+          { swiperId: 'far-liker', action: 'LIKE', complimentText: null, complimentTarget: null },
+          { swiperId: 'near-liker', action: 'LIKE', complimentText: null, complimentTarget: null },
+        ]); // liked in this order (most recent first), but far-liker is farther away
+      prisma.user.findMany.mockResolvedValue([
+        {
+          id: 'far-liker',
+          name: 'Far',
+          dateOfBirth: null,
+          profilePhotoUrl: null,
+          interests: [],
+          relationshipGoal: null,
+          latitude: 51.5074,
+          longitude: -0.1278,
+        },
+        {
+          id: 'near-liker',
+          name: 'Near',
+          dateOfBirth: null,
+          profilePhotoUrl: null,
+          interests: [],
+          relationshipGoal: null,
+          latitude: 40.73,
+          longitude: -73.99,
+        },
+      ]);
+
+      const grid = await service.getLikedByGrid(USER_ID, 'PROXIMITY');
+
+      expect(grid.map((card) => card.id)).toEqual(['near-liker', 'far-liker']);
+      expect(matchingService.getCompatibility).not.toHaveBeenCalled();
+    });
+
+    it('re-sorts the backlog by compatibility score for COMPATIBILITY', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        isPremium: true,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+      });
+      prisma.swipe.findMany
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([
+          { swiperId: 'low-compat', action: 'LIKE', complimentText: null, complimentTarget: null },
+          { swiperId: 'high-compat', action: 'LIKE', complimentText: null, complimentTarget: null },
+        ]); // liked in this order, but high-compat scores higher
+      prisma.user.findMany.mockResolvedValue([
+        { id: 'low-compat', name: 'Low', dateOfBirth: null, profilePhotoUrl: null, interests: [], relationshipGoal: null },
+        { id: 'high-compat', name: 'High', dateOfBirth: null, profilePhotoUrl: null, interests: [], relationshipGoal: null },
+      ]);
+      matchingService.getCompatibility.mockImplementation((_userId: string, otherId: string) =>
+        Promise.resolve({ percentage: otherId === 'high-compat' ? 95 : 20 }),
+      );
+
+      const grid = await service.getLikedByGrid(USER_ID, 'COMPATIBILITY');
+
+      expect(grid.map((card) => card.id)).toEqual(['high-compat', 'low-compat']);
     });
   });
 

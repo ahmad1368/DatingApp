@@ -14,11 +14,18 @@ class LikedByGridScreen extends StatefulWidget {
   State<LikedByGridScreen> createState() => _LikedByGridScreenState();
 }
 
+const Map<String, String> _sortLabels = {
+  'RECENT': 'Most recent',
+  'PROXIMITY': 'Nearest',
+  'COMPATIBILITY': 'Most compatible',
+};
+
 class _LikedByGridScreenState extends State<LikedByGridScreen> {
   List<DeckCard> _cards = [];
   bool _isLoading = true;
   String? _errorText;
   String? _matchText;
+  String _sortBy = 'RECENT';
 
   @override
   void initState() {
@@ -32,7 +39,7 @@ class _LikedByGridScreenState extends State<LikedByGridScreen> {
       _errorText = null;
     });
     try {
-      final cards = await widget.discoveryApi.fetchLikedByGrid();
+      final cards = await widget.discoveryApi.fetchLikedByGrid(sortBy: _sortBy);
       setState(() => _cards = cards);
     } on DiscoveryApiException catch (e) {
       setState(() => _errorText = e.message);
@@ -41,6 +48,14 @@ class _LikedByGridScreenState extends State<LikedByGridScreen> {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  void _changeSort(String sortBy) {
+    if (sortBy == _sortBy) {
+      return;
+    }
+    setState(() => _sortBy = sortBy);
+    _load();
   }
 
   Future<void> _respond(DeckCard card, String action) async {
@@ -61,7 +76,19 @@ class _LikedByGridScreenState extends State<LikedByGridScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Who Liked You')),
+      appBar: AppBar(
+        title: const Text('Who Liked You'),
+        actions: [
+          PopupMenuButton<String>(
+            tooltip: 'Sort by',
+            icon: const Icon(Icons.sort),
+            onSelected: _changeSort,
+            itemBuilder: (context) => _sortLabels.entries
+                .map((entry) => PopupMenuItem<String>(value: entry.key, child: Text(entry.value)))
+                .toList(),
+          ),
+        ],
+      ),
       body: Column(
         children: [
           if (_errorText != null)

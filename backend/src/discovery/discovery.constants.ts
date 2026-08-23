@@ -10,6 +10,11 @@ export const ACTIVE_MODES = ['DATING', 'BFF', 'BIZZ'] as const;
 
 export type ActiveMode = (typeof ACTIVE_MODES)[number];
 
+/** How the "who liked you" backlog can be sorted; RECENT (most recently liked first) is the default. */
+export const LIKED_BY_SORT_OPTIONS = ['RECENT', 'PROXIMITY', 'COMPATIBILITY'] as const;
+
+export type LikedBySort = (typeof LIKED_BY_SORT_OPTIONS)[number];
+
 export const DAILY_SUPER_LIKE_LIMIT = 1;
 
 export const BOOST_DURATION_MINUTES = 30;
