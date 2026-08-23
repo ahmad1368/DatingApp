@@ -524,7 +524,19 @@ export class DiscoveryService {
         where: { swiperId: userId, action: 'SUPER_LIKE', createdAt: { gte: startOfUtcDay(new Date()) } },
       });
       if (superLikesToday >= DAILY_SUPER_LIKE_LIMIT) {
-        throw new BadRequestException('You have used all of your super likes for today.');
+        // A purchased power-up (see PowerUpsService) grants extra super
+        // likes beyond the daily free allowance, consumed one at a time.
+        const swiper = await this.prisma.user.findUnique({
+          where: { id: userId },
+          select: { bonusSuperLikes: true },
+        });
+        if (!swiper || swiper.bonusSuperLikes <= 0) {
+          throw new BadRequestException('You have used all of your super likes for today.');
+        }
+        await this.prisma.user.update({
+          where: { id: userId },
+          data: { bonusSuperLikes: { decrement: 1 } },
+        });
       }
     }
 
