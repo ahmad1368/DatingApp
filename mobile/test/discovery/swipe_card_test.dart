@@ -89,4 +89,32 @@ void main() {
 
     expect(find.textContaining('mutual connection'), findsNothing);
   });
+
+  testWidgets('shows a playable voice intro control when the card has one', (tester) async {
+    final card = DeckCard(
+      id: 'user-2',
+      name: 'Jane',
+      age: 25,
+      interests: const ['Hiking'],
+      voiceIntroUrl: 'https://cdn.example.com/voice-intro.m4a',
+      voiceIntroDurationSeconds: 12,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(home: Scaffold(body: Center(child: SwipeCard(card: card, onSwiped: (_) {})))),
+    );
+
+    expect(find.text('Voice intro · 12 s'), findsOneWidget);
+    expect(find.byIcon(Icons.play_circle), findsOneWidget);
+  });
+
+  testWidgets('hides the voice intro control when the card has none', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: Center(child: SwipeCard(card: _sampleCard(), onSwiped: (_) {}))),
+      ),
+    );
+
+    expect(find.textContaining('Voice intro'), findsNothing);
+  });
 }
