@@ -1,5 +1,5 @@
 import { IsIn, IsInt, IsOptional, IsString, IsUUID, Length, Max, Min } from 'class-validator';
-import { SWIPE_ACTIONS } from '../discovery.constants';
+import { PASS_REASONS, SWIPE_ACTIONS } from '../discovery.constants';
 
 export class RecordSwipeDto {
   @IsUUID()
@@ -38,4 +38,9 @@ export class RecordSwipeDto {
   @Min(0)
   @Max(1)
   icebreakerOptionIndex?: number;
+
+  /** Optional quick-pick reason for a pass, e.g. "Not my type". */
+  @IsOptional()
+  @IsIn(PASS_REASONS)
+  passReason?: string;
 }

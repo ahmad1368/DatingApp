@@ -1077,6 +1077,63 @@ describe('DiscoveryService', () => {
       expect(prisma.swipe.create).not.toHaveBeenCalled();
     });
 
+    it('rejects attaching a pass reason to a LIKE', async () => {
+      await expect(
+        service.recordSwipe(
+          USER_ID,
+          TARGET_ID,
+          'LIKE',
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          'Not my type',
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.swipe.create).not.toHaveBeenCalled();
+    });
+
+    it('stores an optional pass reason attached to a PASS', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: TARGET_ID });
+      prisma.swipe.findUnique.mockResolvedValueOnce(null);
+      prisma.swipe.create.mockResolvedValue({});
+
+      const result = await service.recordSwipe(
+        USER_ID,
+        TARGET_ID,
+        'PASS',
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        'Too far away',
+      );
+
+      expect(prisma.swipe.create).toHaveBeenCalledWith({
+        data: {
+          swiperId: USER_ID,
+          targetUserId: TARGET_ID,
+          action: 'PASS',
+          complimentText: null,
+          complimentTarget: null,
+          icebreakerPromptId: null,
+          icebreakerOptionIndex: null,
+          passReason: 'Too far away',
+        },
+      });
+      expect(result).toEqual({ matched: false });
+    });
+
+    it('getPassReasons exposes the quick-pick catalog', () => {
+      expect(service.getPassReasons()).toEqual([
+        'Not my type',
+        'Too far away',
+        'Not enough info',
+        'Inappropriate profile',
+        'Just not feeling it',
+      ]);
+    });
+
     it('stores a compliment attached to a like', async () => {
       prisma.user.findUnique.mockResolvedValue({ id: TARGET_ID });
       prisma.swipe.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
@@ -1099,6 +1156,7 @@ describe('DiscoveryService', () => {
           complimentTarget: 'your hiking photo',
           icebreakerPromptId: null,
           icebreakerOptionIndex: null,
+          passReason: null,
         },
       });
     });
@@ -1274,6 +1332,7 @@ describe('DiscoveryService', () => {
           complimentTarget: null,
           icebreakerPromptId: null,
           icebreakerOptionIndex: null,
+          passReason: null,
         },
       });
       expect(result).toEqual({ matched: true, matchId: 'match-1' });

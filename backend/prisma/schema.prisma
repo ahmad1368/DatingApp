@@ -146,6 +146,7 @@ model Swipe {
   complimentTarget      String?
   icebreakerPromptId    String?
   icebreakerOptionIndex Int?
+  passReason            String?
   createdAt             DateTime @default(now())
 
   @@unique([swiperId, targetUserId])

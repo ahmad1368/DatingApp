@@ -5,6 +5,36 @@ import 'package:http/testing.dart';
 import 'package:mobile/discovery/discovery_api.dart';
 
 void main() {
+  group('DiscoveryApi.fetchPassReasons', () {
+    test('sends the bearer token and parses the reason catalog', () async {
+      final api = DiscoveryApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.headers['Authorization'], 'Bearer a-jwt');
+          expect(request.url.path, '/discovery/pass-reasons');
+          return http.Response(
+            '["Not my type","Too far away"]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final reasons = await api.fetchPassReasons();
+
+      expect(reasons, ['Not my type', 'Too far away']);
+    });
+
+    test('throws DiscoveryApiException on a non-200 response', () async {
+      final api = DiscoveryApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => http.Response('', 500)),
+      );
+
+      expect(() => api.fetchPassReasons(), throwsA(isA<DiscoveryApiException>()));
+    });
+  });
+
   group('DiscoveryApi.fetchDeck', () {
     test('sends the bearer token and parses the deck', () async {
       final api = DiscoveryApi(
@@ -269,6 +299,21 @@ void main() {
       final result = await api.recordSwipe(targetUserId: 'user-2', action: 'SUPER_LIKE');
 
       expect(result.matched, isFalse);
+    });
+
+    test('sends the passReason when provided', () async {
+      final api = DiscoveryApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(
+            request.body,
+            '{"targetUserId":"user-2","action":"PASS","passReason":"Not my type"}',
+          );
+          return http.Response('{"matched":false}', 200, headers: {'content-type': 'application/json'});
+        }),
+      );
+
+      await api.recordSwipe(targetUserId: 'user-2', action: 'PASS', passReason: 'Not my type');
     });
 
     test('sends a compliment when liking with one attached', () async {
