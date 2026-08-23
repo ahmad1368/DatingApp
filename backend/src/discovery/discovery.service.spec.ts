@@ -1044,8 +1044,10 @@ describe('DiscoveryService', () => {
       expect(prisma.match.create).not.toHaveBeenCalled();
     });
 
-    it('rejects a super like once the daily limit is reached', async () => {
-      prisma.user.findUnique.mockResolvedValue({ id: TARGET_ID });
+    it('rejects a super like once the daily limit is reached and no bonus super likes remain', async () => {
+      prisma.user.findUnique
+        .mockResolvedValueOnce({ id: TARGET_ID }) // target lookup
+        .mockResolvedValueOnce({ bonusSuperLikes: 0 }); // swiper's bonus balance
       prisma.swipe.findUnique.mockResolvedValueOnce(null);
       prisma.swipe.count.mockResolvedValue(1);
 
@@ -1053,6 +1055,24 @@ describe('DiscoveryService', () => {
         BadRequestException,
       );
       expect(prisma.swipe.create).not.toHaveBeenCalled();
+    });
+
+    it('allows a super like beyond the daily limit by spending a bonus super like', async () => {
+      prisma.user.findUnique
+        .mockResolvedValueOnce({ id: TARGET_ID }) // target lookup
+        .mockResolvedValueOnce({ bonusSuperLikes: 2 }); // swiper's bonus balance
+      prisma.swipe.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+      prisma.swipe.count.mockResolvedValue(1);
+      prisma.swipe.create.mockResolvedValue({});
+      prisma.user.update.mockResolvedValue({});
+
+      const result = await service.recordSwipe(USER_ID, TARGET_ID, 'SUPER_LIKE');
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: USER_ID },
+        data: { bonusSuperLikes: { decrement: 1 } },
+      });
+      expect(result).toEqual({ matched: false });
     });
 
     it('allows a super like under the daily limit and matches against a plain LIKE', async () => {

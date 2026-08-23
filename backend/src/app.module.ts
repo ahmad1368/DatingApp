@@ -30,6 +30,7 @@ import { ScreenSecurityModule } from './screen-security/screen-security.module';
 import { WalletModule } from './wallet/wallet.module';
 import { SocialGraphModule } from './social-graph/social-graph.module';
 import { ProfilePromptsModule } from './profile-prompts/profile-prompts.module';
+import { PowerUpsModule } from './power-ups/power-ups.module';
 
 @Module({
   imports: [
@@ -64,6 +65,7 @@ import { ProfilePromptsModule } from './profile-prompts/profile-prompts.module';
     WalletModule,
     SocialGraphModule,
     ProfilePromptsModule,
+    PowerUpsModule,
   ],
 })
 export class AppModule {}
