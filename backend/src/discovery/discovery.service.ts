@@ -4,7 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { getBlockedUserIds } from '../blocking/blocking.utils';
 import { getMutualConnectionCounts } from '../social-graph/social-graph.utils';
 import { haversineDistanceKm } from '../location/utils/haversine';
-import { computeFirstMessageExpiresAt } from '../messaging/messaging.constants';
+import { computeFirstMessageExpiresAt, findIcebreakerPrompt } from '../messaging/messaging.constants';
 import {
   computeBoostExpiresAt,
   computeDefaultSnoozeUntil,
@@ -476,13 +476,29 @@ export class DiscoveryService {
     action: string,
     complimentText?: string,
     complimentTarget?: string,
+    icebreakerPromptId?: string,
+    icebreakerOptionIndex?: number,
   ): Promise<SwipeResult> {
     if (targetUserId === userId) {
       throw new BadRequestException('You cannot swipe on yourself.');
     }
 
-    if (complimentText && !LIKE_ACTIONS.includes(action as (typeof LIKE_ACTIONS)[number])) {
+    const isLike = LIKE_ACTIONS.includes(action as (typeof LIKE_ACTIONS)[number]);
+
+    if (complimentText && !isLike) {
       throw new BadRequestException('Compliments can only be attached to a like.');
+    }
+
+    if ((icebreakerPromptId == null) !== (icebreakerOptionIndex == null)) {
+      throw new BadRequestException('icebreakerPromptId and icebreakerOptionIndex must be given together.');
+    }
+    if (icebreakerPromptId != null) {
+      if (!isLike) {
+        throw new BadRequestException('An icebreaker answer can only be attached to a like.');
+      }
+      if (!findIcebreakerPrompt(icebreakerPromptId)) {
+        throw new BadRequestException('Unknown icebreaker prompt.');
+      }
     }
 
     const target = await this.prisma.user.findUnique({ where: { id: targetUserId } });
@@ -513,10 +529,11 @@ export class DiscoveryService {
         action,
         complimentText: complimentText ?? null,
         complimentTarget: complimentTarget ?? null,
+        icebreakerPromptId: icebreakerPromptId ?? null,
+        icebreakerOptionIndex: icebreakerOptionIndex ?? null,
       },
     });
 
-    const isLike = LIKE_ACTIONS.includes(action as (typeof LIKE_ACTIONS)[number]);
     await this.recordPhotoTestOutcome(targetUserId, isLike);
 
     if (!isLike) {
@@ -536,7 +553,52 @@ export class DiscoveryService {
       data: { userAId, userBId, firstMessageExpiresAt: computeFirstMessageExpiresAt(new Date()) },
     });
 
+    await this.seedMatchIcebreaker(
+      match.id,
+      { swiperId: userId, promptId: icebreakerPromptId ?? null, optionIndex: icebreakerOptionIndex ?? null },
+      {
+        swiperId: reciprocal.swiperId,
+        promptId: reciprocal.icebreakerPromptId,
+        optionIndex: reciprocal.icebreakerOptionIndex,
+      },
+    );
+
     return { matched: true, matchId: match.id };
+  }
+
+  /**
+   * When a match forms and one or both sides answered an icebreaker while
+   * liking, seeds the new match's chat with that icebreaker card so the
+   * pair opens on a compared answer instead of a blank thread - each side
+   * can still answer it in-chat later via respondToIcebreaker if only one
+   * of them had picked one, or if they picked different prompts.
+   */
+  private async seedMatchIcebreaker(
+    matchId: string,
+    a: { swiperId: string; promptId: string | null; optionIndex: number | null },
+    b: { swiperId: string; promptId: string | null; optionIndex: number | null },
+  ): Promise<void> {
+    if (a.promptId == null && b.promptId == null) {
+      return;
+    }
+
+    const chosen = a.promptId != null ? a : b;
+    const message = await this.prisma.message.create({
+      data: { matchId, senderId: chosen.swiperId, contentType: 'ICEBREAKER', content: chosen.promptId! },
+    });
+
+    const responses = [a, b].filter(
+      (side) => side.promptId === chosen.promptId && side.optionIndex != null,
+    );
+    if (responses.length > 0) {
+      await this.prisma.icebreakerResponse.createMany({
+        data: responses.map((side) => ({
+          messageId: message.id,
+          userId: side.swiperId,
+          optionIndex: side.optionIndex!,
+        })),
+      });
+    }
   }
 
   /**

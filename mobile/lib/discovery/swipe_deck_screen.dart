@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../messaging/messaging_api.dart';
 import '../safety/screen_security_api.dart';
 import '../safety/screen_security_channel.dart';
 import 'discovery_api.dart';
@@ -15,16 +16,19 @@ class SwipeDeckScreen extends StatefulWidget {
     ProfileVisitsApi? profileVisitsApi,
     ScreenSecurityChannel? screenSecurityChannel,
     ScreenSecurityApi? screenSecurityApi,
+    MessagingApi? messagingApi,
   })  : profileVisitsApi =
             profileVisitsApi ?? ProfileVisitsApi(accessToken: discoveryApi.accessToken),
         screenSecurityChannel = screenSecurityChannel ?? ScreenSecurityChannel(),
         screenSecurityApi =
-            screenSecurityApi ?? ScreenSecurityApi(accessToken: discoveryApi.accessToken);
+            screenSecurityApi ?? ScreenSecurityApi(accessToken: discoveryApi.accessToken),
+        messagingApi = messagingApi ?? MessagingApi(accessToken: discoveryApi.accessToken);
 
   final DiscoveryApi discoveryApi;
   final ProfileVisitsApi profileVisitsApi;
   final ScreenSecurityChannel screenSecurityChannel;
   final ScreenSecurityApi screenSecurityApi;
+  final MessagingApi messagingApi;
 
   @override
   State<SwipeDeckScreen> createState() => _SwipeDeckScreenState();
@@ -120,6 +124,8 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
     String action, {
     String? complimentText,
     String? complimentTarget,
+    String? icebreakerPromptId,
+    int? icebreakerOptionIndex,
   }) async {
     setState(() {
       _deck = _deck.where((c) => c.id != card.id).toList();
@@ -131,6 +137,8 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
         action: action,
         complimentText: complimentText,
         complimentTarget: complimentTarget,
+        icebreakerPromptId: icebreakerPromptId,
+        icebreakerOptionIndex: icebreakerOptionIndex,
       );
       if (result.matched) {
         setState(() => _matchText = "It's a match with ${card.name ?? 'someone new'}!");
@@ -167,6 +175,65 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
       return;
     }
     await _handleSwipe(card, 'LIKE', complimentText: text);
+  }
+
+  /// Answers a dual-choice icebreaker while liking, so if it's a match the
+  /// chat opens with both people's answers already compared.
+  Future<void> _handleIcebreakerLike(DeckCard card) async {
+    List<IcebreakerPrompt> prompts;
+    try {
+      prompts = await widget.messagingApi.fetchIcebreakerPrompts();
+    } on MessagingApiException catch (e) {
+      setState(() => _errorText = e.message);
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+
+    final prompt = await showDialog<IcebreakerPrompt>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('Pick an icebreaker'),
+        children: [
+          for (final prompt in prompts)
+            SimpleDialogOption(
+              onPressed: () => Navigator.of(context).pop(prompt),
+              child: Text(prompt.question),
+            ),
+        ],
+      ),
+    );
+    if (prompt == null || !mounted) {
+      return;
+    }
+
+    final optionIndex = await showDialog<int>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: Text(prompt.question),
+        children: [
+          SimpleDialogOption(
+            onPressed: () => Navigator.of(context).pop(0),
+            child: Text(prompt.optionA),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.of(context).pop(1),
+            child: Text(prompt.optionB),
+          ),
+        ],
+      ),
+    );
+    if (optionIndex == null) {
+      return;
+    }
+
+    await _handleSwipe(
+      card,
+      'LIKE',
+      icebreakerPromptId: prompt.id,
+      icebreakerOptionIndex: optionIndex,
+    );
   }
 
   Future<void> _handleUndo() async {
@@ -425,6 +492,13 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
                     tooltip: 'Like with a compliment',
                     onPressed: () => _handleComplimentLike(_deck.first),
                     child: const Icon(Icons.comment),
+                  ),
+                  FloatingActionButton(
+                    heroTag: 'icebreakerLike',
+                    backgroundColor: Colors.teal,
+                    tooltip: 'Like with an icebreaker',
+                    onPressed: () => _handleIcebreakerLike(_deck.first),
+                    child: const Icon(Icons.quiz_outlined),
                   ),
                 ],
               ),

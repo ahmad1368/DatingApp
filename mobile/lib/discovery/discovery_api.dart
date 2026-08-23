@@ -148,6 +148,8 @@ class DiscoveryApi {
     required String action,
     String? complimentText,
     String? complimentTarget,
+    String? icebreakerPromptId,
+    int? icebreakerOptionIndex,
   }) async {
     final response = await _client.post(
       Uri.parse('$_baseUrl/discovery/swipe'),
@@ -157,6 +159,8 @@ class DiscoveryApi {
         'action': action,
         'complimentText': ?complimentText,
         'complimentTarget': ?complimentTarget,
+        'icebreakerPromptId': ?icebreakerPromptId,
+        'icebreakerOptionIndex': ?icebreakerOptionIndex,
       }),
     );
 

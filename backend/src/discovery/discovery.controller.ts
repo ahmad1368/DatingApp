@@ -27,6 +27,8 @@ export class DiscoveryController {
       dto.action,
       dto.complimentText,
       dto.complimentTarget,
+      dto.icebreakerPromptId,
+      dto.icebreakerOptionIndex,
     );
   }
 
