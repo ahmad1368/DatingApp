@@ -205,6 +205,19 @@ model IcebreakerResponse {
   @@map("icebreaker_responses")
 }
 
+model ProfilePromptVoiceAnswer {
+  id              String   @id @default(uuid())
+  userId          String
+  promptId        String
+  audioUrl        String
+  durationSeconds Int
+  createdAt       DateTime @default(now())
+
+  @@unique([userId, promptId])
+  @@index([userId])
+  @@map("profile_prompt_voice_answers")
+}
+
 model BlockedContact {
   id            String   @id @default(uuid())
   userId        String
