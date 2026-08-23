@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../safety/watermark_overlay.dart';
 import 'discovery_api.dart';
 
 const double _swipeThreshold = 100.0;
@@ -10,11 +11,22 @@ const double _maxRotationRadians = 0.4;
 /// Flings off-screen and calls [onSwiped] with 'LIKE' or 'PASS' once past
 /// the threshold; otherwise springs back to center.
 class SwipeCard extends StatefulWidget {
-  const SwipeCard({super.key, required this.card, required this.onSwiped, this.onTap});
+  const SwipeCard({
+    super.key,
+    required this.card,
+    required this.onSwiped,
+    this.onTap,
+    this.viewerAccessToken,
+  });
 
   final DeckCard card;
   final ValueChanged<String> onSwiped;
   final VoidCallback? onTap;
+
+  /// The current viewer's access token, used only to derive the traceable
+  /// watermark overlaid on the card (see [WatermarkOverlay]). Omitted in
+  /// contexts (like most tests) that don't need the watermark.
+  final String? viewerAccessToken;
 
   @override
   State<SwipeCard> createState() => _SwipeCardState();
@@ -85,6 +97,10 @@ class _SwipeCardState extends State<SwipeCard> with SingleTickerProviderStateMix
     final angle = (_dragOffset.dx / 300).clamp(-1.0, 1.0) * _maxRotationRadians;
     final likeOpacity = (_dragOffset.dx / _swipeThreshold).clamp(0.0, 1.0);
     final passOpacity = (-_dragOffset.dx / _swipeThreshold).clamp(0.0, 1.0);
+    final accessToken = widget.viewerAccessToken;
+    final cardContent = accessToken != null
+        ? WatermarkOverlay(accessToken: accessToken, child: _CardContent(card: widget.card))
+        : _CardContent(card: widget.card);
 
     return GestureDetector(
       onTap: widget.onTap,
@@ -96,7 +112,7 @@ class _SwipeCardState extends State<SwipeCard> with SingleTickerProviderStateMix
           angle: angle,
           child: Stack(
             children: [
-              _CardContent(card: widget.card),
+              cardContent,
               Positioned(
                 top: 24,
                 left: 24,
