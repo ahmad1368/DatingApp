@@ -1,9 +1,13 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Put, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AuthenticatedUser, JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AnswerCallDto } from './dto/answer-call.dto';
 import { InitiateCallDto } from './dto/initiate-call.dto';
+import { SetIcebreakerOverlayDto } from './dto/set-icebreaker-overlay.dto';
+import { SetMediaControlsDto } from './dto/set-media-controls.dto';
+import { SetVirtualBackgroundDto } from './dto/set-virtual-background.dto';
 import { SubmitIceCandidateDto } from './dto/submit-ice-candidate.dto';
+import { VIRTUAL_BACKGROUNDS } from './calling.constants';
 import { CallingService } from './calling.service';
 
 @Controller('calls')
@@ -62,5 +66,40 @@ export class CallingController {
   @Get(':callId/ice-candidates')
   listIceCandidates(@CurrentUser() user: AuthenticatedUser, @Param('callId') callId: string) {
     return this.callingService.listIceCandidatesFromPeer(user.id, callId);
+  }
+
+  @Get('virtual-backgrounds/catalog')
+  getVirtualBackgroundCatalog() {
+    return VIRTUAL_BACKGROUNDS;
+  }
+
+  @Put(':callId/virtual-background')
+  @HttpCode(HttpStatus.OK)
+  setVirtualBackground(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('callId') callId: string,
+    @Body() dto: SetVirtualBackgroundDto,
+  ) {
+    return this.callingService.setVirtualBackground(user.id, callId, dto.backgroundId);
+  }
+
+  @Put(':callId/icebreaker')
+  @HttpCode(HttpStatus.OK)
+  setIcebreakerOverlay(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('callId') callId: string,
+    @Body() dto: SetIcebreakerOverlayDto,
+  ) {
+    return this.callingService.setIcebreakerOverlay(user.id, callId, dto.promptId);
+  }
+
+  @Put(':callId/media-controls')
+  @HttpCode(HttpStatus.OK)
+  setMediaControls(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('callId') callId: string,
+    @Body() dto: SetMediaControlsDto,
+  ) {
+    return this.callingService.setMediaControls(user.id, callId, dto);
   }
 }

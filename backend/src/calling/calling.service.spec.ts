@@ -274,6 +274,197 @@ describe('CallingService', () => {
     });
   });
 
+  describe('setVirtualBackground', () => {
+    it('rejects an unknown background', async () => {
+      mockCall({ status: 'ACCEPTED' });
+
+      await expect(
+        service.setVirtualBackground(CALLER_ID, CALL_ID, 'not-a-real-background'),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.callSession.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects setting a background on a call that has ended', async () => {
+      mockCall({ status: 'ENDED' });
+
+      await expect(
+        service.setVirtualBackground(CALLER_ID, CALL_ID, 'beach-sunset'),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('stores the chosen background for an active call', async () => {
+      mockCall({ status: 'ACCEPTED' });
+      prisma.callSession.update.mockResolvedValue({
+        id: CALL_ID,
+        matchId: MATCH_ID,
+        callerId: CALLER_ID,
+        calleeId: CALLEE_ID,
+        type: 'VIDEO',
+        status: 'ACCEPTED',
+        offerSdp: 'offer',
+        answerSdp: 'answer',
+        virtualBackgroundId: 'beach-sunset',
+        activeIcebreakerPromptId: null,
+        callerMuted: false,
+        calleeMuted: false,
+        callerVideoEnabled: true,
+        calleeVideoEnabled: true,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        endedAt: null,
+      });
+
+      const result = await service.setVirtualBackground(CALLER_ID, CALL_ID, 'beach-sunset');
+
+      expect(prisma.callSession.update).toHaveBeenCalledWith({
+        where: { id: CALL_ID },
+        data: { virtualBackgroundId: 'beach-sunset' },
+      });
+      expect(result.virtualBackgroundId).toBe('beach-sunset');
+    });
+  });
+
+  describe('setIcebreakerOverlay', () => {
+    it('rejects an unknown icebreaker prompt', async () => {
+      mockCall({ status: 'ACCEPTED' });
+
+      await expect(
+        service.setIcebreakerOverlay(CALLER_ID, CALL_ID, 'not-a-real-prompt'),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('sets the active overlay prompt', async () => {
+      mockCall({ status: 'ACCEPTED' });
+      prisma.callSession.update.mockResolvedValue({
+        id: CALL_ID,
+        matchId: MATCH_ID,
+        callerId: CALLER_ID,
+        calleeId: CALLEE_ID,
+        type: 'VIDEO',
+        status: 'ACCEPTED',
+        offerSdp: 'offer',
+        answerSdp: 'answer',
+        virtualBackgroundId: null,
+        activeIcebreakerPromptId: 'coffee-or-tea',
+        callerMuted: false,
+        calleeMuted: false,
+        callerVideoEnabled: true,
+        calleeVideoEnabled: true,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        endedAt: null,
+      });
+
+      const result = await service.setIcebreakerOverlay(CALLEE_ID, CALL_ID, 'coffee-or-tea');
+
+      expect(prisma.callSession.update).toHaveBeenCalledWith({
+        where: { id: CALL_ID },
+        data: { activeIcebreakerPromptId: 'coffee-or-tea' },
+      });
+      expect(result.activeIcebreakerPromptId).toBe('coffee-or-tea');
+    });
+
+    it('clears the overlay when no prompt id is given', async () => {
+      mockCall({ status: 'ACCEPTED' });
+      prisma.callSession.update.mockResolvedValue({
+        id: CALL_ID,
+        matchId: MATCH_ID,
+        callerId: CALLER_ID,
+        calleeId: CALLEE_ID,
+        type: 'VIDEO',
+        status: 'ACCEPTED',
+        offerSdp: 'offer',
+        answerSdp: 'answer',
+        virtualBackgroundId: null,
+        activeIcebreakerPromptId: null,
+        callerMuted: false,
+        calleeMuted: false,
+        callerVideoEnabled: true,
+        calleeVideoEnabled: true,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        endedAt: null,
+      });
+
+      await service.setIcebreakerOverlay(CALLEE_ID, CALL_ID);
+
+      expect(prisma.callSession.update).toHaveBeenCalledWith({
+        where: { id: CALL_ID },
+        data: { activeIcebreakerPromptId: null },
+      });
+    });
+  });
+
+  describe('setMediaControls', () => {
+    it('updates the caller-specific fields when the caller changes their controls', async () => {
+      mockCall({ status: 'ACCEPTED' });
+      prisma.callSession.update.mockResolvedValue({
+        id: CALL_ID,
+        matchId: MATCH_ID,
+        callerId: CALLER_ID,
+        calleeId: CALLEE_ID,
+        type: 'VIDEO',
+        status: 'ACCEPTED',
+        offerSdp: 'offer',
+        answerSdp: 'answer',
+        virtualBackgroundId: null,
+        activeIcebreakerPromptId: null,
+        callerMuted: true,
+        calleeMuted: false,
+        callerVideoEnabled: false,
+        calleeVideoEnabled: true,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        endedAt: null,
+      });
+
+      const result = await service.setMediaControls(CALLER_ID, CALL_ID, {
+        muted: true,
+        videoEnabled: false,
+      });
+
+      expect(prisma.callSession.update).toHaveBeenCalledWith({
+        where: { id: CALL_ID },
+        data: { callerMuted: true, callerVideoEnabled: false },
+      });
+      expect(result.callerMuted).toBe(true);
+      expect(result.callerVideoEnabled).toBe(false);
+    });
+
+    it('updates the callee-specific fields when the callee changes their controls', async () => {
+      mockCall({ status: 'ACCEPTED' });
+      prisma.callSession.update.mockResolvedValue({
+        id: CALL_ID,
+        matchId: MATCH_ID,
+        callerId: CALLER_ID,
+        calleeId: CALLEE_ID,
+        type: 'VIDEO',
+        status: 'ACCEPTED',
+        offerSdp: 'offer',
+        answerSdp: 'answer',
+        virtualBackgroundId: null,
+        activeIcebreakerPromptId: null,
+        callerMuted: false,
+        calleeMuted: true,
+        callerVideoEnabled: true,
+        calleeVideoEnabled: true,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        endedAt: null,
+      });
+
+      await service.setMediaControls(CALLEE_ID, CALL_ID, { muted: true });
+
+      expect(prisma.callSession.update).toHaveBeenCalledWith({
+        where: { id: CALL_ID },
+        data: { calleeMuted: true },
+      });
+    });
+
+    it('rejects changing controls on a call that has ended', async () => {
+      mockCall({ status: 'ENDED' });
+
+      await expect(
+        service.setMediaControls(CALLER_ID, CALL_ID, { muted: true }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
+
   describe('listIceCandidatesFromPeer', () => {
     it('throws when the requester is not a participant', async () => {
       mockCall();

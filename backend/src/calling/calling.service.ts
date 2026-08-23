@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { ACTIVE_CALL_STATUSES } from './calling.constants';
+import { findIcebreakerPrompt } from '../messaging/messaging.constants';
+import { ACTIVE_CALL_STATUSES, findVirtualBackground } from './calling.constants';
 
 export interface CallSessionView {
   id: string;
@@ -11,6 +12,12 @@ export interface CallSessionView {
   status: string;
   offerSdp: string;
   answerSdp: string | null;
+  virtualBackgroundId: string | null;
+  activeIcebreakerPromptId: string | null;
+  callerMuted: boolean;
+  calleeMuted: boolean;
+  callerVideoEnabled: boolean;
+  calleeVideoEnabled: boolean;
   createdAt: string;
   endedAt: string | null;
 }
@@ -31,6 +38,12 @@ interface CallSessionRecord {
   status: string;
   offerSdp: string;
   answerSdp: string | null;
+  virtualBackgroundId: string | null;
+  activeIcebreakerPromptId: string | null;
+  callerMuted: boolean;
+  calleeMuted: boolean;
+  callerVideoEnabled: boolean;
+  calleeVideoEnabled: boolean;
   createdAt: Date;
   endedAt: Date | null;
 }
@@ -144,11 +157,7 @@ export class CallingService {
   }
 
   async submitIceCandidate(userId: string, callId: string, candidate: string): Promise<IceCandidateView> {
-    const call = await this.getCallForParticipant(userId, callId);
-
-    if (!ACTIVE_CALL_STATUSES.includes(call.status as (typeof ACTIVE_CALL_STATUSES)[number])) {
-      throw new BadRequestException('This call is no longer active.');
-    }
+    await this.getActiveCallForParticipant(userId, callId);
 
     const iceCandidate = await this.prisma.callIceCandidate.create({
       data: { callSessionId: callId, senderId: userId, candidate },
@@ -178,6 +187,84 @@ export class CallingService {
     }));
   }
 
+  /** "Video Date Mode": lets a participant pick a virtual background for their own feed. */
+  async setVirtualBackground(
+    userId: string,
+    callId: string,
+    backgroundId: string,
+  ): Promise<CallSessionView> {
+    const call = await this.getActiveCallForParticipant(userId, callId);
+    if (!findVirtualBackground(backgroundId)) {
+      throw new BadRequestException('Unknown virtual background.');
+    }
+
+    const updated = await this.prisma.callSession.update({
+      where: { id: call.id },
+      data: { virtualBackgroundId: backgroundId },
+    });
+
+    return this.toView(updated);
+  }
+
+  /**
+   * "Video Date Mode": either participant can surface (or clear, by
+   * omitting promptId) a shared icebreaker question overlay during the
+   * call - purely a display prompt, not tied to the in-chat icebreaker
+   * response mechanism.
+   */
+  async setIcebreakerOverlay(
+    userId: string,
+    callId: string,
+    promptId?: string,
+  ): Promise<CallSessionView> {
+    const call = await this.getActiveCallForParticipant(userId, callId);
+    if (promptId != null && !findIcebreakerPrompt(promptId)) {
+      throw new BadRequestException('Unknown icebreaker prompt.');
+    }
+
+    const updated = await this.prisma.callSession.update({
+      where: { id: call.id },
+      data: { activeIcebreakerPromptId: promptId ?? null },
+    });
+
+    return this.toView(updated);
+  }
+
+  /** "Video Date Mode" call controls: mute/unmute and enable/disable your own video feed. */
+  async setMediaControls(
+    userId: string,
+    callId: string,
+    controls: { muted?: boolean; videoEnabled?: boolean },
+  ): Promise<CallSessionView> {
+    const call = await this.getActiveCallForParticipant(userId, callId);
+    const isCaller = call.callerId === userId;
+
+    const updated = await this.prisma.callSession.update({
+      where: { id: call.id },
+      data: {
+        ...(controls.muted != null &&
+          (isCaller ? { callerMuted: controls.muted } : { calleeMuted: controls.muted })),
+        ...(controls.videoEnabled != null &&
+          (isCaller
+            ? { callerVideoEnabled: controls.videoEnabled }
+            : { calleeVideoEnabled: controls.videoEnabled })),
+      },
+    });
+
+    return this.toView(updated);
+  }
+
+  private async getActiveCallForParticipant(
+    userId: string,
+    callId: string,
+  ): Promise<CallSessionRecord> {
+    const call = await this.getCallForParticipant(userId, callId);
+    if (!ACTIVE_CALL_STATUSES.includes(call.status as (typeof ACTIVE_CALL_STATUSES)[number])) {
+      throw new BadRequestException('This call is no longer active.');
+    }
+    return call;
+  }
+
   private async getCallForParticipant(userId: string, callId: string): Promise<CallSessionRecord> {
     const call = await this.prisma.callSession.findUnique({ where: { id: callId } });
     if (!call || (call.callerId !== userId && call.calleeId !== userId)) {
@@ -196,6 +283,12 @@ export class CallingService {
       status: call.status,
       offerSdp: call.offerSdp,
       answerSdp: call.answerSdp,
+      virtualBackgroundId: call.virtualBackgroundId,
+      activeIcebreakerPromptId: call.activeIcebreakerPromptId,
+      callerMuted: call.callerMuted,
+      calleeMuted: call.calleeMuted,
+      callerVideoEnabled: call.callerVideoEnabled,
+      calleeVideoEnabled: call.calleeVideoEnabled,
       createdAt: call.createdAt.toISOString(),
       endedAt: call.endedAt ? call.endedAt.toISOString() : null,
     };
