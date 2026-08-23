@@ -1,7 +1,12 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SubmitPersonalityTestDto } from './dto/submit-personality-test.dto';
-import { MAX_LIKERT_SCORE, MIN_LIKERT_SCORE, PERSONALITY_TEST_ITEMS } from './personality-test.constants';
+import {
+  categoryForDimension,
+  MAX_LIKERT_SCORE,
+  MIN_LIKERT_SCORE,
+  PERSONALITY_TEST_ITEMS,
+} from './personality-test.constants';
 
 export interface PersonalityTestItemView {
   id: string;
@@ -17,6 +22,25 @@ export interface PersonalityProfileView {
 export interface PersonalityCompatibilityResult {
   percentage: number | null;
   sharedDimensionCount: number;
+}
+
+export interface DimensionComparison {
+  dimension: string;
+  myScore: number;
+  theirScore: number;
+  similarity: number;
+}
+
+export interface CategoryBreakdown {
+  category: string;
+  averageSimilarity: number;
+  dimensions: DimensionComparison[];
+}
+
+export interface PersonalityCompatibilityBreakdown {
+  percentage: number | null;
+  sharedDimensionCount: number;
+  categories: CategoryBreakdown[];
 }
 
 @Injectable()
@@ -74,6 +98,59 @@ export class PersonalityTestService {
     userId: string,
     otherUserId: string,
   ): Promise<PersonalityCompatibilityResult> {
+    const shared = await this.fetchSharedDimensions(userId, otherUserId);
+    if (!shared) {
+      return { percentage: null, sharedDimensionCount: 0 };
+    }
+
+    return {
+      percentage: this.averageSimilarity(shared.comparisons),
+      sharedDimensionCount: shared.comparisons.length,
+    };
+  }
+
+  /**
+   * Same underlying similarity math as getCompatibility, but grouped by
+   * category (emotional values, core values, communication style, social
+   * habits) so the client can render a side-by-side breakdown rather than
+   * just a single aggregate percentage.
+   */
+  async getCompatibilityBreakdown(
+    userId: string,
+    otherUserId: string,
+  ): Promise<PersonalityCompatibilityBreakdown> {
+    const shared = await this.fetchSharedDimensions(userId, otherUserId);
+    if (!shared) {
+      return { percentage: null, sharedDimensionCount: 0, categories: [] };
+    }
+
+    const dimensionsByCategory = new Map<string, DimensionComparison[]>();
+    for (const comparison of shared.comparisons) {
+      const category = categoryForDimension(comparison.dimension);
+      const existing = dimensionsByCategory.get(category) ?? [];
+      existing.push(comparison);
+      dimensionsByCategory.set(category, existing);
+    }
+
+    const categories: CategoryBreakdown[] = [...dimensionsByCategory.entries()].map(
+      ([category, dimensions]) => ({
+        category,
+        averageSimilarity: this.averageSimilarity(dimensions),
+        dimensions,
+      }),
+    );
+
+    return {
+      percentage: this.averageSimilarity(shared.comparisons),
+      sharedDimensionCount: shared.comparisons.length,
+      categories,
+    };
+  }
+
+  private async fetchSharedDimensions(
+    userId: string,
+    otherUserId: string,
+  ): Promise<{ comparisons: DimensionComparison[] } | null> {
     if (userId === otherUserId) {
       throw new BadRequestException('Cannot calculate compatibility with yourself.');
     }
@@ -84,7 +161,7 @@ export class PersonalityTestService {
     ]);
 
     if (!mine || !theirs) {
-      return { percentage: null, sharedDimensionCount: 0 };
+      return null;
     }
 
     const myScores = mine.dimensionScores as Record<string, number>;
@@ -92,18 +169,26 @@ export class PersonalityTestService {
 
     const sharedDimensions = Object.keys(myScores).filter((dimension) => dimension in theirScores);
     if (sharedDimensions.length === 0) {
-      return { percentage: null, sharedDimensionCount: 0 };
+      return null;
     }
 
-    const totalSimilarity = sharedDimensions.reduce((sum, dimension) => {
-      const diff = Math.abs(myScores[dimension] - theirScores[dimension]);
-      return sum + (100 - diff);
-    }, 0);
+    const comparisons = sharedDimensions.map((dimension) => {
+      const myScore = myScores[dimension];
+      const theirScore = theirScores[dimension];
+      return {
+        dimension,
+        myScore,
+        theirScore,
+        similarity: 100 - Math.abs(myScore - theirScore),
+      };
+    });
 
-    return {
-      percentage: Math.round(totalSimilarity / sharedDimensions.length),
-      sharedDimensionCount: sharedDimensions.length,
-    };
+    return { comparisons };
+  }
+
+  private averageSimilarity(comparisons: DimensionComparison[]): number {
+    const total = comparisons.reduce((sum, comparison) => sum + comparison.similarity, 0);
+    return Math.round(total / comparisons.length);
   }
 
   private toView(profile: { dimensionScores: unknown; completedAt: Date }): PersonalityProfileView {

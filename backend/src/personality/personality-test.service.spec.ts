@@ -134,4 +134,54 @@ describe('PersonalityTestService', () => {
       expect(result).toEqual({ percentage: 90, sharedDimensionCount: 2 });
     });
   });
+
+  describe('getCompatibilityBreakdown', () => {
+    it('rejects comparing a user with themselves', async () => {
+      await expect(
+        service.getCompatibilityBreakdown(USER_ID, USER_ID),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('returns an empty breakdown when either user has not completed the test', async () => {
+      prisma.personalityProfile.findUnique
+        .mockResolvedValueOnce({ dimensionScores: { Optimism: 80 } })
+        .mockResolvedValueOnce(null);
+
+      const result = await service.getCompatibilityBreakdown(USER_ID, OTHER_ID);
+
+      expect(result).toEqual({ percentage: null, sharedDimensionCount: 0, categories: [] });
+    });
+
+    it('groups shared dimensions by category with per-dimension scores', async () => {
+      prisma.personalityProfile.findUnique
+        .mockResolvedValueOnce({
+          dimensionScores: { Optimism: 80, Warmth: 60, Directness: 40 },
+        })
+        .mockResolvedValueOnce({
+          dimensionScores: { Optimism: 100, Warmth: 60, Directness: 100 },
+        });
+
+      const result = await service.getCompatibilityBreakdown(USER_ID, OTHER_ID);
+
+      expect(result.sharedDimensionCount).toBe(3);
+      // Optimism 80, Warmth 100 -> avg 90 for Emotional Values; Directness 40 alone for Communication Style
+      const emotionalValues = result.categories.find((c) => c.category === 'Emotional Values');
+      const communicationStyle = result.categories.find(
+        (c) => c.category === 'Communication Style',
+      );
+      expect(emotionalValues).toEqual({
+        category: 'Emotional Values',
+        averageSimilarity: 90,
+        dimensions: [
+          { dimension: 'Optimism', myScore: 80, theirScore: 100, similarity: 80 },
+          { dimension: 'Warmth', myScore: 60, theirScore: 60, similarity: 100 },
+        ],
+      });
+      expect(communicationStyle).toEqual({
+        category: 'Communication Style',
+        averageSimilarity: 40,
+        dimensions: [{ dimension: 'Directness', myScore: 40, theirScore: 100, similarity: 40 }],
+      });
+    });
+  });
 });
