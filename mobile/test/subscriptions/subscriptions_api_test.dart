@@ -118,4 +118,72 @@ void main() {
       expect(() => api.cancel(), throwsA(isA<SubscriptionsApiException>()));
     });
   });
+
+  group('SubscriptionsApi.giftSubscription', () {
+    test('sends the recipient and tier, and parses the recipient status', () async {
+      final api = SubscriptionsApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'POST');
+          expect(request.url.path, '/subscriptions/gift');
+          expect(request.body, '{"recipientId":"user-2","tier":"GOLD"}');
+          return http.Response(
+            '{"recipientStatus":{"tier":"GOLD","isActive":true,'
+            '"expiresAt":"2026-02-01T00:00:00.000Z","canceledAt":null},'
+            '"gift":{"id":"gift-1","tier":"GOLD","createdAt":"2026-01-01T00:00:00.000Z",'
+            '"otherUserId":"user-2","otherUserName":"Jane","otherUserPhotoUrl":null}}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final status = await api.giftSubscription(recipientId: 'user-2', tier: 'GOLD');
+
+      expect(status.tier, 'GOLD');
+      expect(status.isActive, isTrue);
+    });
+
+    test('throws SubscriptionsApiException when gifting to yourself', () async {
+      final api = SubscriptionsApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '{"message":"You cannot gift a subscription to yourself."}',
+            400,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      expect(
+        () => api.giftSubscription(recipientId: 'user-1', tier: 'GOLD'),
+        throwsA(isA<SubscriptionsApiException>()),
+      );
+    });
+  });
+
+  group('SubscriptionsApi.fetchReceivedGifts', () {
+    test('sends the bearer token and parses the gift history', () async {
+      final api = SubscriptionsApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.headers['Authorization'], 'Bearer a-jwt');
+          expect(request.url.path, '/subscriptions/gifts/received');
+          return http.Response(
+            '[{"id":"gift-1","tier":"PLATINUM","createdAt":"2026-01-01T00:00:00.000Z",'
+            '"otherUserId":"user-2","otherUserName":"Jane","otherUserPhotoUrl":null}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final gifts = await api.fetchReceivedGifts();
+
+      expect(gifts, hasLength(1));
+      expect(gifts.first.tier, 'PLATINUM');
+      expect(gifts.first.otherUserName, 'Jane');
+    });
+  });
 }

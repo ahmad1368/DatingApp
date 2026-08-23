@@ -293,6 +293,18 @@ model GiftTransaction {
   @@map("gift_transactions")
 }
 
+model SubscriptionGift {
+  id          String   @id @default(uuid())
+  senderId    String
+  recipientId String
+  tier        String
+  createdAt   DateTime @default(now())
+
+  @@index([senderId])
+  @@index([recipientId])
+  @@map("subscription_gifts")
+}
+
 model CoinPurchase {
   id             String   @id @default(uuid())
   userId         String

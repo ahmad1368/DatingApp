@@ -16,6 +16,7 @@ class SubscriptionScreen extends StatefulWidget {
 class _SubscriptionScreenState extends State<SubscriptionScreen> {
   List<SubscriptionPlan> _catalog = [];
   SubscriptionStatus? _status;
+  List<SubscriptionGift> _receivedGifts = [];
   bool _isLoading = true;
   String? _errorText;
 
@@ -34,10 +35,12 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       final results = await Future.wait([
         widget.subscriptionsApi.fetchCatalog(),
         widget.subscriptionsApi.fetchStatus(),
+        widget.subscriptionsApi.fetchReceivedGifts(),
       ]);
       setState(() {
         _catalog = results[0] as List<SubscriptionPlan>;
         _status = results[1] as SubscriptionStatus;
+        _receivedGifts = results[2] as List<SubscriptionGift>;
       });
     } on SubscriptionsApiException catch (e) {
       setState(() => _errorText = e.message);
@@ -63,6 +66,39 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     try {
       final status = await widget.subscriptionsApi.cancel();
       setState(() => _status = status);
+    } on SubscriptionsApiException catch (e) {
+      setState(() => _errorText = e.message);
+    }
+  }
+
+  Future<void> _giftPlan(SubscriptionPlan plan) async {
+    final controller = TextEditingController();
+    final recipientId = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Gift ${plan.label}'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(labelText: "Recipient's user ID"),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+            child: const Text('Send gift'),
+          ),
+        ],
+      ),
+    );
+    if (recipientId == null || recipientId.isEmpty) {
+      return;
+    }
+
+    setState(() => _errorText = null);
+    try {
+      await widget.subscriptionsApi.giftSubscription(recipientId: recipientId, tier: plan.tier);
+      await _load();
     } on SubscriptionsApiException catch (e) {
       setState(() => _errorText = e.message);
     }
@@ -107,15 +143,34 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                           for (final feature in plan.features) Text('• $feature'),
                           if (plan.tier != 'FREE') ...[
                             const SizedBox(height: 12),
-                            ElevatedButton(
-                              onPressed: status?.tier == plan.tier ? null : () => _subscribe(plan),
-                              child: Text(status?.tier == plan.tier ? 'Current plan' : 'Subscribe'),
+                            Row(
+                              children: [
+                                ElevatedButton(
+                                  onPressed:
+                                      status?.tier == plan.tier ? null : () => _subscribe(plan),
+                                  child: Text(status?.tier == plan.tier ? 'Current plan' : 'Subscribe'),
+                                ),
+                                const SizedBox(width: 8),
+                                OutlinedButton(
+                                  onPressed: () => _giftPlan(plan),
+                                  child: const Text('Gift'),
+                                ),
+                              ],
                             ),
                           ],
                         ],
                       ),
                     ),
                   ),
+                if (_receivedGifts.isNotEmpty) ...[
+                  const SizedBox(height: 24),
+                  const Text('Gifts you\'ve received', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  for (final gift in _receivedGifts)
+                    ListTile(
+                      leading: const Icon(Icons.card_giftcard),
+                      title: Text('${gift.tier} from ${gift.otherUserName ?? 'someone'}'),
+                    ),
+                ],
               ],
             ),
     );
