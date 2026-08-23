@@ -18,6 +18,11 @@ export class DiscoveryController {
     return this.discoveryService.getDeck(user.id);
   }
 
+  @Get('pass-reasons')
+  getPassReasons() {
+    return this.discoveryService.getPassReasons();
+  }
+
   @Post('swipe')
   @HttpCode(HttpStatus.OK)
   recordSwipe(@CurrentUser() user: AuthenticatedUser, @Body() dto: RecordSwipeDto) {
@@ -29,6 +34,7 @@ export class DiscoveryController {
       dto.complimentTarget,
       dto.icebreakerPromptId,
       dto.icebreakerOptionIndex,
+      dto.passReason,
     );
   }
 

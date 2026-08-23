@@ -193,6 +193,73 @@ void main() {
     expect(find.textContaining('match'), findsNothing);
   });
 
+  testWidgets('picking a pass reason sends it with the PASS swipe', (tester) async {
+    http.Request? swipeRequest;
+    final api = DiscoveryApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/discovery/deck') {
+          return http.Response(_deckResponse, 200, headers: {'content-type': 'application/json'});
+        }
+        if (request.url.path == '/discovery/pass-reasons') {
+          return http.Response(
+            '["Not my type","Too far away"]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        swipeRequest = request;
+        return http.Response('{"matched":false}', 200, headers: {'content-type': 'application/json'});
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: SwipeDeckScreen(discoveryApi: api)));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.close));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Too far away'));
+    await tester.pumpAndSettle();
+
+    expect(swipeRequest, isNotNull);
+    expect(
+      swipeRequest!.body,
+      '{"targetUserId":"user-2","action":"PASS","passReason":"Too far away"}',
+    );
+  });
+
+  testWidgets('skipping the pass reason dialog still records the pass', (tester) async {
+    http.Request? swipeRequest;
+    final api = DiscoveryApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/discovery/deck') {
+          return http.Response(_deckResponse, 200, headers: {'content-type': 'application/json'});
+        }
+        if (request.url.path == '/discovery/pass-reasons') {
+          return http.Response(
+            '["Not my type","Too far away"]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        swipeRequest = request;
+        return http.Response('{"matched":false}', 200, headers: {'content-type': 'application/json'});
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: SwipeDeckScreen(discoveryApi: api)));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.close));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Skip'));
+    await tester.pumpAndSettle();
+
+    expect(swipeRequest, isNotNull);
+    expect(swipeRequest!.body, '{"targetUserId":"user-2","action":"PASS"}');
+  });
+
   testWidgets('tapping super like records a SUPER_LIKE swipe', (tester) async {
     http.Request? capturedRequest;
     final api = DiscoveryApi(

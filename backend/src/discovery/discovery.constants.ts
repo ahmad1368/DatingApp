@@ -4,6 +4,21 @@ export type SwipeAction = (typeof SWIPE_ACTIONS)[number];
 
 export const LIKE_ACTIONS: SwipeAction[] = ['LIKE', 'SUPER_LIKE'];
 
+/**
+ * Optional quick-pick reason shown after a pass; stored for future match
+ * algorithm tuning, but there's no retraining pipeline in this codebase to
+ * actually consume it yet - it's just captured feedback for now.
+ */
+export const PASS_REASONS = [
+  'Not my type',
+  'Too far away',
+  'Not enough info',
+  'Inappropriate profile',
+  'Just not feeling it',
+] as const;
+
+export type PassReason = (typeof PASS_REASONS)[number];
+
 export const DEFAULT_DECK_SIZE = 20;
 
 export const ACTIVE_MODES = ['DATING', 'BFF', 'BIZZ'] as const;

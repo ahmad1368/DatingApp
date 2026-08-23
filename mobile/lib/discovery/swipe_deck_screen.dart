@@ -126,6 +126,7 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
     String? complimentTarget,
     String? icebreakerPromptId,
     int? icebreakerOptionIndex,
+    String? passReason,
   }) async {
     setState(() {
       _deck = _deck.where((c) => c.id != card.id).toList();
@@ -139,6 +140,7 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
         complimentTarget: complimentTarget,
         icebreakerPromptId: icebreakerPromptId,
         icebreakerOptionIndex: icebreakerOptionIndex,
+        passReason: passReason,
       );
       if (result.matched) {
         setState(() => _matchText = "It's a match with ${card.name ?? 'someone new'}!");
@@ -146,6 +148,42 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
     } on DiscoveryApiException catch (e) {
       setState(() => _errorText = e.message);
     }
+  }
+
+  /// Passing via the explicit button (not the quick swipe gesture) offers an
+  /// optional quick-pick reason to help refine future matches; skippable.
+  Future<void> _handlePassWithReason(DeckCard card) async {
+    List<String> reasons;
+    try {
+      reasons = await widget.discoveryApi.fetchPassReasons();
+    } catch (_) {
+      reasons = const [];
+    }
+    if (!mounted) {
+      return;
+    }
+
+    final reason = reasons.isEmpty
+        ? null
+        : await showDialog<String>(
+            context: context,
+            builder: (context) => SimpleDialog(
+              title: const Text('Why pass? (optional)'),
+              children: [
+                for (final reason in reasons)
+                  SimpleDialogOption(
+                    onPressed: () => Navigator.of(context).pop(reason),
+                    child: Text(reason),
+                  ),
+                SimpleDialogOption(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Skip'),
+                ),
+              ],
+            ),
+          );
+
+    await _handleSwipe(card, 'PASS', passReason: reason);
   }
 
   /// Composes a short pre-match compliment, then likes with it attached.
@@ -492,7 +530,7 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
                   FloatingActionButton(
                     heroTag: 'pass',
                     backgroundColor: Colors.red,
-                    onPressed: () => _handleSwipe(_deck.first, 'PASS'),
+                    onPressed: () => _handlePassWithReason(_deck.first),
                     child: const Icon(Icons.close),
                   ),
                   FloatingActionButton(

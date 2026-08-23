@@ -15,6 +15,7 @@ import {
   LikedBySort,
   LIKED_BY_SORT_OPTIONS,
   MIN_SWIPES_FOR_PHOTO_ROTATION,
+  PASS_REASONS,
   SNOOZE_MAX_DURATION_DAYS,
   startOfUtcDay,
   isSuperBoostPeakHour,
@@ -500,6 +501,10 @@ export class DiscoveryService {
     return badges;
   }
 
+  getPassReasons(): readonly string[] {
+    return PASS_REASONS;
+  }
+
   async recordSwipe(
     userId: string,
     targetUserId: string,
@@ -508,6 +513,7 @@ export class DiscoveryService {
     complimentTarget?: string,
     icebreakerPromptId?: string,
     icebreakerOptionIndex?: number,
+    passReason?: string,
   ): Promise<SwipeResult> {
     if (targetUserId === userId) {
       throw new BadRequestException('You cannot swipe on yourself.');
@@ -517,6 +523,10 @@ export class DiscoveryService {
 
     if (complimentText && !isLike) {
       throw new BadRequestException('Compliments can only be attached to a like.');
+    }
+
+    if (passReason && action !== 'PASS') {
+      throw new BadRequestException('Pass reasons can only be attached to a pass.');
     }
 
     if ((icebreakerPromptId == null) !== (icebreakerOptionIndex == null)) {
@@ -573,6 +583,7 @@ export class DiscoveryService {
         complimentTarget: complimentTarget ?? null,
         icebreakerPromptId: icebreakerPromptId ?? null,
         icebreakerOptionIndex: icebreakerOptionIndex ?? null,
+        passReason: passReason ?? null,
       },
     });
 

@@ -117,6 +117,19 @@ class DiscoveryApi {
         'Authorization': 'Bearer $accessToken',
       };
 
+  Future<List<String>> fetchPassReasons() async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/discovery/pass-reasons'),
+      headers: _headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw DiscoveryApiException(_errorMessage(_decode(response), response.statusCode));
+    }
+
+    return (jsonDecode(response.body) as List).cast<String>();
+  }
+
   Future<List<DeckCard>> fetchDeck() async {
     final response = await _client.get(
       Uri.parse('$_baseUrl/discovery/deck'),
@@ -162,7 +175,9 @@ class DiscoveryApi {
 
   /// [complimentText] attaches a short pre-match compliment to this like
   /// (e.g. praising a specific photo or prompt, named by [complimentTarget]);
-  /// the backend rejects a compliment on a PASS.
+  /// the backend rejects a compliment on a PASS. [passReason] is the
+  /// opposite: an optional quick-pick reason (from [fetchPassReasons]) the
+  /// backend only accepts on a PASS.
   Future<SwipeResult> recordSwipe({
     required String targetUserId,
     required String action,
@@ -170,6 +185,7 @@ class DiscoveryApi {
     String? complimentTarget,
     String? icebreakerPromptId,
     int? icebreakerOptionIndex,
+    String? passReason,
   }) async {
     final response = await _client.post(
       Uri.parse('$_baseUrl/discovery/swipe'),
@@ -181,6 +197,7 @@ class DiscoveryApi {
         'complimentTarget': ?complimentTarget,
         'icebreakerPromptId': ?icebreakerPromptId,
         'icebreakerOptionIndex': ?icebreakerOptionIndex,
+        'passReason': ?passReason,
       }),
     );
 
