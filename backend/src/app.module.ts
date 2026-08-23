@@ -29,6 +29,7 @@ import { RelationshipCoachModule } from './relationship-coach/relationship-coach
 import { ScreenSecurityModule } from './screen-security/screen-security.module';
 import { WalletModule } from './wallet/wallet.module';
 import { SocialGraphModule } from './social-graph/social-graph.module';
+import { ProfilePromptsModule } from './profile-prompts/profile-prompts.module';
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { SocialGraphModule } from './social-graph/social-graph.module';
     ScreenSecurityModule,
     WalletModule,
     SocialGraphModule,
+    ProfilePromptsModule,
   ],
 })
 export class AppModule {}
