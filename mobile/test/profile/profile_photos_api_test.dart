@@ -14,7 +14,7 @@ void main() {
           expect(request.url.path, '/profile-photos');
           return http.Response(
             '[{"id":"photo-1","mediaUrl":"https://example.com/a.jpg","isLead":true,'
-            '"impressions":10,"rightSwipes":4,"conversionRate":0.4}]',
+            '"impressions":10,"rightSwipes":4,"conversionRate":0.4,"qualityScore":39}]',
             200,
             headers: {'content-type': 'application/json'},
           );
@@ -26,6 +26,7 @@ void main() {
       expect(photos, hasLength(1));
       expect(photos.first.isLead, isTrue);
       expect(photos.first.conversionRate, 0.4);
+      expect(photos.first.qualityScore, 39);
     });
 
     test('throws ProfilePhotosApiException on a non-200 response', () async {
@@ -48,7 +49,7 @@ void main() {
           expect(request.body, '{"mediaUrl":"https://example.com/a.jpg"}');
           return http.Response(
             '{"id":"photo-1","mediaUrl":"https://example.com/a.jpg","isLead":true,'
-            '"impressions":0,"rightSwipes":0,"conversionRate":null}',
+            '"impressions":0,"rightSwipes":0,"conversionRate":null,"qualityScore":39}',
             201,
             headers: {'content-type': 'application/json'},
           );
@@ -93,6 +94,44 @@ void main() {
       expect(deleteRequest, isNotNull);
       expect(deleteRequest!.method, 'DELETE');
       expect(deleteRequest!.url.path, '/profile-photos/photo-1');
+    });
+  });
+
+  group('ProfilePhotosApi.reorderByQuality', () {
+    test('posts to the reorder endpoint and parses the re-ranked gallery', () async {
+      http.Request? postRequest;
+      final api = ProfilePhotosApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          postRequest = request;
+          return http.Response(
+            '[{"id":"photo-2","mediaUrl":"https://example.com/b.jpg","isLead":true,'
+            '"impressions":0,"rightSwipes":0,"conversionRate":null,"qualityScore":98},'
+            '{"id":"photo-1","mediaUrl":"https://example.com/a.jpg","isLead":false,'
+            '"impressions":10,"rightSwipes":4,"conversionRate":0.4,"qualityScore":39}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final photos = await api.reorderByQuality();
+
+      expect(postRequest, isNotNull);
+      expect(postRequest!.method, 'POST');
+      expect(postRequest!.url.path, '/profile-photos/reorder-by-quality');
+      expect(photos, hasLength(2));
+      expect(photos.first.id, 'photo-2');
+      expect(photos.first.isLead, isTrue);
+    });
+
+    test('throws ProfilePhotosApiException on a non-200 response', () async {
+      final api = ProfilePhotosApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => http.Response('', 500)),
+      );
+
+      expect(() => api.reorderByQuality(), throwsA(isA<ProfilePhotosApiException>()));
     });
   });
 }

@@ -70,17 +70,36 @@ class _ProfilePhotosScreenState extends State<ProfilePhotosScreen> {
     }
   }
 
-  String _statsLabel(ProfilePhoto photo) {
-    if (photo.conversionRate == null) {
-      return 'No swipes yet';
+  Future<void> _reorderByQuality() async {
+    setState(() => _errorText = null);
+    try {
+      final photos = await widget.profilePhotosApi.reorderByQuality();
+      setState(() => _photos = photos);
+    } on ProfilePhotosApiException catch (e) {
+      setState(() => _errorText = e.message);
     }
-    return '${(photo.conversionRate! * 100).toStringAsFixed(0)}% right-swipes (${photo.impressions} shown)';
+  }
+
+  String _statsLabel(ProfilePhoto photo) {
+    final swipes = photo.conversionRate == null
+        ? 'No swipes yet'
+        : '${(photo.conversionRate! * 100).toStringAsFixed(0)}% right-swipes (${photo.impressions} shown)';
+    return '$swipes · Quality score: ${photo.qualityScore}';
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Profile Photos')),
+      appBar: AppBar(
+        title: const Text('Profile Photos'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.auto_awesome),
+            tooltip: 'Auto-rank by AI quality score',
+            onPressed: _photos.isEmpty ? null : _reorderByQuality,
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: _addPhoto,
         child: const Icon(Icons.add_a_photo),

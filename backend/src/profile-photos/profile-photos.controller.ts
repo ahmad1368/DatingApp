@@ -25,4 +25,10 @@ export class ProfilePhotosController {
   deletePhoto(@CurrentUser() user: AuthenticatedUser, @Param('photoId') photoId: string) {
     return this.profilePhotosService.deletePhoto(user.id, photoId);
   }
+
+  @Post('reorder-by-quality')
+  @HttpCode(HttpStatus.OK)
+  reorderByQuality(@CurrentUser() user: AuthenticatedUser) {
+    return this.profilePhotosService.reorderByQuality(user.id);
+  }
 }
