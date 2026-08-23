@@ -35,7 +35,7 @@ void main() {
       client: MockClient(
         (request) async => http.Response(
           '[{"id":"photo-1","mediaUrl":"https://example.com/a.jpg","isLead":true,'
-          '"impressions":10,"rightSwipes":4,"conversionRate":0.4}]',
+          '"impressions":10,"rightSwipes":4,"conversionRate":0.4,"qualityScore":39}]',
           200,
           headers: {'content-type': 'application/json'},
         ),
@@ -47,6 +47,7 @@ void main() {
 
     expect(find.text('Lead photo'), findsOneWidget);
     expect(find.textContaining('40% right-swipes'), findsOneWidget);
+    expect(find.textContaining('Quality score: 39'), findsOneWidget);
   });
 
   testWidgets('adding a photo picks and uploads it', (tester) async {
@@ -59,7 +60,7 @@ void main() {
           addRequest = request;
           return http.Response(
             '{"id":"photo-1","mediaUrl":"file:///tmp/photo.jpg","isLead":true,'
-            '"impressions":0,"rightSwipes":0,"conversionRate":null}',
+            '"impressions":0,"rightSwipes":0,"conversionRate":null,"qualityScore":39}',
             201,
             headers: {'content-type': 'application/json'},
           );
@@ -68,7 +69,7 @@ void main() {
         final body = fetchCount == 1
             ? '[]'
             : '[{"id":"photo-1","mediaUrl":"file:///tmp/photo.jpg","isLead":true,'
-                '"impressions":0,"rightSwipes":0,"conversionRate":null}]';
+                '"impressions":0,"rightSwipes":0,"conversionRate":null,"qualityScore":39}]';
         return http.Response(body, 200, headers: {'content-type': 'application/json'});
       }),
     );
@@ -97,7 +98,7 @@ void main() {
         }
         return http.Response(
           '[{"id":"photo-1","mediaUrl":"https://example.com/a.jpg","isLead":true,'
-          '"impressions":0,"rightSwipes":0,"conversionRate":null}]',
+          '"impressions":0,"rightSwipes":0,"conversionRate":null,"qualityScore":39}]',
           200,
           headers: {'content-type': 'application/json'},
         );
@@ -113,5 +114,42 @@ void main() {
     expect(deleteRequest, isNotNull);
     expect(deleteRequest!.url.path, '/profile-photos/photo-1');
     expect(find.text('No profile photos yet. Add one to get started.'), findsOneWidget);
+  });
+
+  testWidgets('tapping the AI reorder action re-ranks photos by quality score', (tester) async {
+    http.Request? reorderRequest;
+    final api = ProfilePhotosApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.method == 'POST' && request.url.path == '/profile-photos/reorder-by-quality') {
+          reorderRequest = request;
+          return http.Response(
+            '[{"id":"photo-2","mediaUrl":"https://example.com/b.jpg","isLead":true,'
+            '"impressions":0,"rightSwipes":0,"conversionRate":null,"qualityScore":98},'
+            '{"id":"photo-1","mediaUrl":"https://example.com/a.jpg","isLead":false,'
+            '"impressions":10,"rightSwipes":4,"conversionRate":0.4,"qualityScore":39}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '[{"id":"photo-1","mediaUrl":"https://example.com/a.jpg","isLead":true,'
+          '"impressions":10,"rightSwipes":4,"conversionRate":0.4,"qualityScore":39},'
+          '{"id":"photo-2","mediaUrl":"https://example.com/b.jpg","isLead":false,'
+          '"impressions":0,"rightSwipes":0,"conversionRate":null,"qualityScore":98}]',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: ProfilePhotosScreen(profilePhotosApi: api)));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.auto_awesome));
+    await tester.pumpAndSettle();
+
+    expect(reorderRequest, isNotNull);
+    expect(find.textContaining('Quality score: 98'), findsOneWidget);
   });
 }

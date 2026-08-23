@@ -676,13 +676,14 @@ model LocalEventRsvp {
 // position (see DiscoveryService.recordSwipe) so the lead can automatically
 // rotate to whichever photo is converting best.
 model ProfilePhoto {
-  id          String   @id @default(uuid())
-  ownerId     String
-  mediaUrl    String
-  position    Int
-  impressions Int      @default(0)
-  rightSwipes Int      @default(0)
-  createdAt   DateTime @default(now())
+  id           String   @id @default(uuid())
+  ownerId      String
+  mediaUrl     String
+  position     Int
+  impressions  Int      @default(0)
+  rightSwipes  Int      @default(0)
+  qualityScore Int      @default(0)
+  createdAt    DateTime @default(now())
 
   @@index([ownerId])
   @@index([ownerId, position])

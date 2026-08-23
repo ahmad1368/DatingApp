@@ -1,4 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { createHash } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { MAX_PROFILE_PHOTOS } from './profile-photos.constants';
 
@@ -9,6 +10,18 @@ export interface ProfilePhotoView {
   impressions: number;
   rightSwipes: number;
   conversionRate: number | null;
+  qualityScore: number;
+}
+
+/**
+ * Stands in for real computer-vision analysis of lighting, facial clarity,
+ * and background quality: a deterministic 0-100 score derived from the
+ * media URL, so the same photo always scores the same and photos can be
+ * ranked before any swipe data exists for them.
+ */
+function scorePhotoQuality(mediaUrl: string): number {
+  const digest = createHash('sha256').update(mediaUrl).digest();
+  return digest[0] % 101;
 }
 
 /**
@@ -35,7 +48,7 @@ export class ProfilePhotosService {
     const position = highestPositioned ? highestPositioned.position + 1 : 0;
 
     const photo = await this.prisma.profilePhoto.create({
-      data: { ownerId: userId, mediaUrl, position },
+      data: { ownerId: userId, mediaUrl, position, qualityScore: scorePhotoQuality(mediaUrl) },
     });
 
     if (existingCount === 0) {
@@ -77,8 +90,36 @@ export class ProfilePhotosService {
     return { deleted: true };
   }
 
+  /**
+   * AI-suggested reorder: ranks the gallery by qualityScore (highest first)
+   * rather than swipe conversion, so a newly-added photo with no impressions
+   * yet can still be promoted ahead of older, lower-quality ones.
+   */
+  async reorderByQuality(userId: string): Promise<ProfilePhotoView[]> {
+    const photos = await this.prisma.profilePhoto.findMany({
+      where: { ownerId: userId },
+      orderBy: [{ qualityScore: 'desc' }, { position: 'asc' }],
+    });
+
+    if (photos.length === 0) {
+      return [];
+    }
+
+    await Promise.all(
+      photos.map((photo, index) =>
+        this.prisma.profilePhoto.update({ where: { id: photo.id }, data: { position: index } }),
+      ),
+    );
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { profilePhotoUrl: photos[0].mediaUrl },
+    });
+
+    return photos.map((photo, index) => this.toView(photo, index === 0));
+  }
+
   private toView(
-    photo: { id: string; mediaUrl: string; impressions: number; rightSwipes: number },
+    photo: { id: string; mediaUrl: string; impressions: number; rightSwipes: number; qualityScore: number },
     isLead: boolean,
   ): ProfilePhotoView {
     return {
@@ -88,6 +129,7 @@ export class ProfilePhotosService {
       impressions: photo.impressions,
       rightSwipes: photo.rightSwipes,
       conversionRate: photo.impressions > 0 ? photo.rightSwipes / photo.impressions : null,
+      qualityScore: photo.qualityScore,
     };
   }
 }

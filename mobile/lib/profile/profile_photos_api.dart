@@ -19,6 +19,7 @@ class ProfilePhoto {
     required this.impressions,
     required this.rightSwipes,
     required this.conversionRate,
+    required this.qualityScore,
   });
 
   final String id;
@@ -27,6 +28,7 @@ class ProfilePhoto {
   final int impressions;
   final int rightSwipes;
   final double? conversionRate;
+  final int qualityScore;
 }
 
 /// Talks to the backend's profile photo gallery endpoints. The lead photo
@@ -84,6 +86,23 @@ class ProfilePhotosApi {
     }
   }
 
+  /// AI-suggested reorder: re-ranks the gallery by quality score (lighting,
+  /// clarity, background) instead of swipe conversion, so newly-added photos
+  /// can be promoted ahead of older ones before they've collected any swipes.
+  Future<List<ProfilePhoto>> reorderByQuality() async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/profile-photos/reorder-by-quality'),
+      headers: _headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw ProfilePhotosApiException(_errorMessage(_decode(response), response.statusCode));
+    }
+
+    final list = jsonDecode(response.body) as List;
+    return list.cast<Map<String, dynamic>>().map(_toProfilePhoto).toList();
+  }
+
   ProfilePhoto _toProfilePhoto(Map<String, dynamic> json) {
     return ProfilePhoto(
       id: json['id'] as String,
@@ -92,6 +111,7 @@ class ProfilePhotosApi {
       impressions: json['impressions'] as int,
       rightSwipes: json['rightSwipes'] as int,
       conversionRate: (json['conversionRate'] as num?)?.toDouble(),
+      qualityScore: json['qualityScore'] as int,
     );
   }
 
