@@ -479,16 +479,22 @@ model PersonalityProfile {
 }
 
 model CallSession {
-  id        String    @id @default(uuid())
-  matchId   String
-  callerId  String
-  calleeId  String
-  type      String
-  status    String    @default("RINGING")
-  offerSdp  String
-  answerSdp String?
-  createdAt DateTime  @default(now())
-  endedAt   DateTime?
+  id                       String    @id @default(uuid())
+  matchId                  String
+  callerId                 String
+  calleeId                 String
+  type                     String
+  status                   String    @default("RINGING")
+  offerSdp                 String
+  answerSdp                String?
+  virtualBackgroundId      String?
+  activeIcebreakerPromptId String?
+  callerMuted              Boolean   @default(false)
+  calleeMuted              Boolean   @default(false)
+  callerVideoEnabled       Boolean   @default(true)
+  calleeVideoEnabled       Boolean   @default(true)
+  createdAt                DateTime  @default(now())
+  endedAt                  DateTime?
 
   iceCandidates CallIceCandidate[]
 
