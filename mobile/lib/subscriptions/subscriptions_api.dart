@@ -39,6 +39,24 @@ class SubscriptionStatus {
   final DateTime? canceledAt;
 }
 
+class SubscriptionGift {
+  SubscriptionGift({
+    required this.id,
+    required this.tier,
+    required this.createdAt,
+    required this.otherUserId,
+    this.otherUserName,
+    this.otherUserPhotoUrl,
+  });
+
+  final String id;
+  final String tier;
+  final DateTime createdAt;
+  final String otherUserId;
+  final String? otherUserName;
+  final String? otherUserPhotoUrl;
+}
+
 /// Talks to the backend's subscription tier management endpoints. Requires
 /// a signed-in user's access token.
 class SubscriptionsApi {
@@ -95,6 +113,61 @@ class SubscriptionsApi {
     );
 
     return _parseStatus(response);
+  }
+
+  /// Gifts a paid tier directly to another active member - grants them a
+  /// fresh billing period, no payment step (see SubscriptionsService).
+  Future<SubscriptionStatus> giftSubscription({
+    required String recipientId,
+    required String tier,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/subscriptions/gift'),
+      headers: _headers,
+      body: jsonEncode({'recipientId': recipientId, 'tier': tier}),
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 200) {
+      throw SubscriptionsApiException(_errorMessage(body, response.statusCode));
+    }
+
+    final recipientStatus = body['recipientStatus'] as Map<String, dynamic>;
+    return SubscriptionStatus(
+      tier: recipientStatus['tier'] as String,
+      isActive: recipientStatus['isActive'] as bool,
+      expiresAt: recipientStatus['expiresAt'] != null
+          ? DateTime.parse(recipientStatus['expiresAt'] as String)
+          : null,
+      canceledAt: recipientStatus['canceledAt'] != null
+          ? DateTime.parse(recipientStatus['canceledAt'] as String)
+          : null,
+    );
+  }
+
+  Future<List<SubscriptionGift>> fetchReceivedGifts() async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/subscriptions/gifts/received'),
+      headers: _headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw SubscriptionsApiException(_errorMessage(_decode(response), response.statusCode));
+    }
+
+    final list = jsonDecode(response.body) as List;
+    return list.cast<Map<String, dynamic>>().map(_toGift).toList();
+  }
+
+  SubscriptionGift _toGift(Map<String, dynamic> json) {
+    return SubscriptionGift(
+      id: json['id'] as String,
+      tier: json['tier'] as String,
+      createdAt: DateTime.parse(json['createdAt'] as String),
+      otherUserId: json['otherUserId'] as String,
+      otherUserName: json['otherUserName'] as String?,
+      otherUserPhotoUrl: json['otherUserPhotoUrl'] as String?,
+    );
   }
 
   SubscriptionStatus _parseStatus(http.Response response) {

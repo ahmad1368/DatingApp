@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { SubscriptionsService } from './subscriptions.service';
 
 const USER_ID = 'user-1';
+const RECIPIENT_ID = 'user-2';
 
 function hoursFromNow(hours: number): Date {
   return new Date(Date.now() + hours * 60 * 60 * 1000);
@@ -10,10 +11,18 @@ function hoursFromNow(hours: number): Date {
 
 describe('SubscriptionsService', () => {
   let service: SubscriptionsService;
-  let prisma: { user: { findUnique: jest.Mock; update: jest.Mock } };
+  let prisma: {
+    user: { findUnique: jest.Mock; update: jest.Mock; findMany: jest.Mock };
+    subscriptionGift: { create: jest.Mock; findMany: jest.Mock };
+    $transaction: jest.Mock;
+  };
 
   beforeEach(() => {
-    prisma = { user: { findUnique: jest.fn(), update: jest.fn() } };
+    prisma = {
+      user: { findUnique: jest.fn(), update: jest.fn(), findMany: jest.fn() },
+      subscriptionGift: { create: jest.fn(), findMany: jest.fn() },
+      $transaction: jest.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
+    };
     service = new SubscriptionsService(prisma as unknown as PrismaService);
   });
 
@@ -168,6 +177,106 @@ describe('SubscriptionsService', () => {
       expect(status.tier).toBe('FREE');
       expect(status.isActive).toBe(false);
       expect(status.canceledAt).toBe('2026-01-01T00:00:00.000Z');
+    });
+  });
+
+  describe('giftSubscription', () => {
+    it('rejects gifting a subscription to yourself', async () => {
+      await expect(service.giftSubscription(USER_ID, USER_ID, 'GOLD')).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('throws when the recipient does not exist', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.giftSubscription(USER_ID, RECIPIENT_ID, 'GOLD'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('grants the recipient a fresh billing period of the gifted tier', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: RECIPIENT_ID,
+        name: 'Jane',
+        profilePhotoUrl: null,
+      });
+      prisma.user.update.mockResolvedValue({
+        subscriptionTier: 'GOLD',
+        subscriptionExpiresAt: hoursFromNow(30 * 24),
+        subscriptionCanceledAt: null,
+        isPremium: true,
+      });
+      prisma.subscriptionGift.create.mockResolvedValue({
+        id: 'gift-1',
+        tier: 'GOLD',
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const result = await service.giftSubscription(USER_ID, RECIPIENT_ID, 'GOLD');
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: RECIPIENT_ID },
+        data: {
+          subscriptionTier: 'GOLD',
+          subscriptionExpiresAt: expect.any(Date),
+          subscriptionCanceledAt: null,
+          isPremium: true,
+        },
+      });
+      expect(prisma.subscriptionGift.create).toHaveBeenCalledWith({
+        data: { senderId: USER_ID, recipientId: RECIPIENT_ID, tier: 'GOLD' },
+      });
+      expect(result.recipientStatus.tier).toBe('GOLD');
+      expect(result.recipientStatus.isActive).toBe(true);
+      expect(result.gift).toEqual({
+        id: 'gift-1',
+        tier: 'GOLD',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        otherUserId: RECIPIENT_ID,
+        otherUserName: 'Jane',
+        otherUserPhotoUrl: null,
+      });
+    });
+  });
+
+  describe('listReceivedSubscriptionGifts', () => {
+    it('returns an empty list when nobody has gifted a subscription', async () => {
+      prisma.subscriptionGift.findMany.mockResolvedValue([]);
+
+      const result = await service.listReceivedSubscriptionGifts(USER_ID);
+
+      expect(result).toEqual([]);
+      expect(prisma.user.findMany).not.toHaveBeenCalled();
+    });
+
+    it('hydrates each gift with the sender\'s name and photo', async () => {
+      prisma.subscriptionGift.findMany.mockResolvedValue([
+        {
+          id: 'gift-1',
+          senderId: RECIPIENT_ID,
+          recipientId: USER_ID,
+          tier: 'PLATINUM',
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ]);
+      prisma.user.findMany.mockResolvedValue([
+        { id: RECIPIENT_ID, name: 'Jane', profilePhotoUrl: 'https://example.com/jane.jpg' },
+      ]);
+
+      const result = await service.listReceivedSubscriptionGifts(USER_ID);
+
+      expect(result).toEqual([
+        {
+          id: 'gift-1',
+          tier: 'PLATINUM',
+          createdAt: '2026-01-01T00:00:00.000Z',
+          otherUserId: RECIPIENT_ID,
+          otherUserName: 'Jane',
+          otherUserPhotoUrl: 'https://example.com/jane.jpg',
+        },
+      ]);
     });
   });
 });

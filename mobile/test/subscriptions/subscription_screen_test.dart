@@ -18,6 +18,9 @@ void main() {
         if (request.url.path == '/subscriptions/catalog') {
           return http.Response(_catalogResponse, 200, headers: {'content-type': 'application/json'});
         }
+        if (request.url.path == '/subscriptions/gifts/received') {
+          return http.Response('[]', 200, headers: {'content-type': 'application/json'});
+        }
         return http.Response(
           '{"tier":"FREE","isActive":false,"expiresAt":null,"canceledAt":null}',
           200,
@@ -42,6 +45,9 @@ void main() {
       client: MockClient((request) async {
         if (request.url.path == '/subscriptions/catalog') {
           return http.Response(_catalogResponse, 200, headers: {'content-type': 'application/json'});
+        }
+        if (request.url.path == '/subscriptions/gifts/received') {
+          return http.Response('[]', 200, headers: {'content-type': 'application/json'});
         }
         if (request.method == 'POST' && request.url.path == '/subscriptions/subscribe') {
           subscribeRequest = request;
@@ -81,6 +87,9 @@ void main() {
         if (request.url.path == '/subscriptions/catalog') {
           return http.Response(_catalogResponse, 200, headers: {'content-type': 'application/json'});
         }
+        if (request.url.path == '/subscriptions/gifts/received') {
+          return http.Response('[]', 200, headers: {'content-type': 'application/json'});
+        }
         if (request.method == 'POST' && request.url.path == '/subscriptions/cancel') {
           canceled = true;
           return http.Response(
@@ -109,5 +118,80 @@ void main() {
 
     expect(canceled, isTrue);
     expect(find.text('Current plan: Free'), findsOneWidget);
+  });
+
+  testWidgets('gifting a plan sends the recipient id and tier', (tester) async {
+    http.Request? giftRequest;
+    final api = SubscriptionsApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/subscriptions/catalog') {
+          return http.Response(_catalogResponse, 200, headers: {'content-type': 'application/json'});
+        }
+        if (request.url.path == '/subscriptions/gifts/received') {
+          return http.Response('[]', 200, headers: {'content-type': 'application/json'});
+        }
+        if (request.method == 'POST' && request.url.path == '/subscriptions/gift') {
+          giftRequest = request;
+          return http.Response(
+            '{"recipientStatus":{"tier":"PLUS","isActive":true,'
+            '"expiresAt":"2026-02-01T00:00:00.000Z","canceledAt":null},'
+            '"gift":{"id":"gift-1","tier":"PLUS","createdAt":"2026-01-01T00:00:00.000Z",'
+            '"otherUserId":"user-2","otherUserName":"Jane","otherUserPhotoUrl":null}}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"tier":"FREE","isActive":false,"expiresAt":null,"canceledAt":null}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: SubscriptionScreen(subscriptionsApi: api)));
+    await tester.pump();
+    await tester.pump();
+
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Gift'));
+    await tester.pump();
+    await tester.enterText(find.byType(TextField), 'user-2');
+    await tester.tap(find.text('Send gift'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(giftRequest, isNotNull);
+    expect(giftRequest!.body, '{"recipientId":"user-2","tier":"PLUS"}');
+  });
+
+  testWidgets('shows received gifts', (tester) async {
+    final api = SubscriptionsApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/subscriptions/catalog') {
+          return http.Response(_catalogResponse, 200, headers: {'content-type': 'application/json'});
+        }
+        if (request.url.path == '/subscriptions/gifts/received') {
+          return http.Response(
+            '[{"id":"gift-1","tier":"PLATINUM","createdAt":"2026-01-01T00:00:00.000Z",'
+            '"otherUserId":"user-2","otherUserName":"Jane","otherUserPhotoUrl":null}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"tier":"FREE","isActive":false,"expiresAt":null,"canceledAt":null}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: SubscriptionScreen(subscriptionsApi: api)));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('PLATINUM from Jane'), findsOneWidget);
   });
 }
