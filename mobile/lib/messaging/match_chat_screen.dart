@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 
 import '../profile/voice_player_controller.dart';
 import '../profile/voice_recorder_controller.dart';
+import '../safety/screen_security_api.dart';
+import '../safety/screen_security_channel.dart';
 import '../vault/vault_api.dart';
 import '../vault/vault_granted_screen.dart';
 import 'date_suggestions_api.dart';
@@ -26,11 +28,16 @@ class MatchChatScreen extends StatefulWidget {
     VoicePlayerController? player,
     DateSuggestionsApi? dateSuggestionsApi,
     VaultApi? vaultApi,
+    ScreenSecurityChannel? screenSecurityChannel,
+    ScreenSecurityApi? screenSecurityApi,
   })  : recorder = recorder ?? DeviceVoiceRecorderController(),
         player = player ?? DeviceVoicePlayerController(),
         dateSuggestionsApi =
             dateSuggestionsApi ?? DateSuggestionsApi(accessToken: messagingApi.accessToken),
-        vaultApi = vaultApi ?? VaultApi(accessToken: messagingApi.accessToken);
+        vaultApi = vaultApi ?? VaultApi(accessToken: messagingApi.accessToken),
+        screenSecurityChannel = screenSecurityChannel ?? ScreenSecurityChannel(),
+        screenSecurityApi =
+            screenSecurityApi ?? ScreenSecurityApi(accessToken: messagingApi.accessToken);
 
   final MessagingApi messagingApi;
   final String matchId;
@@ -39,6 +46,8 @@ class MatchChatScreen extends StatefulWidget {
   final VoicePlayerController player;
   final DateSuggestionsApi dateSuggestionsApi;
   final VaultApi vaultApi;
+  final ScreenSecurityChannel screenSecurityChannel;
+  final ScreenSecurityApi screenSecurityApi;
 
   @override
   State<MatchChatScreen> createState() => _MatchChatScreenState();
@@ -59,14 +68,54 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
   @override
   void initState() {
     super.initState();
+    widget.screenSecurityChannel.onScreenshotDetected = _handleScreenshotDetected;
+    widget.screenSecurityChannel.setSecure(true);
     _load();
   }
 
   @override
   void dispose() {
+    widget.screenSecurityChannel.setSecure(false);
     _controller.dispose();
     _recordTimer?.cancel();
     super.dispose();
+  }
+
+  /// Fires when the OS reports a screenshot was taken while this chat was
+  /// open (Android blocks captures outright via `FLAG_SECURE`, so this only
+  /// fires on iOS). Reports the violation and, if it tips the account into a
+  /// temporary freeze, warns the user and backs out of the chat.
+  Future<void> _handleScreenshotDetected() async {
+    try {
+      final result = await widget.screenSecurityApi.reportViolation('CHAT');
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result.warning)));
+      if (result.frozen) {
+        await showDialog<void>(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            title: const Text('Account temporarily frozen'),
+            content: const Text(
+              'Your account has been frozen for repeated screen capture violations.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
+      }
+    } on ScreenSecurityApiException {
+      // Best-effort reporting; don't block the chat if this fails.
+    }
   }
 
   Future<void> _load() async {
