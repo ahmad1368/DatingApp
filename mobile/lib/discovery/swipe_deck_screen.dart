@@ -527,6 +527,7 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
           card: _deck.first,
           onSwiped: (action) => _handleSwipe(_deck.first, action),
           onTap: () => _recordVisit(_deck.first),
+          viewerAccessToken: widget.discoveryApi.accessToken,
         ),
       ],
     );

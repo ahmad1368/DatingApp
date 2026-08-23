@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -10,6 +12,14 @@ import 'package:mobile/messaging/messaging_api.dart';
 
 const _deckResponse = '[{"id":"user-2","name":"Jane","age":25,"profilePhotoUrl":null,'
     '"distanceKm":3.4,"interests":["Hiking"],"relationshipGoal":"CASUAL"}]';
+
+String _fakeToken(Map<String, dynamic> payload) {
+  String segment(Object value) =>
+      base64Url.encode(utf8.encode(jsonEncode(value))).replaceAll('=', '');
+  return '${segment({
+        'alg': 'none',
+      })}.${segment(payload)}.signature';
+}
 
 void main() {
   testWidgets('shows an empty state when there are no more candidates', (tester) async {
@@ -24,6 +34,27 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('No more profiles nearby. Check back later!'), findsOneWidget);
+  });
+
+  testWidgets('overlays a watermark derived from the viewer id on the top card', (tester) async {
+    final api = DiscoveryApi(
+      accessToken: _fakeToken({'sub': 'user-abcdef123456'}),
+      client: MockClient((request) async {
+        if (request.url.path == '/discovery/deck') {
+          return http.Response(_deckResponse, 200, headers: {'content-type': 'application/json'});
+        }
+        return http.Response(
+          '{"active":false,"expiresAt":null,"viewCount":0}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: SwipeDeckScreen(discoveryApi: api)));
+    await tester.pumpAndSettle();
+
+    expect(find.text('user-abc'), findsWidgets);
   });
 
   testWidgets('tapping a card records a profile visit', (tester) async {
