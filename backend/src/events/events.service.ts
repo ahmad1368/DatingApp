@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { PrismaService } from '../prisma/prisma.service';
 import { haversineDistanceKm } from '../location/utils/haversine';
 import { CreateEventDto } from './dto/create-event.dto';
+import { LOCAL_EVENTS_RADIUS_KM } from './events.constants';
 
 export interface LocalEventView {
   id: string;
@@ -49,7 +50,12 @@ export class EventsService {
     return this.toView(event, { rsvpCount: 0, isRsvped: false, distanceKm: null });
   }
 
-  /** Upcoming events, nearest-first when the user's location is known. */
+  /**
+   * A local board scoped to the viewer's metropolitan area: upcoming
+   * events farther than LOCAL_EVENTS_RADIUS_KM are dropped (events with no
+   * coordinates are kept regardless, since they can't be geo-filtered),
+   * nearest-first when the user's location is known.
+   */
   async listNearbyEvents(userId: string): Promise<LocalEventView[]> {
     const [user, events] = await Promise.all([
       this.prisma.user.findUnique({ where: { id: userId } }),
@@ -79,7 +85,11 @@ export class EventsService {
       return views;
     }
 
-    return [...views].sort((a, b) => {
+    const localViews = views.filter(
+      (view) => view.distanceKm == null || view.distanceKm <= LOCAL_EVENTS_RADIUS_KM,
+    );
+
+    return localViews.sort((a, b) => {
       if (a.distanceKm == null) return 1;
       if (b.distanceKm == null) return -1;
       return a.distanceKm - b.distanceKm;
