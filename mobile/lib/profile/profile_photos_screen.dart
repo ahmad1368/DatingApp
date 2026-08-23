@@ -20,6 +20,7 @@ class ProfilePhotosScreen extends StatefulWidget {
 
 class _ProfilePhotosScreenState extends State<ProfilePhotosScreen> {
   List<ProfilePhoto> _photos = [];
+  bool _blurUntilMatch = false;
   bool _isLoading = true;
   String? _errorText;
 
@@ -35,14 +36,30 @@ class _ProfilePhotosScreenState extends State<ProfilePhotosScreen> {
       _errorText = null;
     });
     try {
-      final photos = await widget.profilePhotosApi.fetchMyPhotos();
-      setState(() => _photos = photos);
+      final results = await Future.wait([
+        widget.profilePhotosApi.fetchMyPhotos(),
+        widget.profilePhotosApi.fetchBlurUntilMatch(),
+      ]);
+      setState(() {
+        _photos = results[0] as List<ProfilePhoto>;
+        _blurUntilMatch = results[1] as bool;
+      });
     } on ProfilePhotosApiException catch (e) {
       setState(() => _errorText = e.message);
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
       }
+    }
+  }
+
+  Future<void> _toggleBlurUntilMatch(bool enabled) async {
+    setState(() => _errorText = null);
+    try {
+      final updated = await widget.profilePhotosApi.setBlurUntilMatch(enabled);
+      setState(() => _blurUntilMatch = updated);
+    } on ProfilePhotosApiException catch (e) {
+      setState(() => _errorText = e.message);
     }
   }
 
@@ -113,6 +130,12 @@ class _ProfilePhotosScreenState extends State<ProfilePhotosScreen> {
                     padding: const EdgeInsets.all(16),
                     child: Text(_errorText!, style: const TextStyle(color: Colors.red)),
                   ),
+                SwitchListTile(
+                  title: const Text('Blur photos until matched'),
+                  subtitle: const Text('Your photos stay blurred to everyone until you match.'),
+                  value: _blurUntilMatch,
+                  onChanged: _toggleBlurUntilMatch,
+                ),
                 Expanded(
                   child: _photos.isEmpty
                       ? const Center(child: Text('No profile photos yet. Add one to get started.'))

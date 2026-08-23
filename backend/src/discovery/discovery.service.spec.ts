@@ -393,6 +393,64 @@ describe('DiscoveryService', () => {
       expect(deck[0].voiceIntroDurationSeconds).toBe(18);
     });
 
+    it('flags the profile photo as blurred when the candidate has opted into incognito blur', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+      });
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      prisma.user.findMany.mockResolvedValue([
+        {
+          id: TARGET_ID,
+          name: 'Jane',
+          dateOfBirth: null,
+          profilePhotoUrl: 'https://example.com/jane.jpg',
+          interests: [],
+          relationshipGoal: 'CASUAL',
+          blurPhotosUntilMatch: true,
+        },
+      ]);
+
+      const deck = await service.getDeck(USER_ID);
+
+      expect(deck[0].profilePhotoBlurred).toBe(true);
+    });
+
+    it('does not flag the profile photo as blurred by default', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+      });
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      prisma.user.findMany.mockResolvedValue([
+        {
+          id: TARGET_ID,
+          name: 'Jane',
+          dateOfBirth: null,
+          profilePhotoUrl: 'https://example.com/jane.jpg',
+          interests: [],
+          relationshipGoal: 'CASUAL',
+          blurPhotosUntilMatch: false,
+        },
+      ]);
+
+      const deck = await service.getDeck(USER_ID);
+
+      expect(deck[0].profilePhotoBlurred).toBe(false);
+    });
+
     it('shows the zodiac sign only when the candidate opts in and has a date of birth', async () => {
       prisma.user.findUnique.mockResolvedValue({
         id: USER_ID,

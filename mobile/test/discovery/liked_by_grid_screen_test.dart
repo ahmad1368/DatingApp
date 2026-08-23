@@ -151,4 +151,23 @@ void main() {
     expect(find.textContaining('match'), findsNothing);
     expect(find.text('No likes yet. Keep swiping!'), findsOneWidget);
   });
+
+  testWidgets('blurs a liker photo when they opted into incognito blur', (tester) async {
+    const blurredResponse =
+        '[{"id":"user-3","name":"Sam","age":29,"profilePhotoUrl":"https://example.com/sam.jpg",'
+        '"profilePhotoBlurred":true,'
+        '"distanceKm":1.2,"interests":["Coffee"],"relationshipGoal":"CASUAL"}]';
+    final api = DiscoveryApi(
+      accessToken: 'a-jwt',
+      client: MockClient(
+        (request) async =>
+            http.Response(blurredResponse, 200, headers: {'content-type': 'application/json'}),
+      ),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: LikedByGridScreen(discoveryApi: api)));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ImageFiltered), findsOneWidget);
+  });
 }

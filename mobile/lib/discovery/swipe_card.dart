@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -169,6 +171,13 @@ class _CardContent extends StatelessWidget {
       child: Stack(
         alignment: Alignment.topCenter,
         children: [
+          if (card.profilePhotoUrl != null)
+            Positioned.fill(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: _buildProfilePhoto(),
+              ),
+            ),
           if (card.voiceIntroUrl != null)
             Positioned(
               top: 8,
@@ -376,5 +385,19 @@ class _CardContent extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Widget _buildProfilePhoto() {
+    final image = Image.network(
+      card.profilePhotoUrl!,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+    );
+    if (!card.profilePhotoBlurred) {
+      return image;
+    }
+    // Incognito photo blur: hidden from anyone browsing the deck until they
+    // match - see DeckCard.profilePhotoBlurred.
+    return ImageFiltered(imageFilter: ImageFilter.blur(sigmaX: 25, sigmaY: 25), child: image);
   }
 }

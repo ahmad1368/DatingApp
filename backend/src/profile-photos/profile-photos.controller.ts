@@ -1,7 +1,8 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Put, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AuthenticatedUser, JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AddProfilePhotoDto } from './dto/add-profile-photo.dto';
+import { SetBlurUntilMatchDto } from './dto/set-blur-until-match.dto';
 import { ProfilePhotosService } from './profile-photos.service';
 
 @Controller('profile-photos')
@@ -30,5 +31,16 @@ export class ProfilePhotosController {
   @HttpCode(HttpStatus.OK)
   reorderByQuality(@CurrentUser() user: AuthenticatedUser) {
     return this.profilePhotosService.reorderByQuality(user.id);
+  }
+
+  @Get('blur-until-match')
+  getBlurUntilMatch(@CurrentUser() user: AuthenticatedUser) {
+    return this.profilePhotosService.getBlurUntilMatch(user.id);
+  }
+
+  @Put('blur-until-match')
+  @HttpCode(HttpStatus.OK)
+  setBlurUntilMatch(@CurrentUser() user: AuthenticatedUser, @Body() dto: SetBlurUntilMatchDto) {
+    return this.profilePhotosService.setBlurUntilMatch(user.id, dto.enabled);
   }
 }

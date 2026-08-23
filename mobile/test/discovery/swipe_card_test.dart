@@ -117,4 +117,44 @@ void main() {
 
     expect(find.textContaining('Voice intro'), findsNothing);
   });
+
+  testWidgets('shows the profile photo unblurred by default', (tester) async {
+    final card = DeckCard(
+      id: 'user-2',
+      name: 'Jane',
+      age: 25,
+      interests: const ['Hiking'],
+      profilePhotoUrl: 'https://example.com/jane.jpg',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(home: Scaffold(body: Center(child: SwipeCard(card: card, onSwiped: (_) {})))),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(Image), findsOneWidget);
+    expect(find.byType(ImageFiltered), findsNothing);
+  });
+
+  testWidgets('blurs the profile photo when the candidate opted into incognito blur', (tester) async {
+    final card = DeckCard(
+      id: 'user-2',
+      name: 'Jane',
+      age: 25,
+      interests: const ['Hiking'],
+      profilePhotoUrl: 'https://example.com/jane.jpg',
+      profilePhotoBlurred: true,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(home: Scaffold(body: Center(child: SwipeCard(card: card, onSwiped: (_) {})))),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ImageFiltered), findsOneWidget);
+    expect(
+      find.descendant(of: find.byType(ImageFiltered), matching: find.byType(Image)),
+      findsOneWidget,
+    );
+  });
 }

@@ -17,6 +17,7 @@ class DeckCard {
     this.name,
     this.age,
     this.profilePhotoUrl,
+    this.profilePhotoBlurred = false,
     this.videoSnippetUrl,
     this.distanceKm,
     required this.interests,
@@ -41,6 +42,7 @@ class DeckCard {
   final String? name;
   final int? age;
   final String? profilePhotoUrl;
+  final bool profilePhotoBlurred;
   final String? videoSnippetUrl;
   final String? voiceIntroUrl;
   final int? voiceIntroDurationSeconds;
@@ -135,6 +137,7 @@ class DiscoveryApi {
       name: json['name'] as String?,
       age: json['age'] as int?,
       profilePhotoUrl: json['profilePhotoUrl'] as String?,
+      profilePhotoBlurred: json['profilePhotoBlurred'] as bool? ?? false,
       videoSnippetUrl: json['videoSnippetUrl'] as String?,
       distanceKm: (json['distanceKm'] as num?)?.toDouble(),
       interests: (json['interests'] as List).cast<String>(),

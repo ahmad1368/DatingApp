@@ -103,6 +103,37 @@ class ProfilePhotosApi {
     return list.cast<Map<String, dynamic>>().map(_toProfilePhoto).toList();
   }
 
+  /// Incognito photo blur: when enabled, this user's photos show blurred to
+  /// anyone browsing the deck who hasn't matched with them yet.
+  Future<bool> fetchBlurUntilMatch() async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/profile-photos/blur-until-match'),
+      headers: _headers,
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 200) {
+      throw ProfilePhotosApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return body['blurPhotosUntilMatch'] as bool;
+  }
+
+  Future<bool> setBlurUntilMatch(bool enabled) async {
+    final response = await _client.put(
+      Uri.parse('$_baseUrl/profile-photos/blur-until-match'),
+      headers: _headers,
+      body: jsonEncode({'enabled': enabled}),
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 200) {
+      throw ProfilePhotosApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return body['blurPhotosUntilMatch'] as bool;
+  }
+
   ProfilePhoto _toProfilePhoto(Map<String, dynamic> json) {
     return ProfilePhoto(
       id: json['id'] as String,
