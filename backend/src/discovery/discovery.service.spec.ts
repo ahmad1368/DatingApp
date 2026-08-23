@@ -20,6 +20,7 @@ describe('DiscoveryService', () => {
     match: { create: jest.Mock; findUnique: jest.Mock; delete: jest.Mock };
     boost: { findFirst: jest.Mock; findMany: jest.Mock; create: jest.Mock; updateMany: jest.Mock };
     blockedContact: { findMany: jest.Mock };
+    socialContact: { findMany: jest.Mock };
     profilePhoto: { findFirst: jest.Mock; findMany: jest.Mock; update: jest.Mock };
     $transaction: jest.Mock;
   };
@@ -43,6 +44,7 @@ describe('DiscoveryService', () => {
         updateMany: jest.fn(),
       },
       blockedContact: { findMany: jest.fn().mockResolvedValue([]) },
+      socialContact: { findMany: jest.fn().mockResolvedValue([]) },
       profilePhoto: {
         findFirst: jest.fn().mockResolvedValue(null),
         findMany: jest.fn().mockResolvedValue([]),
@@ -123,6 +125,65 @@ describe('DiscoveryService', () => {
       expect(deck[0].isSuperLike).toBe(false);
       expect(deck[0].relationshipIntentBadges).toEqual([]);
       expect(deck[0].videoSnippetUrl).toBe('https://example.com/snippet.mp4');
+    });
+
+    it('includes each candidate mutual connection count from synced contacts', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+      });
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      prisma.user.findMany.mockResolvedValue([
+        {
+          id: TARGET_ID,
+          name: 'Jane',
+          dateOfBirth: null,
+          profilePhotoUrl: null,
+          interests: [],
+          relationshipGoal: 'CASUAL',
+        },
+      ]);
+      prisma.socialContact.findMany
+        .mockResolvedValueOnce([{ contactValue: 'shared@example.com' }])
+        .mockResolvedValueOnce([{ userId: TARGET_ID }, { userId: TARGET_ID }]);
+
+      const deck = await service.getDeck(USER_ID);
+
+      expect(deck[0].mutualConnectionCount).toBe(2);
+    });
+
+    it('defaults mutual connection count to zero when the viewer has no synced contacts', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+      });
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      prisma.user.findMany.mockResolvedValue([
+        {
+          id: TARGET_ID,
+          name: 'Jane',
+          dateOfBirth: null,
+          profilePhotoUrl: null,
+          interests: [],
+          relationshipGoal: 'CASUAL',
+        },
+      ]);
+
+      const deck = await service.getDeck(USER_ID);
+
+      expect(deck[0].mutualConnectionCount).toBe(0);
     });
 
     it('shows relationship intent badges only when their visibility toggles are on', async () => {

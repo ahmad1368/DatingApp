@@ -218,6 +218,18 @@ model BlockedContact {
   @@map("blocked_contacts")
 }
 
+model SocialContact {
+  id           String   @id @default(uuid())
+  userId       String
+  contactValue String
+  createdAt    DateTime @default(now())
+
+  @@unique([userId, contactValue])
+  @@index([userId])
+  @@index([contactValue])
+  @@map("social_contacts")
+}
+
 model UserReport {
   id             String   @id @default(uuid())
   reporterId     String

@@ -31,6 +31,7 @@ class DeckCard {
     this.isPriorityLike = false,
     this.complimentText,
     this.complimentTarget,
+    this.mutualConnectionCount = 0,
   });
 
   final String id;
@@ -51,6 +52,7 @@ class DeckCard {
   final bool isPriorityLike;
   final String? complimentText;
   final String? complimentTarget;
+  final int mutualConnectionCount;
 }
 
 class BoostStatus {
@@ -127,6 +129,7 @@ class DiscoveryApi {
       isPriorityLike: json['isPriorityLike'] as bool? ?? false,
       complimentText: json['complimentText'] as String?,
       complimentTarget: json['complimentTarget'] as String?,
+      mutualConnectionCount: json['mutualConnectionCount'] as int? ?? 0,
     );
   }
 

@@ -161,6 +161,21 @@ class _CardContent extends StatelessWidget {
               ),
               if (card.distanceKm != null)
                 Text('${card.distanceKm!.toStringAsFixed(1)} km away'),
+              if (card.mutualConnectionCount > 0)
+                Row(
+                  children: [
+                    const Icon(Icons.people_alt, size: 16),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        card.mutualConnectionCount == 1
+                            ? '1 mutual connection'
+                            : '${card.mutualConnectionCount} mutual connections',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
               if (card.relationshipIntentBadges.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Wrap(

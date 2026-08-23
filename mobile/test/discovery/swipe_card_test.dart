@@ -63,4 +63,30 @@ void main() {
 
     expect(swipedAction, isNull);
   });
+
+  testWidgets('shows a mutual connections badge when there are shared contacts', (tester) async {
+    final card = DeckCard(
+      id: 'user-2',
+      name: 'Jane',
+      age: 25,
+      interests: const ['Hiking'],
+      mutualConnectionCount: 3,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(home: Scaffold(body: Center(child: SwipeCard(card: card, onSwiped: (_) {})))),
+    );
+
+    expect(find.text('3 mutual connections'), findsOneWidget);
+  });
+
+  testWidgets('hides the mutual connections badge when there are none', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: Center(child: SwipeCard(card: _sampleCard(), onSwiped: (_) {}))),
+      ),
+    );
+
+    expect(find.textContaining('mutual connection'), findsNothing);
+  });
 }
