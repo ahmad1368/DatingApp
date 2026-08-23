@@ -124,7 +124,7 @@ describe('EventsService', () => {
       ]);
     });
 
-    it('sorts events nearest-first when the user location is known', async () => {
+    it('sorts events nearest-first, within the metro area, when the user location is known', async () => {
       prisma.user.findUnique.mockResolvedValue({
         latitude: 40.7128,
         longitude: -74.006,
@@ -137,9 +137,9 @@ describe('EventsService', () => {
           id: 'far-event',
           title: 'Far Meetup',
           description: null,
-          location: 'Somewhere Far',
-          latitude: 51.5074,
-          longitude: -0.1278,
+          location: 'Newark, NJ',
+          latitude: 40.7357,
+          longitude: -74.1724,
           category: 'MEETUP',
           startsAt: new Date('2026-02-01T18:00:00.000Z'),
           rsvps: [],
@@ -160,6 +160,71 @@ describe('EventsService', () => {
       const result = await service.listNearbyEvents(USER_ID);
 
       expect(result.map((event) => event.id)).toEqual(['near-event', 'far-event']);
+    });
+
+    it('excludes events outside the metro-area radius', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        latitude: 40.7128,
+        longitude: -74.006,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+      });
+      prisma.localEvent.findMany.mockResolvedValue([
+        {
+          id: 'near-event',
+          title: 'Near Meetup',
+          description: null,
+          location: 'Nearby',
+          latitude: 40.73,
+          longitude: -73.99,
+          category: 'MEETUP',
+          startsAt: new Date('2026-02-02T18:00:00.000Z'),
+          rsvps: [],
+        },
+        {
+          id: 'other-continent-event',
+          title: 'London Meetup',
+          description: null,
+          location: 'London',
+          latitude: 51.5074,
+          longitude: -0.1278,
+          category: 'MEETUP',
+          startsAt: new Date('2026-02-01T18:00:00.000Z'),
+          rsvps: [],
+        },
+      ]);
+
+      const result = await service.listNearbyEvents(USER_ID);
+
+      expect(result.map((event) => event.id)).toEqual(['near-event']);
+    });
+
+    it('keeps events with no coordinates even when the user location is known', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        latitude: 40.7128,
+        longitude: -74.006,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+      });
+      prisma.localEvent.findMany.mockResolvedValue([
+        {
+          id: 'virtual-event',
+          title: 'Virtual Mixer',
+          description: null,
+          location: 'Online',
+          latitude: null,
+          longitude: null,
+          category: 'MIXER',
+          startsAt: new Date('2026-02-01T18:00:00.000Z'),
+          rsvps: [],
+        },
+      ]);
+
+      const result = await service.listNearbyEvents(USER_ID);
+
+      expect(result.map((event) => event.id)).toEqual(['virtual-event']);
     });
   });
 
