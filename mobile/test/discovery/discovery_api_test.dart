@@ -276,6 +276,27 @@ void main() {
       );
     });
 
+    test('sends an icebreaker answer when liking with one attached', () async {
+      final api = DiscoveryApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(
+            request.body,
+            '{"targetUserId":"user-2","action":"LIKE",'
+            '"icebreakerPromptId":"coffee-or-tea","icebreakerOptionIndex":0}',
+          );
+          return http.Response('{"matched":false}', 200, headers: {'content-type': 'application/json'});
+        }),
+      );
+
+      await api.recordSwipe(
+        targetUserId: 'user-2',
+        action: 'LIKE',
+        icebreakerPromptId: 'coffee-or-tea',
+        icebreakerOptionIndex: 0,
+      );
+    });
+
     test('throws DiscoveryApiException when the backend rejects the request', () async {
       final api = DiscoveryApi(
         accessToken: 'a-jwt',

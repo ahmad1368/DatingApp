@@ -1,4 +1,4 @@
-import { IsIn, IsOptional, IsString, IsUUID, Length } from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsString, IsUUID, Length, Max, Min } from 'class-validator';
 import { SWIPE_ACTIONS } from '../discovery.constants';
 
 export class RecordSwipeDto {
@@ -23,4 +23,19 @@ export class RecordSwipeDto {
   @IsString()
   @Length(1, 100)
   complimentTarget?: string;
+
+  /**
+   * A dual-choice icebreaker (from messaging's ICEBREAKER_PROMPTS catalog)
+   * answered while liking, so a match can open with both answers already
+   * compared instead of an empty chat. Requires icebreakerOptionIndex too.
+   */
+  @IsOptional()
+  @IsString()
+  icebreakerPromptId?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(1)
+  icebreakerOptionIndex?: number;
 }

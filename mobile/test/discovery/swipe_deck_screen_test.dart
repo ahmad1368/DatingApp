@@ -6,6 +6,7 @@ import 'package:http/testing.dart';
 import 'package:mobile/discovery/discovery_api.dart';
 import 'package:mobile/discovery/profile_visits_api.dart';
 import 'package:mobile/discovery/swipe_deck_screen.dart';
+import 'package:mobile/messaging/messaging_api.dart';
 
 const _deckResponse = '[{"id":"user-2","name":"Jane","age":25,"profilePhotoUrl":null,'
     '"distanceKm":3.4,"interests":["Hiking"],"relationshipGoal":"CASUAL"}]';
@@ -219,6 +220,53 @@ void main() {
     expect(
       capturedRequest!.body,
       '{"targetUserId":"user-2","action":"LIKE","complimentText":"Love your hiking photo!"}',
+    );
+  });
+
+  testWidgets('picking an icebreaker and an option sends a LIKE with the answer attached', (
+    tester,
+  ) async {
+    http.Request? capturedRequest;
+    final api = DiscoveryApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/discovery/deck') {
+          return http.Response(_deckResponse, 200, headers: {'content-type': 'application/json'});
+        }
+        capturedRequest = request;
+        return http.Response('{"matched":false}', 200, headers: {'content-type': 'application/json'});
+      }),
+    );
+    final messagingApi = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient(
+        (request) async => http.Response(
+          '[{"id":"coffee-or-tea","question":"Coffee or tea?","optionA":"Coffee","optionB":"Tea"}]',
+          200,
+          headers: {'content-type': 'application/json'},
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(home: SwipeDeckScreen(discoveryApi: api, messagingApi: messagingApi)),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.quiz_outlined));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Coffee or tea?'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Coffee'));
+    await tester.pumpAndSettle();
+
+    expect(capturedRequest, isNotNull);
+    expect(
+      capturedRequest!.body,
+      '{"targetUserId":"user-2","action":"LIKE",'
+      '"icebreakerPromptId":"coffee-or-tea","icebreakerOptionIndex":0}',
     );
   });
 

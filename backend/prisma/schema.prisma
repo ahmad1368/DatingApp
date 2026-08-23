@@ -131,13 +131,15 @@ model SelfieVerificationChallenge {
 }
 
 model Swipe {
-  id               String   @id @default(uuid())
-  swiperId         String
-  targetUserId     String
-  action           String
-  complimentText   String?
-  complimentTarget String?
-  createdAt        DateTime @default(now())
+  id                    String   @id @default(uuid())
+  swiperId              String
+  targetUserId          String
+  action                String
+  complimentText        String?
+  complimentTarget      String?
+  icebreakerPromptId    String?
+  icebreakerOptionIndex Int?
+  createdAt             DateTime @default(now())
 
   @@unique([swiperId, targetUserId])
   @@index([swiperId])

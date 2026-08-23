@@ -24,6 +24,8 @@ describe('DiscoveryService', () => {
     blockedContact: { findMany: jest.Mock };
     socialContact: { findMany: jest.Mock };
     profilePhoto: { findFirst: jest.Mock; findMany: jest.Mock; update: jest.Mock };
+    message: { create: jest.Mock };
+    icebreakerResponse: { createMany: jest.Mock };
     $transaction: jest.Mock;
   };
 
@@ -52,6 +54,8 @@ describe('DiscoveryService', () => {
         findMany: jest.fn().mockResolvedValue([]),
         update: jest.fn(),
       },
+      message: { create: jest.fn() },
+      icebreakerResponse: { createMany: jest.fn() },
       $transaction: jest.fn((ops: unknown[]) => Promise.all(ops)),
     };
     matchingService = { getCompatibility: jest.fn() };
@@ -854,6 +858,8 @@ describe('DiscoveryService', () => {
           action: 'LIKE',
           complimentText: 'Love your hiking photo!',
           complimentTarget: 'your hiking photo',
+          icebreakerPromptId: null,
+          icebreakerOptionIndex: null,
         },
       });
     });
@@ -876,6 +882,93 @@ describe('DiscoveryService', () => {
         },
       });
       expect(result).toEqual({ matched: true, matchId: 'match-1' });
+    });
+
+    it('rejects icebreakerPromptId without a matching icebreakerOptionIndex', async () => {
+      await expect(
+        service.recordSwipe(USER_ID, TARGET_ID, 'LIKE', undefined, undefined, 'coffee-or-tea'),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('rejects an icebreaker attached to a PASS', async () => {
+      await expect(
+        service.recordSwipe(USER_ID, TARGET_ID, 'PASS', undefined, undefined, 'coffee-or-tea', 0),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('rejects an unknown icebreaker prompt id', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: TARGET_ID });
+
+      await expect(
+        service.recordSwipe(USER_ID, TARGET_ID, 'LIKE', undefined, undefined, 'not-a-real-prompt', 0),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('seeds the new match with both answers when both sides picked the same icebreaker', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: TARGET_ID });
+      prisma.swipe.findUnique
+        .mockResolvedValueOnce(null) // no existing swipe from userId -> targetUserId
+        .mockResolvedValueOnce({
+          swiperId: TARGET_ID,
+          action: 'LIKE',
+          icebreakerPromptId: 'coffee-or-tea',
+          icebreakerOptionIndex: 1,
+        });
+      prisma.swipe.create.mockResolvedValue({});
+      prisma.match.create.mockResolvedValue({ id: 'match-1' });
+      prisma.message.create.mockResolvedValue({ id: 'message-1' });
+
+      await service.recordSwipe(USER_ID, TARGET_ID, 'LIKE', undefined, undefined, 'coffee-or-tea', 0);
+
+      expect(prisma.message.create).toHaveBeenCalledWith({
+        data: { matchId: 'match-1', senderId: USER_ID, contentType: 'ICEBREAKER', content: 'coffee-or-tea' },
+      });
+      expect(prisma.icebreakerResponse.createMany).toHaveBeenCalledWith({
+        data: [
+          { messageId: 'message-1', userId: USER_ID, optionIndex: 0 },
+          { messageId: 'message-1', userId: TARGET_ID, optionIndex: 1 },
+        ],
+      });
+    });
+
+    it('seeds only the liker side when the other side never answered an icebreaker', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: TARGET_ID });
+      prisma.swipe.findUnique
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({
+          swiperId: TARGET_ID,
+          action: 'LIKE',
+          icebreakerPromptId: null,
+          icebreakerOptionIndex: null,
+        });
+      prisma.swipe.create.mockResolvedValue({});
+      prisma.match.create.mockResolvedValue({ id: 'match-1' });
+      prisma.message.create.mockResolvedValue({ id: 'message-1' });
+
+      await service.recordSwipe(USER_ID, TARGET_ID, 'LIKE', undefined, undefined, 'coffee-or-tea', 0);
+
+      expect(prisma.icebreakerResponse.createMany).toHaveBeenCalledWith({
+        data: [{ messageId: 'message-1', userId: USER_ID, optionIndex: 0 }],
+      });
+    });
+
+    it('does not seed an icebreaker message when neither side attached one', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: TARGET_ID });
+      prisma.swipe.findUnique
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({
+          swiperId: TARGET_ID,
+          action: 'LIKE',
+          icebreakerPromptId: null,
+          icebreakerOptionIndex: null,
+        });
+      prisma.swipe.create.mockResolvedValue({});
+      prisma.match.create.mockResolvedValue({ id: 'match-1' });
+
+      await service.recordSwipe(USER_ID, TARGET_ID, 'LIKE');
+
+      expect(prisma.message.create).not.toHaveBeenCalled();
+      expect(prisma.icebreakerResponse.createMany).not.toHaveBeenCalled();
     });
 
     it('does not match when the reciprocal swipe was a PASS', async () => {
@@ -920,6 +1013,8 @@ describe('DiscoveryService', () => {
           action: 'SUPER_LIKE',
           complimentText: null,
           complimentTarget: null,
+          icebreakerPromptId: null,
+          icebreakerOptionIndex: null,
         },
       });
       expect(result).toEqual({ matched: true, matchId: 'match-1' });
