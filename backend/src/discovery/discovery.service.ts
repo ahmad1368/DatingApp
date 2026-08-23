@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { getBlockedUserIds } from '../blocking/blocking.utils';
+import { getMutualConnectionCounts } from '../social-graph/social-graph.utils';
 import { haversineDistanceKm } from '../location/utils/haversine';
 import { computeFirstMessageExpiresAt } from '../messaging/messaging.constants';
 import {
@@ -37,6 +38,7 @@ export interface DeckCard {
   isPriorityLike: boolean;
   complimentText: string | null;
   complimentTarget: string | null;
+  mutualConnectionCount: number;
 }
 
 export interface SwipeResult {
@@ -184,6 +186,11 @@ export class DiscoveryService {
     const originLongitude = usingPassport ? currentUser.passportLongitude : currentUser.longitude;
 
     const origin = { latitude: originLatitude, longitude: originLongitude };
+    const mutualConnectionCounts = await getMutualConnectionCounts(
+      this.prisma,
+      userId,
+      candidates.map((candidate) => candidate.id),
+    );
 
     return candidates.map((candidate) =>
       this.toDeckCard(candidate, now, origin, {
@@ -193,6 +200,7 @@ export class DiscoveryService {
         complimentText: null,
         complimentTarget: null,
         viewerInterests: currentUser.interests,
+        mutualConnectionCount: mutualConnectionCounts.get(candidate.id) ?? 0,
       }),
     );
   }
@@ -261,6 +269,11 @@ export class DiscoveryService {
       longitude: usingPassport ? currentUser.passportLongitude : currentUser.longitude,
     };
     const now = new Date();
+    const mutualConnectionCounts = await getMutualConnectionCounts(
+      this.prisma,
+      userId,
+      orderedLikers.map((liker) => liker.id),
+    );
 
     return orderedLikers.map((liker) =>
       this.toDeckCard(liker, now, origin, {
@@ -270,6 +283,7 @@ export class DiscoveryService {
         complimentText: complimentBySwiperId.get(liker.id)?.text ?? null,
         complimentTarget: complimentBySwiperId.get(liker.id)?.target ?? null,
         viewerInterests: currentUser.interests,
+        mutualConnectionCount: mutualConnectionCounts.get(liker.id) ?? 0,
       }),
     );
   }
@@ -310,6 +324,7 @@ export class DiscoveryService {
       complimentText: string | null;
       complimentTarget: string | null;
       viewerInterests: string[];
+      mutualConnectionCount: number;
     },
   ): DeckCard {
     return {
@@ -342,6 +357,7 @@ export class DiscoveryService {
       isPriorityLike: flags.isPriorityLike,
       complimentText: flags.complimentText,
       complimentTarget: flags.complimentTarget,
+      mutualConnectionCount: flags.mutualConnectionCount,
     };
   }
 
