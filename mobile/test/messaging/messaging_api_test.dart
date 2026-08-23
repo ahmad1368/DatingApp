@@ -395,6 +395,31 @@ void main() {
       expect(message.isBlurred, isTrue);
       expect(message.mediaUrl, 'https://example.com/photo.jpg');
     });
+
+    test('parses moderationFlagged and moderationCategories when present', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '{"id":"m3","senderId":"user-1","contentType":"IMAGE","content":null,'
+            '"mediaUrl":"https://example.com/photo.jpg","isBlurred":true,'
+            '"moderationFlagged":true,"moderationCategories":["sexual"],'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}',
+            201,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      final message = await api.sendMediaMessage(
+        matchId: 'match-1',
+        contentType: 'IMAGE',
+        mediaUrl: 'https://example.com/photo.jpg',
+      );
+
+      expect(message.moderationFlagged, isTrue);
+      expect(message.moderationCategories, ['sexual']);
+    });
   });
 
   group('MessagingApi.sendVoiceNote', () {

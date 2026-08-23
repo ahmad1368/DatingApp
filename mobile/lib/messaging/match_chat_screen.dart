@@ -686,9 +686,22 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
                 imageFilter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                 child: image,
               ),
-              const Text(
-                'Tap to reveal',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (message.moderationFlagged) ...[
+                    const Icon(Icons.warning_amber, color: Colors.white),
+                    const Text(
+                      'Possibly sensitive content',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 4),
+                  ],
+                  const Text(
+                    'Tap to reveal',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
+                ],
               ),
             ],
           ),
