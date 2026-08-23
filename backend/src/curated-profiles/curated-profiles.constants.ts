@@ -24,3 +24,8 @@ export function computeWindowStart(now: Date): Date {
   }
   return windowStart;
 }
+
+/** The moment the *next* curation window begins - one day after the start of the current one. */
+export function computeNextRefreshAt(now: Date): Date {
+  return new Date(computeWindowStart(now).getTime() + 24 * 60 * 60 * 1000);
+}

@@ -11,6 +11,7 @@ import {
   STANDOUT_ENGAGEMENT_BONUS_PER_LIKE,
   STANDOUT_ENGAGEMENT_THRESHOLD,
   computeEngagementWindowStart,
+  computeNextRefreshAt,
   computeWindowStart,
 } from './curated-profiles.constants';
 
@@ -21,6 +22,10 @@ export interface CuratedProfile {
   profilePhotoUrl: string | null;
   compatibilityPercentage: number | null;
   isStandout: boolean;
+}
+
+export interface RefreshCountdown {
+  nextRefreshAt: string;
 }
 
 interface DailyPickRecord {
@@ -66,6 +71,11 @@ export class CuratedProfilesService {
     }
 
     return this.toCuratedProfiles(unratedPicks);
+  }
+
+  /** When the current curation window ends and the next batch of daily picks arrives. */
+  getRefreshCountdown(): RefreshCountdown {
+    return { nextRefreshAt: computeNextRefreshAt(new Date()).toISOString() };
   }
 
   private async getSwipedTargetIds(userId: string): Promise<Set<string>> {

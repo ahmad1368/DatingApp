@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../discovery/discovery_api.dart';
@@ -18,6 +20,9 @@ class DailyPicksScreen extends StatefulWidget {
 
 class _DailyPicksScreenState extends State<DailyPicksScreen> {
   List<CuratedProfile> _picks = [];
+  DateTime? _nextRefreshAt;
+  Duration? _timeUntilRefresh;
+  Timer? _countdownTimer;
   bool _isLoading = true;
   String? _errorText;
 
@@ -27,14 +32,27 @@ class _DailyPicksScreenState extends State<DailyPicksScreen> {
     _load();
   }
 
+  @override
+  void dispose() {
+    _countdownTimer?.cancel();
+    super.dispose();
+  }
+
   Future<void> _load() async {
     setState(() {
       _isLoading = true;
       _errorText = null;
     });
     try {
-      final picks = await widget.curatedProfilesApi.fetchDailyPicks();
-      setState(() => _picks = picks);
+      final results = await Future.wait([
+        widget.curatedProfilesApi.fetchDailyPicks(),
+        widget.curatedProfilesApi.fetchNextRefreshAt(),
+      ]);
+      setState(() {
+        _picks = results[0] as List<CuratedProfile>;
+        _nextRefreshAt = results[1] as DateTime;
+      });
+      _startCountdown();
     } on CuratedProfilesApiException catch (e) {
       setState(() => _errorText = e.message);
     } finally {
@@ -42,6 +60,28 @@ class _DailyPicksScreenState extends State<DailyPicksScreen> {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  void _startCountdown() {
+    _countdownTimer?.cancel();
+    _updateTimeUntilRefresh();
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) => _updateTimeUntilRefresh());
+  }
+
+  void _updateTimeUntilRefresh() {
+    final nextRefreshAt = _nextRefreshAt;
+    if (nextRefreshAt == null || !mounted) {
+      return;
+    }
+    final remaining = nextRefreshAt.difference(DateTime.now());
+    setState(() => _timeUntilRefresh = remaining.isNegative ? Duration.zero : remaining);
+  }
+
+  String _formatCountdown(Duration duration) {
+    final hours = duration.inHours.toString().padLeft(2, '0');
+    final minutes = (duration.inMinutes % 60).toString().padLeft(2, '0');
+    final seconds = (duration.inSeconds % 60).toString().padLeft(2, '0');
+    return '$hours:$minutes:$seconds';
   }
 
   Future<void> _handleSwipe(CuratedProfile profile, String action) async {
@@ -66,9 +106,22 @@ class _DailyPicksScreenState extends State<DailyPicksScreen> {
                     padding: const EdgeInsets.all(16),
                     child: Text(_errorText!, style: const TextStyle(color: Colors.red)),
                   ),
+                if (_timeUntilRefresh != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Column(
+                      children: [
+                        const Text('Next picks in', style: TextStyle(color: Colors.grey)),
+                        Text(
+                          _formatCountdown(_timeUntilRefresh!),
+                          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
                 Expanded(
                   child: _picks.isEmpty
-                      ? const Center(child: Text("You're all caught up. Check back at noon!"))
+                      ? const Center(child: Text("You're all caught up for today."))
                       : ListView.builder(
                           itemCount: _picks.length,
                           itemBuilder: (context, index) {
