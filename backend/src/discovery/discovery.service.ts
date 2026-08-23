@@ -21,6 +21,11 @@ import {
   isSuperBoostPeakHour,
   SUPER_BOOST_PEAK_VIEW_MULTIPLIER,
   SUPER_BOOST_OFF_PEAK_VIEW_MULTIPLIER,
+  REMAINING_CANDIDATE_POOL_SIZE,
+  computeTrendingWindowStart,
+  TRENDING_BONUS_PER_RIGHT_SWIPE,
+  TRENDING_BONUS_CAP,
+  PROXIMITY_SCORE_DECAY_KM,
 } from './discovery.constants';
 import { getZodiacSign } from '../matching/zodiac.utils';
 import { calculateAge } from './utils/age';
@@ -111,6 +116,15 @@ export class DiscoveryService {
       OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: now } }],
     };
 
+    const usingPassport =
+      currentUser.passportEnabled &&
+      currentUser.passportLatitude != null &&
+      currentUser.passportLongitude != null;
+    const origin = {
+      latitude: usingPassport ? currentUser.passportLatitude : currentUser.latitude,
+      longitude: usingPassport ? currentUser.passportLongitude : currentUser.longitude,
+    };
+
     const likersOfMe = await this.prisma.swipe.findMany({
       where: {
         targetUserId: userId,
@@ -177,7 +191,7 @@ export class DiscoveryService {
       .slice(0, DEFAULT_DECK_SIZE);
     const priorityIds = priorityCandidates.map((candidate) => candidate.id);
 
-    const remainingCandidates = await this.prisma.user.findMany({
+    const remainingCandidatePool = await this.prisma.user.findMany({
       where: {
         id: { notIn: [...excludedIds, ...priorityIds] },
         onboardingCompletedAt: { not: null },
@@ -188,8 +202,13 @@ export class DiscoveryService {
         ],
         ...lifestyleWhere,
       },
-      take: Math.max(DEFAULT_DECK_SIZE - priorityCandidates.length, 0),
+      take: REMAINING_CANDIDATE_POOL_SIZE,
     });
+    const remainingCandidates = await this.rankRemainingCandidates(
+      remainingCandidatePool,
+      origin,
+      Math.max(DEFAULT_DECK_SIZE - priorityCandidates.length, 0),
+    );
 
     const candidates = [...priorityCandidates, ...remainingCandidates];
 
@@ -205,14 +224,6 @@ export class DiscoveryService {
       );
     }
 
-    const usingPassport =
-      currentUser.passportEnabled &&
-      currentUser.passportLatitude != null &&
-      currentUser.passportLongitude != null;
-    const originLatitude = usingPassport ? currentUser.passportLatitude : currentUser.latitude;
-    const originLongitude = usingPassport ? currentUser.passportLongitude : currentUser.longitude;
-
-    const origin = { latitude: originLatitude, longitude: originLongitude };
     const mutualConnectionCounts = await getMutualConnectionCounts(
       this.prisma,
       userId,
@@ -884,6 +895,71 @@ export class DiscoveryService {
       snoozedUntil: isActive && currentUser.snoozedUntil ? currentUser.snoozedUntil.toISOString() : null,
       statusMessage: isActive ? currentUser.snoozeStatusMessage : null,
     };
+  }
+
+  /**
+   * Dynamic reordering of the non-priority candidate pool: ranks by
+   * proximity (closer scores higher, decaying to 0 by
+   * PROXIMITY_SCORE_DECAY_KM) plus a recent right-swipe "trending" bonus,
+   * then trims to the number of slots actually needed. Re-running this on
+   * every deck fetch is what makes the order genuinely dynamic as the
+   * viewer's location or a candidate's recent engagement changes, rather
+   * than a fixed DB row order.
+   */
+  private async rankRemainingCandidates<
+    T extends { id: string; latitude: number | null; longitude: number | null },
+  >(candidates: T[], origin: { latitude: number | null; longitude: number | null }, limit: number): Promise<T[]> {
+    if (candidates.length === 0 || limit <= 0) {
+      return [];
+    }
+
+    const candidateIds = candidates.map((candidate) => candidate.id);
+    const recentRightSwipes = await this.prisma.swipe.findMany({
+      where: {
+        targetUserId: { in: candidateIds },
+        action: { in: LIKE_ACTIONS },
+        createdAt: { gte: computeTrendingWindowStart(new Date()) },
+      },
+      select: { targetUserId: true },
+    });
+    const trendingCounts = new Map<string, number>();
+    for (const swipe of recentRightSwipes) {
+      trendingCounts.set(swipe.targetUserId, (trendingCounts.get(swipe.targetUserId) ?? 0) + 1);
+    }
+
+    const scored = candidates.map((candidate) => ({
+      candidate,
+      score:
+        this.proximityScore(origin, candidate) +
+        Math.min(
+          (trendingCounts.get(candidate.id) ?? 0) * TRENDING_BONUS_PER_RIGHT_SWIPE,
+          TRENDING_BONUS_CAP,
+        ),
+    }));
+    scored.sort((a, b) => b.score - a.score);
+
+    return scored.slice(0, limit).map((entry) => entry.candidate);
+  }
+
+  private proximityScore(
+    origin: { latitude: number | null; longitude: number | null },
+    candidate: { latitude: number | null; longitude: number | null },
+  ): number {
+    if (
+      origin.latitude == null ||
+      origin.longitude == null ||
+      candidate.latitude == null ||
+      candidate.longitude == null
+    ) {
+      return 0;
+    }
+    const distanceKm = haversineDistanceKm(
+      origin.latitude,
+      origin.longitude,
+      candidate.latitude,
+      candidate.longitude,
+    );
+    return Math.max(0, PROXIMITY_SCORE_DECAY_KM - distanceKm);
   }
 
   /**

@@ -56,6 +56,24 @@ export const SNOOZE_DEFAULT_DURATION_DAYS = 7;
  * rotated into the lead position based on its conversion rate. */
 export const MIN_SWIPES_FOR_PHOTO_ROTATION = 5;
 
+/**
+ * Dynamic deck reordering: the non-priority ("remaining") candidate pool is
+ * fetched larger than the deck actually needs, ranked by proximity plus
+ * recent right-swipe trendiness, then trimmed - so the ordering can
+ * actually change as location and recent engagement change, not just the
+ * DB's default row order.
+ */
+export const REMAINING_CANDIDATE_POOL_SIZE = 60;
+export const TRENDING_WINDOW_DAYS = 3;
+export const TRENDING_BONUS_PER_RIGHT_SWIPE = 5;
+export const TRENDING_BONUS_CAP = 50;
+/** Distance in km at which the proximity score bottoms out at 0. */
+export const PROXIMITY_SCORE_DECAY_KM = 100;
+
+export function computeTrendingWindowStart(now: Date): Date {
+  return new Date(now.getTime() - TRENDING_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+}
+
 export function startOfUtcDay(now: Date): Date {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 }
