@@ -249,6 +249,19 @@ model SocialContact {
   @@map("social_contacts")
 }
 
+model PostMatchSurvey {
+  id           String   @id @default(uuid())
+  matchId      String
+  userId       String
+  metInPerson  Boolean
+  matchQuality String?
+  createdAt    DateTime @default(now())
+
+  @@unique([matchId, userId])
+  @@index([matchId])
+  @@map("post_match_surveys")
+}
+
 model UserReport {
   id             String   @id @default(uuid())
   reporterId     String

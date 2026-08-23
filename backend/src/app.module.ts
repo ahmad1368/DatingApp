@@ -31,6 +31,7 @@ import { WalletModule } from './wallet/wallet.module';
 import { SocialGraphModule } from './social-graph/social-graph.module';
 import { ProfilePromptsModule } from './profile-prompts/profile-prompts.module';
 import { PowerUpsModule } from './power-ups/power-ups.module';
+import { PostMatchSurveyModule } from './post-match-survey/post-match-survey.module';
 
 @Module({
   imports: [
@@ -66,6 +67,7 @@ import { PowerUpsModule } from './power-ups/power-ups.module';
     SocialGraphModule,
     ProfilePromptsModule,
     PowerUpsModule,
+    PostMatchSurveyModule,
   ],
 })
 export class AppModule {}
