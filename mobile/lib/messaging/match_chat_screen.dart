@@ -11,6 +11,8 @@ import '../vault/vault_api.dart';
 import '../vault/vault_granted_screen.dart';
 import 'date_suggestions_api.dart';
 import 'messaging_api.dart';
+import 'post_match_survey_api.dart';
+import 'post_match_survey_screen.dart';
 
 const int _maxVoiceNoteSeconds = 60;
 
@@ -30,6 +32,7 @@ class MatchChatScreen extends StatefulWidget {
     VaultApi? vaultApi,
     ScreenSecurityChannel? screenSecurityChannel,
     ScreenSecurityApi? screenSecurityApi,
+    PostMatchSurveyApi? postMatchSurveyApi,
   })  : recorder = recorder ?? DeviceVoiceRecorderController(),
         player = player ?? DeviceVoicePlayerController(),
         dateSuggestionsApi =
@@ -37,7 +40,9 @@ class MatchChatScreen extends StatefulWidget {
         vaultApi = vaultApi ?? VaultApi(accessToken: messagingApi.accessToken),
         screenSecurityChannel = screenSecurityChannel ?? ScreenSecurityChannel(),
         screenSecurityApi =
-            screenSecurityApi ?? ScreenSecurityApi(accessToken: messagingApi.accessToken);
+            screenSecurityApi ?? ScreenSecurityApi(accessToken: messagingApi.accessToken),
+        postMatchSurveyApi =
+            postMatchSurveyApi ?? PostMatchSurveyApi(accessToken: messagingApi.accessToken);
 
   final MessagingApi messagingApi;
   final String matchId;
@@ -48,6 +53,7 @@ class MatchChatScreen extends StatefulWidget {
   final VaultApi vaultApi;
   final ScreenSecurityChannel screenSecurityChannel;
   final ScreenSecurityApi screenSecurityApi;
+  final PostMatchSurveyApi postMatchSurveyApi;
 
   @override
   State<MatchChatScreen> createState() => _MatchChatScreenState();
@@ -518,6 +524,18 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
             color: _readReceiptsEnabled ? Colors.indigo : null,
             tooltip: _readReceiptsEnabled ? 'Read receipts on' : 'Read receipts off',
             onPressed: _toggleReadReceipts,
+          ),
+          IconButton(
+            icon: const Icon(Icons.rate_review_outlined),
+            tooltip: 'Did you meet up?',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => PostMatchSurveyScreen(
+                  postMatchSurveyApi: widget.postMatchSurveyApi,
+                  matchId: widget.matchId,
+                ),
+              ),
+            ),
           ),
         ],
       ),
