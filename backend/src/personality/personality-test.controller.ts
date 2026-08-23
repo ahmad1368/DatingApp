@@ -34,4 +34,13 @@ export class PersonalityTestController {
   ) {
     return this.personalityTestService.getCompatibility(user.id, otherUserId);
   }
+
+  @Get('compatibility/:otherUserId/breakdown')
+  @UseGuards(JwtAuthGuard)
+  getCompatibilityBreakdown(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('otherUserId') otherUserId: string,
+  ) {
+    return this.personalityTestService.getCompatibilityBreakdown(user.id, otherUserId);
+  }
 }
