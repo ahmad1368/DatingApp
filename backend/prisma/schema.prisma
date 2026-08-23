@@ -52,6 +52,8 @@ model User {
   showRelationshipDesiresOnProfile      Boolean   @default(true)
   customRelationshipIntent              String?
   showCustomRelationshipIntentOnProfile Boolean   @default(true)
+  communicationBoundaries               String?
+  showCommunicationBoundariesOnProfile  Boolean   @default(true)
   smokingHabit                          String?
   drinkingHabit                         String?
   education                             String?

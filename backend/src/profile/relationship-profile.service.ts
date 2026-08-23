@@ -11,6 +11,8 @@ export interface RelationshipProfileResult {
   showRelationshipDesiresOnProfile: boolean;
   customRelationshipIntent: string | null;
   showCustomRelationshipIntentOnProfile: boolean;
+  communicationBoundaries: string | null;
+  showCommunicationBoundariesOnProfile: boolean;
 }
 
 @Injectable()
@@ -29,6 +31,8 @@ export class RelationshipProfileService {
         showRelationshipDesiresOnProfile: true,
         customRelationshipIntent: true,
         showCustomRelationshipIntentOnProfile: true,
+        communicationBoundaries: true,
+        showCommunicationBoundariesOnProfile: true,
       },
     });
 
@@ -41,6 +45,8 @@ export class RelationshipProfileService {
       showRelationshipDesiresOnProfile: user?.showRelationshipDesiresOnProfile ?? true,
       customRelationshipIntent: user?.customRelationshipIntent ?? null,
       showCustomRelationshipIntentOnProfile: user?.showCustomRelationshipIntentOnProfile ?? true,
+      communicationBoundaries: user?.communicationBoundaries ?? null,
+      showCommunicationBoundariesOnProfile: user?.showCommunicationBoundariesOnProfile ?? true,
     };
   }
 
@@ -59,6 +65,8 @@ export class RelationshipProfileService {
         showRelationshipDesiresOnProfile: dto.showRelationshipDesiresOnProfile,
         customRelationshipIntent: dto.customRelationshipIntent ?? null,
         showCustomRelationshipIntentOnProfile: dto.showCustomRelationshipIntentOnProfile,
+        communicationBoundaries: dto.communicationBoundaries ?? null,
+        showCommunicationBoundariesOnProfile: dto.showCommunicationBoundariesOnProfile,
       },
     });
 
@@ -71,6 +79,8 @@ export class RelationshipProfileService {
       showRelationshipDesiresOnProfile: user.showRelationshipDesiresOnProfile,
       customRelationshipIntent: user.customRelationshipIntent,
       showCustomRelationshipIntentOnProfile: user.showCustomRelationshipIntentOnProfile,
+      communicationBoundaries: user.communicationBoundaries,
+      showCommunicationBoundariesOnProfile: user.showCommunicationBoundariesOnProfile,
     };
   }
 }

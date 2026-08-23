@@ -39,7 +39,8 @@ void main() {
             '{"relationshipStructure":"Monogamous","showRelationshipStructureOnProfile":true,'
             '"kinkTags":[],"showKinkTagsOnProfile":true,"relationshipDesires":["Marriage"],'
             '"showRelationshipDesiresOnProfile":true,"customRelationshipIntent":null,'
-            '"showCustomRelationshipIntentOnProfile":true}',
+            '"showCustomRelationshipIntentOnProfile":true,"communicationBoundaries":null,'
+            '"showCommunicationBoundariesOnProfile":true}',
             200,
             headers: {'content-type': 'application/json'},
           );
@@ -68,7 +69,9 @@ void main() {
             '"relationshipDesires":["Marriage","Casual Dating"],'
             '"showRelationshipDesiresOnProfile":true,'
             '"customRelationshipIntent":"Open to relocating",'
-            '"showCustomRelationshipIntentOnProfile":false}',
+            '"showCustomRelationshipIntentOnProfile":false,'
+            '"communicationBoundaries":"Texting only until we meet",'
+            '"showCommunicationBoundariesOnProfile":false}',
           );
           return http.Response(
             '{"relationshipStructure":"Polyamorous","showRelationshipStructureOnProfile":false,'
@@ -76,7 +79,9 @@ void main() {
             '"relationshipDesires":["Marriage","Casual Dating"],'
             '"showRelationshipDesiresOnProfile":true,'
             '"customRelationshipIntent":"Open to relocating",'
-            '"showCustomRelationshipIntentOnProfile":false}',
+            '"showCustomRelationshipIntentOnProfile":false,'
+            '"communicationBoundaries":"Texting only until we meet",'
+            '"showCommunicationBoundariesOnProfile":false}',
             200,
             headers: {'content-type': 'application/json'},
           );
@@ -92,11 +97,14 @@ void main() {
         showRelationshipDesiresOnProfile: true,
         customRelationshipIntent: 'Open to relocating',
         showCustomRelationshipIntentOnProfile: false,
+        communicationBoundaries: 'Texting only until we meet',
+        showCommunicationBoundariesOnProfile: false,
       );
 
       expect(result.relationshipStructure, 'Polyamorous');
       expect(result.customRelationshipIntent, 'Open to relocating');
       expect(result.showCustomRelationshipIntentOnProfile, isFalse);
+      expect(result.communicationBoundaries, 'Texting only until we meet');
     });
 
     test('omits null optional fields from the request body', () async {
@@ -108,13 +116,15 @@ void main() {
             '{"showRelationshipStructureOnProfile":true,"kinkTags":[],'
             '"showKinkTagsOnProfile":true,"relationshipDesires":[],'
             '"showRelationshipDesiresOnProfile":true,'
-            '"showCustomRelationshipIntentOnProfile":true}',
+            '"showCustomRelationshipIntentOnProfile":true,'
+            '"showCommunicationBoundariesOnProfile":true}',
           );
           return http.Response(
             '{"relationshipStructure":null,"showRelationshipStructureOnProfile":true,'
             '"kinkTags":[],"showKinkTagsOnProfile":true,"relationshipDesires":[],'
             '"showRelationshipDesiresOnProfile":true,"customRelationshipIntent":null,'
-            '"showCustomRelationshipIntentOnProfile":true}',
+            '"showCustomRelationshipIntentOnProfile":true,"communicationBoundaries":null,'
+            '"showCommunicationBoundariesOnProfile":true}',
             200,
             headers: {'content-type': 'application/json'},
           );
@@ -128,6 +138,7 @@ void main() {
         relationshipDesires: const [],
         showRelationshipDesiresOnProfile: true,
         showCustomRelationshipIntentOnProfile: true,
+        showCommunicationBoundariesOnProfile: true,
       );
     });
 
@@ -151,6 +162,7 @@ void main() {
           relationshipDesires: const [],
           showRelationshipDesiresOnProfile: true,
           showCustomRelationshipIntentOnProfile: true,
+          showCommunicationBoundariesOnProfile: true,
         ),
         throwsA(isA<RelationshipProfileApiException>()),
       );

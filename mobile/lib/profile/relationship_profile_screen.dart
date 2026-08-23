@@ -20,6 +20,7 @@ class RelationshipProfileScreen extends StatefulWidget {
 
 class _RelationshipProfileScreenState extends State<RelationshipProfileScreen> {
   final _customIntentController = TextEditingController();
+  final _communicationBoundariesController = TextEditingController();
   final Set<String> _selectedKinkTags = {};
   final Set<String> _selectedDesires = {};
 
@@ -29,6 +30,7 @@ class _RelationshipProfileScreenState extends State<RelationshipProfileScreen> {
   bool _showKinkTagsOnProfile = true;
   bool _showRelationshipDesiresOnProfile = true;
   bool _showCustomRelationshipIntentOnProfile = true;
+  bool _showCommunicationBoundariesOnProfile = true;
   bool _isLoading = true;
   bool _isSaving = false;
   String? _errorText;
@@ -43,6 +45,7 @@ class _RelationshipProfileScreenState extends State<RelationshipProfileScreen> {
   @override
   void dispose() {
     _customIntentController.dispose();
+    _communicationBoundariesController.dispose();
     super.dispose();
   }
 
@@ -64,6 +67,8 @@ class _RelationshipProfileScreenState extends State<RelationshipProfileScreen> {
         _showRelationshipDesiresOnProfile = profile.showRelationshipDesiresOnProfile;
         _customIntentController.text = profile.customRelationshipIntent ?? '';
         _showCustomRelationshipIntentOnProfile = profile.showCustomRelationshipIntentOnProfile;
+        _communicationBoundariesController.text = profile.communicationBoundaries ?? '';
+        _showCommunicationBoundariesOnProfile = profile.showCommunicationBoundariesOnProfile;
       });
     } on RelationshipProfileApiException catch (e) {
       setState(() => _errorText = e.message);
@@ -106,6 +111,7 @@ class _RelationshipProfileScreenState extends State<RelationshipProfileScreen> {
     });
     try {
       final customIntent = _customIntentController.text.trim();
+      final communicationBoundaries = _communicationBoundariesController.text.trim();
       await widget.relationshipProfileApi.setRelationshipProfile(
         relationshipStructure: _relationshipStructure,
         showRelationshipStructureOnProfile: _showRelationshipStructureOnProfile,
@@ -115,6 +121,8 @@ class _RelationshipProfileScreenState extends State<RelationshipProfileScreen> {
         showRelationshipDesiresOnProfile: _showRelationshipDesiresOnProfile,
         customRelationshipIntent: customIntent.isEmpty ? null : customIntent,
         showCustomRelationshipIntentOnProfile: _showCustomRelationshipIntentOnProfile,
+        communicationBoundaries: communicationBoundaries.isEmpty ? null : communicationBoundaries,
+        showCommunicationBoundariesOnProfile: _showCommunicationBoundariesOnProfile,
       );
       setState(() => _statusText = 'Saved.');
     } on RelationshipProfileApiException catch (e) {
@@ -215,6 +223,24 @@ class _RelationshipProfileScreenState extends State<RelationshipProfileScreen> {
                       title: const Text('Show kink tags on my public profile'),
                       value: _showKinkTagsOnProfile,
                       onChanged: (value) => setState(() => _showKinkTagsOnProfile = value),
+                    ),
+                    const Divider(height: 32),
+                    const Text('Communication boundaries'),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _communicationBoundariesController,
+                      maxLines: 3,
+                      decoration: const InputDecoration(
+                        labelText: 'How I like to communicate (optional)',
+                        hintText: 'e.g. Texting only until we meet, no calls before 9am',
+                      ),
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Show communication boundaries on my public profile'),
+                      value: _showCommunicationBoundariesOnProfile,
+                      onChanged: (value) =>
+                          setState(() => _showCommunicationBoundariesOnProfile = value),
                     ),
                     const SizedBox(height: 16),
                     if (_errorText != null) ...[

@@ -32,6 +32,7 @@ class DeckCard {
     this.complimentText,
     this.complimentTarget,
     this.mutualConnectionCount = 0,
+    this.communicationBoundaries,
   });
 
   final String id;
@@ -53,6 +54,7 @@ class DeckCard {
   final String? complimentText;
   final String? complimentTarget;
   final int mutualConnectionCount;
+  final String? communicationBoundaries;
 }
 
 class SnoozeStatus {
@@ -137,6 +139,7 @@ class DiscoveryApi {
       complimentText: json['complimentText'] as String?,
       complimentTarget: json['complimentTarget'] as String?,
       mutualConnectionCount: json['mutualConnectionCount'] as int? ?? 0,
+      communicationBoundaries: json['communicationBoundaries'] as String?,
     );
   }
 
