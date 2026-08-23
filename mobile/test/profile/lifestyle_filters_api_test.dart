@@ -7,7 +7,7 @@ import 'package:mobile/profile/lifestyle_filters_api.dart';
 http.Response _jsonResponse(String body, int status) =>
     http.Response(body, status, headers: {'content-type': 'application/json'});
 
-String _fullFiltersJson({String relationshipGoals = '[]'}) => '''
+String _fullFiltersJson({String relationshipGoals = '[]', bool verifiedOnly = false}) => '''
 {
   "smokingHabit": null,
   "drinkingHabit": null,
@@ -28,7 +28,8 @@ String _fullFiltersJson({String relationshipGoals = '[]'}) => '''
   "filterRelationshipGoals": $relationshipGoals,
   "filterKinkTags": [],
   "filterRelationshipDesires": [],
-  "filterSharedInterestsOnly": false
+  "filterSharedInterestsOnly": false,
+  "filterVerifiedOnly": $verifiedOnly
 }
 ''';
 
@@ -117,9 +118,30 @@ void main() {
         filterKinkTags: const [],
         filterRelationshipDesires: const [],
         filterSharedInterestsOnly: false,
+        filterVerifiedOnly: false,
       );
 
       expect(() => api.setFilters(filters), throwsA(isA<LifestyleFiltersApiException>()));
+    });
+
+    test('sends the updated filterVerifiedOnly flag', () async {
+      http.Request? putRequest;
+      final api = LifestyleFiltersApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          putRequest = request;
+          return _jsonResponse(_fullFiltersJson(verifiedOnly: true), 200);
+        }),
+      );
+      final current = await LifestyleFiltersApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => _jsonResponse(_fullFiltersJson(), 200)),
+      ).fetchFilters();
+
+      final updated = await api.setFilters(current.copyWith(filterVerifiedOnly: true));
+
+      expect(putRequest!.body, contains('"filterVerifiedOnly":true'));
+      expect(updated.filterVerifiedOnly, isTrue);
     });
   });
 }
