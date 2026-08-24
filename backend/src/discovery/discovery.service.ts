@@ -63,6 +63,8 @@ export interface DeckCard {
   complimentTarget: string | null;
   mutualConnectionCount: number;
   communicationBoundaries: string | null;
+  relationshipStructure: string | null;
+  kinkTagBadges: string[];
 }
 
 export interface SwipeResult {
@@ -400,6 +402,10 @@ export class DiscoveryService {
       showCustomRelationshipIntentOnProfile: boolean;
       communicationBoundaries: string | null;
       showCommunicationBoundariesOnProfile: boolean;
+      relationshipStructure: string | null;
+      showRelationshipStructureOnProfile: boolean;
+      kinkTags: string[];
+      showKinkTagsOnProfile: boolean;
       heightCm: number | null;
       workoutHabit: string | null;
       petOwnership: string | null;
@@ -461,6 +467,10 @@ export class DiscoveryService {
       communicationBoundaries: candidate.showCommunicationBoundariesOnProfile
         ? candidate.communicationBoundaries
         : null,
+      relationshipStructure: candidate.showRelationshipStructureOnProfile
+        ? candidate.relationshipStructure
+        : null,
+      kinkTagBadges: candidate.showKinkTagsOnProfile ? candidate.kinkTags : [],
     };
   }
 

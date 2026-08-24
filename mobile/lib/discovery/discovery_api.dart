@@ -34,6 +34,8 @@ class DeckCard {
     this.complimentTarget,
     this.mutualConnectionCount = 0,
     this.communicationBoundaries,
+    this.relationshipStructure,
+    this.kinkTagBadges = const [],
     this.voiceIntroUrl,
     this.voiceIntroDurationSeconds,
   });
@@ -61,6 +63,8 @@ class DeckCard {
   final String? complimentTarget;
   final int mutualConnectionCount;
   final String? communicationBoundaries;
+  final String? relationshipStructure;
+  final List<String> kinkTagBadges;
 }
 
 class SnoozeStatus {
@@ -168,6 +172,8 @@ class DiscoveryApi {
       complimentTarget: json['complimentTarget'] as String?,
       mutualConnectionCount: json['mutualConnectionCount'] as int? ?? 0,
       communicationBoundaries: json['communicationBoundaries'] as String?,
+      relationshipStructure: json['relationshipStructure'] as String?,
+      kinkTagBadges: (json['kinkTagBadges'] as List?)?.cast<String>() ?? const [],
       voiceIntroUrl: json['voiceIntroUrl'] as String?,
       voiceIntroDurationSeconds: json['voiceIntroDurationSeconds'] as int?,
     );

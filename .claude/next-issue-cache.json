@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-24T07:19:53.064Z",
+  "generated_at": "2026-08-24T14:55:20.392Z",
   "snapshot": [
     {
       "number": 454,
@@ -1680,18 +1680,9 @@
       "number": 119,
       "title": "Custom Relationship Boundary Badges",
       "updatedAt": "2026-08-10T20:41:02Z"
-    },
-    {
-      "number": 118,
-      "title": "A la Carte Spotlight / Profile Extension Unlocks",
-      "updatedAt": "2026-08-10T20:41:00Z"
     }
   ],
   "queue": [
-    {
-      "number": 119,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 120,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"

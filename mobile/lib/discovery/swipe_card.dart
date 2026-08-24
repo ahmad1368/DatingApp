@@ -248,6 +248,30 @@ class _CardContent extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
+              if (card.relationshipStructure != null) ...[
+                const SizedBox(height: 8),
+                Chip(
+                  avatar: const Icon(Icons.diversity_3, size: 16),
+                  label: Text(card.relationshipStructure!),
+                  backgroundColor: Colors.orange.shade100,
+                  visualDensity: VisualDensity.compact,
+                ),
+              ],
+              if (card.kinkTagBadges.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    for (final badge in card.kinkTagBadges)
+                      Chip(
+                        label: Text(badge),
+                        backgroundColor: Colors.purple.shade100,
+                        visualDensity: VisualDensity.compact,
+                      ),
+                  ],
+                ),
+              ],
               if (card.lifestyleBadges.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Wrap(
