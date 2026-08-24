@@ -1,5 +1,6 @@
 import { NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { MatchingService } from '../matching/matching.service';
 import { AiCoachProvider } from './interfaces/ai-coach-provider.interface';
 import { RelationshipCoachService } from './relationship-coach.service';
 
@@ -13,6 +14,7 @@ describe('RelationshipCoachService', () => {
     user: { findUnique: jest.Mock };
     match: { findMany: jest.Mock; findUnique: jest.Mock };
   };
+  let matchingService: { getCompatibility: jest.Mock };
   let coachProvider: { generateSuggestions: jest.Mock };
 
   beforeEach(() => {
@@ -20,9 +22,19 @@ describe('RelationshipCoachService', () => {
       user: { findUnique: jest.fn() },
       match: { findMany: jest.fn(), findUnique: jest.fn() },
     };
+    matchingService = {
+      getCompatibility: jest.fn().mockResolvedValue({
+        percentage: null,
+        sharedQuestionCount: 0,
+        zodiacSign: null,
+        otherZodiacSign: null,
+        zodiacHarmony: null,
+      }),
+    };
     coachProvider = { generateSuggestions: jest.fn() };
     service = new RelationshipCoachService(
       prisma as unknown as PrismaService,
+      matchingService as unknown as MatchingService,
       coachProvider as unknown as AiCoachProvider,
     );
   });
@@ -72,7 +84,10 @@ describe('RelationshipCoachService', () => {
       messagesReceived: 2,
       missingProfileFields: ['profile photo', 'interests', 'voice intro', 'love languages'],
       sharedInterestsWithMatch: [],
+      sharedQuestionCount: 0,
+      compatibilityPercentage: null,
     });
+    expect(matchingService.getCompatibility).not.toHaveBeenCalled();
     expect(result).toEqual({
       conversationOpeners: ['Ask about their trip'],
       dateIdeas: ['Coffee walk'],
@@ -135,5 +150,63 @@ describe('RelationshipCoachService', () => {
     expect(coachProvider.generateSuggestions).toHaveBeenCalledWith(
       expect.objectContaining({ sharedInterestsWithMatch: ['jazz'] }),
     );
+  });
+
+  it('includes compatibility questionnaire overlap with the specified match', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: USER_ID,
+      profilePhotoUrl: 'photo.jpg',
+      interests: [],
+      voiceIntroUrl: 'intro.mp3',
+      videoSnippetUrl: 'clip.mp4',
+      kinkTags: [],
+      loveLanguages: [],
+    });
+    prisma.match.findMany.mockResolvedValue([]);
+    prisma.match.findUnique.mockResolvedValue({ id: MATCH_ID, userAId: USER_ID, userBId: OTHER_USER_ID });
+    matchingService.getCompatibility.mockResolvedValue({
+      percentage: 82,
+      sharedQuestionCount: 5,
+      zodiacSign: null,
+      otherZodiacSign: null,
+      zodiacHarmony: null,
+    });
+    coachProvider.generateSuggestions.mockResolvedValue({
+      conversationOpeners: [],
+      dateIdeas: [],
+      profileTips: [],
+    });
+
+    await service.getTips(USER_ID, MATCH_ID);
+
+    expect(matchingService.getCompatibility).toHaveBeenCalledWith(USER_ID, OTHER_USER_ID);
+    expect(coachProvider.generateSuggestions).toHaveBeenCalledWith(
+      expect.objectContaining({ sharedQuestionCount: 5, compatibilityPercentage: 82 }),
+    );
+  });
+
+  describe('getIcebreakerSuggestions', () => {
+    it('returns just the conversation openers for the match', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        profilePhotoUrl: 'photo.jpg',
+        interests: [],
+        voiceIntroUrl: 'intro.mp3',
+        videoSnippetUrl: 'clip.mp4',
+        kinkTags: [],
+        loveLanguages: [],
+      });
+      prisma.match.findMany.mockResolvedValue([]);
+      prisma.match.findUnique.mockResolvedValue({ id: MATCH_ID, userAId: USER_ID, userBId: OTHER_USER_ID });
+      coachProvider.generateSuggestions.mockResolvedValue({
+        conversationOpeners: ['Ask about their trip'],
+        dateIdeas: ['Coffee walk'],
+        profileTips: ['Add a profile photo'],
+      });
+
+      const result = await service.getIcebreakerSuggestions(USER_ID, MATCH_ID);
+
+      expect(result).toEqual(['Ask about their trip']);
+    });
   });
 });

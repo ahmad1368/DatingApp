@@ -27,6 +27,7 @@ import { SetMatchNoteDto } from './dto/set-match-note.dto';
 import { GifSearchService } from './gif-search.service';
 import { MessagingService } from './messaging.service';
 import { MessageModerationService } from './message-moderation.service';
+import { RelationshipCoachService } from '../relationship-coach/relationship-coach.service';
 
 @Controller('matches')
 @UseGuards(JwtAuthGuard)
@@ -35,6 +36,7 @@ export class MessagingController {
     private readonly messagingService: MessagingService,
     private readonly gifSearchService: GifSearchService,
     private readonly messageModerationService: MessageModerationService,
+    private readonly relationshipCoachService: RelationshipCoachService,
   ) {}
 
   @Get()
@@ -110,6 +112,16 @@ export class MessagingController {
   @Get(':matchId/note')
   getMatchNote(@CurrentUser() user: AuthenticatedUser, @Param('matchId') matchId: string) {
     return this.messagingService.getMatchNote(user.id, matchId);
+  }
+
+  /**
+   * AI-suggested opening lines for this specific match, based on shared
+   * interests and compatibility-questionnaire overlap - see
+   * RelationshipCoachService.getIcebreakerSuggestions.
+   */
+  @Get(':matchId/icebreaker-suggestions')
+  getIcebreakerSuggestions(@CurrentUser() user: AuthenticatedUser, @Param('matchId') matchId: string) {
+    return this.relationshipCoachService.getIcebreakerSuggestions(user.id, matchId);
   }
 
   @Put(':matchId/note')

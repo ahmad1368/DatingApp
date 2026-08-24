@@ -791,6 +791,35 @@ void main() {
     });
   });
 
+  group('MessagingApi.fetchIcebreakerSuggestions', () {
+    test('parses the list of AI-suggested opening lines', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.url.path, '/matches/match-1/icebreaker-suggestions');
+          return http.Response(
+            '["Ask about their trip","What is your favorite hiking spot?"]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final suggestions = await api.fetchIcebreakerSuggestions('match-1');
+
+      expect(suggestions, ['Ask about their trip', 'What is your favorite hiking spot?']);
+    });
+
+    test('throws MessagingApiException on a non-200 response', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => http.Response('', 500)),
+      );
+
+      expect(() => api.fetchIcebreakerSuggestions('match-1'), throwsA(isA<MessagingApiException>()));
+    });
+  });
+
   group('MessagingApi.sendIcebreaker', () {
     test('sends the prompt id and parses the created message', () async {
       final api = MessagingApi(

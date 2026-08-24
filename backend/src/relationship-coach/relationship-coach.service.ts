@@ -1,5 +1,6 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { MatchingService } from '../matching/matching.service';
 import {
   AI_COACH_PROVIDER,
   AiCoachProvider,
@@ -20,6 +21,7 @@ interface ProfileCompletenessFields {
 export class RelationshipCoachService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly matchingService: MatchingService,
     @Inject(AI_COACH_PROVIDER) private readonly coachProvider: AiCoachProvider,
   ) {}
 
@@ -50,18 +52,26 @@ export class RelationshipCoachService {
       }
     }
 
+    const matchOverlap = matchId ? await this.matchOverlapForMatch(userId, matchId, user.interests) : null;
+
     const context: CoachEngagementContext = {
       totalMatches: matches.length,
       staleMatchesCount,
       messagesSent,
       messagesReceived,
       missingProfileFields: this.findMissingProfileFields(user),
-      sharedInterestsWithMatch: matchId
-        ? await this.sharedInterestsForMatch(userId, matchId, user.interests)
-        : [],
+      sharedInterestsWithMatch: matchOverlap?.sharedInterests ?? [],
+      sharedQuestionCount: matchOverlap?.sharedQuestionCount ?? 0,
+      compatibilityPercentage: matchOverlap?.compatibilityPercentage ?? null,
     };
 
     return this.coachProvider.generateSuggestions(context);
+  }
+
+  /** Just the opening-line suggestions from [getTips], for embedding inline in a chat thread. */
+  async getIcebreakerSuggestions(userId: string, matchId: string): Promise<string[]> {
+    const { conversationOpeners } = await this.getTips(userId, matchId);
+    return conversationOpeners;
   }
 
   private findMissingProfileFields(user: ProfileCompletenessFields): string[] {
@@ -87,23 +97,35 @@ export class RelationshipCoachService {
     return missing;
   }
 
-  private async sharedInterestsForMatch(
+  /**
+   * Both halves of what makes a good opener: shared *stated* interests, plus
+   * shared *questionnaire* overlap (how many compatibility questions both
+   * sides answered, and how compatible those answers are) via
+   * MatchingService.getCompatibility.
+   */
+  private async matchOverlapForMatch(
     userId: string,
     matchId: string,
     userInterests: string[],
-  ): Promise<string[]> {
+  ): Promise<{ sharedInterests: string[]; sharedQuestionCount: number; compatibilityPercentage: number | null }> {
     const match = await this.prisma.match.findUnique({ where: { id: matchId } });
     if (!match || (match.userAId !== userId && match.userBId !== userId)) {
       throw new NotFoundException('Match not found.');
     }
 
     const otherUserId = match.userAId === userId ? match.userBId : match.userAId;
-    const otherUser = await this.prisma.user.findUnique({ where: { id: otherUserId } });
-    if (!otherUser) {
-      return [];
-    }
+    const [otherUser, compatibility] = await Promise.all([
+      this.prisma.user.findUnique({ where: { id: otherUserId } }),
+      this.matchingService.getCompatibility(userId, otherUserId),
+    ]);
 
-    const otherInterests = new Set(otherUser.interests);
-    return userInterests.filter((interest) => otherInterests.has(interest));
+    const otherInterests = new Set(otherUser?.interests ?? []);
+    const sharedInterests = userInterests.filter((interest) => otherInterests.has(interest));
+
+    return {
+      sharedInterests,
+      sharedQuestionCount: compatibility.sharedQuestionCount,
+      compatibilityPercentage: compatibility.percentage,
+    };
   }
 }
