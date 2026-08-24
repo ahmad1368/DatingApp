@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-24T04:11:30.581Z",
+  "generated_at": "2026-08-24T04:31:28.862Z",
   "snapshot": [
     {
       "number": 454,
@@ -1750,18 +1750,9 @@
       "number": 105,
       "title": "In-Chat Audio Effects & Filters",
       "updatedAt": "2026-08-10T20:40:34Z"
-    },
-    {
-      "number": 104,
-      "title": "Profile Completion Progress Meter",
-      "updatedAt": "2026-08-10T20:40:32Z"
     }
   ],
   "queue": [
-    {
-      "number": 105,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 106,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"

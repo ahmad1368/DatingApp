@@ -22,6 +22,46 @@ export const MAX_GIF_SEARCH_LIMIT = 50;
 export const VOICE_NOTE_CONTENT_TYPE = 'VOICE_NOTE';
 export const MAX_VOICE_NOTE_SECONDS = 60;
 
+export interface VoiceEffect {
+  id: string;
+  label: string;
+}
+
+// Playback-time voice modulation filters for in-chat voice notes. Applied
+// client-side when the note plays back - no server-side audio processing
+// exists in this codebase, so this just tags which filter the sender picked
+// (curated and static, same as ICEBREAKER_PROMPTS).
+export const VOICE_EFFECTS: VoiceEffect[] = [
+  { id: 'chipmunk', label: 'Chipmunk' },
+  { id: 'deep', label: 'Deep Voice' },
+  { id: 'robot', label: 'Robot' },
+  { id: 'echo', label: 'Echo' },
+  { id: 'helium', label: 'Helium' },
+];
+
+export interface BackgroundSound {
+  id: string;
+  label: string;
+}
+
+// Ambient background tracks a sender can mix under a voice note, applied
+// client-side the same way as VOICE_EFFECTS.
+export const BACKGROUND_SOUNDS: BackgroundSound[] = [
+  { id: 'rain', label: 'Rain' },
+  { id: 'cafe', label: 'Cafe Ambience' },
+  { id: 'campfire', label: 'Campfire' },
+  { id: 'ocean-waves', label: 'Ocean Waves' },
+  { id: 'vinyl-crackle', label: 'Vinyl Crackle' },
+];
+
+export function findVoiceEffect(id: string): VoiceEffect | undefined {
+  return VOICE_EFFECTS.find((effect) => effect.id === id);
+}
+
+export function findBackgroundSound(id: string): BackgroundSound | undefined {
+  return BACKGROUND_SOUNDS.find((sound) => sound.id === id);
+}
+
 export interface IcebreakerPrompt {
   id: string;
   question: string;

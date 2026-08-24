@@ -2,15 +2,21 @@ import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundEx
 import { PrismaService } from '../prisma/prisma.service';
 import { IMAGE_MODERATOR, ImageModerator } from './interfaces/image-moderator.interface';
 import {
+  BACKGROUND_SOUNDS,
+  BackgroundSound,
   computeExtendedExpiresAt,
   computeFirstMessageExpiresAt,
   daysSince,
+  findBackgroundSound,
   findIcebreakerPrompt,
+  findVoiceEffect,
   GHOSTING_PROMPT_THRESHOLD_DAYS,
   ICEBREAKER_PROMPTS,
   IcebreakerPrompt,
   isWoman,
+  VOICE_EFFECTS,
   VOICE_NOTE_CONTENT_TYPE,
+  VoiceEffect,
 } from './messaging.constants';
 
 export interface MatchStatus {
@@ -45,6 +51,8 @@ export interface MessageView {
   moderationFlagged: boolean;
   moderationCategories: string[];
   durationSeconds: number | null;
+  voiceEffectId: string | null;
+  backgroundSoundId: string | null;
   readAt: string | null;
   icebreaker: IcebreakerView | null;
   createdAt: string;
@@ -222,15 +230,36 @@ export class MessagingService {
   }
 
   /**
+   * Catalog of optional playback-time voice modulation filters and ambient
+   * background sounds a sender can attach to a voice note - see
+   * VOICE_EFFECTS/BACKGROUND_SOUNDS for why these are metadata tags rather
+   * than server-side audio processing.
+   */
+  getVoiceNoteEffectsCatalog(): { voiceEffects: VoiceEffect[]; backgroundSounds: BackgroundSound[] } {
+    return { voiceEffects: VOICE_EFFECTS, backgroundSounds: BACKGROUND_SOUNDS };
+  }
+
+  /**
    * Sends a short recorded voice note in-chat, subject to the same
-   * match-expiry and women-first-message rules as a text message.
+   * match-expiry and women-first-message rules as a text message. The
+   * optional voice effect / background sound are just tags for the
+   * recipient's client to apply at playback time.
    */
   async sendVoiceNote(
     userId: string,
     matchId: string,
     mediaUrl: string,
     durationSeconds: number,
+    voiceEffectId?: string,
+    backgroundSoundId?: string,
   ): Promise<MessageView> {
+    if (voiceEffectId && !findVoiceEffect(voiceEffectId)) {
+      throw new BadRequestException('Unknown voice effect.');
+    }
+    if (backgroundSoundId && !findBackgroundSound(backgroundSoundId)) {
+      throw new BadRequestException('Unknown background sound.');
+    }
+
     const { firstMessageSent } = await this.assertCanSend(userId, matchId);
 
     const message = await this.prisma.message.create({
@@ -240,6 +269,8 @@ export class MessagingService {
         contentType: VOICE_NOTE_CONTENT_TYPE,
         mediaUrl,
         durationSeconds,
+        voiceEffectId,
+        backgroundSoundId,
       },
     });
 
@@ -738,6 +769,8 @@ export class MessagingService {
       moderationFlagged?: boolean;
       moderationCategories?: string[];
       durationSeconds: number | null;
+      voiceEffectId?: string | null;
+      backgroundSoundId?: string | null;
       readAt: Date | null;
       createdAt: Date;
     },
@@ -754,6 +787,8 @@ export class MessagingService {
       moderationFlagged: message.moderationFlagged ?? false,
       moderationCategories: message.moderationCategories ?? [],
       durationSeconds: message.durationSeconds,
+      voiceEffectId: message.voiceEffectId ?? null,
+      backgroundSoundId: message.backgroundSoundId ?? null,
       readAt: message.readAt ? message.readAt.toISOString() : null,
       icebreaker: this.toIcebreakerView(message.contentType, message.content, userId, icebreakerResponses),
       createdAt: message.createdAt.toISOString(),

@@ -95,6 +95,8 @@ class ChatMessage {
     this.moderationFlagged = false,
     this.moderationCategories = const [],
     this.durationSeconds,
+    this.voiceEffectId,
+    this.backgroundSoundId,
     this.readAt,
     this.icebreaker,
     required this.createdAt,
@@ -109,11 +111,27 @@ class ChatMessage {
   final bool moderationFlagged;
   final List<String> moderationCategories;
   final int? durationSeconds;
+  final String? voiceEffectId;
+  final String? backgroundSoundId;
   final DateTime? readAt;
   final Icebreaker? icebreaker;
   final DateTime createdAt;
 
   bool get isRead => readAt != null;
+}
+
+class VoiceNoteEffect {
+  VoiceNoteEffect({required this.id, required this.label});
+
+  final String id;
+  final String label;
+}
+
+class VoiceNoteEffectsCatalog {
+  VoiceNoteEffectsCatalog({required this.voiceEffects, required this.backgroundSounds});
+
+  final List<VoiceNoteEffect> voiceEffects;
+  final List<VoiceNoteEffect> backgroundSounds;
 }
 
 class IcebreakerPrompt {
@@ -397,11 +415,18 @@ class MessagingApi {
     required String matchId,
     required String mediaUrl,
     required int durationSeconds,
+    String? voiceEffectId,
+    String? backgroundSoundId,
   }) async {
     final response = await _client.post(
       Uri.parse('$_baseUrl/matches/$matchId/voice-note'),
       headers: _headers,
-      body: jsonEncode({'mediaUrl': mediaUrl, 'durationSeconds': durationSeconds}),
+      body: jsonEncode({
+        'mediaUrl': mediaUrl,
+        'durationSeconds': durationSeconds,
+        if (voiceEffectId != null) 'voiceEffectId': voiceEffectId,
+        if (backgroundSoundId != null) 'backgroundSoundId': backgroundSoundId,
+      }),
     );
 
     final body = _decode(response);
@@ -410,6 +435,29 @@ class MessagingApi {
     }
 
     return _toChatMessage(body);
+  }
+
+  /// Fetches the curated list of playback-time voice modulation filters and
+  /// ambient background sounds that can be attached to a voice note.
+  Future<VoiceNoteEffectsCatalog> fetchVoiceNoteEffects() async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/matches/voice-note-effects'),
+      headers: _headers,
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 200) {
+      throw MessagingApiException(_errorMessage(body, response.statusCode));
+    }
+
+    VoiceNoteEffect toEffect(Map<String, dynamic> json) {
+      return VoiceNoteEffect(id: json['id'] as String, label: json['label'] as String);
+    }
+
+    return VoiceNoteEffectsCatalog(
+      voiceEffects: (body['voiceEffects'] as List).cast<Map<String, dynamic>>().map(toEffect).toList(),
+      backgroundSounds: (body['backgroundSounds'] as List).cast<Map<String, dynamic>>().map(toEffect).toList(),
+    );
   }
 
   Future<ChatMessage> revealImage({required String matchId, required String messageId}) async {
@@ -579,6 +627,8 @@ class MessagingApi {
       moderationFlagged: json['moderationFlagged'] as bool? ?? false,
       moderationCategories: (json['moderationCategories'] as List?)?.cast<String>() ?? const [],
       durationSeconds: json['durationSeconds'] as int?,
+      voiceEffectId: json['voiceEffectId'] as String?,
+      backgroundSoundId: json['backgroundSoundId'] as String?,
       readAt: json['readAt'] != null ? DateTime.parse(json['readAt'] as String) : null,
       icebreaker: icebreakerJson != null
           ? Icebreaker(

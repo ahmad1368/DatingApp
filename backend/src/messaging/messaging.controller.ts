@@ -49,6 +49,11 @@ export class MessagingController {
     return this.messagingService.getIcebreakerPrompts();
   }
 
+  @Get('voice-note-effects')
+  getVoiceNoteEffects() {
+    return this.messagingService.getVoiceNoteEffectsCatalog();
+  }
+
   @Get('reconnectable')
   listReconnectableMatches(@CurrentUser() user: AuthenticatedUser) {
     return this.messagingService.listReconnectableMatches(user.id);
@@ -145,7 +150,14 @@ export class MessagingController {
     @Param('matchId') matchId: string,
     @Body() dto: SendVoiceNoteDto,
   ) {
-    return this.messagingService.sendVoiceNote(user.id, matchId, dto.mediaUrl, dto.durationSeconds);
+    return this.messagingService.sendVoiceNote(
+      user.id,
+      matchId,
+      dto.mediaUrl,
+      dto.durationSeconds,
+      dto.voiceEffectId,
+      dto.backgroundSoundId,
+    );
   }
 
   @Post(':matchId/icebreaker')

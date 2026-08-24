@@ -545,6 +545,69 @@ void main() {
         throwsA(isA<MessagingApiException>()),
       );
     });
+
+    test('includes the voice effect and background sound when provided', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(
+            request.body,
+            '{"mediaUrl":"file:///tmp/note.m4a","durationSeconds":12,'
+            '"voiceEffectId":"robot","backgroundSoundId":"rain"}',
+          );
+          return http.Response(
+            '{"id":"m6","senderId":"user-1","contentType":"VOICE_NOTE","content":null,'
+            '"mediaUrl":"file:///tmp/note.m4a","isBlurred":false,"durationSeconds":12,'
+            '"voiceEffectId":"robot","backgroundSoundId":"rain",'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}',
+            201,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final message = await api.sendVoiceNote(
+        matchId: 'match-1',
+        mediaUrl: 'file:///tmp/note.m4a',
+        durationSeconds: 12,
+        voiceEffectId: 'robot',
+        backgroundSoundId: 'rain',
+      );
+
+      expect(message.voiceEffectId, 'robot');
+      expect(message.backgroundSoundId, 'rain');
+    });
+  });
+
+  group('MessagingApi.fetchVoiceNoteEffects', () {
+    test('parses the voice effect and background sound catalogs', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.url.path, '/matches/voice-note-effects');
+          return http.Response(
+            '{"voiceEffects":[{"id":"robot","label":"Robot"}],'
+            '"backgroundSounds":[{"id":"rain","label":"Rain"}]}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final catalog = await api.fetchVoiceNoteEffects();
+
+      expect(catalog.voiceEffects.single.id, 'robot');
+      expect(catalog.backgroundSounds.single.label, 'Rain');
+    });
+
+    test('throws MessagingApiException on a non-200 response', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => http.Response('', 500)),
+      );
+
+      expect(() => api.fetchVoiceNoteEffects(), throwsA(isA<MessagingApiException>()));
+    });
   });
 
   group('MessagingApi.revealImage', () {
