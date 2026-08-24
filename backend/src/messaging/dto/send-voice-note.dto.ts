@@ -1,4 +1,4 @@
-import { IsInt, IsNotEmpty, IsString, Length, Max, Min } from 'class-validator';
+import { IsInt, IsNotEmpty, IsOptional, IsString, Length, Max, Min } from 'class-validator';
 import { MAX_VOICE_NOTE_SECONDS } from '../messaging.constants';
 
 export class SendVoiceNoteDto {
@@ -11,4 +11,12 @@ export class SendVoiceNoteDto {
   @Min(1)
   @Max(MAX_VOICE_NOTE_SECONDS)
   durationSeconds!: number;
+
+  @IsOptional()
+  @IsString()
+  voiceEffectId?: string;
+
+  @IsOptional()
+  @IsString()
+  backgroundSoundId?: string;
 }

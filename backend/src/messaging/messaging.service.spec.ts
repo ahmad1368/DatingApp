@@ -459,6 +459,8 @@ describe('MessagingService', () => {
         isBlurred: false,
         moderationFlagged: false,
         moderationCategories: [],
+        voiceEffectId: null,
+        backgroundSoundId: null,
         readAt: null,
         icebreaker: null,
         createdAt: '2026-01-01T00:00:00.000Z',
@@ -685,6 +687,71 @@ describe('MessagingService', () => {
       expect(result.contentType).toBe('VOICE_NOTE');
       expect(result.durationSeconds).toBe(12);
       expect(result.mediaUrl).toBe('file:///tmp/note.m4a');
+      expect(result.voiceEffectId).toBeNull();
+      expect(result.backgroundSoundId).toBeNull();
+    });
+
+    it('rejects an unknown voice effect', async () => {
+      mockMatch();
+      mockUsers({ [WOMAN_ID]: ['Woman'], [MAN_ID]: ['Man'] });
+
+      await expect(
+        service.sendVoiceNote(WOMAN_ID, MATCH_ID, 'file:///tmp/note.m4a', 12, 'not-a-real-effect'),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.message.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects an unknown background sound', async () => {
+      mockMatch();
+      mockUsers({ [WOMAN_ID]: ['Woman'], [MAN_ID]: ['Man'] });
+
+      await expect(
+        service.sendVoiceNote(WOMAN_ID, MATCH_ID, 'file:///tmp/note.m4a', 12, undefined, 'not-a-real-sound'),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.message.create).not.toHaveBeenCalled();
+    });
+
+    it('stores the chosen voice effect and background sound', async () => {
+      mockMatch();
+      mockUsers({ [WOMAN_ID]: ['Woman'], [MAN_ID]: ['Man'] });
+      prisma.message.create.mockResolvedValue({
+        id: 'message-6',
+        senderId: WOMAN_ID,
+        contentType: 'VOICE_NOTE',
+        content: null,
+        mediaUrl: 'file:///tmp/note.m4a',
+        isBlurred: false,
+        durationSeconds: 12,
+        voiceEffectId: 'robot',
+        backgroundSoundId: 'rain',
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const result = await service.sendVoiceNote(WOMAN_ID, MATCH_ID, 'file:///tmp/note.m4a', 12, 'robot', 'rain');
+
+      expect(prisma.message.create).toHaveBeenCalledWith({
+        data: {
+          matchId: MATCH_ID,
+          senderId: WOMAN_ID,
+          contentType: 'VOICE_NOTE',
+          mediaUrl: 'file:///tmp/note.m4a',
+          durationSeconds: 12,
+          voiceEffectId: 'robot',
+          backgroundSoundId: 'rain',
+        },
+      });
+      expect(result.voiceEffectId).toBe('robot');
+      expect(result.backgroundSoundId).toBe('rain');
+    });
+  });
+
+  describe('getVoiceNoteEffectsCatalog', () => {
+    it('returns the curated voice effect and background sound catalogs', () => {
+      const catalog = service.getVoiceNoteEffectsCatalog();
+
+      expect(catalog.voiceEffects.length).toBeGreaterThan(0);
+      expect(catalog.backgroundSounds.length).toBeGreaterThan(0);
+      expect(catalog.voiceEffects.every((effect) => effect.id && effect.label)).toBe(true);
     });
   });
 
@@ -798,6 +865,8 @@ describe('MessagingService', () => {
           isBlurred: false,
           moderationFlagged: false,
           moderationCategories: [],
+          voiceEffectId: null,
+          backgroundSoundId: null,
           readAt: null,
           icebreaker: null,
           createdAt: '2026-01-01T00:00:00.000Z',

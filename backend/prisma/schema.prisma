@@ -198,6 +198,8 @@ model Message {
   moderationFlagged    Boolean   @default(false)
   moderationCategories String[]  @default([])
   durationSeconds      Int?
+  voiceEffectId        String?
+  backgroundSoundId    String?
   readAt               DateTime?
   createdAt            DateTime  @default(now())
 
