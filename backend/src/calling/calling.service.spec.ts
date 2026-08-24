@@ -1,5 +1,7 @@
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { ContentModerator } from '../messaging/interfaces/content-moderator.interface';
+import { SafetyService } from '../safety/safety.service';
 import { CallingService } from './calling.service';
 
 const CALLER_ID = 'caller-1';
@@ -14,7 +16,10 @@ describe('CallingService', () => {
     match: { findUnique: jest.Mock };
     callSession: { findFirst: jest.Mock; findUnique: jest.Mock; findMany: jest.Mock; create: jest.Mock; update: jest.Mock };
     callIceCandidate: { create: jest.Mock; findMany: jest.Mock };
+    callModerationFlag: { create: jest.Mock };
   };
+  let contentModerator: { moderate: jest.Mock };
+  let safetyService: { reportUser: jest.Mock };
 
   beforeEach(() => {
     prisma = {
@@ -27,8 +32,15 @@ describe('CallingService', () => {
         update: jest.fn(),
       },
       callIceCandidate: { create: jest.fn(), findMany: jest.fn() },
+      callModerationFlag: { create: jest.fn() },
     };
-    service = new CallingService(prisma as unknown as PrismaService);
+    contentModerator = { moderate: jest.fn() };
+    safetyService = { reportUser: jest.fn() };
+    service = new CallingService(
+      prisma as unknown as PrismaService,
+      contentModerator as unknown as ContentModerator,
+      safetyService as unknown as SafetyService,
+    );
   });
 
   function mockCall(overrides: Partial<{
@@ -489,6 +501,105 @@ describe('CallingService', () => {
       expect(result).toEqual([
         { id: 'c1', senderId: CALLEE_ID, candidate: 'from-callee', createdAt: '2026-01-01T00:00:00.000Z' },
       ]);
+    });
+  });
+
+  describe('checkTranscript', () => {
+    it('throws when the call is not active', async () => {
+      mockCall({ status: 'ENDED' });
+
+      await expect(
+        service.checkTranscript(CALLER_ID, CALL_ID, 'hello there'),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(contentModerator.moderate).not.toHaveBeenCalled();
+    });
+
+    it('does not persist a flag for clean text', async () => {
+      mockCall();
+      contentModerator.moderate.mockResolvedValue({ flagged: false, categories: [] });
+
+      const result = await service.checkTranscript(CALLER_ID, CALL_ID, 'how is your day going?');
+
+      expect(prisma.callModerationFlag.create).not.toHaveBeenCalled();
+      expect(result).toEqual({ flagged: false, categories: [] });
+    });
+
+    it('persists a flag when the transcript snippet is flagged', async () => {
+      mockCall();
+      contentModerator.moderate.mockResolvedValue({ flagged: true, categories: ['harassment'] });
+
+      const result = await service.checkTranscript(CALLER_ID, CALL_ID, 'you are worthless');
+
+      expect(contentModerator.moderate).toHaveBeenCalledWith('you are worthless');
+      expect(prisma.callModerationFlag.create).toHaveBeenCalledWith({
+        data: {
+          callSessionId: CALL_ID,
+          senderId: CALLER_ID,
+          transcriptSnippet: 'you are worthless',
+          categories: ['harassment'],
+        },
+      });
+      expect(result).toEqual({ flagged: true, categories: ['harassment'] });
+    });
+  });
+
+  describe('reportCall', () => {
+    it('throws when the reporter is not a participant', async () => {
+      mockCall();
+
+      await expect(
+        service.reportCall(OUTSIDER_ID, CALL_ID, 'HARASSMENT'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(safetyService.reportUser).not.toHaveBeenCalled();
+    });
+
+    it('reports the other participant', async () => {
+      mockCall();
+      safetyService.reportUser.mockResolvedValue({
+        id: 'report-1',
+        reportedUserId: CALLEE_ID,
+        reason: 'HARASSMENT',
+        details: 'was verbally abusive',
+        createdAt: '2026-01-01T00:00:00.000Z',
+      });
+
+      const result = await service.reportCall(CALLER_ID, CALL_ID, 'HARASSMENT', 'was verbally abusive');
+
+      expect(safetyService.reportUser).toHaveBeenCalledWith(
+        CALLER_ID,
+        CALLEE_ID,
+        'HARASSMENT',
+        'was verbally abusive',
+      );
+      expect(result.reportedUserId).toBe(CALLEE_ID);
+    });
+
+    it('reports the caller when the callee is the reporter', async () => {
+      mockCall();
+      safetyService.reportUser.mockResolvedValue({
+        id: 'report-2',
+        reportedUserId: CALLER_ID,
+        reason: 'HARASSMENT',
+        details: null,
+        createdAt: '2026-01-01T00:00:00.000Z',
+      });
+
+      await service.reportCall(CALLEE_ID, CALL_ID, 'HARASSMENT');
+
+      expect(safetyService.reportUser).toHaveBeenCalledWith(CALLEE_ID, CALLER_ID, 'HARASSMENT', undefined);
+    });
+
+    it('allows reporting after the call has ended', async () => {
+      mockCall({ status: 'ENDED' });
+      safetyService.reportUser.mockResolvedValue({
+        id: 'report-3',
+        reportedUserId: CALLEE_ID,
+        reason: 'OTHER',
+        details: null,
+        createdAt: '2026-01-01T00:00:00.000Z',
+      });
+
+      await expect(service.reportCall(CALLER_ID, CALL_ID, 'OTHER')).resolves.toBeDefined();
     });
   });
 });

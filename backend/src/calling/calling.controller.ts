@@ -7,6 +7,8 @@ import { SetIcebreakerOverlayDto } from './dto/set-icebreaker-overlay.dto';
 import { SetMediaControlsDto } from './dto/set-media-controls.dto';
 import { SetVirtualBackgroundDto } from './dto/set-virtual-background.dto';
 import { SubmitIceCandidateDto } from './dto/submit-ice-candidate.dto';
+import { CheckTranscriptDto } from './dto/check-transcript.dto';
+import { ReportCallDto } from './dto/report-call.dto';
 import { VIRTUAL_BACKGROUNDS } from './calling.constants';
 import { CallingService } from './calling.service';
 
@@ -101,5 +103,21 @@ export class CallingController {
     @Body() dto: SetMediaControlsDto,
   ) {
     return this.callingService.setMediaControls(user.id, callId, dto);
+  }
+
+  @Post(':callId/moderation-check')
+  @HttpCode(HttpStatus.OK)
+  checkTranscript(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('callId') callId: string,
+    @Body() dto: CheckTranscriptDto,
+  ) {
+    return this.callingService.checkTranscript(user.id, callId, dto.transcriptSnippet);
+  }
+
+  @Post(':callId/report')
+  @HttpCode(HttpStatus.CREATED)
+  reportCall(@CurrentUser() user: AuthenticatedUser, @Param('callId') callId: string, @Body() dto: ReportCallDto) {
+    return this.callingService.reportCall(user.id, callId, dto.reason, dto.details);
   }
 }

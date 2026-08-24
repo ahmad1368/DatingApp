@@ -610,6 +610,22 @@ model CallIceCandidate {
   @@map("call_ice_candidates")
 }
 
+// A flagged transcript snippet from a live call - the client runs its own
+// on-device speech-to-text and submits short snippets for real-time
+// moderation (see CallingService.checkTranscript); only flagged ones are
+// persisted, since routine conversation isn't safety-relevant.
+model CallModerationFlag {
+  id                String   @id @default(uuid())
+  callSessionId     String
+  senderId          String
+  transcriptSnippet String
+  categories        String[] @default([])
+  createdAt         DateTime @default(now())
+
+  @@index([callSessionId])
+  @@map("call_moderation_flags")
+}
+
 model Boost {
   id             String   @id @default(uuid())
   userId         String

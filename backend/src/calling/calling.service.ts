@@ -1,6 +1,12 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { findIcebreakerPrompt } from '../messaging/messaging.constants';
+import {
+  CONTENT_MODERATOR,
+  ContentModerator,
+  ModerationResult,
+} from '../messaging/interfaces/content-moderator.interface';
+import { SafetyService, UserReportView } from '../safety/safety.service';
 import { ACTIVE_CALL_STATUSES, findVirtualBackground } from './calling.constants';
 
 export interface CallSessionView {
@@ -50,7 +56,11 @@ interface CallSessionRecord {
 
 @Injectable()
 export class CallingService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(CONTENT_MODERATOR) private readonly contentModerator: ContentModerator,
+    private readonly safetyService: SafetyService,
+  ) {}
 
   async initiateCall(
     callerId: string,
@@ -252,6 +262,45 @@ export class CallingService {
     });
 
     return this.toView(updated);
+  }
+
+  /**
+   * Real-time toxicity check for a live call: the client runs its own
+   * on-device speech-to-text and submits short transcript snippets here as
+   * the call progresses (no server-side audio pipeline exists in this
+   * codebase). Only flagged snippets are persisted, as safety evidence -
+   * routine conversation isn't recorded.
+   */
+  async checkTranscript(userId: string, callId: string, transcriptSnippet: string): Promise<ModerationResult> {
+    await this.getActiveCallForParticipant(userId, callId);
+
+    const moderation = await this.contentModerator.moderate(transcriptSnippet);
+
+    if (moderation.flagged) {
+      await this.prisma.callModerationFlag.create({
+        data: {
+          callSessionId: callId,
+          senderId: userId,
+          transcriptSnippet,
+          categories: moderation.categories,
+        },
+      });
+    }
+
+    return moderation;
+  }
+
+  /** Single-tap report of the other participant, straight from the call screen. */
+  async reportCall(
+    reporterId: string,
+    callId: string,
+    reason: string,
+    details?: string,
+  ): Promise<UserReportView> {
+    const call = await this.getCallForParticipant(reporterId, callId);
+    const reportedUserId = call.callerId === reporterId ? call.calleeId : call.callerId;
+
+    return this.safetyService.reportUser(reporterId, reportedUserId, reason, details);
   }
 
   private async getActiveCallForParticipant(

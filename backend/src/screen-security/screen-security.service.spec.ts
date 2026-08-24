@@ -45,6 +45,22 @@ describe('ScreenSecurityService', () => {
       expect(result.warning).toContain('private chat');
     });
 
+    it('reports a violation during a call with a call-specific warning', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        screenCaptureViolationCount: 0,
+        screenCaptureFrozenUntil: null,
+      });
+      prisma.user.update.mockResolvedValue({
+        screenCaptureViolationCount: 1,
+        screenCaptureFrozenUntil: null,
+      });
+
+      const result = await service.reportViolation(USER_ID, 'CALL');
+
+      expect(result.warning).toContain('a call');
+    });
+
     it('freezes the account once violations cross the threshold and resets the counter', async () => {
       const now = new Date('2026-01-01T00:00:00.000Z');
       jest.useFakeTimers().setSystemTime(now);
