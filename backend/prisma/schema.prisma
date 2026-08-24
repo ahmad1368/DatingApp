@@ -45,6 +45,7 @@ model User {
   voiceIntroDurationSeconds             Int?
   videoSnippetUrl                       String?
   isCommitteeMember                     Boolean   @default(false)
+  referralCode                          String?   @unique
   relationshipStructure                 String?
   showRelationshipStructureOnProfile    Boolean   @default(true)
   kinkTags                              String[]  @default([])
@@ -502,6 +503,10 @@ model Application {
   userId          String    @unique
   status          String    @default("PENDING")
   referralCount   Int       @default(0)
+  // Links (Instagram, LinkedIn, etc.) the applicant submits for the
+  // committee to cross-check identity/authenticity against - see
+  // VettingService.apply.
+  socialLinks     String[]  @default([])
   decidedByUserId String?
   decisionReason  String?
   createdAt       DateTime  @default(now())

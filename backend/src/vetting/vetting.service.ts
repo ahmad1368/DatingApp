@@ -1,12 +1,14 @@
+import { randomBytes } from 'crypto';
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { REQUIRED_PEER_REFERRALS } from './vetting.constants';
+import { REFERRAL_CODE_LENGTH, REQUIRED_PEER_REFERRALS } from './vetting.constants';
 
 export interface ApplicationView {
   id: string;
   userId: string;
   status: string;
   referralCount: number;
+  socialLinks: string[];
   decisionReason: string | null;
   createdAt: string;
   decidedAt: string | null;
@@ -15,6 +17,7 @@ export interface ApplicationView {
 export interface QueuedApplicationView {
   id: string;
   referralCount: number;
+  socialLinks: string[];
   createdAt: string;
 }
 
@@ -23,6 +26,7 @@ interface ApplicationRecord {
   userId: string;
   status: string;
   referralCount: number;
+  socialLinks: string[];
   decisionReason: string | null;
   createdAt: Date;
   decidedAt: Date | null;
@@ -32,13 +36,13 @@ interface ApplicationRecord {
 export class VettingService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async apply(userId: string): Promise<ApplicationView> {
+  async apply(userId: string, socialLinks: string[] = []): Promise<ApplicationView> {
     const existing = await this.prisma.application.findUnique({ where: { userId } });
     if (existing) {
       throw new BadRequestException('You have already applied.');
     }
 
-    const application = await this.prisma.application.create({ data: { userId } });
+    const application = await this.prisma.application.create({ data: { userId, socialLinks } });
     return this.toView(application);
   }
 
@@ -50,7 +54,43 @@ export class VettingService {
     return this.toView(application);
   }
 
+  /** A member who already knows the applicant's userId refers them directly. */
   async refer(referrerUserId: string, applicantUserId: string): Promise<ApplicationView> {
+    return this.createReferral(referrerUserId, applicantUserId);
+  }
+
+  /**
+   * The applicant-initiated counterpart to [refer]: redeems a code an
+   * existing member shared with them (see [getMyReferralCode]) instead of
+   * requiring the member to look up the applicant's userId themselves.
+   */
+  async redeemReferralCode(applicantUserId: string, code: string): Promise<ApplicationView> {
+    const referrer = await this.prisma.user.findUnique({ where: { referralCode: code } });
+    if (!referrer) {
+      throw new NotFoundException('Invalid referral code.');
+    }
+
+    return this.createReferral(referrer.id, applicantUserId);
+  }
+
+  /** Generates (once) and returns the caller's shareable referral code - only approved members have one. */
+  async getMyReferralCode(userId: string): Promise<{ referralCode: string }> {
+    const application = await this.prisma.application.findUnique({ where: { userId } });
+    if (!application || application.status !== 'APPROVED') {
+      throw new ForbiddenException('Only approved members can generate a referral code.');
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { referralCode: true } });
+    if (user?.referralCode) {
+      return { referralCode: user.referralCode };
+    }
+
+    const referralCode = this.generateReferralCode();
+    await this.prisma.user.update({ where: { id: userId }, data: { referralCode } });
+    return { referralCode };
+  }
+
+  private async createReferral(referrerUserId: string, applicantUserId: string): Promise<ApplicationView> {
     if (referrerUserId === applicantUserId) {
       throw new BadRequestException('You cannot refer yourself.');
     }
@@ -96,6 +136,12 @@ export class VettingService {
     return this.toView(updated);
   }
 
+  private generateReferralCode(): string {
+    return randomBytes(REFERRAL_CODE_LENGTH / 2)
+      .toString('hex')
+      .toUpperCase();
+  }
+
   async listQueue(committeeUserId: string): Promise<QueuedApplicationView[]> {
     await this.requireCommitteeMember(committeeUserId);
 
@@ -107,6 +153,7 @@ export class VettingService {
     return applications.map((application) => ({
       id: application.id,
       referralCount: application.referralCount,
+      socialLinks: application.socialLinks,
       createdAt: application.createdAt.toISOString(),
     }));
   }
@@ -161,6 +208,7 @@ export class VettingService {
       userId: application.userId,
       status: application.status,
       referralCount: application.referralCount,
+      socialLinks: application.socialLinks,
       decisionReason: application.decisionReason,
       createdAt: application.createdAt.toISOString(),
       decidedAt: application.decidedAt ? application.decidedAt.toISOString() : null,

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-24T06:48:15.639Z",
+  "generated_at": "2026-08-24T06:56:25.229Z",
   "snapshot": [
     {
       "number": 454,
@@ -1695,18 +1695,9 @@
       "number": 116,
       "title": "Strict Member Vetting & Multi-Peer Referral System",
       "updatedAt": "2026-08-10T20:40:56Z"
-    },
-    {
-      "number": 115,
-      "title": "AI Conversation Assistant & Icebreaker Suggestions",
-      "updatedAt": "2026-08-10T20:40:54Z"
     }
   ],
   "queue": [
-    {
-      "number": 116,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 117,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
