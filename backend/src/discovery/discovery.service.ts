@@ -9,9 +9,13 @@ import { NotificationsService } from '../notifications/notifications.service';
 import {
   computeBoostExpiresAt,
   computeDefaultSnoozeUntil,
+  computeHappyHourWindow,
   computeMaxSnoozeUntil,
   DAILY_SUPER_LIKE_LIMIT,
   DEFAULT_DECK_SIZE,
+  HAPPY_HOUR_BONUS_SUPER_LIKES,
+  HAPPY_HOUR_VIEW_MULTIPLIER,
+  isHappyHour,
   LIKE_ACTIONS,
   LikedBySort,
   LIKED_BY_SORT_OPTIONS,
@@ -78,6 +82,14 @@ export interface BoostStatus {
   expiresAt: string | null;
   viewCount: number;
   tier: 'STANDARD' | 'SUPER' | null;
+  viewMultiplier: number;
+}
+
+export interface HappyHourStatus {
+  active: boolean;
+  startsAt: string;
+  endsAt: string;
+  bonusSuperLikes: number;
   viewMultiplier: number;
 }
 
@@ -570,7 +582,12 @@ export class DiscoveryService {
       const superLikesToday = await this.prisma.swipe.count({
         where: { swiperId: userId, action: 'SUPER_LIKE', createdAt: { gte: startOfUtcDay(new Date()) } },
       });
-      if (superLikesToday >= DAILY_SUPER_LIKE_LIMIT) {
+      // Happy Hour: extends today's free allowance rather than granting a
+      // separate bucket, so it lapses naturally at midnight like the rest.
+      const dailySuperLikeLimit = isHappyHour(new Date())
+        ? DAILY_SUPER_LIKE_LIMIT + HAPPY_HOUR_BONUS_SUPER_LIKES
+        : DAILY_SUPER_LIKE_LIMIT;
+      if (superLikesToday >= dailySuperLikeLimit) {
         // A purchased power-up (see PowerUpsService) grants extra super
         // likes beyond the daily free allowance, consumed one at a time.
         const swiper = await this.prisma.user.findUnique({
@@ -604,6 +621,10 @@ export class DiscoveryService {
 
     if (!isLike) {
       return { matched: false };
+    }
+
+    if (isHappyHour(new Date())) {
+      await this.grantHappyHourBoost(userId);
     }
 
     const reciprocal = await this.prisma.swipe.findUnique({
@@ -833,6 +854,43 @@ export class DiscoveryService {
       tier: boost.tier as 'STANDARD' | 'SUPER',
       viewMultiplier: boost.viewMultiplier,
     };
+  }
+
+  /** Today's Happy Hour window and whether it's active right now - see [recordSwipe]/[grantHappyHourBoost]. */
+  getHappyHourStatus(): HappyHourStatus {
+    const now = new Date();
+    const { startsAt, endsAt } = computeHappyHourWindow(now);
+    return {
+      active: isHappyHour(now),
+      startsAt: startsAt.toISOString(),
+      endsAt: endsAt.toISOString(),
+      bonusSuperLikes: HAPPY_HOUR_BONUS_SUPER_LIKES,
+      viewMultiplier: HAPPY_HOUR_VIEW_MULTIPLIER,
+    };
+  }
+
+  /**
+   * Happy Hour perk: liking during the daily peak-engagement window grants a
+   * temporary visibility Boost on the same mechanism as a purchased one (see
+   * activateBoost) - skipped when a boost (paid or otherwise) is already
+   * active so this never overwrites it.
+   */
+  private async grantHappyHourBoost(userId: string): Promise<void> {
+    const existing = await this.prisma.boost.findFirst({
+      where: { userId, expiresAt: { gt: new Date() } },
+    });
+    if (existing) {
+      return;
+    }
+
+    await this.prisma.boost.create({
+      data: {
+        userId,
+        expiresAt: computeBoostExpiresAt(new Date()),
+        tier: 'STANDARD',
+        viewMultiplier: HAPPY_HOUR_VIEW_MULTIPLIER,
+      },
+    });
   }
 
   /**

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-24T05:00:40.118Z",
+  "generated_at": "2026-08-24T05:29:04.605Z",
   "snapshot": [
     {
       "number": 454,
@@ -1735,18 +1735,9 @@
       "number": 108,
       "title": "Timed Fast-Match Queue (Happy Hour)",
       "updatedAt": "2026-08-10T20:40:40Z"
-    },
-    {
-      "number": 107,
-      "title": "Couples Account Pairing Switch",
-      "updatedAt": "2026-08-10T20:40:38Z"
     }
   ],
   "queue": [
-    {
-      "number": 108,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 109,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"

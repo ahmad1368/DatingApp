@@ -49,6 +49,31 @@ export function isSuperBoostPeakHour(now: Date): boolean {
   return hour >= SUPER_BOOST_PEAK_HOUR_START_UTC && hour < SUPER_BOOST_PEAK_HOUR_END_UTC;
 }
 
+/**
+ * Happy Hour: once daily during a fixed peak-engagement window (see the
+ * SUPER_BOOST_PEAK_HOUR note on per-user timezone limitations - same
+ * approximation applies here), liking a profile grants extra free super
+ * likes for the day and a temporary visibility Boost - see
+ * DiscoveryService.recordSwipe/grantHappyHourBoost.
+ */
+export const HAPPY_HOUR_START_UTC = 17;
+export const HAPPY_HOUR_END_UTC = 19;
+export const HAPPY_HOUR_BONUS_SUPER_LIKES = 2;
+export const HAPPY_HOUR_VIEW_MULTIPLIER = 2;
+
+export function isHappyHour(now: Date): boolean {
+  const hour = now.getUTCHours();
+  return hour >= HAPPY_HOUR_START_UTC && hour < HAPPY_HOUR_END_UTC;
+}
+
+export function computeHappyHourWindow(now: Date): { startsAt: Date; endsAt: Date } {
+  const startsAt = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), HAPPY_HOUR_START_UTC),
+  );
+  const endsAt = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), HAPPY_HOUR_END_UTC));
+  return { startsAt, endsAt };
+}
+
 export const SNOOZE_MAX_DURATION_DAYS = 90;
 export const SNOOZE_DEFAULT_DURATION_DAYS = 7;
 
