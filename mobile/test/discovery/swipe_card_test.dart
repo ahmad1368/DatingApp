@@ -118,6 +118,34 @@ void main() {
     expect(find.textContaining('Voice intro'), findsNothing);
   });
 
+  testWidgets('shows relationship structure and kink tag badges when present', (tester) async {
+    final card = DeckCard(
+      id: 'user-2',
+      name: 'Jane',
+      age: 25,
+      interests: const ['Hiking'],
+      relationshipStructure: 'Solo Polyamorous',
+      kinkTagBadges: const ['Dominant'],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(home: Scaffold(body: Center(child: SwipeCard(card: card, onSwiped: (_) {})))),
+    );
+
+    expect(find.text('Solo Polyamorous'), findsOneWidget);
+    expect(find.text('Dominant'), findsOneWidget);
+  });
+
+  testWidgets('hides relationship structure and kink tag badges when absent', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: Center(child: SwipeCard(card: _sampleCard(), onSwiped: (_) {}))),
+      ),
+    );
+
+    expect(find.byIcon(Icons.diversity_3), findsNothing);
+  });
+
   testWidgets('shows the profile photo unblurred by default', (tester) async {
     final card = DeckCard(
       id: 'user-2',

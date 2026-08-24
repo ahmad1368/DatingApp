@@ -367,6 +367,126 @@ describe('DiscoveryService', () => {
       expect(deck[0].communicationBoundaries).toBeNull();
     });
 
+    it('shows relationship structure only when the candidate opts in', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+      });
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      prisma.user.findMany.mockResolvedValue([
+        {
+          id: TARGET_ID,
+          name: 'Jane',
+          dateOfBirth: null,
+          profilePhotoUrl: null,
+          interests: [],
+          relationshipGoal: 'CASUAL',
+          relationshipStructure: 'Solo Polyamorous',
+          showRelationshipStructureOnProfile: true,
+        },
+      ]);
+
+      const deck = await service.getDeck(USER_ID);
+
+      expect(deck[0].relationshipStructure).toBe('Solo Polyamorous');
+    });
+
+    it('hides relationship structure when the candidate has opted out', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+      });
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      prisma.user.findMany.mockResolvedValue([
+        {
+          id: TARGET_ID,
+          name: 'Jane',
+          dateOfBirth: null,
+          profilePhotoUrl: null,
+          interests: [],
+          relationshipGoal: 'CASUAL',
+          relationshipStructure: 'Solo Polyamorous',
+          showRelationshipStructureOnProfile: false,
+        },
+      ]);
+
+      const deck = await service.getDeck(USER_ID);
+
+      expect(deck[0].relationshipStructure).toBeNull();
+    });
+
+    it('shows kink tag badges only when the candidate opts in', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+      });
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      prisma.user.findMany.mockResolvedValue([
+        {
+          id: TARGET_ID,
+          name: 'Jane',
+          dateOfBirth: null,
+          profilePhotoUrl: null,
+          interests: [],
+          relationshipGoal: 'CASUAL',
+          kinkTags: ['Dominant'],
+          showKinkTagsOnProfile: true,
+        },
+      ]);
+
+      const deck = await service.getDeck(USER_ID);
+
+      expect(deck[0].kinkTagBadges).toEqual(['Dominant']);
+    });
+
+    it('hides kink tag badges when the candidate has opted out', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+      });
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      prisma.user.findMany.mockResolvedValue([
+        {
+          id: TARGET_ID,
+          name: 'Jane',
+          dateOfBirth: null,
+          profilePhotoUrl: null,
+          interests: [],
+          relationshipGoal: 'CASUAL',
+          kinkTags: ['Dominant'],
+          showKinkTagsOnProfile: false,
+        },
+      ]);
+
+      const deck = await service.getDeck(USER_ID);
+
+      expect(deck[0].kinkTagBadges).toEqual([]);
+    });
+
     it('includes the candidate voice intro url and duration when they have one', async () => {
       prisma.user.findUnique.mockResolvedValue({
         id: USER_ID,
