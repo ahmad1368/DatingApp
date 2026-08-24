@@ -498,6 +498,43 @@ export class MessagingService {
     });
   }
 
+  /**
+   * Joint browsing "shared chat access": lets a partner with
+   * PartnerLink.jointBrowsingEnabled see the other side's match list. Read
+   * access only - the underlying match still belongs to `partnerId`, so
+   * sending/unmatching/etc. still require being a direct match participant.
+   */
+  async listSharedMatches(userId: string, partnerId: string): Promise<MatchSummaryView[]> {
+    await this.assertJointBrowsingEnabled(userId, partnerId);
+    return this.listMyMatches(partnerId);
+  }
+
+  /**
+   * The message-history counterpart to [listSharedMatches]. Unlike
+   * [listMessages], this never mutates read receipts - it's a peek into the
+   * partner's conversation, not the partner reading their own messages.
+   */
+  async listSharedMessages(userId: string, partnerId: string, matchId: string): Promise<MessageView[]> {
+    await this.assertJointBrowsingEnabled(userId, partnerId);
+
+    const match = await this.prisma.match.findUnique({ where: { id: matchId } });
+    if (!match || (match.userAId !== partnerId && match.userBId !== partnerId)) {
+      throw new NotFoundException('Match not found.');
+    }
+
+    const messages = await this.prisma.message.findMany({
+      where: { matchId },
+      orderBy: { createdAt: 'asc' },
+    });
+    const responsesByMessageId = await this.getIcebreakerResponsesByMessage(
+      messages.filter((message) => message.contentType === 'ICEBREAKER').map((message) => message.id),
+    );
+
+    return messages.map((message) =>
+      this.toMessageView(message, partnerId, responsesByMessageId.get(message.id) ?? []),
+    );
+  }
+
   /** Ends an ongoing (already-unlocked) match - the ghosting-prompt's "politely unmatch" option. */
   async unmatch(userId: string, matchId: string): Promise<{ unmatched: boolean }> {
     const match = await this.getMatchForUser(userId, matchId);
@@ -698,6 +735,21 @@ export class MessagingService {
     }
 
     return match;
+  }
+
+  private async assertJointBrowsingEnabled(userId: string, partnerId: string): Promise<void> {
+    const link = await this.prisma.partnerLink.findFirst({
+      where: {
+        jointBrowsingEnabled: true,
+        OR: [
+          { userAId: userId, userBId: partnerId },
+          { userAId: partnerId, userBId: userId },
+        ],
+      },
+    });
+    if (!link) {
+      throw new ForbiddenException('Joint browsing is not enabled with this partner.');
+    }
   }
 
   private isExpired(match: MatchRecord, now: Date): boolean {

@@ -14,6 +14,7 @@ export interface PartnerLinkView {
   id: string;
   partnerId: string;
   linkedAt: string;
+  jointBrowsingEnabled: boolean;
 }
 
 interface CouplePairingRecord {
@@ -29,6 +30,7 @@ interface PartnerLinkRecord {
   id: string;
   userAId: string;
   userBId: string;
+  jointBrowsingEnabled: boolean;
   createdAt: Date;
 }
 
@@ -135,6 +137,27 @@ export class CouplePairingService {
     return this.toView(acceptedPairing);
   }
 
+  /**
+   * Toggles a linked pair between joint browsing (a single shared inbox -
+   * see MessagingService.listSharedMatches/listSharedMessages) and each
+   * partner browsing/chatting individually. Either side of the link may
+   * flip the switch since it's a shared setting for the pair, not a
+   * per-user preference.
+   */
+  async setJointBrowsingMode(userId: string, partnerId: string, enabled: boolean): Promise<PartnerLinkView> {
+    const link = await this.findLink(userId, partnerId);
+    if (!link) {
+      throw new BadRequestException('You are not currently linked with this person.');
+    }
+
+    const updated = await this.prisma.partnerLink.update({
+      where: { id: link.id },
+      data: { jointBrowsingEnabled: enabled },
+    });
+
+    return this.toPartnerLinkView(userId, updated);
+  }
+
   /** Unlinks the caller from one specific partner, leaving any others intact. */
   async unpair(userId: string, partnerId: string): Promise<{ unpaired: boolean }> {
     const link = await this.findLink(userId, partnerId);
@@ -174,6 +197,7 @@ export class CouplePairingService {
       id: link.id,
       partnerId: link.userAId === userId ? link.userBId : link.userAId,
       linkedAt: link.createdAt.toISOString(),
+      jointBrowsingEnabled: link.jointBrowsingEnabled,
     };
   }
 }

@@ -1,7 +1,8 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Put, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AuthenticatedUser, JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { InviteCouplePairingDto } from './dto/invite-couple-pairing.dto';
+import { SetJointBrowsingModeDto } from './dto/set-joint-browsing-mode.dto';
 import { UnpairDto } from './dto/unpair.dto';
 import { CouplePairingService } from './couple-pairing.service';
 
@@ -42,5 +43,15 @@ export class CouplePairingController {
   @HttpCode(HttpStatus.OK)
   unpair(@CurrentUser() user: AuthenticatedUser, @Body() dto: UnpairDto) {
     return this.couplePairingService.unpair(user.id, dto.partnerUserId);
+  }
+
+  @Put(':partnerId/browsing-mode')
+  @HttpCode(HttpStatus.OK)
+  setJointBrowsingMode(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('partnerId') partnerId: string,
+    @Body() dto: SetJointBrowsingModeDto,
+  ) {
+    return this.couplePairingService.setJointBrowsingMode(user.id, partnerId, dto.enabled);
   }
 }
