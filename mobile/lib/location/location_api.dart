@@ -11,6 +11,13 @@ class LocationApiException implements Exception {
   String toString() => message;
 }
 
+class RadiusSettings {
+  RadiusSettings({required this.searchRadiusKm, required this.autoExpandRadiusEnabled});
+
+  final int searchRadiusKm;
+  final bool autoExpandRadiusEnabled;
+}
+
 class NearbyUser {
   NearbyUser({required this.id, this.name, required this.distanceKm});
 
@@ -79,6 +86,41 @@ class LocationApi {
     }
 
     return body['searchRadiusKm'] as int;
+  }
+
+  Future<RadiusSettings> fetchRadiusSettings() async {
+    final response = await _client.get(Uri.parse('$_baseUrl/location/radius'), headers: _headers);
+
+    final body = _decode(response);
+    if (response.statusCode != 200) {
+      throw LocationApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return RadiusSettings(
+      searchRadiusKm: body['searchRadiusKm'] as int,
+      autoExpandRadiusEnabled: body['autoExpandRadiusEnabled'] as bool,
+    );
+  }
+
+  /// When enabled (the default), the discovery deck widens the search
+  /// radius for a single fetch if too few candidates are nearby, instead of
+  /// showing a near-empty deck.
+  Future<RadiusSettings> setAutoExpandRadius(bool enabled) async {
+    final response = await _client.put(
+      Uri.parse('$_baseUrl/location/radius/auto-expand'),
+      headers: _headers,
+      body: jsonEncode({'enabled': enabled}),
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 200) {
+      throw LocationApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return RadiusSettings(
+      searchRadiusKm: body['searchRadiusKm'] as int,
+      autoExpandRadiusEnabled: body['autoExpandRadiusEnabled'] as bool,
+    );
   }
 
   Future<List<NearbyUser>> fetchNearbyUsers() async {

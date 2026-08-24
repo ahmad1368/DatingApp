@@ -37,6 +37,7 @@ model User {
   longitude                             Float?
   locationUpdatedAt                     DateTime?
   searchRadiusKm                        Int       @default(50)
+  autoExpandRadiusEnabled               Boolean   @default(true)
   passportLatitude                      Float?
   passportLongitude                     Float?
   passportEnabled                       Boolean   @default(false)

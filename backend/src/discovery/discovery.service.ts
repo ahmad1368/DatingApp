@@ -6,6 +6,7 @@ import { getMutualConnectionCounts } from '../social-graph/social-graph.utils';
 import { haversineDistanceKm } from '../location/utils/haversine';
 import { computeFirstMessageExpiresAt, findIcebreakerPrompt } from '../messaging/messaging.constants';
 import { NotificationsService } from '../notifications/notifications.service';
+import { DEFAULT_SEARCH_RADIUS_KM, MAX_SEARCH_RADIUS_KM } from '../location/location.constants';
 import {
   computeBoostExpiresAt,
   computeDefaultSnoozeUntil,
@@ -19,8 +20,10 @@ import {
   LIKE_ACTIONS,
   LikedBySort,
   LIKED_BY_SORT_OPTIONS,
+  MIN_CANDIDATES_BEFORE_RADIUS_EXPANSION,
   MIN_SWIPES_FOR_PHOTO_ROTATION,
   PASS_REASONS,
+  RADIUS_EXPANSION_MULTIPLIER,
   SNOOZE_MAX_DURATION_DAYS,
   startOfUtcDay,
   isSuperBoostPeakHour,
@@ -218,8 +221,9 @@ export class DiscoveryService {
       },
       take: REMAINING_CANDIDATE_POOL_SIZE,
     });
+    const radiusFilteredPool = this.filterWithinRadius(remainingCandidatePool, origin, currentUser);
     const remainingCandidates = await this.rankRemainingCandidates(
-      remainingCandidatePool,
+      radiusFilteredPool,
       origin,
       Math.max(DEFAULT_DECK_SIZE - priorityCandidates.length, 0),
     );
@@ -976,6 +980,52 @@ export class DiscoveryService {
    * viewer's location or a candidate's recent engagement changes, rather
    * than a fixed DB row order.
    */
+  /**
+   * Restricts the "remaining" candidate pool to User.searchRadiusKm. If that
+   * would leave fewer than MIN_CANDIDATES_BEFORE_RADIUS_EXPANSION and the
+   * viewer has auto-expand on, widens the radius for this one fetch only -
+   * nothing is persisted, so the next fetch tries the normal radius again
+   * first. Candidates with no location set are always kept, matching
+   * [proximityScore]'s null handling.
+   */
+  private filterWithinRadius<T extends { latitude: number | null; longitude: number | null }>(
+    candidates: T[],
+    origin: { latitude: number | null; longitude: number | null },
+    currentUser: { searchRadiusKm: number; autoExpandRadiusEnabled: boolean },
+  ): T[] {
+    if (origin.latitude == null || origin.longitude == null) {
+      return candidates;
+    }
+
+    const radiusKm = currentUser.searchRadiusKm ?? DEFAULT_SEARCH_RADIUS_KM;
+    const withinRadius = candidates.filter((candidate) => this.isWithinRadius(origin, candidate, radiusKm));
+
+    const excludedSome = withinRadius.length < candidates.length;
+    if (
+      excludedSome &&
+      withinRadius.length < MIN_CANDIDATES_BEFORE_RADIUS_EXPANSION &&
+      currentUser.autoExpandRadiusEnabled
+    ) {
+      const expandedRadiusKm = Math.min(radiusKm * RADIUS_EXPANSION_MULTIPLIER, MAX_SEARCH_RADIUS_KM);
+      return candidates.filter((candidate) => this.isWithinRadius(origin, candidate, expandedRadiusKm));
+    }
+
+    return withinRadius;
+  }
+
+  private isWithinRadius(
+    origin: { latitude: number | null; longitude: number | null },
+    candidate: { latitude: number | null; longitude: number | null },
+    radiusKm: number,
+  ): boolean {
+    if (candidate.latitude == null || candidate.longitude == null) {
+      return true;
+    }
+    return (
+      haversineDistanceKm(origin.latitude!, origin.longitude!, candidate.latitude, candidate.longitude) <= radiusKm
+    );
+  }
+
   private async rankRemainingCandidates<
     T extends { id: string; latitude: number | null; longitude: number | null },
   >(candidates: T[], origin: { latitude: number | null; longitude: number | null }, limit: number): Promise<T[]> {

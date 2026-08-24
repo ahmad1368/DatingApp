@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-24T05:50:56.863Z",
+  "generated_at": "2026-08-24T06:03:41.990Z",
   "snapshot": [
     {
       "number": 454,
@@ -1715,18 +1715,9 @@
       "number": 112,
       "title": "Distance-Based Match Sorting & Radius Expansion",
       "updatedAt": "2026-08-10T20:40:48Z"
-    },
-    {
-      "number": 111,
-      "title": "In-Chat Polls & Voting",
-      "updatedAt": "2026-08-10T20:40:46Z"
     }
   ],
   "queue": [
-    {
-      "number": 112,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 113,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"

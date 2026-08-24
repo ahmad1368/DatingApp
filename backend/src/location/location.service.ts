@@ -24,6 +24,11 @@ export interface UpdateSearchRadiusResult {
   searchRadiusKm: number;
 }
 
+export interface RadiusSettings {
+  searchRadiusKm: number;
+  autoExpandRadiusEnabled: boolean;
+}
+
 export interface NearbyUser {
   id: string;
   name: string | null;
@@ -72,6 +77,33 @@ export class LocationService {
     });
 
     return { searchRadiusKm: user.searchRadiusKm };
+  }
+
+  async getRadiusSettings(userId: string): Promise<RadiusSettings> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { searchRadiusKm: true, autoExpandRadiusEnabled: true },
+    });
+    if (!user) {
+      throw new NotFoundException('User not found.');
+    }
+
+    return { searchRadiusKm: user.searchRadiusKm, autoExpandRadiusEnabled: user.autoExpandRadiusEnabled };
+  }
+
+  /**
+   * When enabled (the default), DiscoveryService.getDeck widens the search
+   * radius for a single fetch if too few candidates fall within it, rather
+   * than returning a near-empty deck - see the note on
+   * MIN_CANDIDATES_BEFORE_RADIUS_EXPANSION.
+   */
+  async setAutoExpandRadius(userId: string, enabled: boolean): Promise<RadiusSettings> {
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: { autoExpandRadiusEnabled: enabled },
+    });
+
+    return { searchRadiusKm: user.searchRadiusKm, autoExpandRadiusEnabled: user.autoExpandRadiusEnabled };
   }
 
   async findNearbyUsers(userId: string): Promise<NearbyUser[]> {

@@ -65,6 +65,68 @@ void main() {
     });
   });
 
+  group('LocationApi.fetchRadiusSettings', () {
+    test('parses the radius and auto-expand preference', () async {
+      final api = LocationApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'GET');
+          expect(request.url.path, '/location/radius');
+          return http.Response(
+            '{"searchRadiusKm":25,"autoExpandRadiusEnabled":true}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final settings = await api.fetchRadiusSettings();
+
+      expect(settings.searchRadiusKm, 25);
+      expect(settings.autoExpandRadiusEnabled, isTrue);
+    });
+
+    test('throws LocationApiException on a non-200 response', () async {
+      final api = LocationApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => http.Response('', 500)),
+      );
+
+      expect(() => api.fetchRadiusSettings(), throwsA(isA<LocationApiException>()));
+    });
+  });
+
+  group('LocationApi.setAutoExpandRadius', () {
+    test('sends the flag and parses the updated settings', () async {
+      final api = LocationApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'PUT');
+          expect(request.url.path, '/location/radius/auto-expand');
+          expect(request.body, '{"enabled":false}');
+          return http.Response(
+            '{"searchRadiusKm":50,"autoExpandRadiusEnabled":false}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final settings = await api.setAutoExpandRadius(false);
+
+      expect(settings.autoExpandRadiusEnabled, isFalse);
+    });
+
+    test('throws LocationApiException on a non-200 response', () async {
+      final api = LocationApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => http.Response('', 500)),
+      );
+
+      expect(() => api.setAutoExpandRadius(true), throwsA(isA<LocationApiException>()));
+    });
+  });
+
   group('LocationApi.fetchNearbyUsers', () {
     test('parses the list of nearby users', () async {
       final api = LocationApi(
