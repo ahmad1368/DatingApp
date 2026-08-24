@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-24T07:07:04.426Z",
+  "generated_at": "2026-08-24T07:19:53.064Z",
   "snapshot": [
     {
       "number": 454,
@@ -1685,18 +1685,9 @@
       "number": 118,
       "title": "A la Carte Spotlight / Profile Extension Unlocks",
       "updatedAt": "2026-08-10T20:41:00Z"
-    },
-    {
-      "number": 117,
-      "title": "Interactive Compatibility Wheel",
-      "updatedAt": "2026-08-10T20:40:58Z"
     }
   ],
   "queue": [
-    {
-      "number": 118,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 119,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"

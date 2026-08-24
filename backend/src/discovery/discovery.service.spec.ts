@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, NotFoundException } from '@nes
 import { PrismaService } from '../prisma/prisma.service';
 import { MatchingService } from '../matching/matching.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { DEFAULT_DECK_SIZE } from './discovery.constants';
 import { DiscoveryService } from './discovery.service';
 
 const USER_ID = 'user-1';
@@ -937,6 +938,38 @@ describe('DiscoveryService', () => {
       const deck = await service.getDeck(USER_ID);
 
       expect(deck.map((card) => card.id)).toContain('no-location');
+    });
+
+    it('widens the deck with purchased bonus slots and resets them after one fetch', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: 0,
+        longitude: 0,
+        searchRadiusKm: 50,
+        autoExpandRadiusEnabled: true,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        bonusDeckSlots: 5,
+        ...noFilters,
+      });
+      prisma.swipe.findMany
+        .mockResolvedValueOnce([]) // not swiped on anyone yet
+        .mockResolvedValueOnce([{ swiperId: 'super-liker-1', action: 'SUPER_LIKE' }]) // liked me
+        .mockResolvedValueOnce([]); // no recent right-swipes
+      prisma.user.findMany.mockResolvedValue([]);
+
+      await service.getDeck(USER_ID);
+
+      expect(prisma.user.findMany).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({ take: DEFAULT_DECK_SIZE + 5 }),
+      );
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: USER_ID },
+        data: { bonusDeckSlots: 0 },
+      });
     });
 
     it('places super likers first and flags them as isSuperLike', async () => {
