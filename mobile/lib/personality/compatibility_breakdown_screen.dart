@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
+import 'compatibility_radar_chart.dart';
 import 'personality_api.dart';
 
-/// Side-by-side breakdown of personality compatibility with another user,
-/// grouped by category (emotional values, core values, communication style,
-/// social habits) so it reads like a comparison graph rather than a single
-/// aggregate percentage.
+/// Interactive radar-chart breakdown of personality compatibility with
+/// another user, plotted across the personality test's category "pillars"
+/// (emotional values, core values, communication style, social habits).
+/// Tapping a pillar chip below the chart drills into that category's
+/// dimension-by-dimension comparison.
 class CompatibilityBreakdownScreen extends StatefulWidget {
   const CompatibilityBreakdownScreen({
     super.key,
@@ -22,6 +24,7 @@ class CompatibilityBreakdownScreen extends StatefulWidget {
 
 class _CompatibilityBreakdownScreenState extends State<CompatibilityBreakdownScreen> {
   CompatibilityBreakdown? _breakdown;
+  int _selectedCategoryIndex = 0;
   bool _isLoading = true;
   String? _errorText;
 
@@ -77,6 +80,10 @@ class _CompatibilityBreakdownScreenState extends State<CompatibilityBreakdownScr
       );
     }
 
+    final categories = breakdown.categories;
+    final selectedIndex = categories.isEmpty ? null : _selectedCategoryIndex.clamp(0, categories.length - 1);
+    final selectedCategory = selectedIndex == null ? null : categories[selectedIndex];
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -85,14 +92,32 @@ class _CompatibilityBreakdownScreenState extends State<CompatibilityBreakdownScr
           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 16),
-        for (final category in breakdown.categories) ...[
-          Text(
-            '${category.category} · ${category.averageSimilarity}% match',
-            style: const TextStyle(fontWeight: FontWeight.bold),
+        if (categories.isNotEmpty)
+          Center(
+            child: CompatibilityRadarChart(
+              axes: [
+                for (final category in categories)
+                  RadarChartAxis(label: category.category, value: category.averageSimilarity),
+              ],
+              highlightedIndex: selectedIndex,
+            ),
           ),
-          const SizedBox(height: 8),
-          for (final dimension in category.dimensions) _buildDimensionRow(dimension),
-          const SizedBox(height: 16),
+        const SizedBox(height: 16),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (var i = 0; i < categories.length; i++)
+              ChoiceChip(
+                label: Text('${categories[i].category} · ${categories[i].averageSimilarity}% match'),
+                selected: selectedIndex == i,
+                onSelected: (_) => setState(() => _selectedCategoryIndex = i),
+              ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        if (selectedCategory != null) ...[
+          for (final dimension in selectedCategory.dimensions) _buildDimensionRow(dimension),
         ],
       ],
     );
