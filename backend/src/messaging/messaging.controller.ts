@@ -20,6 +20,8 @@ import { ReportAndUnmatchDto } from './dto/report-and-unmatch.dto';
 import { SetReadReceiptsDto } from './dto/set-read-receipts.dto';
 import { SendIcebreakerDto } from './dto/send-icebreaker.dto';
 import { RespondIcebreakerDto } from './dto/respond-icebreaker.dto';
+import { SendPollDto } from './dto/send-poll.dto';
+import { RespondPollDto } from './dto/respond-poll.dto';
 import { SendVoiceNoteDto } from './dto/send-voice-note.dto';
 import { SetMatchNoteDto } from './dto/set-match-note.dto';
 import { GifSearchService } from './gif-search.service';
@@ -204,6 +206,23 @@ export class MessagingController {
     @Body() dto: RespondIcebreakerDto,
   ) {
     return this.messagingService.respondToIcebreaker(user.id, matchId, messageId, dto.optionIndex);
+  }
+
+  @Post(':matchId/poll')
+  @HttpCode(HttpStatus.CREATED)
+  sendPoll(@CurrentUser() user: AuthenticatedUser, @Param('matchId') matchId: string, @Body() dto: SendPollDto) {
+    return this.messagingService.sendPoll(user.id, matchId, dto.question, dto.options);
+  }
+
+  @Post(':matchId/messages/:messageId/poll-response')
+  @HttpCode(HttpStatus.OK)
+  respondToPoll(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('matchId') matchId: string,
+    @Param('messageId') messageId: string,
+    @Body() dto: RespondPollDto,
+  ) {
+    return this.messagingService.respondToPoll(user.id, matchId, messageId, dto.optionIndex);
   }
 
   @Post(':matchId/messages/:messageId/reveal')

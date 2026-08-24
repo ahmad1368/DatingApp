@@ -200,6 +200,7 @@ model Message {
   durationSeconds      Int?
   voiceEffectId        String?
   backgroundSoundId    String?
+  pollOptions          String[]  @default([])
   readAt               DateTime?
   createdAt            DateTime  @default(now())
 
@@ -251,6 +252,20 @@ model IcebreakerResponse {
 
   @@unique([messageId, userId])
   @@map("icebreaker_responses")
+}
+
+// A vote on an in-chat POLL message (Message.pollOptions holds the choices).
+// One vote per user per poll, same shape as IcebreakerResponse but for an
+// arbitrary number of options instead of a fixed two.
+model PollVote {
+  id          String   @id @default(uuid())
+  messageId   String
+  userId      String
+  optionIndex Int
+  createdAt   DateTime @default(now())
+
+  @@unique([messageId, userId])
+  @@map("poll_votes")
 }
 
 model ProfilePromptVoiceAnswer {

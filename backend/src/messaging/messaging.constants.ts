@@ -22,6 +22,10 @@ export const MAX_GIF_SEARCH_LIMIT = 50;
 export const VOICE_NOTE_CONTENT_TYPE = 'VOICE_NOTE';
 export const MAX_VOICE_NOTE_SECONDS = 60;
 
+export const POLL_CONTENT_TYPE = 'POLL';
+export const MIN_POLL_OPTIONS = 2;
+export const MAX_POLL_OPTIONS = 6;
+
 export interface VoiceEffect {
   id: string;
   label: string;

@@ -99,6 +99,7 @@ class ChatMessage {
     this.backgroundSoundId,
     this.readAt,
     this.icebreaker,
+    this.poll,
     required this.createdAt,
   });
 
@@ -115,9 +116,28 @@ class ChatMessage {
   final String? backgroundSoundId;
   final DateTime? readAt;
   final Icebreaker? icebreaker;
+  final Poll? poll;
   final DateTime createdAt;
 
   bool get isRead => readAt != null;
+}
+
+class Poll {
+  Poll({
+    required this.question,
+    required this.options,
+    this.myOptionIndex,
+    required this.voteCounts,
+    required this.totalVotes,
+  });
+
+  final String question;
+  final List<String> options;
+  final int? myOptionIndex;
+  final List<int> voteCounts;
+  final int totalVotes;
+
+  bool get haveIVoted => myOptionIndex != null;
 }
 
 class VoiceNoteEffect {
@@ -599,6 +619,44 @@ class MessagingApi {
     return _toChatMessage(body);
   }
 
+  Future<ChatMessage> sendPoll({
+    required String matchId,
+    required String question,
+    required List<String> options,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/matches/$matchId/poll'),
+      headers: _headers,
+      body: jsonEncode({'question': question, 'options': options}),
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 201) {
+      throw MessagingApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return _toChatMessage(body);
+  }
+
+  Future<ChatMessage> respondToPoll({
+    required String matchId,
+    required String messageId,
+    required int optionIndex,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/matches/$matchId/messages/$messageId/poll-response'),
+      headers: _headers,
+      body: jsonEncode({'optionIndex': optionIndex}),
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 200) {
+      throw MessagingApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return _toChatMessage(body);
+  }
+
   Future<void> reportMessage({
     required String matchId,
     required String messageId,
@@ -617,6 +675,7 @@ class MessagingApi {
 
   ChatMessage _toChatMessage(Map<String, dynamic> json) {
     final icebreakerJson = json['icebreaker'] as Map<String, dynamic>?;
+    final pollJson = json['poll'] as Map<String, dynamic>?;
     return ChatMessage(
       id: json['id'] as String,
       senderId: json['senderId'] as String,
@@ -638,6 +697,15 @@ class MessagingApi {
               optionB: icebreakerJson['optionB'] as String,
               myOptionIndex: icebreakerJson['myOptionIndex'] as int?,
               otherOptionIndex: icebreakerJson['otherOptionIndex'] as int?,
+            )
+          : null,
+      poll: pollJson != null
+          ? Poll(
+              question: pollJson['question'] as String,
+              options: (pollJson['options'] as List).cast<String>(),
+              myOptionIndex: pollJson['myOptionIndex'] as int?,
+              voteCounts: (pollJson['voteCounts'] as List).cast<int>(),
+              totalVotes: pollJson['totalVotes'] as int,
             )
           : null,
       createdAt: DateTime.parse(json['createdAt'] as String),
