@@ -19,7 +19,13 @@ describe('CouplePairingService', () => {
       create: jest.Mock;
       update: jest.Mock;
     };
-    partnerLink: { findFirst: jest.Mock; findMany: jest.Mock; create: jest.Mock; delete: jest.Mock };
+    partnerLink: {
+      findFirst: jest.Mock;
+      findMany: jest.Mock;
+      create: jest.Mock;
+      update: jest.Mock;
+      delete: jest.Mock;
+    };
     $transaction: jest.Mock;
   };
 
@@ -37,6 +43,7 @@ describe('CouplePairingService', () => {
         findFirst: jest.fn(),
         findMany: jest.fn(),
         create: jest.fn(),
+        update: jest.fn(),
         delete: jest.fn(),
       },
       $transaction: jest.fn(),
@@ -240,6 +247,47 @@ describe('CouplePairingService', () => {
 
       expect(prisma.partnerLink.create).not.toHaveBeenCalled();
       expect(prisma.$transaction).toHaveBeenCalledWith(['update-op']);
+    });
+  });
+
+  describe('setJointBrowsingMode', () => {
+    it('rejects toggling joint browsing when the two users are not linked', async () => {
+      prisma.partnerLink.findFirst.mockResolvedValue(null);
+
+      await expect(service.setJointBrowsingMode(REQUESTER_ID, PARTNER_ID, true)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(prisma.partnerLink.update).not.toHaveBeenCalled();
+    });
+
+    it('enables joint browsing on the existing link', async () => {
+      prisma.partnerLink.findFirst.mockResolvedValue({
+        id: LINK_ID,
+        userAId: REQUESTER_ID,
+        userBId: PARTNER_ID,
+        jointBrowsingEnabled: false,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+      prisma.partnerLink.update.mockResolvedValue({
+        id: LINK_ID,
+        userAId: REQUESTER_ID,
+        userBId: PARTNER_ID,
+        jointBrowsingEnabled: true,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const result = await service.setJointBrowsingMode(REQUESTER_ID, PARTNER_ID, true);
+
+      expect(prisma.partnerLink.update).toHaveBeenCalledWith({
+        where: { id: LINK_ID },
+        data: { jointBrowsingEnabled: true },
+      });
+      expect(result).toEqual({
+        id: LINK_ID,
+        partnerId: PARTNER_ID,
+        linkedAt: '2026-01-01T00:00:00.000Z',
+        jointBrowsingEnabled: true,
+      });
     });
   });
 

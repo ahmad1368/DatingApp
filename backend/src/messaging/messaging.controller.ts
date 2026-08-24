@@ -54,6 +54,20 @@ export class MessagingController {
     return this.messagingService.getVoiceNoteEffectsCatalog();
   }
 
+  @Get('partner/:partnerId')
+  listSharedMatches(@CurrentUser() user: AuthenticatedUser, @Param('partnerId') partnerId: string) {
+    return this.messagingService.listSharedMatches(user.id, partnerId);
+  }
+
+  @Get('partner/:partnerId/:matchId/messages')
+  listSharedMessages(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('partnerId') partnerId: string,
+    @Param('matchId') matchId: string,
+  ) {
+    return this.messagingService.listSharedMessages(user.id, partnerId, matchId);
+  }
+
   @Get('reconnectable')
   listReconnectableMatches(@CurrentUser() user: AuthenticatedUser) {
     return this.messagingService.listReconnectableMatches(user.id);

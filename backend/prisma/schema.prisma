@@ -504,10 +504,11 @@ model CouplePairing {
 // concurrent PartnerLink rows to support polyamorous relationship
 // structures rather than a single exclusive partner.
 model PartnerLink {
-  id        String   @id @default(uuid())
-  userAId   String
-  userBId   String
-  createdAt DateTime @default(now())
+  id                   String   @id @default(uuid())
+  userAId              String
+  userBId              String
+  jointBrowsingEnabled Boolean  @default(false)
+  createdAt            DateTime @default(now())
 
   @@unique([userAId, userBId])
   @@index([userAId])

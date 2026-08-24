@@ -35,6 +35,7 @@ describe('MessagingService', () => {
     swipe: { deleteMany: jest.Mock };
     dissolvedMatch: { findMany: jest.Mock; findUnique: jest.Mock; create: jest.Mock; delete: jest.Mock };
     matchNote: { findUnique: jest.Mock; upsert: jest.Mock; deleteMany: jest.Mock };
+    partnerLink: { findFirst: jest.Mock };
     $transaction: jest.Mock;
   };
   let imageModerator: { moderate: jest.Mock };
@@ -69,6 +70,7 @@ describe('MessagingService', () => {
         delete: jest.fn(),
       },
       matchNote: { findUnique: jest.fn(), upsert: jest.fn(), deleteMany: jest.fn() },
+      partnerLink: { findFirst: jest.fn() },
       $transaction: jest.fn((ops: unknown[]) => Promise.all(ops)),
     };
     service = new MessagingService(
@@ -1411,6 +1413,77 @@ describe('MessagingService', () => {
       expect(prisma.dissolvedMatch.delete).toHaveBeenCalledWith({ where: { id: 'dissolved-1' } });
       expect(result.matchId).toBe('new-match');
       expect(result.isExpired).toBe(false);
+    });
+  });
+
+  describe('listSharedMatches', () => {
+    it('rejects when joint browsing is not enabled with this partner', async () => {
+      prisma.partnerLink.findFirst.mockResolvedValue(null);
+
+      await expect(service.listSharedMatches(WOMAN_ID, MAN_ID)).rejects.toBeInstanceOf(ForbiddenException);
+      expect(prisma.match.findMany).not.toHaveBeenCalled();
+    });
+
+    it("returns the partner's matches when joint browsing is enabled", async () => {
+      prisma.partnerLink.findFirst.mockResolvedValue({ id: 'link-1' });
+      prisma.match.findMany.mockResolvedValue([]);
+
+      const result = await service.listSharedMatches(WOMAN_ID, MAN_ID);
+
+      expect(prisma.partnerLink.findFirst).toHaveBeenCalledWith({
+        where: {
+          jointBrowsingEnabled: true,
+          OR: [
+            { userAId: WOMAN_ID, userBId: MAN_ID },
+            { userAId: MAN_ID, userBId: WOMAN_ID },
+          ],
+        },
+      });
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('listSharedMessages', () => {
+    it('rejects when joint browsing is not enabled with this partner', async () => {
+      prisma.partnerLink.findFirst.mockResolvedValue(null);
+
+      await expect(service.listSharedMessages(WOMAN_ID, MAN_ID, MATCH_ID)).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+      expect(prisma.match.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('throws when the match does not belong to the partner', async () => {
+      prisma.partnerLink.findFirst.mockResolvedValue({ id: 'link-1' });
+      prisma.match.findUnique.mockResolvedValue({ id: MATCH_ID, userAId: 'someone-else', userBId: 'another-one' });
+
+      await expect(service.listSharedMessages(WOMAN_ID, MAN_ID, MATCH_ID)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+
+    it('returns the message history without mutating read receipts', async () => {
+      prisma.partnerLink.findFirst.mockResolvedValue({ id: 'link-1' });
+      prisma.match.findUnique.mockResolvedValue({ id: MATCH_ID, userAId: MAN_ID, userBId: 'someone-else' });
+      prisma.message.findMany.mockResolvedValue([
+        {
+          id: 'm1',
+          senderId: MAN_ID,
+          contentType: 'TEXT',
+          content: 'hi',
+          mediaUrl: null,
+          isBlurred: false,
+          readAt: null,
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ]);
+
+      const result = await service.listSharedMessages(WOMAN_ID, MAN_ID, MATCH_ID);
+
+      expect(prisma.message.updateMany).not.toHaveBeenCalled();
+      expect(prisma.user.findUnique).not.toHaveBeenCalled();
+      expect(result).toHaveLength(1);
+      expect(result[0].content).toBe('hi');
     });
   });
 });

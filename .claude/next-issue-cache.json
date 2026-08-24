@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-24T04:45:07.264Z",
+  "generated_at": "2026-08-24T05:00:40.118Z",
   "snapshot": [
     {
       "number": 454,
@@ -1740,18 +1740,9 @@
       "number": 107,
       "title": "Couples Account Pairing Switch",
       "updatedAt": "2026-08-10T20:40:38Z"
-    },
-    {
-      "number": 106,
-      "title": "Cross-Platform Real-Time Push Notifications",
-      "updatedAt": "2026-08-10T20:40:36Z"
     }
   ],
   "queue": [
-    {
-      "number": 107,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 108,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
