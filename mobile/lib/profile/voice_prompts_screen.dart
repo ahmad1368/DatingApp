@@ -183,23 +183,36 @@ class _VoicePromptsScreenState extends State<VoicePromptsScreen> {
                 ],
               )
             else if (answer != null)
-              Row(
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('${answer.durationSeconds}s answer'),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.play_arrow),
-                    onPressed: _isBusy ? null : () => _play(answer),
+                  Row(
+                    children: [
+                      Text('${answer.durationSeconds}s answer'),
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(Icons.play_arrow),
+                        onPressed: _isBusy ? null : () => _play(answer),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.mic),
+                        tooltip: 'Re-record',
+                        onPressed: _isBusy ? null : () => _startRecording(prompt.id),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline),
+                        onPressed: _isBusy ? null : () => _delete(prompt.id),
+                      ),
+                    ],
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.mic),
-                    tooltip: 'Re-record',
-                    onPressed: _isBusy ? null : () => _startRecording(prompt.id),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline),
-                    onPressed: _isBusy ? null : () => _delete(prompt.id),
-                  ),
+                  if (answer.transcript != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        answer.transcript!,
+                        style: const TextStyle(fontStyle: FontStyle.italic, color: Colors.grey),
+                      ),
+                    ),
                 ],
               )
             else
