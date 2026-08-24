@@ -24,6 +24,7 @@ class VoicePromptAnswer {
     required this.question,
     required this.audioUrl,
     required this.durationSeconds,
+    this.transcript,
     required this.createdAt,
   });
 
@@ -31,6 +32,9 @@ class VoicePromptAnswer {
   final String question;
   final String audioUrl;
   final int durationSeconds;
+  /// Auto-generated caption for accessibility and silent browsing - null if
+  /// transcription failed or hasn't run yet.
+  final String? transcript;
   final DateTime createdAt;
 }
 
@@ -133,6 +137,7 @@ class ProfilePromptsApi {
       question: json['question'] as String,
       audioUrl: json['audioUrl'] as String,
       durationSeconds: json['durationSeconds'] as int,
+      transcript: json['transcript'] as String?,
       createdAt: DateTime.parse(json['createdAt'] as String),
     );
   }

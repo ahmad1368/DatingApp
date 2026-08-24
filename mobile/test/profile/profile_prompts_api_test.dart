@@ -55,6 +55,25 @@ void main() {
 
       expect(answers, hasLength(1));
       expect(answers.first.durationSeconds, 12);
+      expect(answers.first.transcript, isNull);
+    });
+
+    test('parses a generated transcript when present', () async {
+      final api = ProfilePromptsApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => _jsonResponse(
+            '[{"promptId":"perfect-first-date","question":"My idea of a perfect first date is...",'
+            '"audioUrl":"file:///a.m4a","durationSeconds":12,"transcript":"A picnic in the park.",'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}]',
+            200,
+          ),
+        ),
+      );
+
+      final answers = await api.fetchMyAnswers();
+
+      expect(answers.first.transcript, 'A picnic in the park.');
     });
   });
 

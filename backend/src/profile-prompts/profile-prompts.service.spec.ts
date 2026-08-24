@@ -1,5 +1,6 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { TranscriptionProvider } from './interfaces/transcription-provider.interface';
 import { ProfilePromptsService } from './profile-prompts.service';
 import { PROFILE_PROMPTS } from './profile-prompts.constants';
 
@@ -15,6 +16,7 @@ describe('ProfilePromptsService', () => {
       delete: jest.Mock;
     };
   };
+  let transcriptionProvider: { transcribe: jest.Mock };
 
   beforeEach(() => {
     prisma = {
@@ -25,7 +27,11 @@ describe('ProfilePromptsService', () => {
         delete: jest.fn(),
       },
     };
-    service = new ProfilePromptsService(prisma as unknown as PrismaService);
+    transcriptionProvider = { transcribe: jest.fn().mockResolvedValue('a transcript') };
+    service = new ProfilePromptsService(
+      prisma as unknown as PrismaService,
+      transcriptionProvider as unknown as TranscriptionProvider,
+    );
   });
 
   describe('getPrompts', () => {
@@ -42,12 +48,49 @@ describe('ProfilePromptsService', () => {
       expect(prisma.profilePromptVoiceAnswer.upsert).not.toHaveBeenCalled();
     });
 
-    it('upserts the voice answer for a known prompt', async () => {
+    it('upserts the voice answer with its generated transcript', async () => {
       const promptId = PROFILE_PROMPTS[0].id;
+      transcriptionProvider.transcribe.mockResolvedValue('a transcript');
       prisma.profilePromptVoiceAnswer.upsert.mockResolvedValue({
         promptId,
         audioUrl: 'file:///a.m4a',
         durationSeconds: 12,
+        transcript: 'a transcript',
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const result = await service.recordAnswer(USER_ID, promptId, 'file:///a.m4a', 12);
+
+      expect(transcriptionProvider.transcribe).toHaveBeenCalledWith('file:///a.m4a');
+      expect(prisma.profilePromptVoiceAnswer.upsert).toHaveBeenCalledWith({
+        where: { userId_promptId: { userId: USER_ID, promptId } },
+        create: {
+          userId: USER_ID,
+          promptId,
+          audioUrl: 'file:///a.m4a',
+          durationSeconds: 12,
+          transcript: 'a transcript',
+        },
+        update: { audioUrl: 'file:///a.m4a', durationSeconds: 12, transcript: 'a transcript' },
+      });
+      expect(result).toEqual({
+        promptId,
+        question: PROFILE_PROMPTS[0].question,
+        audioUrl: 'file:///a.m4a',
+        durationSeconds: 12,
+        transcript: 'a transcript',
+        createdAt: '2026-01-01T00:00:00.000Z',
+      });
+    });
+
+    it('saves the answer with a null transcript when transcription fails', async () => {
+      const promptId = PROFILE_PROMPTS[0].id;
+      transcriptionProvider.transcribe.mockRejectedValue(new Error('service unavailable'));
+      prisma.profilePromptVoiceAnswer.upsert.mockResolvedValue({
+        promptId,
+        audioUrl: 'file:///a.m4a',
+        durationSeconds: 12,
+        transcript: null,
         createdAt: new Date('2026-01-01T00:00:00.000Z'),
       });
 
@@ -55,16 +98,16 @@ describe('ProfilePromptsService', () => {
 
       expect(prisma.profilePromptVoiceAnswer.upsert).toHaveBeenCalledWith({
         where: { userId_promptId: { userId: USER_ID, promptId } },
-        create: { userId: USER_ID, promptId, audioUrl: 'file:///a.m4a', durationSeconds: 12 },
-        update: { audioUrl: 'file:///a.m4a', durationSeconds: 12 },
+        create: {
+          userId: USER_ID,
+          promptId,
+          audioUrl: 'file:///a.m4a',
+          durationSeconds: 12,
+          transcript: null,
+        },
+        update: { audioUrl: 'file:///a.m4a', durationSeconds: 12, transcript: null },
       });
-      expect(result).toEqual({
-        promptId,
-        question: PROFILE_PROMPTS[0].question,
-        audioUrl: 'file:///a.m4a',
-        durationSeconds: 12,
-        createdAt: '2026-01-01T00:00:00.000Z',
-      });
+      expect(result.transcript).toBeNull();
     });
   });
 
@@ -76,12 +119,14 @@ describe('ProfilePromptsService', () => {
           promptId,
           audioUrl: 'file:///a.m4a',
           durationSeconds: 12,
+          transcript: 'a transcript',
           createdAt: new Date('2026-01-01T00:00:00.000Z'),
         },
         {
           promptId: 'stale-removed-prompt',
           audioUrl: 'file:///b.m4a',
           durationSeconds: 5,
+          transcript: null,
           createdAt: new Date('2026-01-01T00:00:00.000Z'),
         },
       ]);
@@ -94,6 +139,7 @@ describe('ProfilePromptsService', () => {
           question: PROFILE_PROMPTS[0].question,
           audioUrl: 'file:///a.m4a',
           durationSeconds: 12,
+          transcript: 'a transcript',
           createdAt: '2026-01-01T00:00:00.000Z',
         },
       ]);

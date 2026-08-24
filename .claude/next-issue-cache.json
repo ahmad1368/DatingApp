@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-24T06:17:21.020Z",
+  "generated_at": "2026-08-24T06:24:34.334Z",
   "snapshot": [
     {
       "number": 454,
@@ -1705,18 +1705,9 @@
       "number": 114,
       "title": "Prompt Response Audio Transcripts",
       "updatedAt": "2026-08-10T20:40:52Z"
-    },
-    {
-      "number": 113,
-      "title": "Audio & Video Call Moderation Safety Shield",
-      "updatedAt": "2026-08-10T20:40:50Z"
     }
   ],
   "queue": [
-    {
-      "number": 114,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 115,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"

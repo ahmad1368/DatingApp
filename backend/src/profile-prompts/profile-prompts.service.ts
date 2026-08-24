@@ -1,5 +1,6 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { TRANSCRIPTION_PROVIDER, TranscriptionProvider } from './interfaces/transcription-provider.interface';
 import { findProfilePrompt, ProfilePrompt, PROFILE_PROMPTS } from './profile-prompts.constants';
 
 export interface VoicePromptAnswerView {
@@ -7,18 +8,27 @@ export interface VoicePromptAnswerView {
   question: string;
   audioUrl: string;
   durationSeconds: number;
+  transcript: string | null;
   createdAt: string;
 }
 
 @Injectable()
 export class ProfilePromptsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(TRANSCRIPTION_PROVIDER) private readonly transcriptionProvider: TranscriptionProvider,
+  ) {}
 
   getPrompts(): ProfilePrompt[] {
     return PROFILE_PROMPTS;
   }
 
-  /** Records or re-records the current user's voice answer to a prompt (one answer per prompt). */
+  /**
+   * Records or re-records the current user's voice answer to a prompt (one
+   * answer per prompt). Also generates a caption/transcript for
+   * accessibility and silent browsing - a transcription failure never blocks
+   * saving the recording itself, it just leaves the transcript null.
+   */
   async recordAnswer(
     userId: string,
     promptId: string,
@@ -30,13 +40,23 @@ export class ProfilePromptsService {
       throw new BadRequestException('Unknown profile prompt.');
     }
 
+    const transcript = await this.transcribeSafely(audioUrl);
+
     const answer = await this.prisma.profilePromptVoiceAnswer.upsert({
       where: { userId_promptId: { userId, promptId } },
-      create: { userId, promptId, audioUrl, durationSeconds },
-      update: { audioUrl, durationSeconds },
+      create: { userId, promptId, audioUrl, durationSeconds, transcript },
+      update: { audioUrl, durationSeconds, transcript },
     });
 
     return this.toView(answer, prompt);
+  }
+
+  private async transcribeSafely(audioUrl: string): Promise<string | null> {
+    try {
+      return await this.transcriptionProvider.transcribe(audioUrl);
+    } catch {
+      return null;
+    }
   }
 
   async getAnswers(userId: string): Promise<VoicePromptAnswerView[]> {
@@ -70,7 +90,13 @@ export class ProfilePromptsService {
   }
 
   private toView(
-    answer: { promptId: string; audioUrl: string; durationSeconds: number; createdAt: Date },
+    answer: {
+      promptId: string;
+      audioUrl: string;
+      durationSeconds: number;
+      transcript?: string | null;
+      createdAt: Date;
+    },
     prompt: ProfilePrompt,
   ): VoicePromptAnswerView {
     return {
@@ -78,6 +104,7 @@ export class ProfilePromptsService {
       question: prompt.question,
       audioUrl: answer.audioUrl,
       durationSeconds: answer.durationSeconds,
+      transcript: answer.transcript ?? null,
       createdAt: answer.createdAt.toISOString(),
     };
   }
