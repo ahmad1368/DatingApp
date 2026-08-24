@@ -1473,6 +1473,110 @@ describe('DiscoveryService', () => {
 
       expect(prisma.$transaction).not.toHaveBeenCalled();
     });
+
+    describe('happy hour perks', () => {
+      afterEach(() => {
+        jest.useRealTimers();
+      });
+
+      it('grants a temporary boost when liking during happy hour', async () => {
+        jest.useFakeTimers().setSystemTime(new Date(Date.UTC(2026, 0, 1, 18, 0, 0)));
+        prisma.user.findUnique.mockResolvedValue({ id: TARGET_ID });
+        prisma.swipe.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+        prisma.swipe.create.mockResolvedValue({});
+        prisma.boost.findFirst.mockResolvedValue(null);
+
+        await service.recordSwipe(USER_ID, TARGET_ID, 'LIKE');
+
+        expect(prisma.boost.findFirst).toHaveBeenCalledWith({
+          where: { userId: USER_ID, expiresAt: { gt: expect.any(Date) } },
+        });
+        expect(prisma.boost.create).toHaveBeenCalledWith({
+          data: { userId: USER_ID, expiresAt: expect.any(Date), tier: 'STANDARD', viewMultiplier: 2 },
+        });
+      });
+
+      it('does not grant a second boost when one is already active', async () => {
+        jest.useFakeTimers().setSystemTime(new Date(Date.UTC(2026, 0, 1, 18, 0, 0)));
+        prisma.user.findUnique.mockResolvedValue({ id: TARGET_ID });
+        prisma.swipe.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+        prisma.swipe.create.mockResolvedValue({});
+        prisma.boost.findFirst.mockResolvedValue({ id: 'existing-boost' });
+
+        await service.recordSwipe(USER_ID, TARGET_ID, 'LIKE');
+
+        expect(prisma.boost.create).not.toHaveBeenCalled();
+      });
+
+      it('does not grant a boost outside the happy hour window', async () => {
+        jest.useFakeTimers().setSystemTime(new Date(Date.UTC(2026, 0, 1, 5, 0, 0)));
+        prisma.user.findUnique.mockResolvedValue({ id: TARGET_ID });
+        prisma.swipe.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+        prisma.swipe.create.mockResolvedValue({});
+
+        await service.recordSwipe(USER_ID, TARGET_ID, 'LIKE');
+
+        expect(prisma.boost.findFirst).not.toHaveBeenCalled();
+        expect(prisma.boost.create).not.toHaveBeenCalled();
+      });
+
+      it('extends the daily super-like allowance during happy hour without spending a bonus', async () => {
+        jest.useFakeTimers().setSystemTime(new Date(Date.UTC(2026, 0, 1, 18, 0, 0)));
+        prisma.user.findUnique.mockResolvedValue({ id: TARGET_ID });
+        prisma.swipe.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+        prisma.swipe.count.mockResolvedValue(1); // already at the normal daily limit
+        prisma.swipe.create.mockResolvedValue({});
+        prisma.boost.findFirst.mockResolvedValue(null);
+
+        const result = await service.recordSwipe(USER_ID, TARGET_ID, 'SUPER_LIKE');
+
+        expect(prisma.user.update).not.toHaveBeenCalled();
+        expect(prisma.swipe.create).toHaveBeenCalled();
+        expect(result).toEqual({ matched: false });
+      });
+
+      it('still enforces the happy-hour-extended limit once it is exhausted', async () => {
+        jest.useFakeTimers().setSystemTime(new Date(Date.UTC(2026, 0, 1, 18, 0, 0)));
+        prisma.user.findUnique
+          .mockResolvedValueOnce({ id: TARGET_ID })
+          .mockResolvedValueOnce({ bonusSuperLikes: 0 });
+        prisma.swipe.findUnique.mockResolvedValueOnce(null);
+        prisma.swipe.count.mockResolvedValue(3); // at the happy-hour-extended limit (1 + 2 bonus)
+
+        await expect(service.recordSwipe(USER_ID, TARGET_ID, 'SUPER_LIKE')).rejects.toBeInstanceOf(
+          BadRequestException,
+        );
+        expect(prisma.swipe.create).not.toHaveBeenCalled();
+      });
+    });
+  });
+
+  describe('getHappyHourStatus', () => {
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('reports active with the window boundaries during happy hour', () => {
+      jest.useFakeTimers().setSystemTime(new Date(Date.UTC(2026, 0, 1, 18, 0, 0)));
+
+      const status = service.getHappyHourStatus();
+
+      expect(status).toEqual({
+        active: true,
+        startsAt: new Date(Date.UTC(2026, 0, 1, 17, 0, 0)).toISOString(),
+        endsAt: new Date(Date.UTC(2026, 0, 1, 19, 0, 0)).toISOString(),
+        bonusSuperLikes: 2,
+        viewMultiplier: 2,
+      });
+    });
+
+    it('reports inactive outside the happy hour window', () => {
+      jest.useFakeTimers().setSystemTime(new Date(Date.UTC(2026, 0, 1, 5, 0, 0)));
+
+      const status = service.getHappyHourStatus();
+
+      expect(status.active).toBe(false);
+    });
   });
 
   describe('undoLastSwipe', () => {

@@ -88,4 +88,9 @@ export class DiscoveryController {
   getSnoozeStatus(@CurrentUser() user: AuthenticatedUser) {
     return this.discoveryService.getSnoozeStatus(user.id);
   }
+
+  @Get('happy-hour')
+  getHappyHourStatus() {
+    return this.discoveryService.getHappyHourStatus();
+  }
 }
