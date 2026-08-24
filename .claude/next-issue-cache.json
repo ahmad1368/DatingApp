@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-24T04:31:28.862Z",
+  "generated_at": "2026-08-24T04:45:07.264Z",
   "snapshot": [
     {
       "number": 454,
@@ -1745,18 +1745,9 @@
       "number": 106,
       "title": "Cross-Platform Real-Time Push Notifications",
       "updatedAt": "2026-08-10T20:40:36Z"
-    },
-    {
-      "number": 105,
-      "title": "In-Chat Audio Effects & Filters",
-      "updatedAt": "2026-08-10T20:40:34Z"
     }
   ],
   "queue": [
-    {
-      "number": 106,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 107,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"

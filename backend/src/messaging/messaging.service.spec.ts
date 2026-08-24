@@ -1,5 +1,6 @@
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { ImageModerator } from './interfaces/image-moderator.interface';
 import { MessagingService } from './messaging.service';
 
@@ -37,9 +38,11 @@ describe('MessagingService', () => {
     $transaction: jest.Mock;
   };
   let imageModerator: { moderate: jest.Mock };
+  let notificationsService: { notify: jest.Mock };
 
   beforeEach(() => {
     imageModerator = { moderate: jest.fn().mockResolvedValue({ flagged: false, categories: [] }) };
+    notificationsService = { notify: jest.fn() };
     prisma = {
       match: {
         findUnique: jest.fn(),
@@ -71,6 +74,7 @@ describe('MessagingService', () => {
     service = new MessagingService(
       prisma as unknown as PrismaService,
       imageModerator as unknown as ImageModerator,
+      notificationsService as unknown as NotificationsService,
     );
   });
 
@@ -449,6 +453,9 @@ describe('MessagingService', () => {
       expect(prisma.match.update).toHaveBeenCalledWith({
         where: { id: MATCH_ID },
         data: { firstMessageSentAt: expect.any(Date) },
+      });
+      expect(notificationsService.notify).toHaveBeenCalledWith(MAN_ID, 'NEW_MESSAGE', 'New message', 'hi', {
+        matchId: MATCH_ID,
       });
       expect(result).toEqual({
         id: 'message-1',

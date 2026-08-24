@@ -735,3 +735,35 @@ model ProfilePhoto {
   @@index([ownerId, position])
   @@map("profile_photos")
 }
+
+// An in-app notification feed entry (new match, new message, etc). No real
+// WebSocket/FCM/APNs transport exists in this codebase - NotificationsService
+// persists these for the REST feed the client polls, and would hand off to a
+// real push provider here once one is wired up (see DeviceToken).
+model Notification {
+  id        String    @id @default(uuid())
+  userId    String
+  type      String
+  title     String
+  body      String
+  data      Json?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([userId, readAt])
+  @@map("notifications")
+}
+
+// A registered FCM/APNs/web-push device token for a user, standing in for
+// the client-side push registration step - see the note on Notification.
+model DeviceToken {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  platform  String
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("device_tokens")
+}

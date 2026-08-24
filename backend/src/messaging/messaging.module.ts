@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from '../auth/auth.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { MessagingController } from './messaging.controller';
 import { MessagingService } from './messaging.service';
 import { GifSearchService } from './gif-search.service';
@@ -13,7 +14,7 @@ import { IMAGE_MODERATOR } from './interfaces/image-moderator.interface';
 import { OpenAiImageModerator } from './providers/openai-image-moderator.client';
 
 @Module({
-  imports: [AuthModule, ConfigModule],
+  imports: [AuthModule, ConfigModule, NotificationsModule],
   controllers: [MessagingController],
   providers: [
     MessagingService,
