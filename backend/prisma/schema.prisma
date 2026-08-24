@@ -106,6 +106,7 @@ model User {
   screenCaptureViolationCount           Int       @default(0)
   screenCaptureFrozenUntil              DateTime?
   blurPhotosUntilMatch                  Boolean   @default(false)
+  profileCompletionRewardGrantedAt      DateTime?
   createdAt                             DateTime  @default(now())
   updatedAt                             DateTime  @updatedAt
 
