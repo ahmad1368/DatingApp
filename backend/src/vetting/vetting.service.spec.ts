@@ -12,14 +12,14 @@ describe('VettingService', () => {
   let prisma: {
     application: { findUnique: jest.Mock; create: jest.Mock; update: jest.Mock; findMany: jest.Mock };
     referral: { findUnique: jest.Mock; create: jest.Mock };
-    user: { findUnique: jest.Mock };
+    user: { findUnique: jest.Mock; update: jest.Mock };
   };
 
   beforeEach(() => {
     prisma = {
       application: { findUnique: jest.fn(), create: jest.fn(), update: jest.fn(), findMany: jest.fn() },
       referral: { findUnique: jest.fn(), create: jest.fn() },
-      user: { findUnique: jest.fn() },
+      user: { findUnique: jest.fn(), update: jest.fn() },
     };
     service = new VettingService(prisma as unknown as PrismaService);
   });
@@ -32,13 +32,14 @@ describe('VettingService', () => {
       expect(prisma.application.create).not.toHaveBeenCalled();
     });
 
-    it('creates a pending application', async () => {
+    it('creates a pending application with no social links by default', async () => {
       prisma.application.findUnique.mockResolvedValue(null);
       prisma.application.create.mockResolvedValue({
         id: APPLICATION_ID,
         userId: APPLICANT_ID,
         status: 'PENDING',
         referralCount: 0,
+        socialLinks: [],
         decisionReason: null,
         createdAt: new Date('2026-01-01T00:00:00.000Z'),
         decidedAt: null,
@@ -46,9 +47,33 @@ describe('VettingService', () => {
 
       const result = await service.apply(APPLICANT_ID);
 
-      expect(prisma.application.create).toHaveBeenCalledWith({ data: { userId: APPLICANT_ID } });
+      expect(prisma.application.create).toHaveBeenCalledWith({
+        data: { userId: APPLICANT_ID, socialLinks: [] },
+      });
       expect(result.status).toBe('PENDING');
       expect(result.decidedAt).toBeNull();
+    });
+
+    it('submits social presence links with the application', async () => {
+      const socialLinks = ['https://instagram.com/applicant', 'https://linkedin.com/in/applicant'];
+      prisma.application.findUnique.mockResolvedValue(null);
+      prisma.application.create.mockResolvedValue({
+        id: APPLICATION_ID,
+        userId: APPLICANT_ID,
+        status: 'PENDING',
+        referralCount: 0,
+        socialLinks,
+        decisionReason: null,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        decidedAt: null,
+      });
+
+      const result = await service.apply(APPLICANT_ID, socialLinks);
+
+      expect(prisma.application.create).toHaveBeenCalledWith({
+        data: { userId: APPLICANT_ID, socialLinks },
+      });
+      expect(result.socialLinks).toEqual(socialLinks);
     });
   });
 
@@ -136,6 +161,76 @@ describe('VettingService', () => {
     });
   });
 
+  describe('redeemReferralCode', () => {
+    it('rejects an unknown code', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(service.redeemReferralCode(APPLICANT_ID, 'DEADBEEF')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      expect(prisma.application.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('looks up the code owner and records the referral on their behalf', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: REFERRER_ID, referralCode: 'DEADBEEF' });
+      prisma.application.findUnique
+        .mockResolvedValueOnce({ status: 'APPROVED' }) // referrer's application
+        .mockResolvedValueOnce({ id: APPLICATION_ID, status: 'PENDING' }); // applicant's application
+      prisma.referral.findUnique.mockResolvedValue(null);
+      prisma.referral.create.mockResolvedValue({ id: 'referral-1' });
+      prisma.application.update.mockResolvedValue({
+        id: APPLICATION_ID,
+        userId: APPLICANT_ID,
+        status: 'PENDING',
+        referralCount: 1,
+        socialLinks: [],
+        decisionReason: null,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        decidedAt: null,
+      });
+
+      const result = await service.redeemReferralCode(APPLICANT_ID, 'DEADBEEF');
+
+      expect(prisma.user.findUnique).toHaveBeenCalledWith({ where: { referralCode: 'DEADBEEF' } });
+      expect(prisma.referral.create).toHaveBeenCalledWith({
+        data: { applicationId: APPLICATION_ID, referrerUserId: REFERRER_ID },
+      });
+      expect(result.referralCount).toBe(1);
+    });
+  });
+
+  describe('getMyReferralCode', () => {
+    it('rejects a user without an approved application', async () => {
+      prisma.application.findUnique.mockResolvedValue({ status: 'PENDING' });
+
+      await expect(service.getMyReferralCode(REFERRER_ID)).rejects.toBeInstanceOf(ForbiddenException);
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it('returns the existing code without generating a new one', async () => {
+      prisma.application.findUnique.mockResolvedValue({ status: 'APPROVED' });
+      prisma.user.findUnique.mockResolvedValue({ referralCode: 'EXISTING1' });
+
+      const result = await service.getMyReferralCode(REFERRER_ID);
+
+      expect(prisma.user.update).not.toHaveBeenCalled();
+      expect(result).toEqual({ referralCode: 'EXISTING1' });
+    });
+
+    it('generates and persists a code the first time', async () => {
+      prisma.application.findUnique.mockResolvedValue({ status: 'APPROVED' });
+      prisma.user.findUnique.mockResolvedValue({ referralCode: null });
+
+      const result = await service.getMyReferralCode(REFERRER_ID);
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: REFERRER_ID },
+        data: { referralCode: expect.any(String) },
+      });
+      expect(result.referralCode).toHaveLength(8);
+    });
+  });
+
   describe('listQueue', () => {
     it('rejects non-committee members', async () => {
       prisma.user.findUnique.mockResolvedValue({ isCommitteeMember: false });
@@ -143,10 +238,15 @@ describe('VettingService', () => {
       await expect(service.listQueue(APPLICANT_ID)).rejects.toBeInstanceOf(ForbiddenException);
     });
 
-    it('returns pending applications without identifying fields', async () => {
+    it('returns pending applications with their social links, without identifying fields', async () => {
       prisma.user.findUnique.mockResolvedValue({ isCommitteeMember: true });
       prisma.application.findMany.mockResolvedValue([
-        { id: APPLICATION_ID, referralCount: 2, createdAt: new Date('2026-01-01T00:00:00.000Z') },
+        {
+          id: APPLICATION_ID,
+          referralCount: 2,
+          socialLinks: ['https://instagram.com/applicant'],
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
       ]);
 
       const queue = await service.listQueue(COMMITTEE_ID);
@@ -156,7 +256,12 @@ describe('VettingService', () => {
         orderBy: [{ referralCount: 'desc' }, { createdAt: 'asc' }],
       });
       expect(queue).toEqual([
-        { id: APPLICATION_ID, referralCount: 2, createdAt: '2026-01-01T00:00:00.000Z' },
+        {
+          id: APPLICATION_ID,
+          referralCount: 2,
+          socialLinks: ['https://instagram.com/applicant'],
+          createdAt: '2026-01-01T00:00:00.000Z',
+        },
       ]);
     });
   });
