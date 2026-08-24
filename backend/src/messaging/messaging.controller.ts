@@ -16,6 +16,7 @@ import { SendMessageDto } from './dto/send-message.dto';
 import { SendMediaMessageDto } from './dto/send-media-message.dto';
 import { CheckMessageDto } from './dto/check-message.dto';
 import { ReportMessageDto } from './dto/report-message.dto';
+import { ReportAndUnmatchDto } from './dto/report-and-unmatch.dto';
 import { SetReadReceiptsDto } from './dto/set-read-receipts.dto';
 import { SendIcebreakerDto } from './dto/send-icebreaker.dto';
 import { RespondIcebreakerDto } from './dto/respond-icebreaker.dto';
@@ -129,6 +130,16 @@ export class MessagingController {
   @HttpCode(HttpStatus.OK)
   unmatch(@CurrentUser() user: AuthenticatedUser, @Param('matchId') matchId: string) {
     return this.messagingService.unmatch(user.id, matchId);
+  }
+
+  @Post(':matchId/report-and-unmatch')
+  @HttpCode(HttpStatus.CREATED)
+  reportAndUnmatch(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('matchId') matchId: string,
+    @Body() dto: ReportAndUnmatchDto,
+  ) {
+    return this.messageModerationService.reportAndUnmatch(user.id, matchId, dto.reason, dto.details);
   }
 
   @Post(':matchId/request-verification')

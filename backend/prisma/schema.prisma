@@ -222,6 +222,26 @@ model MessageReport {
   @@map("message_reports")
 }
 
+// The "report & unmatch" combo action: snapshots the conversation before
+// MessagingService.unmatch deletes the underlying Message rows, so a full
+// chat log survives for human/AI moderation review after the match is gone.
+model MatchReport {
+  id                   String   @id @default(uuid())
+  matchId              String
+  reporterId           String
+  reportedUserId       String
+  reason               String
+  details              String?
+  chatLog              Json
+  moderationFlagged    Boolean  @default(false)
+  moderationCategories String[] @default([])
+  createdAt            DateTime @default(now())
+
+  @@index([reportedUserId])
+  @@index([reporterId])
+  @@map("match_reports")
+}
+
 model IcebreakerResponse {
   id          String   @id @default(uuid())
   messageId   String
