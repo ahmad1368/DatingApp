@@ -35,6 +35,7 @@ import { ProfilePromptsModule } from './profile-prompts/profile-prompts.module';
 import { PowerUpsModule } from './power-ups/power-ups.module';
 import { PostMatchSurveyModule } from './post-match-survey/post-match-survey.module';
 import { ProfileCompletionModule } from './profile-completion/profile-completion.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -74,6 +75,7 @@ import { ProfileCompletionModule } from './profile-completion/profile-completion
     PowerUpsModule,
     PostMatchSurveyModule,
     ProfileCompletionModule,
+    NotificationsModule,
   ],
 })
 export class AppModule {}

@@ -5,6 +5,7 @@ import { getBlockedUserIds } from '../blocking/blocking.utils';
 import { getMutualConnectionCounts } from '../social-graph/social-graph.utils';
 import { haversineDistanceKm } from '../location/utils/haversine';
 import { computeFirstMessageExpiresAt, findIcebreakerPrompt } from '../messaging/messaging.constants';
+import { NotificationsService } from '../notifications/notifications.service';
 import {
   computeBoostExpiresAt,
   computeDefaultSnoozeUntil,
@@ -94,6 +95,7 @@ export class DiscoveryService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly matchingService: MatchingService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async getDeck(userId: string): Promise<DeckCard[]> {
@@ -617,6 +619,8 @@ export class DiscoveryService {
       data: { userAId, userBId, firstMessageExpiresAt: computeFirstMessageExpiresAt(new Date()) },
     });
 
+    await this.notifyNewMatch(match.id, userAId, userBId);
+
     await this.seedMatchIcebreaker(
       match.id,
       { swiperId: userId, promptId: icebreakerPromptId ?? null, optionIndex: icebreakerOptionIndex ?? null },
@@ -628,6 +632,14 @@ export class DiscoveryService {
     );
 
     return { matched: true, matchId: match.id };
+  }
+
+  /** Notifies both sides of a new match - see NotificationsService for why this is a feed entry, not a push. */
+  private async notifyNewMatch(matchId: string, userAId: string, userBId: string): Promise<void> {
+    await Promise.all([
+      this.notificationsService.notify(userAId, 'NEW_MATCH', "It's a match!", 'You have a new match.', { matchId }),
+      this.notificationsService.notify(userBId, 'NEW_MATCH', "It's a match!", 'You have a new match.', { matchId }),
+    ]);
   }
 
   /**

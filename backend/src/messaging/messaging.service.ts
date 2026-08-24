@@ -1,5 +1,6 @@
 import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { IMAGE_MODERATOR, ImageModerator } from './interfaces/image-moderator.interface';
 import {
   BACKGROUND_SOUNDS,
@@ -107,6 +108,7 @@ export class MessagingService {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(IMAGE_MODERATOR) private readonly imageModerator: ImageModerator,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async getMatchStatus(userId: string, matchId: string): Promise<MatchStatus> {
@@ -181,13 +183,14 @@ export class MessagingService {
   }
 
   async sendMessage(userId: string, matchId: string, content: string): Promise<MessageView> {
-    const { firstMessageSent } = await this.assertCanSend(userId, matchId);
+    const { match, firstMessageSent } = await this.assertCanSend(userId, matchId);
 
     const message = await this.prisma.message.create({
       data: { matchId, senderId: userId, contentType: 'TEXT', content },
     });
 
     await this.markFirstMessageIfNeeded(matchId, firstMessageSent);
+    await this.notifyNewMessage(match, userId, content);
 
     return this.toMessageView(message, userId);
   }
@@ -207,7 +210,7 @@ export class MessagingService {
     contentType: string,
     mediaUrl: string,
   ): Promise<MessageView> {
-    const { firstMessageSent } = await this.assertCanSend(userId, matchId);
+    const { match, firstMessageSent } = await this.assertCanSend(userId, matchId);
 
     const moderation =
       contentType === 'IMAGE' ? await this.moderateImageSafely(mediaUrl) : null;
@@ -225,6 +228,7 @@ export class MessagingService {
     });
 
     await this.markFirstMessageIfNeeded(matchId, firstMessageSent);
+    await this.notifyNewMessage(match, userId, contentType === 'GIF' ? 'Sent a GIF' : 'Sent a photo');
 
     return this.toMessageView(message, userId);
   }
@@ -260,7 +264,7 @@ export class MessagingService {
       throw new BadRequestException('Unknown background sound.');
     }
 
-    const { firstMessageSent } = await this.assertCanSend(userId, matchId);
+    const { match, firstMessageSent } = await this.assertCanSend(userId, matchId);
 
     const message = await this.prisma.message.create({
       data: {
@@ -275,6 +279,7 @@ export class MessagingService {
     });
 
     await this.markFirstMessageIfNeeded(matchId, firstMessageSent);
+    await this.notifyNewMessage(match, userId, 'Sent a voice note');
 
     return this.toMessageView(message, userId);
   }
@@ -370,13 +375,14 @@ export class MessagingService {
       throw new BadRequestException('Unknown icebreaker prompt.');
     }
 
-    const { firstMessageSent } = await this.assertCanSend(userId, matchId);
+    const { match, firstMessageSent } = await this.assertCanSend(userId, matchId);
 
     const message = await this.prisma.message.create({
       data: { matchId, senderId: userId, contentType: 'ICEBREAKER', content: promptId },
     });
 
     await this.markFirstMessageIfNeeded(matchId, firstMessageSent);
+    await this.notifyNewMessage(match, userId, 'Sent an icebreaker question');
 
     return this.toMessageView(message, userId);
   }
@@ -675,6 +681,13 @@ export class MessagingService {
       where: { id: matchId },
       data: { firstMessageSentAt: new Date() },
     });
+  }
+
+  /** Notifies whichever side of the match didn't just send this message. */
+  private async notifyNewMessage(match: MatchRecord, senderId: string, preview: string): Promise<void> {
+    const recipientId = match.userAId === senderId ? match.userBId : match.userAId;
+    const body = preview.length > 140 ? `${preview.slice(0, 137)}...` : preview;
+    await this.notificationsService.notify(recipientId, 'NEW_MESSAGE', 'New message', body, { matchId: match.id });
   }
 
   private async getMatchForUser(userId: string, matchId: string): Promise<MatchRecord> {

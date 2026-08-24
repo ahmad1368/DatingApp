@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { MatchingService } from '../matching/matching.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { DiscoveryService } from './discovery.service';
 
 const USER_ID = 'user-1';
@@ -9,6 +10,7 @@ const TARGET_ID = 'user-2';
 describe('DiscoveryService', () => {
   let service: DiscoveryService;
   let matchingService: { getCompatibility: jest.Mock };
+  let notificationsService: { notify: jest.Mock };
   let prisma: {
     user: { findUnique: jest.Mock; findMany: jest.Mock; update: jest.Mock };
     swipe: {
@@ -59,9 +61,11 @@ describe('DiscoveryService', () => {
       $transaction: jest.fn((ops: unknown[]) => Promise.all(ops)),
     };
     matchingService = { getCompatibility: jest.fn() };
+    notificationsService = { notify: jest.fn() };
     service = new DiscoveryService(
       prisma as unknown as PrismaService,
       matchingService as unknown as MatchingService,
+      notificationsService as unknown as NotificationsService,
     );
   });
 
@@ -1230,6 +1234,20 @@ describe('DiscoveryService', () => {
           firstMessageExpiresAt: expect.any(Date),
         },
       });
+      expect(notificationsService.notify).toHaveBeenCalledWith(
+        USER_ID,
+        'NEW_MATCH',
+        "It's a match!",
+        'You have a new match.',
+        { matchId: 'match-1' },
+      );
+      expect(notificationsService.notify).toHaveBeenCalledWith(
+        TARGET_ID,
+        'NEW_MATCH',
+        "It's a match!",
+        'You have a new match.',
+        { matchId: 'match-1' },
+      );
       expect(result).toEqual({ matched: true, matchId: 'match-1' });
     });
 
