@@ -3,6 +3,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AuthenticatedUser, JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { UpdateLocationDto } from './dto/update-location.dto';
 import { UpdateSearchRadiusDto } from './dto/update-search-radius.dto';
+import { SetAutoExpandRadiusDto } from './dto/set-auto-expand-radius.dto';
 import { SetPassportLocationDto } from './dto/set-passport-location.dto';
 import { LocationService } from './location.service';
 
@@ -21,6 +22,17 @@ export class LocationController {
   @HttpCode(HttpStatus.OK)
   updateSearchRadius(@CurrentUser() user: AuthenticatedUser, @Body() dto: UpdateSearchRadiusDto) {
     return this.locationService.updateSearchRadius(user.id, dto.radiusKm);
+  }
+
+  @Get('radius')
+  getRadiusSettings(@CurrentUser() user: AuthenticatedUser) {
+    return this.locationService.getRadiusSettings(user.id);
+  }
+
+  @Put('radius/auto-expand')
+  @HttpCode(HttpStatus.OK)
+  setAutoExpandRadius(@CurrentUser() user: AuthenticatedUser, @Body() dto: SetAutoExpandRadiusDto) {
+    return this.locationService.setAutoExpandRadius(user.id, dto.enabled);
   }
 
   @Get('nearby')

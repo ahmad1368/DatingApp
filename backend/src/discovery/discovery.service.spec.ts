@@ -800,7 +800,8 @@ describe('DiscoveryService', () => {
         .mockResolvedValueOnce([]) // no likers
         .mockResolvedValueOnce([]); // no recent right-swipes on anyone
       prisma.user.findMany.mockResolvedValue([
-        { id: 'far-away', name: 'Far', dateOfBirth: null, profilePhotoUrl: null, interests: [], relationshipGoal: null, latitude: 10, longitude: 10 },
+        // ~33km away - farther than "nearby" but still inside the default 50km search radius.
+        { id: 'far-away', name: 'Far', dateOfBirth: null, profilePhotoUrl: null, interests: [], relationshipGoal: null, latitude: 0.3, longitude: 0 },
         { id: 'nearby', name: 'Near', dateOfBirth: null, profilePhotoUrl: null, interests: [], relationshipGoal: null, latitude: 0.01, longitude: 0 },
       ]);
 
@@ -828,12 +829,114 @@ describe('DiscoveryService', () => {
         ); // enough recent right-swipes to hit the trending bonus cap
       prisma.user.findMany.mockResolvedValue([
         { id: 'nearby', name: 'Near', dateOfBirth: null, profilePhotoUrl: null, interests: [], relationshipGoal: null, latitude: 0.1, longitude: 0 },
-        { id: 'trending', name: 'Trending', dateOfBirth: null, profilePhotoUrl: null, interests: [], relationshipGoal: null, latitude: 0.5, longitude: 0 },
+        // ~33km away - farther than "nearby" but still inside the default 50km search radius.
+        { id: 'trending', name: 'Trending', dateOfBirth: null, profilePhotoUrl: null, interests: [], relationshipGoal: null, latitude: 0.3, longitude: 0 },
       ]);
 
       const deck = await service.getDeck(USER_ID);
 
       expect(deck.map((card) => card.id)).toEqual(['trending', 'nearby']);
+    });
+
+    it('excludes a candidate outside the search radius when enough others are nearby', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: 0,
+        longitude: 0,
+        searchRadiusKm: 50,
+        autoExpandRadiusEnabled: true,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+      });
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      prisma.user.findMany.mockResolvedValue([
+        { id: 'nearby-1', name: 'A', dateOfBirth: null, profilePhotoUrl: null, interests: [], relationshipGoal: null, latitude: 0.01, longitude: 0 },
+        { id: 'nearby-2', name: 'B', dateOfBirth: null, profilePhotoUrl: null, interests: [], relationshipGoal: null, latitude: 0.02, longitude: 0 },
+        { id: 'nearby-3', name: 'C', dateOfBirth: null, profilePhotoUrl: null, interests: [], relationshipGoal: null, latitude: 0.03, longitude: 0 },
+        { id: 'nearby-4', name: 'D', dateOfBirth: null, profilePhotoUrl: null, interests: [], relationshipGoal: null, latitude: 0.04, longitude: 0 },
+        { id: 'nearby-5', name: 'E', dateOfBirth: null, profilePhotoUrl: null, interests: [], relationshipGoal: null, latitude: 0.05, longitude: 0 },
+        // ~1113km away - well outside the 50km radius and outside the auto-expanded radius too.
+        { id: 'too-far', name: 'Far', dateOfBirth: null, profilePhotoUrl: null, interests: [], relationshipGoal: null, latitude: 10, longitude: 10 },
+      ]);
+
+      const deck = await service.getDeck(USER_ID);
+
+      expect(deck.map((card) => card.id)).not.toContain('too-far');
+    });
+
+    it('auto-expands the radius when too few candidates are nearby and auto-expand is enabled', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: 0,
+        longitude: 0,
+        searchRadiusKm: 50,
+        autoExpandRadiusEnabled: true,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+      });
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      prisma.user.findMany.mockResolvedValue([
+        { id: 'nearby', name: 'A', dateOfBirth: null, profilePhotoUrl: null, interests: [], relationshipGoal: null, latitude: 0.01, longitude: 0 },
+        // ~66.8km away: outside the 50km radius but inside the 2x-expanded 100km radius.
+        { id: 'expanded-range', name: 'B', dateOfBirth: null, profilePhotoUrl: null, interests: [], relationshipGoal: null, latitude: 0.6, longitude: 0 },
+      ]);
+
+      const deck = await service.getDeck(USER_ID);
+
+      expect(deck.map((card) => card.id)).toContain('expanded-range');
+    });
+
+    it('does not expand the radius when the viewer has auto-expand disabled', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: 0,
+        longitude: 0,
+        searchRadiusKm: 50,
+        autoExpandRadiusEnabled: false,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+      });
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      prisma.user.findMany.mockResolvedValue([
+        { id: 'nearby', name: 'A', dateOfBirth: null, profilePhotoUrl: null, interests: [], relationshipGoal: null, latitude: 0.01, longitude: 0 },
+        { id: 'expanded-range', name: 'B', dateOfBirth: null, profilePhotoUrl: null, interests: [], relationshipGoal: null, latitude: 0.6, longitude: 0 },
+      ]);
+
+      const deck = await service.getDeck(USER_ID);
+
+      expect(deck.map((card) => card.id)).not.toContain('expanded-range');
+    });
+
+    it('keeps a candidate with no location set regardless of radius', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: 0,
+        longitude: 0,
+        searchRadiusKm: 50,
+        autoExpandRadiusEnabled: true,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+      });
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      prisma.user.findMany.mockResolvedValue([
+        { id: 'no-location', name: 'A', dateOfBirth: null, profilePhotoUrl: null, interests: [], relationshipGoal: null, latitude: null, longitude: null },
+      ]);
+
+      const deck = await service.getDeck(USER_ID);
+
+      expect(deck.map((card) => card.id)).toContain('no-location');
     });
 
     it('places super likers first and flags them as isSuperLike', async () => {

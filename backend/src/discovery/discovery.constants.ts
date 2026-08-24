@@ -95,6 +95,16 @@ export const TRENDING_BONUS_CAP = 50;
 /** Distance in km at which the proximity score bottoms out at 0. */
 export const PROXIMITY_SCORE_DECAY_KM = 100;
 
+/**
+ * Radius-based deck filtering: the "remaining" pool is restricted to
+ * User.searchRadiusKm before ranking. If that leaves fewer than this many
+ * candidates (and the radius actually excluded someone), and the viewer has
+ * auto-expand enabled, the radius is widened by RADIUS_EXPANSION_MULTIPLIER
+ * for that one fetch - see DiscoveryService.getDeck.
+ */
+export const MIN_CANDIDATES_BEFORE_RADIUS_EXPANSION = 5;
+export const RADIUS_EXPANSION_MULTIPLIER = 2;
+
 export function computeTrendingWindowStart(now: Date): Date {
   return new Date(now.getTime() - TRENDING_WINDOW_DAYS * 24 * 60 * 60 * 1000);
 }

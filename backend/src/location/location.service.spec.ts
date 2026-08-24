@@ -182,6 +182,40 @@ describe('LocationService', () => {
     });
   });
 
+  describe('getRadiusSettings', () => {
+    it('throws NotFoundException when the user does not exist', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(service.getRadiusSettings(USER_ID)).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('returns the search radius and auto-expand preference', async () => {
+      prisma.user.findUnique.mockResolvedValue({ searchRadiusKm: 25, autoExpandRadiusEnabled: false });
+
+      const result = await service.getRadiusSettings(USER_ID);
+
+      expect(prisma.user.findUnique).toHaveBeenCalledWith({
+        where: { id: USER_ID },
+        select: { searchRadiusKm: true, autoExpandRadiusEnabled: true },
+      });
+      expect(result).toEqual({ searchRadiusKm: 25, autoExpandRadiusEnabled: false });
+    });
+  });
+
+  describe('setAutoExpandRadius', () => {
+    it('persists the preference', async () => {
+      prisma.user.update.mockResolvedValue({ searchRadiusKm: 50, autoExpandRadiusEnabled: false });
+
+      const result = await service.setAutoExpandRadius(USER_ID, false);
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: USER_ID },
+        data: { autoExpandRadiusEnabled: false },
+      });
+      expect(result).toEqual({ searchRadiusKm: 50, autoExpandRadiusEnabled: false });
+    });
+  });
+
   describe('findNearbyUsers', () => {
     it('throws NotFoundException when the user does not exist', async () => {
       prisma.user.findUnique.mockResolvedValue(null);
