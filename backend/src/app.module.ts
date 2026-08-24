@@ -34,6 +34,7 @@ import { SocialGraphModule } from './social-graph/social-graph.module';
 import { ProfilePromptsModule } from './profile-prompts/profile-prompts.module';
 import { PowerUpsModule } from './power-ups/power-ups.module';
 import { PostMatchSurveyModule } from './post-match-survey/post-match-survey.module';
+import { ProfileCompletionModule } from './profile-completion/profile-completion.module';
 
 @Module({
   imports: [
@@ -72,6 +73,7 @@ import { PostMatchSurveyModule } from './post-match-survey/post-match-survey.mod
     ProfilePromptsModule,
     PowerUpsModule,
     PostMatchSurveyModule,
+    ProfileCompletionModule,
   ],
 })
 export class AppModule {}
