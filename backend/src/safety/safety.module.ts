@@ -7,5 +7,6 @@ import { SafetyService } from './safety.service';
   imports: [AuthModule],
   controllers: [SafetyController],
   providers: [SafetyService],
+  exports: [SafetyService],
 })
 export class SafetyModule {}

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-24T06:03:41.990Z",
+  "generated_at": "2026-08-24T06:17:21.020Z",
   "snapshot": [
     {
       "number": 454,
@@ -1710,18 +1710,9 @@
       "number": 113,
       "title": "Audio & Video Call Moderation Safety Shield",
       "updatedAt": "2026-08-10T20:40:50Z"
-    },
-    {
-      "number": 112,
-      "title": "Distance-Based Match Sorting & Radius Expansion",
-      "updatedAt": "2026-08-10T20:40:48Z"
     }
   ],
   "queue": [
-    {
-      "number": 113,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 114,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"

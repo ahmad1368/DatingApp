@@ -1,4 +1,4 @@
-export const SCREEN_SECURITY_CONTEXTS = ['PROFILE', 'CHAT'] as const;
+export const SCREEN_SECURITY_CONTEXTS = ['PROFILE', 'CHAT', 'CALL'] as const;
 export type ScreenSecurityContext = (typeof SCREEN_SECURITY_CONTEXTS)[number];
 
 /** Violations within the freeze window before the account is temporarily frozen. */

@@ -52,7 +52,7 @@ export class ScreenSecurityService {
       },
     });
 
-    const contextLabel = context === 'CHAT' ? 'a private chat' : 'a profile';
+    const contextLabel = context === 'CHAT' ? 'a private chat' : context === 'CALL' ? 'a call' : 'a profile';
     const warning = shouldFreeze
       ? `Screen capture detected in ${contextLabel}. Your account has been temporarily frozen for repeated violations.`
       : `Screen capture detected in ${contextLabel}. Please respect other members' privacy.`;
