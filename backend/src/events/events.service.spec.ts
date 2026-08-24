@@ -12,14 +12,14 @@ describe('EventsService', () => {
   let prisma: {
     user: { findUnique: jest.Mock };
     localEvent: { create: jest.Mock; findMany: jest.Mock; findUnique: jest.Mock };
-    localEventRsvp: { upsert: jest.Mock; findUnique: jest.Mock; delete: jest.Mock };
+    localEventRsvp: { upsert: jest.Mock; findUnique: jest.Mock; delete: jest.Mock; update: jest.Mock };
   };
 
   beforeEach(() => {
     prisma = {
       user: { findUnique: jest.fn() },
       localEvent: { create: jest.fn(), findMany: jest.fn(), findUnique: jest.fn() },
-      localEventRsvp: { upsert: jest.fn(), findUnique: jest.fn(), delete: jest.fn() },
+      localEventRsvp: { upsert: jest.fn(), findUnique: jest.fn(), delete: jest.fn(), update: jest.fn() },
     };
     service = new EventsService(prisma as unknown as PrismaService);
   });
@@ -78,6 +78,8 @@ describe('EventsService', () => {
         distanceKm: null,
         rsvpCount: 0,
         isRsvped: false,
+        checkedInCount: 0,
+        isCheckedIn: false,
       });
     });
   });
@@ -120,6 +122,8 @@ describe('EventsService', () => {
           distanceKm: null,
           rsvpCount: 2,
           isRsvped: true,
+          checkedInCount: 0,
+          isCheckedIn: false,
         },
       ]);
     });
@@ -264,6 +268,68 @@ describe('EventsService', () => {
 
       expect(prisma.localEventRsvp.delete).toHaveBeenCalledWith({ where: { id: 'rsvp-1' } });
       expect(result).toEqual({ cancelled: true });
+    });
+  });
+
+  describe('checkInToEvent', () => {
+    it('throws when the event does not exist', async () => {
+      prisma.localEvent.findUnique.mockResolvedValue(null);
+
+      await expect(service.checkInToEvent(USER_ID, EVENT_ID)).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('rejects checking in without an rsvp', async () => {
+      prisma.localEvent.findUnique.mockResolvedValue({
+        id: EVENT_ID,
+        startsAt: new Date('2020-01-01T00:00:00.000Z'),
+      });
+      prisma.localEventRsvp.findUnique.mockResolvedValue(null);
+
+      await expect(service.checkInToEvent(USER_ID, EVENT_ID)).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.localEventRsvp.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects checking in before the event has started', async () => {
+      prisma.localEvent.findUnique.mockResolvedValue({
+        id: EVENT_ID,
+        startsAt: new Date(Date.now() + 60 * 60 * 1000),
+      });
+      prisma.localEventRsvp.findUnique.mockResolvedValue({ id: 'rsvp-1', checkedInAt: null });
+
+      await expect(service.checkInToEvent(USER_ID, EVENT_ID)).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.localEventRsvp.update).not.toHaveBeenCalled();
+    });
+
+    it('records the check-in once the event has started', async () => {
+      prisma.localEvent.findUnique.mockResolvedValue({
+        id: EVENT_ID,
+        startsAt: new Date(Date.now() - 60 * 60 * 1000),
+      });
+      prisma.localEventRsvp.findUnique.mockResolvedValue({ id: 'rsvp-1', checkedInAt: null });
+
+      const result = await service.checkInToEvent(USER_ID, EVENT_ID);
+
+      expect(prisma.localEventRsvp.update).toHaveBeenCalledWith({
+        where: { id: 'rsvp-1' },
+        data: { checkedInAt: expect.any(Date) },
+      });
+      expect(result).toEqual({ checkedIn: true });
+    });
+
+    it('is idempotent and does not overwrite an existing check-in', async () => {
+      prisma.localEvent.findUnique.mockResolvedValue({
+        id: EVENT_ID,
+        startsAt: new Date(Date.now() - 60 * 60 * 1000),
+      });
+      prisma.localEventRsvp.findUnique.mockResolvedValue({
+        id: 'rsvp-1',
+        checkedInAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const result = await service.checkInToEvent(USER_ID, EVENT_ID);
+
+      expect(prisma.localEventRsvp.update).not.toHaveBeenCalled();
+      expect(result).toEqual({ checkedIn: true });
     });
   });
 });

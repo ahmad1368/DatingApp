@@ -16,6 +16,8 @@ export interface LocalEventView {
   distanceKm: number | null;
   rsvpCount: number;
   isRsvped: boolean;
+  checkedInCount: number;
+  isCheckedIn: boolean;
 }
 
 interface LocatableUser {
@@ -47,7 +49,13 @@ export class EventsService {
       },
     });
 
-    return this.toView(event, { rsvpCount: 0, isRsvped: false, distanceKm: null });
+    return this.toView(event, {
+      rsvpCount: 0,
+      isRsvped: false,
+      distanceKm: null,
+      checkedInCount: 0,
+      isCheckedIn: false,
+    });
   }
 
   /**
@@ -74,10 +82,14 @@ export class EventsService {
           ? haversineDistanceKm(userCoords.latitude, userCoords.longitude, event.latitude, event.longitude)
           : null;
 
+      const myRsvp = event.rsvps.find((rsvp) => rsvp.userId === userId);
+
       return this.toView(event, {
         rsvpCount: event.rsvps.length,
-        isRsvped: event.rsvps.some((rsvp) => rsvp.userId === userId),
+        isRsvped: myRsvp != null,
         distanceKm,
+        checkedInCount: event.rsvps.filter((rsvp) => rsvp.checkedInAt != null).length,
+        isCheckedIn: myRsvp?.checkedInAt != null,
       });
     });
 
@@ -121,6 +133,35 @@ export class EventsService {
     return { cancelled: true };
   }
 
+  /**
+   * Confirms physical attendance at an event the user already RSVPed to.
+   * Only allowed once the event has actually started, and idempotent - a
+   * second check-in doesn't move the original checkedInAt time.
+   */
+  async checkInToEvent(userId: string, eventId: string): Promise<{ checkedIn: boolean }> {
+    const event = await this.getEvent(eventId);
+
+    const rsvp = await this.prisma.localEventRsvp.findUnique({
+      where: { eventId_userId: { eventId, userId } },
+    });
+    if (!rsvp) {
+      throw new BadRequestException('You must RSVP before checking in.');
+    }
+    if (rsvp.checkedInAt != null) {
+      return { checkedIn: true };
+    }
+    if (event.startsAt.getTime() > Date.now()) {
+      throw new BadRequestException('You can only check in once the event has started.');
+    }
+
+    await this.prisma.localEventRsvp.update({
+      where: { id: rsvp.id },
+      data: { checkedInAt: new Date() },
+    });
+
+    return { checkedIn: true };
+  }
+
   private async getEvent(eventId: string) {
     const event = await this.prisma.localEvent.findUnique({ where: { id: eventId } });
     if (!event) {
@@ -159,7 +200,13 @@ export class EventsService {
       category: string;
       startsAt: Date;
     },
-    extra: { rsvpCount: number; isRsvped: boolean; distanceKm: number | null },
+    extra: {
+      rsvpCount: number;
+      isRsvped: boolean;
+      distanceKm: number | null;
+      checkedInCount: number;
+      isCheckedIn: boolean;
+    },
   ): LocalEventView {
     return {
       id: event.id,
@@ -173,6 +220,8 @@ export class EventsService {
       distanceKm: extra.distanceKm,
       rsvpCount: extra.rsvpCount,
       isRsvped: extra.isRsvped,
+      checkedInCount: extra.checkedInCount,
+      isCheckedIn: extra.isCheckedIn,
     };
   }
 }

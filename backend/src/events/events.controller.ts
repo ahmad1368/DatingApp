@@ -37,4 +37,10 @@ export class EventsController {
   cancelRsvp(@CurrentUser() user: AuthenticatedUser, @Param('eventId') eventId: string) {
     return this.eventsService.cancelRsvp(user.id, eventId);
   }
+
+  @Post(':eventId/check-in')
+  @HttpCode(HttpStatus.OK)
+  checkInToEvent(@CurrentUser() user: AuthenticatedUser, @Param('eventId') eventId: string) {
+    return this.eventsService.checkInToEvent(user.id, eventId);
+  }
 }

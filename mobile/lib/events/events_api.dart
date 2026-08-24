@@ -22,6 +22,8 @@ class LocalEvent {
     required this.distanceKm,
     required this.rsvpCount,
     required this.isRsvped,
+    required this.checkedInCount,
+    required this.isCheckedIn,
   });
 
   final String id;
@@ -33,6 +35,8 @@ class LocalEvent {
   final double? distanceKm;
   final int rsvpCount;
   final bool isRsvped;
+  final int checkedInCount;
+  final bool isCheckedIn;
 }
 
 /// Talks to the backend's app-sponsored local events endpoints: browsing
@@ -85,6 +89,19 @@ class EventsApi {
     }
   }
 
+  /// Confirms physical attendance at an event already RSVPed to. Only
+  /// allowed once the event has started.
+  Future<void> checkIn(String eventId) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/events/$eventId/check-in'),
+      headers: _headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw EventsApiException(_errorMessage(_decode(response), response.statusCode));
+    }
+  }
+
   LocalEvent _toLocalEvent(Map<String, dynamic> json) {
     return LocalEvent(
       id: json['id'] as String,
@@ -96,6 +113,8 @@ class EventsApi {
       distanceKm: (json['distanceKm'] as num?)?.toDouble(),
       rsvpCount: json['rsvpCount'] as int,
       isRsvped: json['isRsvped'] as bool,
+      checkedInCount: json['checkedInCount'] as int,
+      isCheckedIn: json['isCheckedIn'] as bool,
     );
   }
 

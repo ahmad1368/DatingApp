@@ -769,10 +769,11 @@ model LocalEvent {
 }
 
 model LocalEventRsvp {
-  id        String   @id @default(uuid())
-  eventId   String
-  userId    String
-  createdAt DateTime @default(now())
+  id          String    @id @default(uuid())
+  eventId     String
+  userId      String
+  checkedInAt DateTime?
+  createdAt   DateTime  @default(now())
 
   event LocalEvent @relation(fields: [eventId], references: [id])
 
