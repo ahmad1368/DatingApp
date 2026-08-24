@@ -23,6 +23,7 @@ class MatchStatus {
     this.verificationRequested = false,
     this.verificationRequestedByMe = false,
     this.otherUserSnoozeStatusMessage,
+    this.otherUserLastActiveAt,
   });
 
   final String matchId;
@@ -35,6 +36,12 @@ class MatchStatus {
   final bool verificationRequested;
   final bool verificationRequestedByMe;
   final String? otherUserSnoozeStatusMessage;
+
+  /// Null both when the other user has no recorded activity yet and when
+  /// incognito ghosting protection is hiding it because this chat has gone
+  /// quiet for a week - the two cases are indistinguishable to the client
+  /// by design.
+  final DateTime? otherUserLastActiveAt;
 }
 
 class MatchNote {
@@ -380,6 +387,9 @@ class MessagingApi {
       verificationRequested: body['verificationRequested'] as bool? ?? false,
       verificationRequestedByMe: body['verificationRequestedByMe'] as bool? ?? false,
       otherUserSnoozeStatusMessage: body['otherUserSnoozeStatusMessage'] as String?,
+      otherUserLastActiveAt: body['otherUserLastActiveAt'] != null
+          ? DateTime.parse(body['otherUserLastActiveAt'] as String)
+          : null,
     );
   }
 
@@ -557,6 +567,24 @@ class MessagingApi {
     }
 
     return body['readReceiptsEnabled'] as bool;
+  }
+
+  /// Heartbeat to call while the app is in active use, so matches can see
+  /// roughly how recently this user was active. Automatically withheld from
+  /// a match whose chat has gone quiet for a week (see
+  /// [MatchStatus.otherUserLastActiveAt]).
+  Future<DateTime> recordActivity() async {
+    final response = await _client.put(
+      Uri.parse('$_baseUrl/matches/activity-ping'),
+      headers: _headers,
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 200) {
+      throw MessagingApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return DateTime.parse(body['lastActiveAt'] as String);
   }
 
   /// Fetches the static bank of two-option icebreaker cards either person

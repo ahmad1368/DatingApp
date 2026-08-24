@@ -831,6 +831,75 @@ void main() {
     expect(find.text("They're currently away: On Vacation"), findsOneWidget);
   });
 
+  testWidgets("shows the other user's last-active status when visible", (tester) async {
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(_emptyMessages, 200, headers: {'content-type': 'application/json'});
+        }
+        if (request.url.path == '/matches/activity-ping') {
+          return http.Response(
+            '{"lastActiveAt":"2026-01-01T00:00:00.000Z"}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":null,"isExpired":false,'
+          '"firstMessageSent":true,"canSendFirstMessage":true,"canExtend":false,'
+          '"otherUserLastActiveAt":"${DateTime.now().subtract(const Duration(minutes: 5)).toIso8601String()}"}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchChatScreen(messagingApi: api, matchId: 'match-1', currentUserId: 'user-woman'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Active'), findsOneWidget);
+  });
+
+  testWidgets("sends an activity heartbeat when the chat is opened", (tester) async {
+    final requestedPaths = <String>[];
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        requestedPaths.add(request.url.path);
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(_emptyMessages, 200, headers: {'content-type': 'application/json'});
+        }
+        if (request.url.path == '/matches/activity-ping') {
+          return http.Response(
+            '{"lastActiveAt":"2026-01-01T00:00:00.000Z"}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":null,"isExpired":false,'
+          '"firstMessageSent":true,"canSendFirstMessage":true,"canExtend":false}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchChatScreen(messagingApi: api, matchId: 'match-1', currentUserId: 'user-woman'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(requestedPaths, contains('/matches/activity-ping'));
+  });
+
   testWidgets('records and sends a voice note', (tester) async {
     http.Request? sendRequest;
     final api = MessagingApi(

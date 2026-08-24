@@ -143,6 +143,33 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
         setState(() => _isLoading = false);
       }
     }
+    unawaited(_pingActivity());
+  }
+
+  /// Best-effort activity heartbeat - opening a chat counts as being active.
+  /// Failure here shouldn't surface to the user; it just means this user's
+  /// "last active" won't reflect this visit.
+  Future<void> _pingActivity() async {
+    try {
+      await widget.messagingApi.recordActivity();
+    } catch (_) {
+      // Ignored - see doc comment above.
+    }
+  }
+
+  static String _formatLastActive(DateTime lastActiveAt) {
+    final minutes = DateTime.now().difference(lastActiveAt).inMinutes;
+    if (minutes < 1) {
+      return 'Active just now';
+    }
+    if (minutes < 60) {
+      return 'Active ${minutes}m ago';
+    }
+    final hours = minutes ~/ 60;
+    if (hours < 24) {
+      return 'Active ${hours}h ago';
+    }
+    return 'Active ${hours ~/ 24}d ago';
   }
 
   /// Private per-user note about this match (conversation details, date
@@ -610,6 +637,14 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
                     child: Text(
                       "They're currently away: ${_status!.otherUserSnoozeStatusMessage}",
                       style: const TextStyle(fontStyle: FontStyle.italic, color: Colors.indigo),
+                    ),
+                  ),
+                if (_status?.otherUserLastActiveAt != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    child: Text(
+                      _formatLastActive(_status!.otherUserLastActiveAt!),
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
                     ),
                   ),
                 if (_status?.canExtend ?? false)

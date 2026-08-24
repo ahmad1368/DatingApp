@@ -12,6 +12,7 @@ import {
   findIcebreakerPrompt,
   findVoiceEffect,
   GHOSTING_PROMPT_THRESHOLD_DAYS,
+  GHOSTING_PROTECTION_INACTIVITY_DAYS,
   ICEBREAKER_PROMPTS,
   IcebreakerPrompt,
   isWoman,
@@ -34,6 +35,11 @@ export interface MatchStatus {
   verificationRequested: boolean;
   verificationRequestedByMe: boolean;
   otherUserSnoozeStatusMessage: string | null;
+  otherUserLastActiveAt: string | null;
+}
+
+export interface ActivityPingResult {
+  lastActiveAt: string;
 }
 
 export interface IcebreakerView {
@@ -104,6 +110,7 @@ interface MatchRecord {
   id: string;
   userAId: string;
   userBId: string;
+  createdAt: Date;
   firstMessageExpiresAt: Date;
   firstMessageSentAt: Date | null;
   firstMessageExtendedAt: Date | null;
@@ -126,6 +133,18 @@ export class MessagingService {
   async getMatchStatus(userId: string, matchId: string): Promise<MatchStatus> {
     const match = await this.getMatchForUser(userId, matchId);
     return this.toMatchStatus(userId, match);
+  }
+
+  /**
+   * Heartbeat called while the user is actively using the app, so matches
+   * can see roughly how recently they were active - see
+   * [toMatchStatus]/GHOSTING_PROTECTION_INACTIVITY_DAYS for when that
+   * visibility is automatically withheld from a gone-quiet match.
+   */
+  async recordActivity(userId: string): Promise<ActivityPingResult> {
+    const now = new Date();
+    await this.prisma.user.update({ where: { id: userId }, data: { lastActiveAt: now } });
+    return { lastActiveAt: now.toISOString() };
   }
 
   async getMatchNote(userId: string, matchId: string): Promise<MatchNoteView> {
@@ -837,12 +856,23 @@ export class MessagingService {
         : await this.senderMaySendFirstMessage(userId, match);
 
     const otherUserId = match.userAId === userId ? match.userBId : match.userAId;
-    const otherUser = await this.prisma.user.findUnique({
-      where: { id: otherUserId },
-      select: { isVerified: true, snoozedUntil: true, snoozeStatusMessage: true },
-    });
+    const [otherUser, lastMessage] = await Promise.all([
+      this.prisma.user.findUnique({
+        where: { id: otherUserId },
+        select: { isVerified: true, snoozedUntil: true, snoozeStatusMessage: true, lastActiveAt: true },
+      }),
+      this.prisma.message.findFirst({
+        where: { matchId: match.id },
+        orderBy: { createdAt: 'desc' },
+        select: { createdAt: true },
+      }),
+    ]);
     const otherUserSnoozeIsActive =
       otherUser?.snoozedUntil != null && otherUser.snoozedUntil.getTime() > now.getTime();
+
+    const lastConversationActivityAt = lastMessage?.createdAt ?? match.createdAt;
+    const ghostingProtectionActive =
+      daysSince(lastConversationActivityAt, now) >= GHOSTING_PROTECTION_INACTIVITY_DAYS;
 
     return {
       matchId: match.id,
@@ -855,6 +885,8 @@ export class MessagingService {
       verificationRequested: match.verificationRequestedAt != null,
       verificationRequestedByMe: match.verificationRequestedById === userId,
       otherUserSnoozeStatusMessage: otherUserSnoozeIsActive ? otherUser!.snoozeStatusMessage : null,
+      otherUserLastActiveAt:
+        !ghostingProtectionActive && otherUser?.lastActiveAt ? otherUser.lastActiveAt.toISOString() : null,
     };
   }
 
