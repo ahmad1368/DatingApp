@@ -1,6 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ContentModerator } from './interfaces/content-moderator.interface';
+import { MessagingService } from './messaging.service';
 import { MessageModerationService } from './message-moderation.service';
 
 const REPORTER_ID = 'user-1';
@@ -13,21 +14,26 @@ describe('MessageModerationService', () => {
   let service: MessageModerationService;
   let prisma: {
     match: { findUnique: jest.Mock };
-    message: { findUnique: jest.Mock };
+    message: { findUnique: jest.Mock; findMany: jest.Mock };
     messageReport: { create: jest.Mock };
+    matchReport: { create: jest.Mock };
   };
   let contentModerator: { moderate: jest.Mock };
+  let messagingService: { unmatch: jest.Mock };
 
   beforeEach(() => {
     prisma = {
       match: { findUnique: jest.fn() },
-      message: { findUnique: jest.fn() },
+      message: { findUnique: jest.fn(), findMany: jest.fn() },
       messageReport: { create: jest.fn() },
+      matchReport: { create: jest.fn() },
     };
     contentModerator = { moderate: jest.fn() };
+    messagingService = { unmatch: jest.fn() };
     service = new MessageModerationService(
       prisma as unknown as PrismaService,
       contentModerator as unknown as ContentModerator,
+      messagingService as unknown as MessagingService,
     );
   });
 
@@ -145,6 +151,109 @@ describe('MessageModerationService', () => {
         MESSAGE_ID,
         'inappropriate photo',
       );
+
+      expect(contentModerator.moderate).not.toHaveBeenCalled();
+      expect(result.moderationFlagged).toBe(false);
+    });
+  });
+
+  describe('reportAndUnmatch', () => {
+    it('throws when the reporter is not part of the match', async () => {
+      prisma.match.findUnique.mockResolvedValue({ id: MATCH_ID, userAId: REPORTER_ID, userBId: OTHER_ID });
+
+      await expect(
+        service.reportAndUnmatch(OUTSIDER_ID, MATCH_ID, 'HARASSMENT'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(prisma.matchReport.create).not.toHaveBeenCalled();
+      expect(messagingService.unmatch).not.toHaveBeenCalled();
+    });
+
+    it('snapshots the chat log, moderates the combined text, and unmatches', async () => {
+      prisma.match.findUnique.mockResolvedValue({ id: MATCH_ID, userAId: REPORTER_ID, userBId: OTHER_ID });
+      prisma.message.findMany.mockResolvedValue([
+        {
+          senderId: OTHER_ID,
+          contentType: 'TEXT',
+          content: 'you are worthless',
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+        {
+          senderId: REPORTER_ID,
+          contentType: 'IMAGE',
+          content: null,
+          createdAt: new Date('2026-01-01T00:01:00.000Z'),
+        },
+      ]);
+      contentModerator.moderate.mockResolvedValue({ flagged: true, categories: ['harassment'] });
+      prisma.matchReport.create.mockResolvedValue({
+        id: 'report-1',
+        matchId: MATCH_ID,
+        reportedUserId: OTHER_ID,
+        reason: 'HARASSMENT',
+        details: 'kept insulting me',
+        moderationFlagged: true,
+        moderationCategories: ['harassment'],
+        createdAt: new Date('2026-01-01T00:02:00.000Z'),
+      });
+
+      const result = await service.reportAndUnmatch(REPORTER_ID, MATCH_ID, 'HARASSMENT', 'kept insulting me');
+
+      expect(contentModerator.moderate).toHaveBeenCalledWith('you are worthless');
+      expect(prisma.matchReport.create).toHaveBeenCalledWith({
+        data: {
+          matchId: MATCH_ID,
+          reporterId: REPORTER_ID,
+          reportedUserId: OTHER_ID,
+          reason: 'HARASSMENT',
+          details: 'kept insulting me',
+          chatLog: [
+            {
+              senderId: OTHER_ID,
+              contentType: 'TEXT',
+              content: 'you are worthless',
+              createdAt: '2026-01-01T00:00:00.000Z',
+            },
+            {
+              senderId: REPORTER_ID,
+              contentType: 'IMAGE',
+              content: null,
+              createdAt: '2026-01-01T00:01:00.000Z',
+            },
+          ],
+          moderationFlagged: true,
+          moderationCategories: ['harassment'],
+        },
+      });
+      expect(messagingService.unmatch).toHaveBeenCalledWith(REPORTER_ID, MATCH_ID);
+      expect(result).toEqual({
+        id: 'report-1',
+        matchId: MATCH_ID,
+        reportedUserId: OTHER_ID,
+        reason: 'HARASSMENT',
+        details: 'kept insulting me',
+        moderationFlagged: true,
+        moderationCategories: ['harassment'],
+        createdAt: '2026-01-01T00:02:00.000Z',
+      });
+    });
+
+    it('skips moderation when the conversation has no text content', async () => {
+      prisma.match.findUnique.mockResolvedValue({ id: MATCH_ID, userAId: REPORTER_ID, userBId: OTHER_ID });
+      prisma.message.findMany.mockResolvedValue([
+        { senderId: OTHER_ID, contentType: 'IMAGE', content: null, createdAt: new Date('2026-01-01T00:00:00.000Z') },
+      ]);
+      prisma.matchReport.create.mockResolvedValue({
+        id: 'report-2',
+        matchId: MATCH_ID,
+        reportedUserId: OTHER_ID,
+        reason: 'OTHER',
+        details: null,
+        moderationFlagged: false,
+        moderationCategories: [],
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const result = await service.reportAndUnmatch(REPORTER_ID, MATCH_ID, 'OTHER');
 
       expect(contentModerator.moderate).not.toHaveBeenCalled();
       expect(result.moderationFlagged).toBe(false);
