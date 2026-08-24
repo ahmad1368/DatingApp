@@ -36,6 +36,7 @@ import { PowerUpsModule } from './power-ups/power-ups.module';
 import { PostMatchSurveyModule } from './post-match-survey/post-match-survey.module';
 import { ProfileCompletionModule } from './profile-completion/profile-completion.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { AdsModule } from './ads/ads.module';
 
 @Module({
   imports: [
@@ -76,6 +77,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     PostMatchSurveyModule,
     ProfileCompletionModule,
     NotificationsModule,
+    AdsModule,
   ],
 })
 export class AppModule {}
