@@ -15,6 +15,9 @@ import {
   ICEBREAKER_PROMPTS,
   IcebreakerPrompt,
   isWoman,
+  MAX_POLL_OPTIONS,
+  MIN_POLL_OPTIONS,
+  POLL_CONTENT_TYPE,
   VOICE_EFFECTS,
   VOICE_NOTE_CONTENT_TYPE,
   VoiceEffect,
@@ -42,6 +45,14 @@ export interface IcebreakerView {
   otherOptionIndex: number | null;
 }
 
+export interface PollView {
+  question: string;
+  options: string[];
+  myOptionIndex: number | null;
+  voteCounts: number[];
+  totalVotes: number;
+}
+
 export interface MessageView {
   id: string;
   senderId: string;
@@ -56,6 +67,7 @@ export interface MessageView {
   backgroundSoundId: string | null;
   readAt: string | null;
   icebreaker: IcebreakerView | null;
+  poll: PollView | null;
   createdAt: string;
 }
 
@@ -334,6 +346,9 @@ export class MessagingService {
     const responsesByMessageId = await this.getIcebreakerResponsesByMessage(
       messages.filter((message) => message.contentType === 'ICEBREAKER').map((message) => message.id),
     );
+    const votesByMessageId = await this.getPollVotesByMessage(
+      messages.filter((message) => message.contentType === POLL_CONTENT_TYPE).map((message) => message.id),
+    );
 
     const unreadIncomingIds = messages
       .filter((message) => message.senderId !== userId && message.readAt == null)
@@ -360,6 +375,7 @@ export class MessagingService {
         readAt && unreadIdSet.has(message.id) ? { ...message, readAt } : message,
         userId,
         responsesByMessageId.get(message.id) ?? [],
+        votesByMessageId.get(message.id) ?? [],
       ),
     );
   }
@@ -418,6 +434,51 @@ export class MessagingService {
 
   getIcebreakerPrompts(): IcebreakerPrompt[] {
     return ICEBREAKER_PROMPTS;
+  }
+
+  /**
+   * In-chat custom poll: unlike an icebreaker (a fixed two-option question
+   * from a curated catalog), the sender writes their own question and
+   * options - handy for deciding on a date spot or activity together.
+   */
+  async sendPoll(userId: string, matchId: string, question: string, options: string[]): Promise<MessageView> {
+    if (options.length < MIN_POLL_OPTIONS || options.length > MAX_POLL_OPTIONS) {
+      throw new BadRequestException(`A poll needs between ${MIN_POLL_OPTIONS} and ${MAX_POLL_OPTIONS} options.`);
+    }
+
+    const { match, firstMessageSent } = await this.assertCanSend(userId, matchId);
+
+    const message = await this.prisma.message.create({
+      data: { matchId, senderId: userId, contentType: POLL_CONTENT_TYPE, content: question, pollOptions: options },
+    });
+
+    await this.markFirstMessageIfNeeded(matchId, firstMessageSent);
+    await this.notifyNewMessage(match, userId, `Sent a poll: ${question}`);
+
+    return this.toMessageView(message, userId);
+  }
+
+  /** Casts (or changes) the caller's vote on a poll message. */
+  async respondToPoll(userId: string, matchId: string, messageId: string, optionIndex: number): Promise<MessageView> {
+    await this.getMatchForUser(userId, matchId);
+
+    const message = await this.prisma.message.findUnique({ where: { id: messageId } });
+    if (!message || message.matchId !== matchId || message.contentType !== POLL_CONTENT_TYPE) {
+      throw new NotFoundException('Poll not found.');
+    }
+    if (optionIndex < 0 || optionIndex >= message.pollOptions.length) {
+      throw new BadRequestException('Invalid poll option.');
+    }
+
+    await this.prisma.pollVote.upsert({
+      where: { messageId_userId: { messageId, userId } },
+      create: { messageId, userId, optionIndex },
+      update: { optionIndex },
+    });
+
+    const votes = await this.prisma.pollVote.findMany({ where: { messageId } });
+
+    return this.toMessageView(message, userId, [], votes);
   }
 
   /**
@@ -529,9 +590,17 @@ export class MessagingService {
     const responsesByMessageId = await this.getIcebreakerResponsesByMessage(
       messages.filter((message) => message.contentType === 'ICEBREAKER').map((message) => message.id),
     );
+    const votesByMessageId = await this.getPollVotesByMessage(
+      messages.filter((message) => message.contentType === POLL_CONTENT_TYPE).map((message) => message.id),
+    );
 
     return messages.map((message) =>
-      this.toMessageView(message, partnerId, responsesByMessageId.get(message.id) ?? []),
+      this.toMessageView(
+        message,
+        partnerId,
+        responsesByMessageId.get(message.id) ?? [],
+        votesByMessageId.get(message.id) ?? [],
+      ),
     );
   }
 
@@ -823,6 +892,25 @@ export class MessagingService {
     return responsesByMessageId;
   }
 
+  private async getPollVotesByMessage(
+    messageIds: string[],
+  ): Promise<Map<string, { userId: string; optionIndex: number }[]>> {
+    const votesByMessageId = new Map<string, { userId: string; optionIndex: number }[]>();
+    if (messageIds.length === 0) {
+      return votesByMessageId;
+    }
+
+    const votes = await this.prisma.pollVote.findMany({
+      where: { messageId: { in: messageIds } },
+    });
+    for (const vote of votes) {
+      const list = votesByMessageId.get(vote.messageId) ?? [];
+      list.push({ userId: vote.userId, optionIndex: vote.optionIndex });
+      votesByMessageId.set(vote.messageId, list);
+    }
+    return votesByMessageId;
+  }
+
   private toMessageView(
     message: {
       id: string;
@@ -836,11 +924,13 @@ export class MessagingService {
       durationSeconds: number | null;
       voiceEffectId?: string | null;
       backgroundSoundId?: string | null;
+      pollOptions?: string[];
       readAt: Date | null;
       createdAt: Date;
     },
     userId: string,
     icebreakerResponses: { userId: string; optionIndex: number }[] = [],
+    pollVotes: { userId: string; optionIndex: number }[] = [],
   ): MessageView {
     return {
       id: message.id,
@@ -856,6 +946,7 @@ export class MessagingService {
       backgroundSoundId: message.backgroundSoundId ?? null,
       readAt: message.readAt ? message.readAt.toISOString() : null,
       icebreaker: this.toIcebreakerView(message.contentType, message.content, userId, icebreakerResponses),
+      poll: this.toPollView(message.contentType, message.content, message.pollOptions, userId, pollVotes),
       createdAt: message.createdAt.toISOString(),
     };
   }
@@ -884,6 +975,29 @@ export class MessagingService {
       optionB: prompt.optionB,
       myOptionIndex: myResponse?.optionIndex ?? null,
       otherOptionIndex: otherResponse?.optionIndex ?? null,
+    };
+  }
+
+  private toPollView(
+    contentType: string,
+    question: string | null,
+    options: string[] | undefined,
+    userId: string,
+    votes: { userId: string; optionIndex: number }[],
+  ): PollView | null {
+    if (contentType !== POLL_CONTENT_TYPE || !question || !options || options.length === 0) {
+      return null;
+    }
+
+    const voteCounts = options.map((_, index) => votes.filter((vote) => vote.optionIndex === index).length);
+    const myVote = votes.find((vote) => vote.userId === userId);
+
+    return {
+      question,
+      options,
+      myOptionIndex: myVote?.optionIndex ?? null,
+      voteCounts,
+      totalVotes: votes.length,
     };
   }
 }

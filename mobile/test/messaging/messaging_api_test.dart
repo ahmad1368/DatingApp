@@ -866,4 +866,81 @@ void main() {
       expect(message.icebreaker!.otherOptionIndex, 0);
     });
   });
+
+  group('MessagingApi.sendPoll', () {
+    test('sends the question and options, parsing the created message', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'POST');
+          expect(request.url.path, '/matches/match-1/poll');
+          expect(request.body, '{"question":"Where should we go?","options":["Coffee","Dinner"]}');
+          return http.Response(
+            '{"id":"m1","senderId":"user-1","contentType":"POLL","content":"Where should we go?",'
+            '"mediaUrl":null,"isBlurred":false,"poll":{"question":"Where should we go?",'
+            '"options":["Coffee","Dinner"],"myOptionIndex":null,"voteCounts":[0,0],"totalVotes":0},'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}',
+            201,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final message = await api.sendPoll(
+        matchId: 'match-1',
+        question: 'Where should we go?',
+        options: ['Coffee', 'Dinner'],
+      );
+
+      expect(message.contentType, 'POLL');
+      expect(message.poll, isNotNull);
+      expect(message.poll!.options, ['Coffee', 'Dinner']);
+      expect(message.poll!.haveIVoted, isFalse);
+    });
+
+    test('throws MessagingApiException when there are too few options', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '{"message":"A poll needs between 2 and 6 options."}',
+            400,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      expect(
+        () => api.sendPoll(matchId: 'match-1', question: 'Where?', options: ['Only one']),
+        throwsA(isA<MessagingApiException>()),
+      );
+    });
+  });
+
+  group('MessagingApi.respondToPoll', () {
+    test('sends the chosen option and parses the updated tally', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'POST');
+          expect(request.url.path, '/matches/match-1/messages/m1/poll-response');
+          expect(request.body, '{"optionIndex":1}');
+          return http.Response(
+            '{"id":"m1","senderId":"user-2","contentType":"POLL","content":"Where should we go?",'
+            '"mediaUrl":null,"isBlurred":false,"poll":{"question":"Where should we go?",'
+            '"options":["Coffee","Dinner"],"myOptionIndex":1,"voteCounts":[1,1],"totalVotes":2},'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final message = await api.respondToPoll(matchId: 'match-1', messageId: 'm1', optionIndex: 1);
+
+      expect(message.poll!.haveIVoted, isTrue);
+      expect(message.poll!.voteCounts, [1, 1]);
+      expect(message.poll!.totalVotes, 2);
+    });
+  });
 }

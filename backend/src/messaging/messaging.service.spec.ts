@@ -32,6 +32,7 @@ describe('MessagingService', () => {
     };
     user: { findUnique: jest.Mock; findMany: jest.Mock; update: jest.Mock };
     icebreakerResponse: { findMany: jest.Mock; upsert: jest.Mock };
+    pollVote: { findMany: jest.Mock; upsert: jest.Mock };
     swipe: { deleteMany: jest.Mock };
     dissolvedMatch: { findMany: jest.Mock; findUnique: jest.Mock; create: jest.Mock; delete: jest.Mock };
     matchNote: { findUnique: jest.Mock; upsert: jest.Mock; deleteMany: jest.Mock };
@@ -62,6 +63,7 @@ describe('MessagingService', () => {
       },
       user: { findUnique: jest.fn(), findMany: jest.fn(), update: jest.fn() },
       icebreakerResponse: { findMany: jest.fn().mockResolvedValue([]), upsert: jest.fn() },
+      pollVote: { findMany: jest.fn().mockResolvedValue([]), upsert: jest.fn() },
       swipe: { deleteMany: jest.fn() },
       dissolvedMatch: {
         findMany: jest.fn(),
@@ -472,6 +474,7 @@ describe('MessagingService', () => {
         backgroundSoundId: null,
         readAt: null,
         icebreaker: null,
+        poll: null,
         createdAt: '2026-01-01T00:00:00.000Z',
       });
     });
@@ -878,6 +881,7 @@ describe('MessagingService', () => {
           backgroundSoundId: null,
           readAt: null,
           icebreaker: null,
+          poll: null,
           createdAt: '2026-01-01T00:00:00.000Z',
         },
       ]);
@@ -1133,6 +1137,161 @@ describe('MessagingService', () => {
         optionB: 'Tea',
         myOptionIndex: 1,
         otherOptionIndex: 0,
+      });
+    });
+  });
+
+  describe('sendPoll', () => {
+    it('rejects fewer than the minimum number of options', async () => {
+      await expect(
+        service.sendPoll(WOMAN_ID, MATCH_ID, 'Where should we go?', ['Coffee shop']),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.message.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects more than the maximum number of options', async () => {
+      await expect(
+        service.sendPoll(WOMAN_ID, MATCH_ID, 'Where should we go?', ['A', 'B', 'C', 'D', 'E', 'F', 'G']),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.message.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects the man sending the first poll to a woman match', async () => {
+      mockMatch();
+      mockUsers({ [WOMAN_ID]: ['Woman'], [MAN_ID]: ['Man'] });
+
+      await expect(
+        service.sendPoll(MAN_ID, MATCH_ID, 'Where should we go?', ['Coffee', 'Dinner']),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('creates a POLL message with no votes yet', async () => {
+      mockMatch();
+      mockUsers({ [WOMAN_ID]: ['Woman'], [MAN_ID]: ['Man'] });
+      prisma.message.create.mockResolvedValue({
+        id: 'message-1',
+        senderId: WOMAN_ID,
+        contentType: 'POLL',
+        content: 'Where should we go?',
+        pollOptions: ['Coffee', 'Dinner'],
+        mediaUrl: null,
+        isBlurred: false,
+        readAt: null,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const result = await service.sendPoll(WOMAN_ID, MATCH_ID, 'Where should we go?', ['Coffee', 'Dinner']);
+
+      expect(prisma.message.create).toHaveBeenCalledWith({
+        data: {
+          matchId: MATCH_ID,
+          senderId: WOMAN_ID,
+          contentType: 'POLL',
+          content: 'Where should we go?',
+          pollOptions: ['Coffee', 'Dinner'],
+        },
+      });
+      expect(result.poll).toEqual({
+        question: 'Where should we go?',
+        options: ['Coffee', 'Dinner'],
+        myOptionIndex: null,
+        voteCounts: [0, 0],
+        totalVotes: 0,
+      });
+    });
+  });
+
+  describe('respondToPoll', () => {
+    it('throws when the message is not a poll in this match', async () => {
+      mockMatch();
+      prisma.message.findUnique.mockResolvedValue({ id: 'message-1', matchId: MATCH_ID, contentType: 'TEXT' });
+
+      await expect(service.respondToPoll(WOMAN_ID, MATCH_ID, 'message-1', 0)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      expect(prisma.pollVote.upsert).not.toHaveBeenCalled();
+    });
+
+    it('rejects an option index outside the poll', async () => {
+      mockMatch();
+      prisma.message.findUnique.mockResolvedValue({
+        id: 'message-1',
+        matchId: MATCH_ID,
+        contentType: 'POLL',
+        content: 'Where should we go?',
+        pollOptions: ['Coffee', 'Dinner'],
+      });
+
+      await expect(service.respondToPoll(WOMAN_ID, MATCH_ID, 'message-1', 2)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(prisma.pollVote.upsert).not.toHaveBeenCalled();
+    });
+
+    it('upserts the vote and returns the tally from the voter perspective', async () => {
+      mockMatch();
+      prisma.message.findUnique.mockResolvedValue({
+        id: 'message-1',
+        matchId: MATCH_ID,
+        contentType: 'POLL',
+        content: 'Where should we go?',
+        pollOptions: ['Coffee', 'Dinner'],
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+      prisma.pollVote.findMany.mockResolvedValue([
+        { userId: WOMAN_ID, optionIndex: 0 },
+        { userId: MAN_ID, optionIndex: 1 },
+      ]);
+
+      const result = await service.respondToPoll(MAN_ID, MATCH_ID, 'message-1', 1);
+
+      expect(prisma.pollVote.upsert).toHaveBeenCalledWith({
+        where: { messageId_userId: { messageId: 'message-1', userId: MAN_ID } },
+        create: { messageId: 'message-1', userId: MAN_ID, optionIndex: 1 },
+        update: { optionIndex: 1 },
+      });
+      expect(result.poll).toEqual({
+        question: 'Where should we go?',
+        options: ['Coffee', 'Dinner'],
+        myOptionIndex: 1,
+        voteCounts: [1, 1],
+        totalVotes: 2,
+      });
+    });
+  });
+
+  describe('listMessages poll hydration', () => {
+    it("includes vote tallies when listing a conversation", async () => {
+      mockMatch();
+      prisma.message.findMany.mockResolvedValue([
+        {
+          id: 'message-1',
+          senderId: WOMAN_ID,
+          contentType: 'POLL',
+          content: 'Where should we go?',
+          pollOptions: ['Coffee', 'Dinner'],
+          mediaUrl: null,
+          isBlurred: false,
+          readAt: new Date('2026-01-01T00:05:00.000Z'),
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ]);
+      prisma.pollVote.findMany.mockResolvedValue([
+        { messageId: 'message-1', userId: WOMAN_ID, optionIndex: 0 },
+        { messageId: 'message-1', userId: MAN_ID, optionIndex: 0 },
+      ]);
+
+      const messages = await service.listMessages(MAN_ID, MATCH_ID);
+
+      expect(prisma.pollVote.findMany).toHaveBeenCalledWith({
+        where: { messageId: { in: ['message-1'] } },
+      });
+      expect(messages[0].poll).toEqual({
+        question: 'Where should we go?',
+        options: ['Coffee', 'Dinner'],
+        myOptionIndex: 0,
+        voteCounts: [2, 0],
+        totalVotes: 2,
       });
     });
   });
