@@ -585,6 +585,22 @@ class MessagingApi {
         .toList();
   }
 
+  /// AI-suggested opening lines for this match, based on shared interests
+  /// and compatibility-questionnaire overlap.
+  Future<List<String>> fetchIcebreakerSuggestions(String matchId) async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/matches/$matchId/icebreaker-suggestions'),
+      headers: _headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw MessagingApiException(_errorMessage(_decode(response), response.statusCode));
+    }
+
+    final list = jsonDecode(response.body) as List;
+    return list.cast<String>();
+  }
+
   Future<ChatMessage> sendIcebreaker({required String matchId, required String promptId}) async {
     final response = await _client.post(
       Uri.parse('$_baseUrl/matches/$matchId/icebreaker'),

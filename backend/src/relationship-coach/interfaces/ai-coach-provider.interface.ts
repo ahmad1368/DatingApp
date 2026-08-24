@@ -7,6 +7,10 @@ export interface CoachEngagementContext {
   messagesReceived: number;
   missingProfileFields: string[];
   sharedInterestsWithMatch: string[];
+  /** Compatibility questionnaire questions both sides of the match answered - see MatchingService.getCompatibility. */
+  sharedQuestionCount: number;
+  /** Questionnaire-based compatibility score (0-100), or null if there's no overlap to score. */
+  compatibilityPercentage: number | null;
 }
 
 export interface CoachSuggestions {

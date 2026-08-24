@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-24T06:24:34.334Z",
+  "generated_at": "2026-08-24T06:48:15.639Z",
   "snapshot": [
     {
       "number": 454,
@@ -1700,18 +1700,9 @@
       "number": 115,
       "title": "AI Conversation Assistant & Icebreaker Suggestions",
       "updatedAt": "2026-08-10T20:40:54Z"
-    },
-    {
-      "number": 114,
-      "title": "Prompt Response Audio Transcripts",
-      "updatedAt": "2026-08-10T20:40:52Z"
     }
   ],
   "queue": [
-    {
-      "number": 115,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 116,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
