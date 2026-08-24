@@ -17,6 +17,6 @@ export class PowerUpsController {
   @Post('purchase')
   @HttpCode(HttpStatus.CREATED)
   purchasePowerUp(@CurrentUser() user: AuthenticatedUser, @Body() dto: PurchasePowerUpDto) {
-    return this.powerUpsService.purchasePowerUp(user.id, dto.powerUpId);
+    return this.powerUpsService.purchasePowerUp(user.id, dto.powerUpId, dto.matchId);
   }
 }

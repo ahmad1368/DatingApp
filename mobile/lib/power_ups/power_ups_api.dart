@@ -20,8 +20,9 @@ class PowerUp {
 }
 
 /// Talks to the backend's power-up endpoints: one-time, coin-purchased
-/// perks (a profile boost, an extra super like) that work without a
-/// subscription, spent from the same shared coin balance as the wallet.
+/// perks (a profile boost, an extra super like, extra profile views, or a
+/// paid match-timer extension) that work without a subscription, spent from
+/// the same shared coin balance as the wallet.
 class PowerUpsApi {
   PowerUpsApi({required this.accessToken, http.Client? client, String? baseUrl})
       : _client = client ?? http.Client(),
@@ -50,11 +51,15 @@ class PowerUpsApi {
     return list.cast<Map<String, dynamic>>().map(_toPowerUp).toList();
   }
 
-  Future<int> purchasePowerUp(String powerUpId) async {
+  /// [matchId] is required only for the "extend-match-timer" power-up.
+  Future<int> purchasePowerUp(String powerUpId, {String? matchId}) async {
     final response = await _client.post(
       Uri.parse('$_baseUrl/power-ups/purchase'),
       headers: _headers,
-      body: jsonEncode({'powerUpId': powerUpId}),
+      body: jsonEncode({
+        'powerUpId': powerUpId,
+        if (matchId != null) 'matchId': matchId,
+      }),
     );
 
     final body = _decode(response);

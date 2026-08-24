@@ -120,6 +120,11 @@ export class DiscoveryService {
       throw new NotFoundException('User not found.');
     }
 
+    // "Extra Profile Views" power-up: a one-time widening of this single
+    // fetch, consumed (reset to 0) below once the deck is built - see
+    // PowerUpsService.purchaseExtraProfileViews.
+    const effectiveDeckSize = DEFAULT_DECK_SIZE + (currentUser.bonusDeckSlots ?? 0);
+
     const swiped = await this.prisma.swipe.findMany({
       where: { swiperId: userId },
       select: { targetUserId: true },
@@ -198,14 +203,14 @@ export class DiscoveryService {
               ...notSnoozedWhere,
               ...lifestyleWhere,
             },
-            take: DEFAULT_DECK_SIZE,
+            take: effectiveDeckSize,
           })
         : [];
     const priorityCandidateById = new Map(priorityCandidatesRaw.map((c) => [c.id, c]));
     const priorityCandidates = priorityIdsOrdered
       .map((id) => priorityCandidateById.get(id))
       .filter((candidate): candidate is (typeof priorityCandidatesRaw)[number] => candidate != null)
-      .slice(0, DEFAULT_DECK_SIZE);
+      .slice(0, effectiveDeckSize);
     const priorityIds = priorityCandidates.map((candidate) => candidate.id);
 
     const remainingCandidatePool = await this.prisma.user.findMany({
@@ -225,10 +230,14 @@ export class DiscoveryService {
     const remainingCandidates = await this.rankRemainingCandidates(
       radiusFilteredPool,
       origin,
-      Math.max(DEFAULT_DECK_SIZE - priorityCandidates.length, 0),
+      Math.max(effectiveDeckSize - priorityCandidates.length, 0),
     );
 
     const candidates = [...priorityCandidates, ...remainingCandidates];
+
+    if (currentUser.bonusDeckSlots > 0) {
+      await this.prisma.user.update({ where: { id: userId }, data: { bonusDeckSlots: 0 } });
+    }
 
     const shownBoostedIds = priorityIds.filter((id) => boostedIdSet.has(id));
     if (shownBoostedIds.length > 0) {

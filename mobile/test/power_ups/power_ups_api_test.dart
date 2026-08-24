@@ -54,6 +54,18 @@ void main() {
       expect(await api.purchasePowerUp('boost'), 100);
     });
 
+    test('includes matchId when purchasing a match-timer extension', () async {
+      final api = PowerUpsApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.body, '{"powerUpId":"extend-match-timer","matchId":"match-1"}');
+          return _jsonResponse('{"coinBalance":60,"powerUpId":"extend-match-timer"}', 201);
+        }),
+      );
+
+      expect(await api.purchasePowerUp('extend-match-timer', matchId: 'match-1'), 60);
+    });
+
     test('throws PowerUpsApiException when the coin balance is too low', () async {
       final api = PowerUpsApi(
         accessToken: 'a-jwt',

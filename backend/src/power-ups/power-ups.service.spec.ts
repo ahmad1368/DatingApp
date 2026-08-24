@@ -4,12 +4,15 @@ import { PowerUpsService } from './power-ups.service';
 import { POWER_UPS } from './power-ups.constants';
 
 const USER_ID = 'user-1';
+const OTHER_USER_ID = 'user-2';
+const MATCH_ID = 'match-1';
 
 describe('PowerUpsService', () => {
   let service: PowerUpsService;
   let prisma: {
     user: { findUnique: jest.Mock; update: jest.Mock };
     boost: { findFirst: jest.Mock; create: jest.Mock };
+    match: { findUnique: jest.Mock; update: jest.Mock };
     $transaction: jest.Mock;
   };
 
@@ -17,6 +20,7 @@ describe('PowerUpsService', () => {
     prisma = {
       user: { findUnique: jest.fn(), update: jest.fn() },
       boost: { findFirst: jest.fn(), create: jest.fn() },
+      match: { findUnique: jest.fn(), update: jest.fn() },
       $transaction: jest.fn((ops: unknown[]) => Promise.all(ops)),
     };
     service = new PowerUpsService(prisma as unknown as PrismaService);
@@ -94,6 +98,102 @@ describe('PowerUpsService', () => {
           data: { giftTokenBalance: { decrement: 20 }, bonusSuperLikes: { increment: 1 } },
         });
         expect(result).toEqual({ coinBalance: 30, powerUpId: 'super-like' });
+      });
+    });
+
+    describe('extra-profile-views', () => {
+      it('deducts coins and grants bonus deck slots', async () => {
+        prisma.user.findUnique.mockResolvedValue({ giftTokenBalance: 50 });
+        prisma.user.update.mockResolvedValue({ giftTokenBalance: 20 });
+
+        const result = await service.purchasePowerUp(USER_ID, 'extra-profile-views');
+
+        expect(prisma.user.update).toHaveBeenCalledWith({
+          where: { id: USER_ID },
+          data: { giftTokenBalance: { decrement: 30 }, bonusDeckSlots: { increment: 20 } },
+        });
+        expect(result).toEqual({ coinBalance: 20, powerUpId: 'extra-profile-views' });
+      });
+    });
+
+    describe('extend-match-timer', () => {
+      it('rejects without a matchId', async () => {
+        prisma.user.findUnique.mockResolvedValue({ giftTokenBalance: 100 });
+
+        await expect(service.purchasePowerUp(USER_ID, 'extend-match-timer')).rejects.toBeInstanceOf(
+          BadRequestException,
+        );
+        expect(prisma.match.findUnique).not.toHaveBeenCalled();
+      });
+
+      it('throws when the match does not belong to the user', async () => {
+        prisma.user.findUnique.mockResolvedValue({ giftTokenBalance: 100 });
+        prisma.match.findUnique.mockResolvedValue({
+          id: MATCH_ID,
+          userAId: OTHER_USER_ID,
+          userBId: 'someone-else',
+        });
+
+        await expect(
+          service.purchasePowerUp(USER_ID, 'extend-match-timer', MATCH_ID),
+        ).rejects.toBeInstanceOf(NotFoundException);
+      });
+
+      it('rejects a match that is already unlocked', async () => {
+        prisma.user.findUnique.mockResolvedValue({ giftTokenBalance: 100 });
+        prisma.match.findUnique.mockResolvedValue({
+          id: MATCH_ID,
+          userAId: USER_ID,
+          userBId: OTHER_USER_ID,
+          firstMessageSentAt: new Date(),
+          firstMessageExpiresAt: new Date(Date.now() + 60 * 60 * 1000),
+        });
+
+        await expect(
+          service.purchasePowerUp(USER_ID, 'extend-match-timer', MATCH_ID),
+        ).rejects.toBeInstanceOf(BadRequestException);
+        expect(prisma.$transaction).not.toHaveBeenCalled();
+      });
+
+      it('rejects a match that has already expired', async () => {
+        prisma.user.findUnique.mockResolvedValue({ giftTokenBalance: 100 });
+        prisma.match.findUnique.mockResolvedValue({
+          id: MATCH_ID,
+          userAId: USER_ID,
+          userBId: OTHER_USER_ID,
+          firstMessageSentAt: null,
+          firstMessageExpiresAt: new Date(Date.now() - 60 * 60 * 1000),
+        });
+
+        await expect(
+          service.purchasePowerUp(USER_ID, 'extend-match-timer', MATCH_ID),
+        ).rejects.toBeInstanceOf(BadRequestException);
+      });
+
+      it('extends the match timer even if the free extension was already used', async () => {
+        prisma.user.findUnique.mockResolvedValue({ giftTokenBalance: 100 });
+        prisma.match.findUnique.mockResolvedValue({
+          id: MATCH_ID,
+          userAId: USER_ID,
+          userBId: OTHER_USER_ID,
+          firstMessageSentAt: null,
+          firstMessageExpiresAt: new Date(Date.now() + 60 * 60 * 1000),
+          firstMessageExtendedAt: new Date(),
+        });
+        prisma.user.update.mockResolvedValue({ giftTokenBalance: 60 });
+        prisma.match.update.mockResolvedValue({});
+
+        const result = await service.purchasePowerUp(USER_ID, 'extend-match-timer', MATCH_ID);
+
+        expect(prisma.user.update).toHaveBeenCalledWith({
+          where: { id: USER_ID },
+          data: { giftTokenBalance: { decrement: 40 } },
+        });
+        expect(prisma.match.update).toHaveBeenCalledWith({
+          where: { id: MATCH_ID },
+          data: { firstMessageExpiresAt: expect.any(Date), firstMessageExtendedAt: expect.any(Date) },
+        });
+        expect(result).toEqual({ coinBalance: 60, powerUpId: 'extend-match-timer' });
       });
     });
   });
