@@ -55,6 +55,16 @@ class _EventsScreenState extends State<EventsScreen> {
     }
   }
 
+  Future<void> _checkIn(LocalEvent event) async {
+    setState(() => _errorText = null);
+    try {
+      await widget.eventsApi.checkIn(event.id);
+      await _load();
+    } on EventsApiException catch (e) {
+      setState(() => _errorText = e.message);
+    }
+  }
+
   String _subtitle(LocalEvent event) {
     final date = event.startsAt;
     final dateLabel = '${date.year}-${date.month.toString().padLeft(2, '0')}-'
@@ -84,12 +94,33 @@ class _EventsScreenState extends State<EventsScreen> {
                           itemCount: _events.length,
                           itemBuilder: (context, index) {
                             final event = _events[index];
-                            return ListTile(
-                              title: Text(event.title),
-                              subtitle: Text(_subtitle(event)),
-                              trailing: ElevatedButton(
-                                onPressed: () => _toggleRsvp(event),
-                                child: Text(event.isRsvped ? 'Cancel RSVP' : 'RSVP'),
+                            return Card(
+                              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              child: Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(event.title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                    const SizedBox(height: 4),
+                                    Text(_subtitle(event)),
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        if (event.isRsvped)
+                                          TextButton(
+                                            onPressed: event.isCheckedIn ? null : () => _checkIn(event),
+                                            child: Text(event.isCheckedIn ? 'Checked in' : 'Check in'),
+                                          ),
+                                        ElevatedButton(
+                                          onPressed: () => _toggleRsvp(event),
+                                          child: Text(event.isRsvped ? 'Cancel RSVP' : 'RSVP'),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
                               ),
                             );
                           },

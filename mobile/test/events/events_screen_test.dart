@@ -29,7 +29,7 @@ void main() {
           '[{"id":"event-1","title":"Singles Mixer","description":null,'
           '"location":"Downtown Bar","category":"MIXER",'
           '"startsAt":"2026-02-01T18:00:00.000Z","distanceKm":2.5,'
-          '"rsvpCount":3,"isRsvped":false}]',
+          '"rsvpCount":3,"isRsvped":false,"checkedInCount":0,"isCheckedIn":false}]',
           200,
           headers: {'content-type': 'application/json'},
         ),
@@ -43,6 +43,7 @@ void main() {
     expect(find.textContaining('Downtown Bar'), findsOneWidget);
     expect(find.textContaining('2.5 km away'), findsOneWidget);
     expect(find.text('RSVP'), findsOneWidget);
+    expect(find.text('Check in'), findsNothing);
   });
 
   testWidgets('RSVPing then shows Cancel RSVP', (tester) async {
@@ -60,7 +61,8 @@ void main() {
           '[{"id":"event-1","title":"Singles Mixer","description":null,'
           '"location":"Downtown Bar","category":"MIXER",'
           '"startsAt":"2026-02-01T18:00:00.000Z","distanceKm":null,'
-          '"rsvpCount":${rsvped ? 1 : 0},"isRsvped":$rsvped}]',
+          '"rsvpCount":${rsvped ? 1 : 0},"isRsvped":$rsvped,'
+          '"checkedInCount":0,"isCheckedIn":false}]',
           200,
           headers: {'content-type': 'application/json'},
         );
@@ -75,5 +77,38 @@ void main() {
 
     expect(rsvpRequest, isNotNull);
     expect(find.text('Cancel RSVP'), findsOneWidget);
+    expect(find.text('Check in'), findsOneWidget);
+  });
+
+  testWidgets('checking in shows Checked in and disables the button', (tester) async {
+    var checkedIn = false;
+    final api = EventsApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.method == 'POST' && request.url.path == '/events/event-1/check-in') {
+          checkedIn = true;
+          return http.Response('', 200);
+        }
+        return http.Response(
+          '[{"id":"event-1","title":"Singles Mixer","description":null,'
+          '"location":"Downtown Bar","category":"MIXER",'
+          '"startsAt":"2026-02-01T18:00:00.000Z","distanceKm":null,'
+          '"rsvpCount":1,"isRsvped":true,'
+          '"checkedInCount":${checkedIn ? 1 : 0},"isCheckedIn":$checkedIn}]',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: EventsScreen(eventsApi: api)));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Check in'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Checked in'), findsOneWidget);
+    final button = tester.widget<TextButton>(find.widgetWithText(TextButton, 'Checked in'));
+    expect(button.onPressed, isNull);
   });
 }

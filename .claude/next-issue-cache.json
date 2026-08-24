@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-24T14:55:20.392Z",
+  "generated_at": "2026-08-24T16:33:08.565Z",
   "snapshot": [
     {
       "number": 454,
@@ -1675,18 +1675,9 @@
       "number": 120,
       "title": "Event RSVP & Local Mixer Board",
       "updatedAt": "2026-08-10T20:41:04Z"
-    },
-    {
-      "number": 119,
-      "title": "Custom Relationship Boundary Badges",
-      "updatedAt": "2026-08-10T20:41:02Z"
     }
   ],
   "queue": [
-    {
-      "number": 120,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 121,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
