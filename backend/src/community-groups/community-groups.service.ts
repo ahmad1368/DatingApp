@@ -1,11 +1,21 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { getBlockedUserIds } from '../blocking/blocking.utils';
+import { calculateAge } from '../discovery/utils/age';
 import {
   COMMUNITY_GROUPS,
+  COMMUNITY_GROUP_MEMBER_LIMIT,
   CommunityGroup,
   findCommunityGroup,
   MAX_COMMUNITY_GROUP_MEMBERSHIPS,
 } from './community-groups.constants';
+
+export interface CommunityGroupMemberView {
+  id: string;
+  name: string | null;
+  age: number | null;
+  profilePhotoUrl: string | null;
+}
 
 @Injectable()
 export class CommunityGroupsService {
@@ -52,6 +62,38 @@ export class CommunityGroupsService {
       select: { communityGroupIds: true },
     });
     return updated.communityGroupIds;
+  }
+
+  /**
+   * Browses other members of one community group (e.g. everyone in
+   * "Outdoor Adventurers"), so users can find people active within a
+   * specific niche rather than only their broader swipe deck - excludes
+   * blocked users, incomplete profiles, and snoozed members the same way
+   * DiscoveryService.getDeck does.
+   */
+  async getGroupMembers(userId: string, groupId: string): Promise<CommunityGroupMemberView[]> {
+    if (!findCommunityGroup(groupId)) {
+      throw new BadRequestException(`Unknown community group: ${groupId}`);
+    }
+
+    const blockedIds = await getBlockedUserIds(this.prisma, userId);
+    const now = new Date();
+    const members = await this.prisma.user.findMany({
+      where: {
+        id: { notIn: [userId, ...blockedIds] },
+        communityGroupIds: { has: groupId },
+        onboardingCompletedAt: { not: null },
+        OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: now } }],
+      },
+      take: COMMUNITY_GROUP_MEMBER_LIMIT,
+    });
+
+    return members.map((member) => ({
+      id: member.id,
+      name: member.name,
+      age: member.dateOfBirth ? calculateAge(member.dateOfBirth, now) : null,
+      profilePhotoUrl: member.profilePhotoUrl,
+    }));
   }
 
   async leaveGroup(userId: string, groupId: string): Promise<string[]> {

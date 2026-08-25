@@ -101,4 +101,37 @@ void main() {
       expect(groups, isEmpty);
     });
   });
+
+  group('CommunityGroupsApi.fetchGroupMembers', () {
+    test('sends the bearer token and parses the member list', () async {
+      final api = CommunityGroupsApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.headers['Authorization'], 'Bearer a-jwt');
+          expect(request.url.path, '/community-groups/book-lovers/members');
+          return _jsonResponse(
+            '[{"id":"user-2","name":"Jane","age":29,"profilePhotoUrl":"jane.jpg"}]',
+            200,
+          );
+        }),
+      );
+
+      final members = await api.fetchGroupMembers('book-lovers');
+
+      expect(members, hasLength(1));
+      expect(members.first.id, 'user-2');
+      expect(members.first.name, 'Jane');
+      expect(members.first.age, 29);
+      expect(members.first.profilePhotoUrl, 'jane.jpg');
+    });
+
+    test('throws CommunityGroupsApiException on a non-200 response', () async {
+      final api = CommunityGroupsApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => _jsonResponse('{"message":"boom"}', 400)),
+      );
+
+      expect(() => api.fetchGroupMembers('book-lovers'), throwsA(isA<CommunityGroupsApiException>()));
+    });
+  });
 }
