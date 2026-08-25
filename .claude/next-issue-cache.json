@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-25T03:55:44.962Z",
+  "generated_at": "2026-08-25T04:21:03.447Z",
   "snapshot": [
     {
       "number": 454,
@@ -1655,33 +1655,9 @@
       "number": 124,
       "title": "Granular Distance Radius Slider",
       "updatedAt": "2026-08-10T20:41:12Z"
-    },
-    {
-      "number": 123,
-      "title": "Speed Dating Live Video Match Queue",
-      "updatedAt": "2026-08-10T20:41:10Z"
-    },
-    {
-      "number": 122,
-      "title": "Interactive Video Prompt Responses",
-      "updatedAt": "2026-08-10T20:41:08Z"
-    },
-    {
-      "number": 121,
-      "title": "Incognito Profile Ghosting Protection",
-      "updatedAt": "2026-08-10T20:41:06Z"
-    },
-    {
-      "number": 120,
-      "title": "Event RSVP & Local Mixer Board",
-      "updatedAt": "2026-08-10T20:41:04Z"
     }
   ],
   "queue": [
-    {
-      "number": 124,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 125,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"

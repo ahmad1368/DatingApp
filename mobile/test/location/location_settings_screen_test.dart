@@ -100,4 +100,39 @@ void main() {
     expect(requestedBodies, contains('{"radiusKm":50}'));
     expect(find.text('Search radius saved.'), findsOneWidget);
   });
+
+  testWidgets('switching to miles converts the displayed radius and persists the unit', (tester) async {
+    final requestedBodies = <String>[];
+    final api = LocationApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        requestedBodies.add(request.body);
+        if (request.url.path == '/location/radius/unit') {
+          return http.Response(
+            '{"searchRadiusKm":50,"autoExpandRadiusEnabled":true,"distanceUnit":"MI"}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response('[]', 200, headers: {'content-type': 'application/json'});
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LocationSettingsScreen(
+          locationApi: api,
+          currentPositionProvider: () async => const Coordinates(latitude: 0, longitude: 0),
+        ),
+      ),
+    );
+
+    expect(find.text('Search radius: 50 km'), findsOneWidget);
+
+    await tester.tap(find.text('mi'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Search radius: 31 mi'), findsOneWidget);
+    expect(requestedBodies, contains('{"unit":"MI"}'));
+  });
 }

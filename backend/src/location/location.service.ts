@@ -11,6 +11,7 @@ import {
   CROSSING_RADIUS_KM,
   CROSSING_RECENCY_MINUTES,
   DEFAULT_SEARCH_RADIUS_KM,
+  DistanceUnit,
 } from './location.constants';
 import { haversineDistanceKm } from './utils/haversine';
 
@@ -27,6 +28,7 @@ export interface UpdateSearchRadiusResult {
 export interface RadiusSettings {
   searchRadiusKm: number;
   autoExpandRadiusEnabled: boolean;
+  distanceUnit: DistanceUnit;
 }
 
 export interface NearbyUser {
@@ -82,13 +84,13 @@ export class LocationService {
   async getRadiusSettings(userId: string): Promise<RadiusSettings> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { searchRadiusKm: true, autoExpandRadiusEnabled: true },
+      select: { searchRadiusKm: true, autoExpandRadiusEnabled: true, distanceUnit: true },
     });
     if (!user) {
       throw new NotFoundException('User not found.');
     }
 
-    return { searchRadiusKm: user.searchRadiusKm, autoExpandRadiusEnabled: user.autoExpandRadiusEnabled };
+    return this.toRadiusSettings(user);
   }
 
   /**
@@ -103,7 +105,32 @@ export class LocationService {
       data: { autoExpandRadiusEnabled: enabled },
     });
 
-    return { searchRadiusKm: user.searchRadiusKm, autoExpandRadiusEnabled: user.autoExpandRadiusEnabled };
+    return this.toRadiusSettings(user);
+  }
+
+  /**
+   * The stored search radius always stays in km (see updateSearchRadius) -
+   * this only remembers which unit the client should render/accept it in.
+   */
+  async setDistanceUnit(userId: string, unit: DistanceUnit): Promise<RadiusSettings> {
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: { distanceUnit: unit },
+    });
+
+    return this.toRadiusSettings(user);
+  }
+
+  private toRadiusSettings(user: {
+    searchRadiusKm: number;
+    autoExpandRadiusEnabled: boolean;
+    distanceUnit: string;
+  }): RadiusSettings {
+    return {
+      searchRadiusKm: user.searchRadiusKm,
+      autoExpandRadiusEnabled: user.autoExpandRadiusEnabled,
+      distanceUnit: user.distanceUnit as DistanceUnit,
+    };
   }
 
   async findNearbyUsers(userId: string): Promise<NearbyUser[]> {

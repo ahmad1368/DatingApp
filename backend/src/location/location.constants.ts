@@ -2,6 +2,23 @@ export const DEFAULT_SEARCH_RADIUS_KM = 50;
 export const MIN_SEARCH_RADIUS_KM = 1;
 export const MAX_SEARCH_RADIUS_KM = 500;
 
+// The slider's underlying value always stays in km (see MIN/MAX_SEARCH_RADIUS_KM
+// above); DISTANCE_UNITS is only a per-user display/input preference so the
+// client can render and accept whole miles instead.
+export const DISTANCE_UNITS = ['KM', 'MI'] as const;
+export type DistanceUnit = (typeof DISTANCE_UNITS)[number];
+export const DEFAULT_DISTANCE_UNIT: DistanceUnit = 'KM';
+
+const KM_PER_MILE = 1.60934;
+
+export function kmToMiles(km: number): number {
+  return km / KM_PER_MILE;
+}
+
+export function milesToKm(miles: number): number {
+  return miles * KM_PER_MILE;
+}
+
 // "Crossing paths": two users are considered to have physically crossed
 // when they're both within this radius of each other...
 export const CROSSING_RADIUS_KM = 0.1;

@@ -43,11 +43,26 @@ class LocationSettingsScreen extends StatefulWidget {
 }
 
 class _LocationSettingsScreenState extends State<LocationSettingsScreen> {
+  static const double _kmPerMile = 1.60934;
+
   double _radiusKm = 50;
+  String _distanceUnit = 'KM';
   List<NearbyUser> _nearbyUsers = const [];
   bool _isBusy = false;
   String? _errorText;
   String? _statusText;
+
+  Future<void> _setDistanceUnit(String unit) async {
+    if (unit == _distanceUnit) {
+      return;
+    }
+    setState(() => _distanceUnit = unit);
+    try {
+      await widget.locationApi.setDistanceUnit(unit);
+    } on LocationApiException catch (e) {
+      setState(() => _errorText = e.message);
+    }
+  }
 
   Future<void> _shareLocation() async {
     setState(() {
@@ -106,6 +121,13 @@ class _LocationSettingsScreenState extends State<LocationSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isMiles = _distanceUnit == 'MI';
+    final sliderMin = 1.0;
+    final sliderMax = isMiles ? 500 / _kmPerMile : 500.0;
+    final sliderValue = (isMiles ? _radiusKm / _kmPerMile : _radiusKm).clamp(sliderMin, sliderMax);
+    final displayValue = sliderValue.round();
+    final unitLabel = isMiles ? 'mi' : 'km';
+
     return Scaffold(
       appBar: AppBar(title: const Text('Location & discovery radius')),
       body: Column(
@@ -136,14 +158,31 @@ class _LocationSettingsScreenState extends State<LocationSettingsScreen> {
                   Text(_statusText!),
                 ],
                 const SizedBox(height: 24),
-                Text('Search radius: ${_radiusKm.round()} km'),
+                Row(
+                  children: [
+                    ChoiceChip(
+                      label: const Text('km'),
+                      selected: !isMiles,
+                      onSelected: (_) => _setDistanceUnit('KM'),
+                    ),
+                    const SizedBox(width: 8),
+                    ChoiceChip(
+                      label: const Text('mi'),
+                      selected: isMiles,
+                      onSelected: (_) => _setDistanceUnit('MI'),
+                    ),
+                  ],
+                ),
+                Text('Search radius: $displayValue $unitLabel'),
                 Slider(
-                  value: _radiusKm,
-                  min: 1,
-                  max: 500,
-                  divisions: 499,
-                  label: '${_radiusKm.round()} km',
-                  onChanged: (value) => setState(() => _radiusKm = value),
+                  value: sliderValue,
+                  min: sliderMin,
+                  max: sliderMax,
+                  divisions: (sliderMax - sliderMin).round(),
+                  label: '$displayValue $unitLabel',
+                  onChanged: (value) => setState(() {
+                    _radiusKm = isMiles ? value * _kmPerMile : value;
+                  }),
                 ),
                 ElevatedButton(
                   onPressed: _isBusy ? null : _saveRadius,
