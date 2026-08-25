@@ -601,6 +601,45 @@ describe('MessagingService', () => {
       expect(imageModerator.moderate).toHaveBeenCalledWith('https://example.com/photo.jpg');
     });
 
+    it('does not blur when the recipient has opted out of auto-blur', async () => {
+      mockMatch();
+      prisma.user.findUnique.mockImplementation(({ where }: { where: { id: string } }) => {
+        if (where.id === WOMAN_ID) {
+          return Promise.resolve({ genderIdentities: ['Woman'] });
+        }
+        return Promise.resolve({ genderIdentities: ['Man'], autoBlurIncomingMedia: false });
+      });
+      prisma.message.create.mockResolvedValue({
+        id: 'message-5',
+        senderId: WOMAN_ID,
+        contentType: 'IMAGE',
+        content: null,
+        mediaUrl: 'https://example.com/photo.jpg',
+        isBlurred: false,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const result = await service.sendMediaMessage(
+        WOMAN_ID,
+        MATCH_ID,
+        'IMAGE',
+        'https://example.com/photo.jpg',
+      );
+
+      expect(prisma.message.create).toHaveBeenCalledWith({
+        data: {
+          matchId: MATCH_ID,
+          senderId: WOMAN_ID,
+          contentType: 'IMAGE',
+          mediaUrl: 'https://example.com/photo.jpg',
+          isBlurred: false,
+          moderationFlagged: false,
+          moderationCategories: [],
+        },
+      });
+      expect(result.isBlurred).toBe(false);
+    });
+
     it('flags an image the moderator detects as explicit', async () => {
       mockMatch();
       mockUsers({ [WOMAN_ID]: ['Woman'], [MAN_ID]: ['Man'] });
@@ -698,6 +737,40 @@ describe('MessagingService', () => {
       });
       expect(result.isBlurred).toBe(false);
       expect(imageModerator.moderate).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getMediaBlurPreference', () => {
+    it('throws NotFoundException when the user does not exist', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(service.getMediaBlurPreference(WOMAN_ID)).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('returns the stored preference', async () => {
+      prisma.user.findUnique.mockResolvedValue({ autoBlurIncomingMedia: false });
+
+      const result = await service.getMediaBlurPreference(WOMAN_ID);
+
+      expect(prisma.user.findUnique).toHaveBeenCalledWith({
+        where: { id: WOMAN_ID },
+        select: { autoBlurIncomingMedia: true },
+      });
+      expect(result).toEqual({ autoBlurIncomingMedia: false });
+    });
+  });
+
+  describe('setMediaBlurPreference', () => {
+    it('persists the preference', async () => {
+      prisma.user.update.mockResolvedValue({ autoBlurIncomingMedia: false });
+
+      const result = await service.setMediaBlurPreference(WOMAN_ID, false);
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: WOMAN_ID },
+        data: { autoBlurIncomingMedia: false },
+      });
+      expect(result).toEqual({ autoBlurIncomingMedia: false });
     });
   });
 

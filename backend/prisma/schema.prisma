@@ -90,6 +90,7 @@ model User {
   snoozedUntil                          DateTime?
   snoozeStatusMessage                   String?
   readReceiptsEnabled                   Boolean   @default(true)
+  autoBlurIncomingMedia                 Boolean   @default(true)
   bonusSuperLikes                       Int       @default(0)
   // A la carte "Extra Profile Views" power-up: widens the very next
   // getDeck() fetch by this many extra candidates, then resets to 0 - see

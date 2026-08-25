@@ -766,6 +766,67 @@ void main() {
     });
   });
 
+  group('MessagingApi.setMediaBlurPreference', () {
+    test('sends a PUT with the enabled flag and parses the result', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'PUT');
+          expect(request.url.path, '/matches/media-blur-preference');
+          expect(request.body, '{"enabled":false}');
+          return http.Response(
+            '{"autoBlurIncomingMedia":false}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final result = await api.setMediaBlurPreference(false);
+
+      expect(result, isFalse);
+    });
+
+    test('throws MessagingApiException on a non-200 response', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => http.Response('', 500)),
+      );
+
+      expect(() => api.setMediaBlurPreference(true), throwsA(isA<MessagingApiException>()));
+    });
+  });
+
+  group('MessagingApi.fetchMediaBlurPreference', () {
+    test('sends a GET and parses the result', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'GET');
+          expect(request.url.path, '/matches/media-blur-preference');
+          return http.Response(
+            '{"autoBlurIncomingMedia":true}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final result = await api.fetchMediaBlurPreference();
+
+      expect(result, isTrue);
+    });
+
+    test('throws MessagingApiException on a non-200 response', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => http.Response('', 500)),
+      );
+
+      expect(() => api.fetchMediaBlurPreference(), throwsA(isA<MessagingApiException>()));
+    });
+  });
+
   group('MessagingApi.recordActivity', () {
     test('sends a PUT heartbeat and parses the timestamp', () async {
       final api = MessagingApi(

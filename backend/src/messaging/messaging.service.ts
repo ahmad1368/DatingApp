@@ -81,6 +81,10 @@ export interface ReadReceiptsResult {
   readReceiptsEnabled: boolean;
 }
 
+export interface MediaBlurPreferenceResult {
+  autoBlurIncomingMedia: boolean;
+}
+
 export interface MatchNoteView {
   content: string | null;
   updatedAt: string | null;
@@ -228,12 +232,14 @@ export class MessagingService {
 
   /**
    * Sends an image or GIF in-chat, subject to the same match-expiry and
-   * women-first-message rules as a text message. Images default to
-   * blurred; the recipient must explicitly reveal them via [revealImage].
-   * Images also run through on-device-style automatic explicit-content
-   * detection so the reveal prompt can carry an extra warning - a failure
-   * of that check (e.g. the moderation service being unavailable) doesn't
-   * block sending, it just leaves the image unflagged.
+   * women-first-message rules as a text message. Images are blurred by
+   * default; the recipient must explicitly reveal them via [revealImage] -
+   * unless the recipient has opted out via [setMediaBlurPreference], in
+   * which case their incoming images arrive already revealed. Images also
+   * run through on-device-style automatic explicit-content detection so
+   * the reveal prompt can carry an extra warning - a failure of that check
+   * (e.g. the moderation service being unavailable) doesn't block sending,
+   * it just leaves the image unflagged.
    */
   async sendMediaMessage(
     userId: string,
@@ -246,13 +252,15 @@ export class MessagingService {
     const moderation =
       contentType === 'IMAGE' ? await this.moderateImageSafely(mediaUrl) : null;
 
+    const isBlurred = contentType === 'IMAGE' && (await this.recipientWantsAutoBlur(userId, match));
+
     const message = await this.prisma.message.create({
       data: {
         matchId,
         senderId: userId,
         contentType,
         mediaUrl,
-        isBlurred: contentType === 'IMAGE',
+        isBlurred,
         moderationFlagged: moderation?.flagged ?? false,
         moderationCategories: moderation?.categories ?? [],
       },
@@ -323,6 +331,15 @@ export class MessagingService {
     } catch {
       return null;
     }
+  }
+
+  private async recipientWantsAutoBlur(senderId: string, match: MatchRecord): Promise<boolean> {
+    const recipientId = match.userAId === senderId ? match.userBId : match.userAId;
+    const recipient = await this.prisma.user.findUnique({
+      where: { id: recipientId },
+      select: { autoBlurIncomingMedia: true },
+    });
+    return recipient?.autoBlurIncomingMedia ?? true;
   }
 
   async revealImage(userId: string, matchId: string, messageId: string): Promise<MessageView> {
@@ -513,6 +530,33 @@ export class MessagingService {
     });
 
     return { readReceiptsEnabled: updated.readReceiptsEnabled };
+  }
+
+  async getMediaBlurPreference(userId: string): Promise<MediaBlurPreferenceResult> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { autoBlurIncomingMedia: true },
+    });
+    if (!user) {
+      throw new NotFoundException('User not found.');
+    }
+
+    return { autoBlurIncomingMedia: user.autoBlurIncomingMedia };
+  }
+
+  /**
+   * Consent toggle: when disabled, images this user receives arrive already
+   * revealed instead of blurred-until-tapped (see [sendMediaMessage]). Only
+   * controls media sent TO this user - it has no effect on how this user's
+   * own outgoing images appear to others.
+   */
+  async setMediaBlurPreference(userId: string, enabled: boolean): Promise<MediaBlurPreferenceResult> {
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: { autoBlurIncomingMedia: enabled },
+    });
+
+    return { autoBlurIncomingMedia: updated.autoBlurIncomingMedia };
   }
 
   /**
