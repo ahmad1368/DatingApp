@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-25T05:07:11.484Z",
+  "generated_at": "2026-08-25T05:21:01.884Z",
   "snapshot": [
     {
       "number": 454,
@@ -1625,23 +1625,9 @@
       "number": 130,
       "title": "Customized Relationship Intent Filter",
       "updatedAt": "2026-08-10T20:41:24Z"
-    },
-    {
-      "number": 129,
-      "title": "Shared Community Interest Groups",
-      "updatedAt": "2026-08-10T20:41:22Z"
-    },
-    {
-      "number": 128,
-      "title": "Verification Badge Status Filter",
-      "updatedAt": "2026-08-10T20:41:20Z"
     }
   ],
   "queue": [
-    {
-      "number": 130,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 131,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"

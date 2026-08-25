@@ -9,6 +9,7 @@ http.Response _jsonResponse(String body, int status) =>
 
 String _fullFiltersJson({
   String relationshipGoals = '[]',
+  String relationshipDesires = '[]',
   bool verifiedOnly = false,
   String communityGroups = '[]',
 }) =>
@@ -32,7 +33,7 @@ String _fullFiltersJson({
   "filterWantsChildren": [],
   "filterRelationshipGoals": $relationshipGoals,
   "filterKinkTags": [],
-  "filterRelationshipDesires": [],
+  "filterRelationshipDesires": $relationshipDesires,
   "filterSharedInterestsOnly": false,
   "filterVerifiedOnly": $verifiedOnly,
   "filterCommunityGroups": $communityGroups
@@ -62,6 +63,37 @@ void main() {
       );
 
       expect(() => api.fetchRelationshipGoalOptions(), throwsA(isA<LifestyleFiltersApiException>()));
+    });
+  });
+
+  group('LifestyleFiltersApi.fetchRelationshipDesireOptions', () {
+    test('parses the relationship desire catalog', () async {
+      final api = LifestyleFiltersApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.url.path, '/profile/lifestyle/catalog');
+          return _jsonResponse(
+            '{"relationshipDesires":["Casual Dating","Long-Term Relationship","Marriage"]}',
+            200,
+          );
+        }),
+      );
+
+      final options = await api.fetchRelationshipDesireOptions();
+
+      expect(options, ['Casual Dating', 'Long-Term Relationship', 'Marriage']);
+    });
+
+    test('throws LifestyleFiltersApiException on a non-200 response', () async {
+      final api = LifestyleFiltersApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => _jsonResponse('{"message":"boom"}', 500)),
+      );
+
+      expect(
+        () => api.fetchRelationshipDesireOptions(),
+        throwsA(isA<LifestyleFiltersApiException>()),
+      );
     });
   });
 
@@ -171,6 +203,28 @@ void main() {
 
       expect(putRequest!.body, contains('"filterCommunityGroups":["book-lovers"]'));
       expect(updated.filterCommunityGroups, ['book-lovers']);
+    });
+
+    test('sends the updated filterRelationshipDesires list', () async {
+      http.Request? putRequest;
+      final api = LifestyleFiltersApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          putRequest = request;
+          return _jsonResponse(_fullFiltersJson(relationshipDesires: '["Marriage"]'), 200);
+        }),
+      );
+      final current = await LifestyleFiltersApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => _jsonResponse(_fullFiltersJson(), 200)),
+      ).fetchFilters();
+
+      final updated = await api.setFilters(
+        current.copyWith(filterRelationshipDesires: ['Marriage']),
+      );
+
+      expect(putRequest!.body, contains('"filterRelationshipDesires":["Marriage"]'));
+      expect(updated.filterRelationshipDesires, ['Marriage']);
     });
   });
 }
