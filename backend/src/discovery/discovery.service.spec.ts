@@ -959,6 +959,34 @@ describe('DiscoveryService', () => {
       expect(deck.map((card) => card.id)).toEqual(['trending', 'nearby']);
     });
 
+    it('lets a raised proximity weight (from deck feedback) outweigh a trending bonus', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: 0,
+        longitude: 0,
+        discoveryProximityWeight: 3,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+      });
+      prisma.swipe.findMany
+        .mockResolvedValueOnce([]) // not swiped on anyone yet
+        .mockResolvedValueOnce([]) // no likers
+        .mockResolvedValueOnce(
+          Array.from({ length: 10 }, () => ({ targetUserId: 'trending' })),
+        ); // enough recent right-swipes to hit the trending bonus cap
+      prisma.user.findMany.mockResolvedValue([
+        { id: 'nearby', name: 'Near', dateOfBirth: null, profilePhotoUrl: null, interests: [], relationshipGoal: null, latitude: 0.1, longitude: 0 },
+        { id: 'trending', name: 'Trending', dateOfBirth: null, profilePhotoUrl: null, interests: [], relationshipGoal: null, latitude: 0.3, longitude: 0 },
+      ]);
+
+      const deck = await service.getDeck(USER_ID);
+
+      expect(deck.map((card) => card.id)).toEqual(['nearby', 'trending']);
+    });
+
     it('excludes a candidate outside the search radius when enough others are nearby', async () => {
       prisma.user.findUnique.mockResolvedValue({
         id: USER_ID,
@@ -2098,6 +2126,52 @@ describe('DiscoveryService', () => {
         data: { activeMode: 'BIZZ' },
       });
       expect(result).toEqual({ activeMode: 'BIZZ' });
+    });
+  });
+
+  describe('submitDeckFeedback', () => {
+    it('throws NotFoundException when the user does not exist', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(service.submitDeckFeedback(USER_ID, 'BAD')).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('raises the proximity weight for a BAD rating', async () => {
+      prisma.user.findUnique.mockResolvedValue({ discoveryProximityWeight: 1 });
+      prisma.user.update.mockResolvedValue({ discoveryProximityWeight: 1.3 });
+
+      const result = await service.submitDeckFeedback(USER_ID, 'BAD');
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: USER_ID },
+        data: { discoveryProximityWeight: 1.3 },
+      });
+      expect(result).toEqual({ discoveryProximityWeight: 1.3 });
+    });
+
+    it('lowers the proximity weight for a GOOD rating', async () => {
+      prisma.user.findUnique.mockResolvedValue({ discoveryProximityWeight: 1 });
+      prisma.user.update.mockResolvedValue({ discoveryProximityWeight: 0.9 });
+
+      const result = await service.submitDeckFeedback(USER_ID, 'GOOD');
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: USER_ID },
+        data: { discoveryProximityWeight: 0.9 },
+      });
+      expect(result).toEqual({ discoveryProximityWeight: 0.9 });
+    });
+
+    it('never pushes the weight past the maximum across repeated BAD ratings', async () => {
+      prisma.user.findUnique.mockResolvedValue({ discoveryProximityWeight: 3 });
+      prisma.user.update.mockResolvedValue({ discoveryProximityWeight: 3 });
+
+      await service.submitDeckFeedback(USER_ID, 'BAD');
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: USER_ID },
+        data: { discoveryProximityWeight: 3 },
+      });
     });
   });
 

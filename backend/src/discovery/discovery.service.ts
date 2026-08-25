@@ -8,12 +8,15 @@ import { computeFirstMessageExpiresAt, findIcebreakerPrompt } from '../messaging
 import { NotificationsService } from '../notifications/notifications.service';
 import { DEFAULT_SEARCH_RADIUS_KM, MAX_SEARCH_RADIUS_KM } from '../location/location.constants';
 import {
+  applyDeckFeedback,
   computeBoostExpiresAt,
   computeDefaultSnoozeUntil,
   computeHappyHourWindow,
   computeMaxSnoozeUntil,
   DAILY_SUPER_LIKE_LIMIT,
+  DeckFeedbackRating,
   DEFAULT_DECK_SIZE,
+  DEFAULT_PROXIMITY_WEIGHT,
   HAPPY_HOUR_BONUS_SUPER_LIKES,
   HAPPY_HOUR_VIEW_MULTIPLIER,
   isHappyHour,
@@ -88,6 +91,10 @@ export interface BoostStatus {
   viewCount: number;
   tier: 'STANDARD' | 'SUPER' | null;
   viewMultiplier: number;
+}
+
+export interface DeckFeedbackResult {
+  discoveryProximityWeight: number;
 }
 
 export interface HappyHourStatus {
@@ -233,6 +240,7 @@ export class DiscoveryService {
       radiusFilteredPool,
       origin,
       Math.max(effectiveDeckSize - priorityCandidates.length, 0),
+      currentUser.discoveryProximityWeight ?? DEFAULT_PROXIMITY_WEIGHT,
     );
 
     const candidates = [...priorityCandidates, ...remainingCandidates];
@@ -923,6 +931,34 @@ export class DiscoveryService {
    * viewer's, so the three modes stay separate without needing parallel
    * swipe/match data.
    */
+  /**
+   * Algorithm-driven match quality feedback: the client prompts for a
+   * rating every DECK_FEEDBACK_SWIPE_INTERVAL swipes and submits it here.
+   * See applyDeckFeedback for how a rating nudges this user's proximity
+   * weight, which rankRemainingCandidates applies on the next getDeck call.
+   */
+  async submitDeckFeedback(userId: string, rating: DeckFeedbackRating): Promise<DeckFeedbackResult> {
+    const currentUser = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { discoveryProximityWeight: true },
+    });
+    if (!currentUser) {
+      throw new NotFoundException('User not found.');
+    }
+
+    const discoveryProximityWeight = applyDeckFeedback(
+      currentUser.discoveryProximityWeight ?? DEFAULT_PROXIMITY_WEIGHT,
+      rating,
+    );
+
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: { discoveryProximityWeight },
+    });
+
+    return { discoveryProximityWeight: updated.discoveryProximityWeight };
+  }
+
   async setActiveMode(userId: string, mode: string): Promise<ActiveModeResult> {
     const updated = await this.prisma.user.update({
       where: { id: userId },
@@ -993,11 +1029,12 @@ export class DiscoveryService {
   /**
    * Dynamic reordering of the non-priority candidate pool: ranks by
    * proximity (closer scores higher, decaying to 0 by
-   * PROXIMITY_SCORE_DECAY_KM) plus a recent right-swipe "trending" bonus,
-   * then trims to the number of slots actually needed. Re-running this on
-   * every deck fetch is what makes the order genuinely dynamic as the
-   * viewer's location or a candidate's recent engagement changes, rather
-   * than a fixed DB row order.
+   * PROXIMITY_SCORE_DECAY_KM, then scaled by this viewer's proximityWeight -
+   * see submitDeckFeedback/applyDeckFeedback) plus a recent right-swipe
+   * "trending" bonus, then trims to the number of slots actually needed.
+   * Re-running this on every deck fetch is what makes the order genuinely
+   * dynamic as the viewer's location, feedback, or a candidate's recent
+   * engagement changes, rather than a fixed DB row order.
    */
   /**
    * Restricts the "remaining" candidate pool to User.searchRadiusKm. If that
@@ -1047,7 +1084,12 @@ export class DiscoveryService {
 
   private async rankRemainingCandidates<
     T extends { id: string; latitude: number | null; longitude: number | null },
-  >(candidates: T[], origin: { latitude: number | null; longitude: number | null }, limit: number): Promise<T[]> {
+  >(
+    candidates: T[],
+    origin: { latitude: number | null; longitude: number | null },
+    limit: number,
+    proximityWeight: number = DEFAULT_PROXIMITY_WEIGHT,
+  ): Promise<T[]> {
     if (candidates.length === 0 || limit <= 0) {
       return [];
     }
@@ -1069,7 +1111,7 @@ export class DiscoveryService {
     const scored = candidates.map((candidate) => ({
       candidate,
       score:
-        this.proximityScore(origin, candidate) +
+        this.proximityScore(origin, candidate) * proximityWeight +
         Math.min(
           (trendingCounts.get(candidate.id) ?? 0) * TRENDING_BONUS_PER_RIGHT_SWIPE,
           TRENDING_BONUS_CAP,

@@ -165,6 +165,59 @@ void main() {
     expect(find.text('No more profiles nearby. Check back later!'), findsOneWidget);
   });
 
+  testWidgets('prompts for deck feedback after 10 continuous swipes and submits the rating', (
+    tester,
+  ) async {
+    final tenCandidateDeck = jsonEncode([
+      for (var i = 1; i <= 10; i++)
+        {
+          'id': 'user-$i',
+          'name': 'User $i',
+          'age': 25,
+          'profilePhotoUrl': null,
+          'interests': <String>[],
+        },
+    ]);
+    http.Request? feedbackRequest;
+    final api = DiscoveryApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/discovery/deck') {
+          return http.Response(tenCandidateDeck, 200, headers: {'content-type': 'application/json'});
+        }
+        if (request.url.path == '/discovery/deck-feedback') {
+          feedbackRequest = request;
+          return http.Response(
+            '{"discoveryProximityWeight":1.15}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response('{"matched":false}', 200, headers: {'content-type': 'application/json'});
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: SwipeDeckScreen(discoveryApi: api)));
+    await tester.pumpAndSettle();
+
+    for (var i = 0; i < 9; i++) {
+      await tester.tap(find.byIcon(Icons.favorite));
+      await tester.pumpAndSettle();
+    }
+    expect(find.text('How are these matches?'), findsNothing);
+
+    await tester.tap(find.byIcon(Icons.favorite));
+    await tester.pumpAndSettle();
+
+    expect(find.text('How are these matches?'), findsOneWidget);
+
+    await tester.tap(find.text("They're okay"));
+    await tester.pumpAndSettle();
+
+    expect(feedbackRequest, isNotNull);
+    expect(feedbackRequest!.body, '{"rating":"OKAY"}');
+  });
+
   testWidgets('tapping pass records a swipe without a match banner', (tester) async {
     http.Request? capturedRequest;
     final api = DiscoveryApi(
