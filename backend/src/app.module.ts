@@ -38,6 +38,7 @@ import { ProfileCompletionModule } from './profile-completion/profile-completion
 import { NotificationsModule } from './notifications/notifications.module';
 import { AdsModule } from './ads/ads.module';
 import { SpeedDatingModule } from './speed-dating/speed-dating.module';
+import { WorkVerificationModule } from './work-verification/work-verification.module';
 
 @Module({
   imports: [
@@ -80,6 +81,7 @@ import { SpeedDatingModule } from './speed-dating/speed-dating.module';
     NotificationsModule,
     AdsModule,
     SpeedDatingModule,
+    WorkVerificationModule,
   ],
 })
 export class AppModule {}

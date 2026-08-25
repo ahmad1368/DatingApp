@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-25T05:43:54.358Z",
+  "generated_at": "2026-08-25T05:52:20.558Z",
   "snapshot": [
     {
       "number": 454,
@@ -1610,18 +1610,9 @@
       "number": 133,
       "title": "Dynamic Work & Education Verification",
       "updatedAt": "2026-08-10T20:41:30Z"
-    },
-    {
-      "number": 132,
-      "title": "In-Chat Voice Note Speed Controls",
-      "updatedAt": "2026-08-10T20:41:28Z"
     }
   ],
   "queue": [
-    {
-      "number": 133,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 134,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
