@@ -9,7 +9,7 @@ class _FakePlayer implements VoicePlayerController {
   bool stopped = false;
 
   @override
-  Future<void> play(String path) async {
+  Future<void> play(String path, {double speed = 1.0}) async {
     lastPlayedPath = path;
   }
 

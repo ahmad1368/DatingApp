@@ -67,6 +67,8 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
   bool _isSending = false;
   bool _readReceiptsEnabled = true;
   bool _autoBlurMediaEnabled = true;
+  static const _voiceNoteSpeeds = [1.0, 1.25, 1.5, 2.0];
+  final Map<String, double> _voiceNoteSpeedByMessageId = {};
   bool _isRecording = false;
   int _recordedSeconds = 0;
   Timer? _recordTimer;
@@ -474,7 +476,20 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
     if (path == null) {
       return;
     }
-    await widget.player.play(path);
+    await widget.player.play(path, speed: _voiceNoteSpeedByMessageId[message.id] ?? 1.0);
+  }
+
+  /// Cycles this voice note's playback speed through 1x/1.25x/1.5x/2x,
+  /// remembered per message so replaying it uses the last speed picked.
+  void _cycleVoiceNoteSpeed(ChatMessage message) {
+    final current = _voiceNoteSpeedByMessageId[message.id] ?? 1.0;
+    final nextIndex = (_voiceNoteSpeeds.indexOf(current) + 1) % _voiceNoteSpeeds.length;
+    setState(() => _voiceNoteSpeedByMessageId[message.id] = _voiceNoteSpeeds[nextIndex]);
+  }
+
+  String _voiceNoteSpeedLabel(ChatMessage message) {
+    final speed = _voiceNoteSpeedByMessageId[message.id] ?? 1.0;
+    return speed == speed.roundToDouble() ? '${speed.toInt()}x' : '${speed}x';
   }
 
   Future<void> _openGifPicker() async {
@@ -822,6 +837,10 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
               onPressed: () => _playVoiceNote(message),
             ),
             Text('${message.durationSeconds ?? 0}s voice note'),
+            TextButton(
+              onPressed: () => _cycleVoiceNoteSpeed(message),
+              child: Text(_voiceNoteSpeedLabel(message)),
+            ),
           ],
         );
       case 'TEXT':
