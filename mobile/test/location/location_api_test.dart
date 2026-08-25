@@ -66,14 +66,14 @@ void main() {
   });
 
   group('LocationApi.fetchRadiusSettings', () {
-    test('parses the radius and auto-expand preference', () async {
+    test('parses the radius, auto-expand preference, and distance unit', () async {
       final api = LocationApi(
         accessToken: 'a-jwt',
         client: MockClient((request) async {
           expect(request.method, 'GET');
           expect(request.url.path, '/location/radius');
           return http.Response(
-            '{"searchRadiusKm":25,"autoExpandRadiusEnabled":true}',
+            '{"searchRadiusKm":25,"autoExpandRadiusEnabled":true,"distanceUnit":"KM"}',
             200,
             headers: {'content-type': 'application/json'},
           );
@@ -84,6 +84,7 @@ void main() {
 
       expect(settings.searchRadiusKm, 25);
       expect(settings.autoExpandRadiusEnabled, isTrue);
+      expect(settings.distanceUnit, 'KM');
     });
 
     test('throws LocationApiException on a non-200 response', () async {
@@ -105,7 +106,7 @@ void main() {
           expect(request.url.path, '/location/radius/auto-expand');
           expect(request.body, '{"enabled":false}');
           return http.Response(
-            '{"searchRadiusKm":50,"autoExpandRadiusEnabled":false}',
+            '{"searchRadiusKm":50,"autoExpandRadiusEnabled":false,"distanceUnit":"KM"}',
             200,
             headers: {'content-type': 'application/json'},
           );
@@ -124,6 +125,37 @@ void main() {
       );
 
       expect(() => api.setAutoExpandRadius(true), throwsA(isA<LocationApiException>()));
+    });
+  });
+
+  group('LocationApi.setDistanceUnit', () {
+    test('sends the unit and parses the updated settings', () async {
+      final api = LocationApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'PUT');
+          expect(request.url.path, '/location/radius/unit');
+          expect(request.body, '{"unit":"MI"}');
+          return http.Response(
+            '{"searchRadiusKm":50,"autoExpandRadiusEnabled":true,"distanceUnit":"MI"}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final settings = await api.setDistanceUnit('MI');
+
+      expect(settings.distanceUnit, 'MI');
+    });
+
+    test('throws LocationApiException on a non-200 response', () async {
+      final api = LocationApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => http.Response('', 500)),
+      );
+
+      expect(() => api.setDistanceUnit('MI'), throwsA(isA<LocationApiException>()));
     });
   });
 

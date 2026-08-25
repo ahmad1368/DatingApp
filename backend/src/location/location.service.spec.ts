@@ -189,22 +189,30 @@ describe('LocationService', () => {
       await expect(service.getRadiusSettings(USER_ID)).rejects.toBeInstanceOf(NotFoundException);
     });
 
-    it('returns the search radius and auto-expand preference', async () => {
-      prisma.user.findUnique.mockResolvedValue({ searchRadiusKm: 25, autoExpandRadiusEnabled: false });
+    it('returns the search radius, auto-expand preference, and distance unit', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        searchRadiusKm: 25,
+        autoExpandRadiusEnabled: false,
+        distanceUnit: 'MI',
+      });
 
       const result = await service.getRadiusSettings(USER_ID);
 
       expect(prisma.user.findUnique).toHaveBeenCalledWith({
         where: { id: USER_ID },
-        select: { searchRadiusKm: true, autoExpandRadiusEnabled: true },
+        select: { searchRadiusKm: true, autoExpandRadiusEnabled: true, distanceUnit: true },
       });
-      expect(result).toEqual({ searchRadiusKm: 25, autoExpandRadiusEnabled: false });
+      expect(result).toEqual({ searchRadiusKm: 25, autoExpandRadiusEnabled: false, distanceUnit: 'MI' });
     });
   });
 
   describe('setAutoExpandRadius', () => {
     it('persists the preference', async () => {
-      prisma.user.update.mockResolvedValue({ searchRadiusKm: 50, autoExpandRadiusEnabled: false });
+      prisma.user.update.mockResolvedValue({
+        searchRadiusKm: 50,
+        autoExpandRadiusEnabled: false,
+        distanceUnit: 'KM',
+      });
 
       const result = await service.setAutoExpandRadius(USER_ID, false);
 
@@ -212,7 +220,25 @@ describe('LocationService', () => {
         where: { id: USER_ID },
         data: { autoExpandRadiusEnabled: false },
       });
-      expect(result).toEqual({ searchRadiusKm: 50, autoExpandRadiusEnabled: false });
+      expect(result).toEqual({ searchRadiusKm: 50, autoExpandRadiusEnabled: false, distanceUnit: 'KM' });
+    });
+  });
+
+  describe('setDistanceUnit', () => {
+    it('persists the unit preference without changing the stored km radius', async () => {
+      prisma.user.update.mockResolvedValue({
+        searchRadiusKm: 50,
+        autoExpandRadiusEnabled: true,
+        distanceUnit: 'MI',
+      });
+
+      const result = await service.setDistanceUnit(USER_ID, 'MI');
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: USER_ID },
+        data: { distanceUnit: 'MI' },
+      });
+      expect(result).toEqual({ searchRadiusKm: 50, autoExpandRadiusEnabled: true, distanceUnit: 'MI' });
     });
   });
 

@@ -12,10 +12,15 @@ class LocationApiException implements Exception {
 }
 
 class RadiusSettings {
-  RadiusSettings({required this.searchRadiusKm, required this.autoExpandRadiusEnabled});
+  RadiusSettings({
+    required this.searchRadiusKm,
+    required this.autoExpandRadiusEnabled,
+    required this.distanceUnit,
+  });
 
   final int searchRadiusKm;
   final bool autoExpandRadiusEnabled;
+  final String distanceUnit;
 }
 
 class NearbyUser {
@@ -99,6 +104,7 @@ class LocationApi {
     return RadiusSettings(
       searchRadiusKm: body['searchRadiusKm'] as int,
       autoExpandRadiusEnabled: body['autoExpandRadiusEnabled'] as bool,
+      distanceUnit: body['distanceUnit'] as String,
     );
   }
 
@@ -120,6 +126,28 @@ class LocationApi {
     return RadiusSettings(
       searchRadiusKm: body['searchRadiusKm'] as int,
       autoExpandRadiusEnabled: body['autoExpandRadiusEnabled'] as bool,
+      distanceUnit: body['distanceUnit'] as String,
+    );
+  }
+
+  /// Only changes how the radius is displayed/entered client-side - the
+  /// stored radius always stays in km.
+  Future<RadiusSettings> setDistanceUnit(String unit) async {
+    final response = await _client.put(
+      Uri.parse('$_baseUrl/location/radius/unit'),
+      headers: _headers,
+      body: jsonEncode({'unit': unit}),
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 200) {
+      throw LocationApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return RadiusSettings(
+      searchRadiusKm: body['searchRadiusKm'] as int,
+      autoExpandRadiusEnabled: body['autoExpandRadiusEnabled'] as bool,
+      distanceUnit: body['distanceUnit'] as String,
     );
   }
 
