@@ -145,4 +145,104 @@ void main() {
       expect(() => api.deleteAnswer('nope'), throwsA(isA<ProfilePromptsApiException>()));
     });
   });
+
+  group('ProfilePromptsApi.fetchMyVideoAnswers', () {
+    test('parses stored video answers', () async {
+      final api = ProfilePromptsApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.url.path, '/profile-prompts/video/me');
+          return _jsonResponse(
+            '[{"promptId":"perfect-first-date","question":"My idea of a perfect first date is...",'
+            '"videoUrl":"file:///a.mp4","durationSeconds":10,"createdAt":"2026-01-01T00:00:00.000Z"}]',
+            200,
+          );
+        }),
+      );
+
+      final answers = await api.fetchMyVideoAnswers();
+
+      expect(answers, hasLength(1));
+      expect(answers.first.videoUrl, 'file:///a.mp4');
+      expect(answers.first.durationSeconds, 10);
+    });
+
+    test('throws ProfilePromptsApiException on a non-200 response', () async {
+      final api = ProfilePromptsApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => http.Response('', 500)),
+      );
+
+      expect(() => api.fetchMyVideoAnswers(), throwsA(isA<ProfilePromptsApiException>()));
+    });
+  });
+
+  group('ProfilePromptsApi.recordVideoAnswer', () {
+    test('sends the prompt id, url, and duration', () async {
+      final api = ProfilePromptsApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'POST');
+          expect(request.url.path, '/profile-prompts/video-answers');
+          expect(
+            request.body,
+            '{"promptId":"perfect-first-date","videoUrl":"file:///a.mp4","durationSeconds":10}',
+          );
+          return _jsonResponse(
+            '{"promptId":"perfect-first-date","question":"My idea of a perfect first date is...",'
+            '"videoUrl":"file:///a.mp4","durationSeconds":10,"createdAt":"2026-01-01T00:00:00.000Z"}',
+            200,
+          );
+        }),
+      );
+
+      final answer = await api.recordVideoAnswer(
+        promptId: 'perfect-first-date',
+        videoUrl: 'file:///a.mp4',
+        durationSeconds: 10,
+      );
+
+      expect(answer.promptId, 'perfect-first-date');
+    });
+
+    test('throws ProfilePromptsApiException for an unknown prompt', () async {
+      final api = ProfilePromptsApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => _jsonResponse('{"message":"Unknown profile prompt."}', 400),
+        ),
+      );
+
+      expect(
+        () => api.recordVideoAnswer(promptId: 'nope', videoUrl: 'x', durationSeconds: 1),
+        throwsA(isA<ProfilePromptsApiException>()),
+      );
+    });
+  });
+
+  group('ProfilePromptsApi.deleteVideoAnswer', () {
+    test('sends a DELETE to the prompt-specific path', () async {
+      final api = ProfilePromptsApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'DELETE');
+          expect(request.url.path, '/profile-prompts/video-answers/perfect-first-date');
+          return http.Response('', 200);
+        }),
+      );
+
+      await api.deleteVideoAnswer('perfect-first-date');
+    });
+
+    test('throws ProfilePromptsApiException when the answer does not exist', () async {
+      final api = ProfilePromptsApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => _jsonResponse('{"message":"Video answer not found."}', 404),
+        ),
+      );
+
+      expect(() => api.deleteVideoAnswer('nope'), throwsA(isA<ProfilePromptsApiException>()));
+    });
+  });
 }

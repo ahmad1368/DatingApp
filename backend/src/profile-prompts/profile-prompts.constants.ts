@@ -5,6 +5,10 @@ export interface ProfilePrompt {
 
 export const MAX_PROMPT_VOICE_SECONDS = 60;
 
+// Video prompt answers are meant to be a quick, authentic clip rather than a
+// polished video - kept short so they stay lightweight to record/upload/watch.
+export const MAX_PROMPT_VIDEO_SECONDS = 15;
+
 export const PROFILE_PROMPTS: ProfilePrompt[] = [
   { id: 'perfect-first-date', question: 'My idea of a perfect first date is...' },
   { id: 'unpopular-opinion', question: 'A controversial opinion I have is...' },
