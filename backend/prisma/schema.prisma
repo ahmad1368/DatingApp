@@ -292,6 +292,19 @@ model ProfilePromptVoiceAnswer {
   @@map("profile_prompt_voice_answers")
 }
 
+model ProfilePromptVideoAnswer {
+  id              String   @id @default(uuid())
+  userId          String
+  promptId        String
+  videoUrl        String
+  durationSeconds Int
+  createdAt       DateTime @default(now())
+
+  @@unique([userId, promptId])
+  @@index([userId])
+  @@map("profile_prompt_video_answers")
+}
+
 model BlockedContact {
   id            String   @id @default(uuid())
   userId        String

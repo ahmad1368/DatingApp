@@ -12,6 +12,14 @@ export interface VoicePromptAnswerView {
   createdAt: string;
 }
 
+export interface VideoPromptAnswerView {
+  promptId: string;
+  question: string;
+  videoUrl: string;
+  durationSeconds: number;
+  createdAt: string;
+}
+
 @Injectable()
 export class ProfilePromptsService {
   constructor(
@@ -87,6 +95,74 @@ export class ProfilePromptsService {
     await this.prisma.profilePromptVoiceAnswer.delete({
       where: { userId_promptId: { userId, promptId } },
     });
+  }
+
+  /**
+   * Records or re-records the current user's short video answer to a prompt
+   * (one answer per prompt, independent of any voice answer to the same
+   * prompt).
+   */
+  async recordVideoAnswer(
+    userId: string,
+    promptId: string,
+    videoUrl: string,
+    durationSeconds: number,
+  ): Promise<VideoPromptAnswerView> {
+    const prompt = findProfilePrompt(promptId);
+    if (!prompt) {
+      throw new BadRequestException('Unknown profile prompt.');
+    }
+
+    const answer = await this.prisma.profilePromptVideoAnswer.upsert({
+      where: { userId_promptId: { userId, promptId } },
+      create: { userId, promptId, videoUrl, durationSeconds },
+      update: { videoUrl, durationSeconds },
+    });
+
+    return this.toVideoView(answer, prompt);
+  }
+
+  async getVideoAnswers(userId: string): Promise<VideoPromptAnswerView[]> {
+    const answers = await this.prisma.profilePromptVideoAnswer.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const views: VideoPromptAnswerView[] = [];
+    for (const answer of answers) {
+      const prompt = findProfilePrompt(answer.promptId);
+      if (!prompt) {
+        continue;
+      }
+      views.push(this.toVideoView(answer, prompt));
+    }
+    return views;
+  }
+
+  async deleteVideoAnswer(userId: string, promptId: string): Promise<void> {
+    const answer = await this.prisma.profilePromptVideoAnswer.findUnique({
+      where: { userId_promptId: { userId, promptId } },
+    });
+    if (!answer) {
+      throw new NotFoundException('Video answer not found.');
+    }
+
+    await this.prisma.profilePromptVideoAnswer.delete({
+      where: { userId_promptId: { userId, promptId } },
+    });
+  }
+
+  private toVideoView(
+    answer: { promptId: string; videoUrl: string; durationSeconds: number; createdAt: Date },
+    prompt: ProfilePrompt,
+  ): VideoPromptAnswerView {
+    return {
+      promptId: answer.promptId,
+      question: prompt.question,
+      videoUrl: answer.videoUrl,
+      durationSeconds: answer.durationSeconds,
+      createdAt: answer.createdAt.toISOString(),
+    };
   }
 
   private toView(
