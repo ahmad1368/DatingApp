@@ -401,6 +401,37 @@ void main() {
     });
   });
 
+  group('DiscoveryApi.submitDeckFeedback', () {
+    test('sends the rating and parses the updated proximity weight', () async {
+      final api = DiscoveryApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'POST');
+          expect(request.url.path, '/discovery/deck-feedback');
+          expect(request.body, '{"rating":"BAD"}');
+          return http.Response(
+            '{"discoveryProximityWeight":1.3}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final weight = await api.submitDeckFeedback('BAD');
+
+      expect(weight, 1.3);
+    });
+
+    test('throws DiscoveryApiException on a non-200 response', () async {
+      final api = DiscoveryApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => http.Response('', 500)),
+      );
+
+      expect(() => api.submitDeckFeedback('GOOD'), throwsA(isA<DiscoveryApiException>()));
+    });
+  });
+
   group('DiscoveryApi.undoLastSwipe', () {
     test('sends a POST and parses the undone swipe', () async {
       final api = DiscoveryApi(

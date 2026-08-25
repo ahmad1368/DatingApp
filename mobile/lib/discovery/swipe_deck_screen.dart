@@ -9,6 +9,11 @@ import 'profile_visitors_screen.dart';
 import 'profile_visits_api.dart';
 import 'swipe_card.dart';
 
+/// After this many continuous swipes, the deck prompts for a quick quality
+/// rating (see _SwipeDeckScreenState._maybePromptDeckFeedback) - tracked
+/// client side and reset once the rating is submitted or dismissed.
+const int deckFeedbackSwipeInterval = 10;
+
 class SwipeDeckScreen extends StatefulWidget {
   SwipeDeckScreen({
     super.key,
@@ -45,6 +50,7 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
   String _activeMode = 'DATING';
   DateTime? _snoozedUntil;
   String? _snoozeStatusMessage;
+  int _swipesSinceFeedback = 0;
 
   @override
   void initState() {
@@ -145,8 +151,56 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
       if (result.matched) {
         setState(() => _matchText = "It's a match with ${card.name ?? 'someone new'}!");
       }
+      _swipesSinceFeedback += 1;
+      if (_swipesSinceFeedback >= deckFeedbackSwipeInterval) {
+        _swipesSinceFeedback = 0;
+        await _promptDeckFeedback();
+      }
     } on DiscoveryApiException catch (e) {
       setState(() => _errorText = e.message);
+    }
+  }
+
+  /// Algorithm-driven match quality feedback: asks how the last stretch of
+  /// the deck felt and submits the rating so the backend can adjust this
+  /// user's proximity weight (see DiscoveryApi.submitDeckFeedback). Silently
+  /// dropped if the user dismisses the dialog or the request fails - this
+  /// is a soft signal, not something worth blocking or erroring over.
+  Future<void> _promptDeckFeedback() async {
+    if (!mounted) {
+      return;
+    }
+    final rating = await showDialog<String>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('How are these matches?'),
+        children: [
+          SimpleDialogOption(
+            onPressed: () => Navigator.of(context).pop('GOOD'),
+            child: const Text('Great matches'),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.of(context).pop('OKAY'),
+            child: const Text("They're okay"),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.of(context).pop('BAD'),
+            child: const Text('Not relevant to me'),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Skip'),
+          ),
+        ],
+      ),
+    );
+    if (rating == null) {
+      return;
+    }
+    try {
+      await widget.discoveryApi.submitDeckFeedback(rating);
+    } on DiscoveryApiException {
+      // Non-critical: a failed feedback submission shouldn't interrupt swiping.
     }
   }
 

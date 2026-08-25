@@ -218,6 +218,25 @@ class DiscoveryApi {
     );
   }
 
+  /// Algorithm-driven match quality feedback: submits a 'GOOD'/'OKAY'/'BAD'
+  /// rating (the client is responsible for prompting every N swipes) and
+  /// returns the resulting proximity weight the backend will apply to the
+  /// next deck fetch.
+  Future<double> submitDeckFeedback(String rating) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/discovery/deck-feedback'),
+      headers: _headers,
+      body: jsonEncode({'rating': rating}),
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 200) {
+      throw DiscoveryApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return (body['discoveryProximityWeight'] as num).toDouble();
+  }
+
   /// Premium "rewind": undoes the user's most recent swipe. Throws
   /// [DiscoveryApiException] (403) if the user isn't premium, or (400) if
   /// there's nothing to undo or the swipe already led to a conversation.

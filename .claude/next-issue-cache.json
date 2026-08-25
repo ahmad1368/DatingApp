@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-25T04:29:07.623Z",
+  "generated_at": "2026-08-25T04:40:17.639Z",
   "snapshot": [
     {
       "number": 454,
@@ -1645,18 +1645,9 @@
       "number": 126,
       "title": "Algorithm-Driven Match Quality Feedback",
       "updatedAt": "2026-08-10T20:41:16Z"
-    },
-    {
-      "number": 125,
-      "title": "In-Chat Media Blurring & Consent Toggle",
-      "updatedAt": "2026-08-10T20:41:14Z"
     }
   ],
   "queue": [
-    {
-      "number": 126,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 127,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"

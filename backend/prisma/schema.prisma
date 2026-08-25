@@ -96,6 +96,10 @@ model User {
   // getDeck() fetch by this many extra candidates, then resets to 0 - see
   // DiscoveryService.getDeck and PowerUpsService.purchaseExtraProfileViews.
   bonusDeckSlots                        Int       @default(0)
+  // Algorithm-driven match quality feedback: scales the proximity component
+  // of rankRemainingCandidates's score, adjusted by DiscoveryService.
+  // submitDeckFeedback - see applyDeckFeedback in discovery.constants.ts.
+  discoveryProximityWeight              Float     @default(1)
   instagramUserId                       String?
   instagramAccessToken                  String?
   instagramTokenExpiresAt               DateTime?

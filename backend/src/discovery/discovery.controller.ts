@@ -5,6 +5,7 @@ import { RecordSwipeDto } from './dto/record-swipe.dto';
 import { SetIncognitoModeDto } from './dto/set-incognito-mode.dto';
 import { SetActiveModeDto } from './dto/set-active-mode.dto';
 import { SetSnoozeModeDto } from './dto/set-snooze-mode.dto';
+import { SubmitDeckFeedbackDto } from './dto/submit-deck-feedback.dto';
 import { LikedBySort } from './discovery.constants';
 import { DiscoveryService } from './discovery.service';
 
@@ -36,6 +37,12 @@ export class DiscoveryController {
       dto.icebreakerOptionIndex,
       dto.passReason,
     );
+  }
+
+  @Post('deck-feedback')
+  @HttpCode(HttpStatus.OK)
+  submitDeckFeedback(@CurrentUser() user: AuthenticatedUser, @Body() dto: SubmitDeckFeedbackDto) {
+    return this.discoveryService.submitDeckFeedback(user.id, dto.rating);
   }
 
   @Post('undo')

@@ -124,3 +124,35 @@ export function computeDefaultSnoozeUntil(from: Date): Date {
 export function computeMaxSnoozeUntil(from: Date): Date {
   return new Date(from.getTime() + SNOOZE_MAX_DURATION_DAYS * 24 * 60 * 60 * 1000);
 }
+
+/**
+ * Algorithm-driven match quality feedback: the client prompts for one of
+ * these ratings every DECK_FEEDBACK_SWIPE_INTERVAL swipes (tracked client
+ * side - see the mobile swipe deck screen), then submits it via
+ * DiscoveryService.submitDeckFeedback. A low rating is treated as a signal
+ * that the "remaining" pool's trending-driven picks are surfacing profiles
+ * too far away to be relevant, so it nudges this user's proximity weight up
+ * (closer candidates score relatively higher in rankRemainingCandidates); a
+ * good rating eases back off that bias. There is no separate "trending
+ * weight" - proximity and trending are on the same additive score, so
+ * scaling proximity is equivalent to de-emphasizing trending.
+ */
+export const DECK_FEEDBACK_SWIPE_INTERVAL = 10;
+
+export const DECK_FEEDBACK_RATINGS = ['GOOD', 'OKAY', 'BAD'] as const;
+export type DeckFeedbackRating = (typeof DECK_FEEDBACK_RATINGS)[number];
+
+export const DECK_FEEDBACK_WEIGHT_DELTA: Record<DeckFeedbackRating, number> = {
+  GOOD: -0.1,
+  OKAY: 0.15,
+  BAD: 0.3,
+};
+
+export const DEFAULT_PROXIMITY_WEIGHT = 1;
+export const MIN_PROXIMITY_WEIGHT = 0.5;
+export const MAX_PROXIMITY_WEIGHT = 3;
+
+export function applyDeckFeedback(currentWeight: number, rating: DeckFeedbackRating): number {
+  const adjusted = currentWeight + DECK_FEEDBACK_WEIGHT_DELTA[rating];
+  return Math.min(MAX_PROXIMITY_WEIGHT, Math.max(MIN_PROXIMITY_WEIGHT, adjusted));
+}
