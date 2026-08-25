@@ -70,12 +70,13 @@ export class PowerUpsService {
     return { coinBalance: updatedUser.giftTokenBalance, powerUpId: powerUp.id };
   }
 
+  /** Handles both the single super like and its bulk packs - see POWER_UPS.quantity. */
   private async purchaseSuperLike(userId: string, powerUp: PowerUp): Promise<PurchasePowerUpResult> {
     const updatedUser = await this.prisma.user.update({
       where: { id: userId },
       data: {
         giftTokenBalance: { decrement: powerUp.coinCost },
-        bonusSuperLikes: { increment: 1 },
+        bonusSuperLikes: { increment: powerUp.quantity ?? 1 },
       },
     });
 
