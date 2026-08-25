@@ -12,9 +12,10 @@ class LifestyleFiltersApiException implements Exception {
 }
 
 /// The full set of lifestyle preferences and deck filters. Only
-/// `filterRelationshipGoals` is edited by this screen; every other field is
-/// round-tripped unchanged so a save here never clobbers filters set
-/// elsewhere.
+/// `filterRelationshipGoals`/`filterVerifiedOnly`/`filterCommunityGroups`/
+/// `filterRelationshipDesires` are editable via `copyWith`; every other
+/// field is round-tripped unchanged so a save here never clobbers filters
+/// set elsewhere.
 class LifestyleFilters {
   LifestyleFilters({
     this.smokingHabit,
@@ -66,6 +67,7 @@ class LifestyleFilters {
 
   LifestyleFilters copyWith({
     List<String>? filterRelationshipGoals,
+    List<String>? filterRelationshipDesires,
     bool? filterVerifiedOnly,
     List<String>? filterCommunityGroups,
   }) {
@@ -88,7 +90,7 @@ class LifestyleFilters {
       filterWantsChildren: filterWantsChildren,
       filterRelationshipGoals: filterRelationshipGoals ?? this.filterRelationshipGoals,
       filterKinkTags: filterKinkTags,
-      filterRelationshipDesires: filterRelationshipDesires,
+      filterRelationshipDesires: filterRelationshipDesires ?? this.filterRelationshipDesires,
       filterSharedInterestsOnly: filterSharedInterestsOnly,
       filterVerifiedOnly: filterVerifiedOnly ?? this.filterVerifiedOnly,
       filterCommunityGroups: filterCommunityGroups ?? this.filterCommunityGroups,
@@ -122,6 +124,17 @@ class LifestyleFiltersApi {
 
     final body = jsonDecode(response.body) as Map<String, dynamic>;
     return (body['relationshipGoals'] as List).cast<String>();
+  }
+
+  Future<List<String>> fetchRelationshipDesireOptions() async {
+    final response = await _client.get(Uri.parse('$_baseUrl/profile/lifestyle/catalog'));
+
+    if (response.statusCode != 200) {
+      throw LifestyleFiltersApiException(_errorMessage(_decode(response), response.statusCode));
+    }
+
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    return (body['relationshipDesires'] as List).cast<String>();
   }
 
   Future<LifestyleFilters> fetchFilters() async {
