@@ -144,9 +144,40 @@ class _ProfilePhotosScreenState extends State<ProfilePhotosScreen> {
                           itemBuilder: (context, index) {
                             final photo = _photos[index];
                             return ListTile(
-                              leading: photo.isLead
-                                  ? const Icon(Icons.star, color: Colors.amber)
-                                  : const Icon(Icons.image_outlined),
+                              leading: SizedBox(
+                                width: 56,
+                                height: 56,
+                                child: Stack(
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Image.network(
+                                        photo.mediaUrl,
+                                        width: 56,
+                                        height: 56,
+                                        fit: BoxFit.cover,
+                                        // AI-detected smart-crop focal point (see
+                                        // ProfilePhoto.cropFocalX/Y) keeps the
+                                        // face centered no matter this box's
+                                        // aspect ratio, instead of a plain
+                                        // geometric center-crop.
+                                        alignment: Alignment(
+                                          photo.cropFocalX * 2 - 1,
+                                          photo.cropFocalY * 2 - 1,
+                                        ),
+                                        errorBuilder: (context, error, stackTrace) =>
+                                            const Icon(Icons.image_outlined),
+                                      ),
+                                    ),
+                                    if (photo.isLead)
+                                      const Positioned(
+                                        right: 0,
+                                        bottom: 0,
+                                        child: Icon(Icons.star, color: Colors.amber, size: 18),
+                                      ),
+                                  ],
+                                ),
+                              ),
                               title: Text(photo.isLead ? 'Lead photo' : 'Photo ${index + 1}'),
                               subtitle: Text(_statsLabel(photo)),
                               trailing: IconButton(

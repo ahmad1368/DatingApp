@@ -47,7 +47,8 @@ void main() {
         }
         return http.Response(
           '[{"id":"photo-1","mediaUrl":"https://example.com/a.jpg","isLead":true,'
-          '"impressions":10,"rightSwipes":4,"conversionRate":0.4,"qualityScore":39}]',
+          '"impressions":10,"rightSwipes":4,"conversionRate":0.4,"qualityScore":39,'
+          '"cropFocalX":0.5,"cropFocalY":0.35}]',
           200,
           headers: {'content-type': 'application/json'},
         );
@@ -60,6 +61,11 @@ void main() {
     expect(find.text('Lead photo'), findsOneWidget);
     expect(find.textContaining('40% right-swipes'), findsOneWidget);
     expect(find.textContaining('Quality score: 39'), findsOneWidget);
+
+    final thumbnail = tester.widget<Image>(find.byType(Image));
+    final alignment = thumbnail.alignment as Alignment;
+    expect(alignment.x, closeTo(0.0, 0.0001));
+    expect(alignment.y, closeTo(-0.3, 0.0001));
   });
 
   testWidgets('adding a photo picks and uploads it', (tester) async {
@@ -75,7 +81,8 @@ void main() {
           addRequest = request;
           return http.Response(
             '{"id":"photo-1","mediaUrl":"file:///tmp/photo.jpg","isLead":true,'
-            '"impressions":0,"rightSwipes":0,"conversionRate":null,"qualityScore":39}',
+            '"impressions":0,"rightSwipes":0,"conversionRate":null,"qualityScore":39,'
+            '"cropFocalX":0.5,"cropFocalY":0.35}',
             201,
             headers: {'content-type': 'application/json'},
           );
@@ -84,7 +91,8 @@ void main() {
         final body = fetchCount == 1
             ? '[]'
             : '[{"id":"photo-1","mediaUrl":"file:///tmp/photo.jpg","isLead":true,'
-                '"impressions":0,"rightSwipes":0,"conversionRate":null,"qualityScore":39}]';
+                '"impressions":0,"rightSwipes":0,"conversionRate":null,"qualityScore":39,'
+                '"cropFocalX":0.5,"cropFocalY":0.35}]';
         return http.Response(body, 200, headers: {'content-type': 'application/json'});
       }),
     );
@@ -116,7 +124,8 @@ void main() {
         }
         return http.Response(
           '[{"id":"photo-1","mediaUrl":"https://example.com/a.jpg","isLead":true,'
-          '"impressions":0,"rightSwipes":0,"conversionRate":null,"qualityScore":39}]',
+          '"impressions":0,"rightSwipes":0,"conversionRate":null,"qualityScore":39,'
+          '"cropFocalX":0.5,"cropFocalY":0.35}]',
           200,
           headers: {'content-type': 'application/json'},
         );
@@ -146,18 +155,22 @@ void main() {
           reorderRequest = request;
           return http.Response(
             '[{"id":"photo-2","mediaUrl":"https://example.com/b.jpg","isLead":true,'
-            '"impressions":0,"rightSwipes":0,"conversionRate":null,"qualityScore":98},'
+            '"impressions":0,"rightSwipes":0,"conversionRate":null,"qualityScore":98,'
+            '"cropFocalX":0.4,"cropFocalY":0.3},'
             '{"id":"photo-1","mediaUrl":"https://example.com/a.jpg","isLead":false,'
-            '"impressions":10,"rightSwipes":4,"conversionRate":0.4,"qualityScore":39}]',
+            '"impressions":10,"rightSwipes":4,"conversionRate":0.4,"qualityScore":39,'
+            '"cropFocalX":0.5,"cropFocalY":0.35}]',
             200,
             headers: {'content-type': 'application/json'},
           );
         }
         return http.Response(
           '[{"id":"photo-1","mediaUrl":"https://example.com/a.jpg","isLead":true,'
-          '"impressions":10,"rightSwipes":4,"conversionRate":0.4,"qualityScore":39},'
+          '"impressions":10,"rightSwipes":4,"conversionRate":0.4,"qualityScore":39,'
+          '"cropFocalX":0.5,"cropFocalY":0.35},'
           '{"id":"photo-2","mediaUrl":"https://example.com/b.jpg","isLead":false,'
-          '"impressions":0,"rightSwipes":0,"conversionRate":null,"qualityScore":98}]',
+          '"impressions":0,"rightSwipes":0,"conversionRate":null,"qualityScore":98,'
+          '"cropFocalX":0.4,"cropFocalY":0.3}]',
           200,
           headers: {'content-type': 'application/json'},
         );
