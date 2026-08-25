@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-25T04:21:03.447Z",
+  "generated_at": "2026-08-25T04:29:07.623Z",
   "snapshot": [
     {
       "number": 454,
@@ -1650,18 +1650,9 @@
       "number": 125,
       "title": "In-Chat Media Blurring & Consent Toggle",
       "updatedAt": "2026-08-10T20:41:14Z"
-    },
-    {
-      "number": 124,
-      "title": "Granular Distance Radius Slider",
-      "updatedAt": "2026-08-10T20:41:12Z"
     }
   ],
   "queue": [
-    {
-      "number": 125,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 126,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"

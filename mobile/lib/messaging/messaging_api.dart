@@ -569,6 +569,37 @@ class MessagingApi {
     return body['readReceiptsEnabled'] as bool;
   }
 
+  /// Consent toggle: when disabled, images this user receives arrive
+  /// already revealed instead of blurred-until-tapped.
+  Future<bool> setMediaBlurPreference(bool enabled) async {
+    final response = await _client.put(
+      Uri.parse('$_baseUrl/matches/media-blur-preference'),
+      headers: _headers,
+      body: jsonEncode({'enabled': enabled}),
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 200) {
+      throw MessagingApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return body['autoBlurIncomingMedia'] as bool;
+  }
+
+  Future<bool> fetchMediaBlurPreference() async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/matches/media-blur-preference'),
+      headers: _headers,
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 200) {
+      throw MessagingApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return body['autoBlurIncomingMedia'] as bool;
+  }
+
   /// Heartbeat to call while the app is in active use, so matches can see
   /// roughly how recently this user was active. Automatically withheld from
   /// a match whose chat has gone quiet for a week (see

@@ -18,6 +18,7 @@ import { CheckMessageDto } from './dto/check-message.dto';
 import { ReportMessageDto } from './dto/report-message.dto';
 import { ReportAndUnmatchDto } from './dto/report-and-unmatch.dto';
 import { SetReadReceiptsDto } from './dto/set-read-receipts.dto';
+import { SetMediaBlurPreferenceDto } from './dto/set-media-blur-preference.dto';
 import { SendIcebreakerDto } from './dto/send-icebreaker.dto';
 import { RespondIcebreakerDto } from './dto/respond-icebreaker.dto';
 import { SendPollDto } from './dto/send-poll.dto';
@@ -91,6 +92,17 @@ export class MessagingController {
   @HttpCode(HttpStatus.OK)
   setReadReceiptsEnabled(@CurrentUser() user: AuthenticatedUser, @Body() dto: SetReadReceiptsDto) {
     return this.messagingService.setReadReceiptsEnabled(user.id, dto.enabled);
+  }
+
+  @Get('media-blur-preference')
+  getMediaBlurPreference(@CurrentUser() user: AuthenticatedUser) {
+    return this.messagingService.getMediaBlurPreference(user.id);
+  }
+
+  @Put('media-blur-preference')
+  @HttpCode(HttpStatus.OK)
+  setMediaBlurPreference(@CurrentUser() user: AuthenticatedUser, @Body() dto: SetMediaBlurPreferenceDto) {
+    return this.messagingService.setMediaBlurPreference(user.id, dto.enabled);
   }
 
   /**

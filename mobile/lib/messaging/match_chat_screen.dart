@@ -66,6 +66,7 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
   bool _isLoading = true;
   bool _isSending = false;
   bool _readReceiptsEnabled = true;
+  bool _autoBlurMediaEnabled = true;
   bool _isRecording = false;
   int _recordedSeconds = 0;
   Timer? _recordTimer;
@@ -362,6 +363,16 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
     }
   }
 
+  Future<void> _toggleMediaBlurPreference() async {
+    setState(() => _errorText = null);
+    try {
+      final enabled = await widget.messagingApi.setMediaBlurPreference(!_autoBlurMediaEnabled);
+      setState(() => _autoBlurMediaEnabled = enabled);
+    } on MessagingApiException catch (e) {
+      setState(() => _errorText = e.message);
+    }
+  }
+
   Future<void> _showMeetupSuggestions() async {
     MeetupSuggestions? suggestions;
     String? error;
@@ -597,6 +608,14 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
             color: _readReceiptsEnabled ? Colors.indigo : null,
             tooltip: _readReceiptsEnabled ? 'Read receipts on' : 'Read receipts off',
             onPressed: _toggleReadReceipts,
+          ),
+          IconButton(
+            icon: Icon(_autoBlurMediaEnabled ? Icons.blur_on : Icons.blur_off),
+            color: _autoBlurMediaEnabled ? Colors.indigo : null,
+            tooltip: _autoBlurMediaEnabled
+                ? 'Auto-blur incoming photos on'
+                : 'Auto-blur incoming photos off',
+            onPressed: _toggleMediaBlurPreference,
           ),
           IconButton(
             icon: const Icon(Icons.rate_review_outlined),
