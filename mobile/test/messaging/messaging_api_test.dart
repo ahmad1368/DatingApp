@@ -95,6 +95,44 @@ void main() {
 
       expect(status.otherUserSnoozeStatusMessage, 'On Vacation');
     });
+
+    test("parses the other user's last-active timestamp when present", () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '{"matchId":"match-1","expiresAt":null,'
+            '"isExpired":false,"firstMessageSent":true,"canSendFirstMessage":true,'
+            '"canExtend":false,"otherUserLastActiveAt":"2026-01-02T00:00:00.000Z"}',
+            200,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      final status = await api.fetchMatchStatus('match-1');
+
+      expect(status.otherUserLastActiveAt, DateTime.parse('2026-01-02T00:00:00.000Z'));
+    });
+
+    test('leaves the last-active timestamp null when withheld by ghosting protection', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '{"matchId":"match-1","expiresAt":null,'
+            '"isExpired":false,"firstMessageSent":true,"canSendFirstMessage":true,'
+            '"canExtend":false}',
+            200,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      final status = await api.fetchMatchStatus('match-1');
+
+      expect(status.otherUserLastActiveAt, isNull);
+    });
   });
 
   group('MessagingApi.extendMatchTimeLimit', () {
@@ -725,6 +763,36 @@ void main() {
       );
 
       expect(() => api.setReadReceiptsEnabled(true), throwsA(isA<MessagingApiException>()));
+    });
+  });
+
+  group('MessagingApi.recordActivity', () {
+    test('sends a PUT heartbeat and parses the timestamp', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'PUT');
+          expect(request.url.path, '/matches/activity-ping');
+          return http.Response(
+            '{"lastActiveAt":"2026-01-02T00:00:00.000Z"}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final result = await api.recordActivity();
+
+      expect(result, DateTime.parse('2026-01-02T00:00:00.000Z'));
+    });
+
+    test('throws MessagingApiException on a non-200 response', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => http.Response('', 500)),
+      );
+
+      expect(() => api.recordActivity(), throwsA(isA<MessagingApiException>()));
     });
   });
 

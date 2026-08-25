@@ -25,6 +25,7 @@ describe('MessagingService', () => {
     message: {
       create: jest.Mock;
       findMany: jest.Mock;
+      findFirst: jest.Mock;
       findUnique: jest.Mock;
       update: jest.Mock;
       updateMany: jest.Mock;
@@ -56,6 +57,7 @@ describe('MessagingService', () => {
       message: {
         create: jest.fn(),
         findMany: jest.fn().mockResolvedValue([]),
+        findFirst: jest.fn().mockResolvedValue(null),
         findUnique: jest.fn(),
         update: jest.fn(),
         updateMany: jest.fn(),
@@ -83,6 +85,7 @@ describe('MessagingService', () => {
   });
 
   function mockMatch(overrides: Partial<{
+    createdAt: Date;
     firstMessageExpiresAt: Date;
     firstMessageSentAt: Date | null;
     firstMessageExtendedAt: Date | null;
@@ -93,6 +96,7 @@ describe('MessagingService', () => {
       id: MATCH_ID,
       userAId: WOMAN_ID,
       userBId: MAN_ID,
+      createdAt: hoursFromNow(-1),
       firstMessageExpiresAt: hoursFromNow(24),
       firstMessageSentAt: null,
       firstMessageExtendedAt: null,
@@ -220,6 +224,49 @@ describe('MessagingService', () => {
 
       expect(status.otherUserSnoozeStatusMessage).toBeNull();
     });
+
+    it("surfaces the other user's last-active timestamp when the conversation is still recent", async () => {
+      const lastActiveAt = hoursFromNow(-2);
+      mockMatch({ createdAt: hoursFromNow(-1) });
+      prisma.user.findUnique.mockResolvedValue({ isVerified: false, lastActiveAt });
+
+      const status = await service.getMatchStatus(MAN_ID, MATCH_ID);
+
+      expect(status.otherUserLastActiveAt).toBe(lastActiveAt.toISOString());
+    });
+
+    it('hides the last-active timestamp once the chat has gone quiet for a week with no messages', async () => {
+      mockMatch({ createdAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000) });
+      prisma.user.findUnique.mockResolvedValue({ isVerified: false, lastActiveAt: new Date() });
+
+      const status = await service.getMatchStatus(MAN_ID, MATCH_ID);
+
+      expect(status.otherUserLastActiveAt).toBeNull();
+    });
+
+    it('bases ghosting protection on the last message rather than the match creation date', async () => {
+      mockMatch({ createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) });
+      prisma.user.findUnique.mockResolvedValue({ isVerified: false, lastActiveAt: new Date() });
+      prisma.message.findFirst.mockResolvedValue({ createdAt: new Date() });
+
+      const status = await service.getMatchStatus(MAN_ID, MATCH_ID);
+
+      expect(status.otherUserLastActiveAt).not.toBeNull();
+    });
+  });
+
+  describe('recordActivity', () => {
+    it('stamps and returns the current activity timestamp', async () => {
+      prisma.user.update.mockResolvedValue({});
+
+      const result = await service.recordActivity(WOMAN_ID);
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: WOMAN_ID },
+        data: { lastActiveAt: expect.any(Date) },
+      });
+      expect(new Date(result.lastActiveAt).getTime()).not.toBeNaN();
+    });
   });
 
   describe('getMatchNote', () => {
@@ -337,6 +384,7 @@ describe('MessagingService', () => {
         id: MATCH_ID,
         userAId: WOMAN_ID,
         userBId: MAN_ID,
+        createdAt: hoursFromNow(-1),
         firstMessageExpiresAt: hoursFromNow(24),
         firstMessageSentAt: null,
         firstMessageExtendedAt: new Date(),
@@ -389,6 +437,7 @@ describe('MessagingService', () => {
         id: MATCH_ID,
         userAId: WOMAN_ID,
         userBId: MAN_ID,
+        createdAt: hoursFromNow(-1),
         firstMessageExpiresAt: hoursFromNow(24),
         firstMessageSentAt: null,
         firstMessageExtendedAt: null,
@@ -1553,6 +1602,7 @@ describe('MessagingService', () => {
         id: 'new-match',
         userAId: WOMAN_ID,
         userBId: MAN_ID,
+        createdAt: new Date(),
         firstMessageExpiresAt: hoursFromNow(24),
         firstMessageSentAt: null,
         firstMessageExtendedAt: null,

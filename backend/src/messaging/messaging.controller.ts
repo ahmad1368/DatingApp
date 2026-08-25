@@ -93,6 +93,18 @@ export class MessagingController {
     return this.messagingService.setReadReceiptsEnabled(user.id, dto.enabled);
   }
 
+  /**
+   * Heartbeat the client calls while the app is in active use, so matches
+   * can see roughly how recently this user was active - automatically
+   * withheld from a match whose chat has gone quiet for a week, see
+   * GHOSTING_PROTECTION_INACTIVITY_DAYS.
+   */
+  @Put('activity-ping')
+  @HttpCode(HttpStatus.OK)
+  recordActivity(@CurrentUser() user: AuthenticatedUser) {
+    return this.messagingService.recordActivity(user.id);
+  }
+
   @Post('moderation/check')
   @HttpCode(HttpStatus.OK)
   checkMessage(@Body() dto: CheckMessageDto) {

@@ -10,6 +10,12 @@ export const WOMAN_GENDER_IDENTITIES = ['Woman', 'Transgender Woman'];
 // turn it is to answer gets a "reply or unmatch" nudge on their match list.
 export const GHOSTING_PROMPT_THRESHOLD_DAYS = 3;
 
+// Incognito ghosting protection: once a match's conversation has gone this
+// many days without any message, that match stops being able to see this
+// user's activity status/last-active timestamp - see
+// MessagingService.toMatchStatus.
+export const GHOSTING_PROTECTION_INACTIVITY_DAYS = 7;
+
 export function daysSince(date: Date, now: Date): number {
   return (now.getTime() - date.getTime()) / (24 * 60 * 60 * 1000);
 }
