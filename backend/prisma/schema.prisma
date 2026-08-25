@@ -428,6 +428,46 @@ model BlindDateMessage {
   @@map("blind_date_messages")
 }
 
+model SpeedDatingQueueEntry {
+  id       String   @id @default(uuid())
+  userId   String   @unique
+  joinedAt DateTime @default(now())
+
+  @@map("speed_dating_queue_entries")
+}
+
+model SpeedDatingRound {
+  id            String    @id @default(uuid())
+  userAId       String
+  userBId       String
+  startedAt     DateTime  @default(now())
+  endsAt        DateTime
+  offerSdp      String?
+  answerSdp     String?
+  userADecision Boolean?
+  userBDecision Boolean?
+  matchId       String?
+
+  iceCandidates SpeedDatingIceCandidate[]
+
+  @@index([userAId])
+  @@index([userBId])
+  @@map("speed_dating_rounds")
+}
+
+model SpeedDatingIceCandidate {
+  id        String   @id @default(uuid())
+  roundId   String
+  senderId  String
+  candidate String
+  createdAt DateTime @default(now())
+
+  round SpeedDatingRound @relation(fields: [roundId], references: [id])
+
+  @@index([roundId])
+  @@map("speed_dating_ice_candidates")
+}
+
 model DateCheckIn {
   id                    String    @id @default(uuid())
   userId                String

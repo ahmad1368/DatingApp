@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-24T16:33:08.565Z",
+  "generated_at": "2026-08-25T03:55:44.962Z",
   "snapshot": [
     {
       "number": 454,
@@ -1678,10 +1678,6 @@
     }
   ],
   "queue": [
-    {
-      "number": 123,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 124,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
