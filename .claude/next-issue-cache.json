@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-25T04:40:17.639Z",
+  "generated_at": "2026-08-25T04:59:20.792Z",
   "snapshot": [
     {
       "number": 454,
@@ -1640,18 +1640,9 @@
       "number": 127,
       "title": "A la Carte Super Like Packs",
       "updatedAt": "2026-08-10T20:41:18Z"
-    },
-    {
-      "number": 126,
-      "title": "Algorithm-Driven Match Quality Feedback",
-      "updatedAt": "2026-08-10T20:41:16Z"
     }
   ],
   "queue": [
-    {
-      "number": 127,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 128,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"

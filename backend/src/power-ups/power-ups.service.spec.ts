@@ -101,6 +101,60 @@ describe('PowerUpsService', () => {
       });
     });
 
+    describe('super-like-pack-5', () => {
+      it('deducts the discounted bulk price and grants 5 bonus super likes', async () => {
+        prisma.user.findUnique.mockResolvedValue({ giftTokenBalance: 100 });
+        prisma.user.update.mockResolvedValue({ giftTokenBalance: 10 });
+
+        const result = await service.purchasePowerUp(USER_ID, 'super-like-pack-5');
+
+        expect(prisma.user.update).toHaveBeenCalledWith({
+          where: { id: USER_ID },
+          data: { giftTokenBalance: { decrement: 90 }, bonusSuperLikes: { increment: 5 } },
+        });
+        expect(result).toEqual({ coinBalance: 10, powerUpId: 'super-like-pack-5' });
+      });
+    });
+
+    describe('super-like-pack-10', () => {
+      it('deducts the discounted bulk price and grants 10 bonus super likes', async () => {
+        prisma.user.findUnique.mockResolvedValue({ giftTokenBalance: 200 });
+        prisma.user.update.mockResolvedValue({ giftTokenBalance: 40 });
+
+        const result = await service.purchasePowerUp(USER_ID, 'super-like-pack-10');
+
+        expect(prisma.user.update).toHaveBeenCalledWith({
+          where: { id: USER_ID },
+          data: { giftTokenBalance: { decrement: 160 }, bonusSuperLikes: { increment: 10 } },
+        });
+        expect(result).toEqual({ coinBalance: 40, powerUpId: 'super-like-pack-10' });
+      });
+    });
+
+    describe('super-like-pack-25', () => {
+      it('deducts the discounted bulk price and grants 25 bonus super likes', async () => {
+        prisma.user.findUnique.mockResolvedValue({ giftTokenBalance: 400 });
+        prisma.user.update.mockResolvedValue({ giftTokenBalance: 50 });
+
+        const result = await service.purchasePowerUp(USER_ID, 'super-like-pack-25');
+
+        expect(prisma.user.update).toHaveBeenCalledWith({
+          where: { id: USER_ID },
+          data: { giftTokenBalance: { decrement: 350 }, bonusSuperLikes: { increment: 25 } },
+        });
+        expect(result).toEqual({ coinBalance: 50, powerUpId: 'super-like-pack-25' });
+      });
+
+      it('rejects when the coin balance is too low for the pack', async () => {
+        prisma.user.findUnique.mockResolvedValue({ giftTokenBalance: 100 });
+
+        await expect(
+          service.purchasePowerUp(USER_ID, 'super-like-pack-25'),
+        ).rejects.toBeInstanceOf(BadRequestException);
+        expect(prisma.user.update).not.toHaveBeenCalled();
+      });
+    });
+
     describe('extra-profile-views', () => {
       it('deducts coins and grants bonus deck slots', async () => {
         prisma.user.findUnique.mockResolvedValue({ giftTokenBalance: 50 });
