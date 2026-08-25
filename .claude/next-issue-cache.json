@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-25T05:30:26.672Z",
+  "generated_at": "2026-08-25T05:43:54.358Z",
   "snapshot": [
     {
       "number": 454,
@@ -1615,18 +1615,9 @@
       "number": 132,
       "title": "In-Chat Voice Note Speed Controls",
       "updatedAt": "2026-08-10T20:41:28Z"
-    },
-    {
-      "number": 131,
-      "title": "Profile Photo Smart Crop & Center Detection",
-      "updatedAt": "2026-08-10T20:41:26Z"
     }
   ],
   "queue": [
-    {
-      "number": 132,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 133,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"

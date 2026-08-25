@@ -31,10 +31,12 @@ class _FakeRecorder implements VoiceRecorderController {
 
 class _FakePlayer implements VoicePlayerController {
   String? lastPlayedPath;
+  double? lastPlayedSpeed;
 
   @override
-  Future<void> play(String path) async {
+  Future<void> play(String path, {double speed = 1.0}) async {
     lastPlayedPath = path;
+    lastPlayedSpeed = speed;
   }
 
   @override
@@ -1082,6 +1084,65 @@ void main() {
     await tester.pump();
 
     expect(player.lastPlayedPath, 'file:///tmp/incoming-note.m4a');
+    expect(player.lastPlayedSpeed, 1.0);
+  });
+
+  testWidgets('cycling the speed button changes playback speed for that voice note', (tester) async {
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(
+            '[{"id":"m1","senderId":"user-man","contentType":"VOICE_NOTE","content":null,'
+            '"mediaUrl":"file:///tmp/incoming-note.m4a","isBlurred":false,"durationSeconds":5,'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":null,"isExpired":false,'
+          '"firstMessageSent":true,"canSendFirstMessage":true}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+    final player = _FakePlayer();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchChatScreen(
+          messagingApi: api,
+          matchId: 'match-1',
+          currentUserId: 'user-woman',
+          player: player,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('1x'), findsOneWidget);
+
+    await tester.tap(find.text('1x'));
+    await tester.pump();
+    expect(find.text('1.25x'), findsOneWidget);
+
+    await tester.tap(find.text('1.25x'));
+    await tester.pump();
+    expect(find.text('1.5x'), findsOneWidget);
+
+    await tester.tap(find.text('1.5x'));
+    await tester.pump();
+    expect(find.text('2x'), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.play_arrow));
+    await tester.pump();
+    expect(player.lastPlayedSpeed, 2.0);
+
+    await tester.tap(find.text('2x'));
+    await tester.pump();
+    expect(find.text('1x'), findsOneWidget);
   });
 
   testWidgets('shows meetup suggestions in a bottom sheet', (tester) async {
