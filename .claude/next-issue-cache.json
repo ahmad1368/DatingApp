@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-25T05:21:01.884Z",
+  "generated_at": "2026-08-25T05:30:26.672Z",
   "snapshot": [
     {
       "number": 454,
@@ -1620,18 +1620,9 @@
       "number": 131,
       "title": "Profile Photo Smart Crop & Center Detection",
       "updatedAt": "2026-08-10T20:41:26Z"
-    },
-    {
-      "number": 130,
-      "title": "Customized Relationship Intent Filter",
-      "updatedAt": "2026-08-10T20:41:24Z"
     }
   ],
   "queue": [
-    {
-      "number": 131,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 132,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"

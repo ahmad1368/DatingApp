@@ -14,7 +14,8 @@ void main() {
           expect(request.url.path, '/profile-photos');
           return http.Response(
             '[{"id":"photo-1","mediaUrl":"https://example.com/a.jpg","isLead":true,'
-            '"impressions":10,"rightSwipes":4,"conversionRate":0.4,"qualityScore":39}]',
+            '"impressions":10,"rightSwipes":4,"conversionRate":0.4,"qualityScore":39,'
+            '"cropFocalX":0.5,"cropFocalY":0.35}]',
             200,
             headers: {'content-type': 'application/json'},
           );
@@ -27,6 +28,8 @@ void main() {
       expect(photos.first.isLead, isTrue);
       expect(photos.first.conversionRate, 0.4);
       expect(photos.first.qualityScore, 39);
+      expect(photos.first.cropFocalX, 0.5);
+      expect(photos.first.cropFocalY, 0.35);
     });
 
     test('throws ProfilePhotosApiException on a non-200 response', () async {
@@ -49,7 +52,8 @@ void main() {
           expect(request.body, '{"mediaUrl":"https://example.com/a.jpg"}');
           return http.Response(
             '{"id":"photo-1","mediaUrl":"https://example.com/a.jpg","isLead":true,'
-            '"impressions":0,"rightSwipes":0,"conversionRate":null,"qualityScore":39}',
+            '"impressions":0,"rightSwipes":0,"conversionRate":null,"qualityScore":39,'
+            '"cropFocalX":0.5,"cropFocalY":0.35}',
             201,
             headers: {'content-type': 'application/json'},
           );
@@ -106,9 +110,11 @@ void main() {
           postRequest = request;
           return http.Response(
             '[{"id":"photo-2","mediaUrl":"https://example.com/b.jpg","isLead":true,'
-            '"impressions":0,"rightSwipes":0,"conversionRate":null,"qualityScore":98},'
+            '"impressions":0,"rightSwipes":0,"conversionRate":null,"qualityScore":98,'
+            '"cropFocalX":0.4,"cropFocalY":0.3},'
             '{"id":"photo-1","mediaUrl":"https://example.com/a.jpg","isLead":false,'
-            '"impressions":10,"rightSwipes":4,"conversionRate":0.4,"qualityScore":39}]',
+            '"impressions":10,"rightSwipes":4,"conversionRate":0.4,"qualityScore":39,'
+            '"cropFocalX":0.5,"cropFocalY":0.35}]',
             200,
             headers: {'content-type': 'application/json'},
           );

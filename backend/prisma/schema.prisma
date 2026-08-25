@@ -856,6 +856,11 @@ model ProfilePhoto {
   impressions  Int      @default(0)
   rightSwipes  Int      @default(0)
   qualityScore Int      @default(0)
+  // Normalized (0-1) smart-crop focal point - see detectFaceFocalPoint in
+  // profile-photos.service.ts - so clients can center-crop this photo
+  // consistently across different aspect ratio containers.
+  cropFocalX   Float    @default(0.5)
+  cropFocalY   Float    @default(0.35)
   createdAt    DateTime @default(now())
 
   @@index([ownerId])

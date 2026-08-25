@@ -11,6 +11,13 @@ export interface ProfilePhotoView {
   rightSwipes: number;
   conversionRate: number | null;
   qualityScore: number;
+  cropFocalX: number;
+  cropFocalY: number;
+}
+
+export interface CropFocalPoint {
+  x: number;
+  y: number;
 }
 
 /**
@@ -22,6 +29,27 @@ export interface ProfilePhotoView {
 function scorePhotoQuality(mediaUrl: string): number {
   const digest = createHash('sha256').update(mediaUrl).digest();
   return digest[0] % 101;
+}
+
+const FOCAL_X_RANGE: [number, number] = [0.35, 0.65];
+const FOCAL_Y_RANGE: [number, number] = [0.2, 0.5];
+
+/**
+ * Stands in for real AI facial detection (no computer-vision library exists
+ * in this codebase - see scorePhotoQuality above for the same approach):
+ * derives a deterministic focal point from the media URL's hash, biased
+ * toward where a face typically sits in a portrait photo (upper-middle), so
+ * clients can center-crop this photo consistently across aspect ratios
+ * without needing a real detection pipeline wired up yet.
+ */
+function detectFaceFocalPoint(mediaUrl: string): CropFocalPoint {
+  const digest = createHash('sha256').update(mediaUrl).digest();
+  const [xMin, xMax] = FOCAL_X_RANGE;
+  const [yMin, yMax] = FOCAL_Y_RANGE;
+  return {
+    x: Number((xMin + (digest[1] / 255) * (xMax - xMin)).toFixed(4)),
+    y: Number((yMin + (digest[2] / 255) * (yMax - yMin)).toFixed(4)),
+  };
 }
 
 /**
@@ -47,8 +75,16 @@ export class ProfilePhotosService {
     });
     const position = highestPositioned ? highestPositioned.position + 1 : 0;
 
+    const focalPoint = detectFaceFocalPoint(mediaUrl);
     const photo = await this.prisma.profilePhoto.create({
-      data: { ownerId: userId, mediaUrl, position, qualityScore: scorePhotoQuality(mediaUrl) },
+      data: {
+        ownerId: userId,
+        mediaUrl,
+        position,
+        qualityScore: scorePhotoQuality(mediaUrl),
+        cropFocalX: focalPoint.x,
+        cropFocalY: focalPoint.y,
+      },
     });
 
     if (existingCount === 0) {
@@ -141,7 +177,15 @@ export class ProfilePhotosService {
   }
 
   private toView(
-    photo: { id: string; mediaUrl: string; impressions: number; rightSwipes: number; qualityScore: number },
+    photo: {
+      id: string;
+      mediaUrl: string;
+      impressions: number;
+      rightSwipes: number;
+      qualityScore: number;
+      cropFocalX: number;
+      cropFocalY: number;
+    },
     isLead: boolean,
   ): ProfilePhotoView {
     return {
@@ -152,6 +196,8 @@ export class ProfilePhotosService {
       rightSwipes: photo.rightSwipes,
       conversionRate: photo.impressions > 0 ? photo.rightSwipes / photo.impressions : null,
       qualityScore: photo.qualityScore,
+      cropFocalX: photo.cropFocalX,
+      cropFocalY: photo.cropFocalY,
     };
   }
 }

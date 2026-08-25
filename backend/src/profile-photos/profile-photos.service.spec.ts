@@ -60,7 +60,14 @@ describe('ProfilePhotosService', () => {
       const result = await service.addPhoto(OWNER_ID, 'https://example.com/a.jpg');
 
       expect(prisma.profilePhoto.create).toHaveBeenCalledWith({
-        data: { ownerId: OWNER_ID, mediaUrl: 'https://example.com/a.jpg', position: 0, qualityScore: 39 },
+        data: {
+          ownerId: OWNER_ID,
+          mediaUrl: 'https://example.com/a.jpg',
+          position: 0,
+          qualityScore: 39,
+          cropFocalX: expect.any(Number),
+          cropFocalY: expect.any(Number),
+        },
       });
       expect(prisma.user.update).toHaveBeenCalledWith({
         where: { id: OWNER_ID },
@@ -82,7 +89,14 @@ describe('ProfilePhotosService', () => {
       const result = await service.addPhoto(OWNER_ID, 'https://example.com/b.jpg');
 
       expect(prisma.profilePhoto.create).toHaveBeenCalledWith({
-        data: { ownerId: OWNER_ID, mediaUrl: 'https://example.com/b.jpg', position: 1, qualityScore: 98 },
+        data: {
+          ownerId: OWNER_ID,
+          mediaUrl: 'https://example.com/b.jpg',
+          position: 1,
+          qualityScore: 98,
+          cropFocalX: expect.any(Number),
+          cropFocalY: expect.any(Number),
+        },
       });
       expect(prisma.user.update).not.toHaveBeenCalled();
       expect(result.isLead).toBe(false);
@@ -104,13 +118,66 @@ describe('ProfilePhotosService', () => {
       const [firstCall, secondCall] = prisma.profilePhoto.create.mock.calls;
       expect(firstCall[0].data.qualityScore).toBe(secondCall[0].data.qualityScore);
     });
+
+    it('detects the same focal point for the same media URL every time', async () => {
+      prisma.profilePhoto.count.mockResolvedValue(0);
+      prisma.profilePhoto.findFirst.mockResolvedValue(null);
+      prisma.profilePhoto.create.mockResolvedValue({
+        id: PHOTO_ID,
+        mediaUrl: 'https://example.com/a.jpg',
+        impressions: 0,
+        rightSwipes: 0,
+      });
+
+      await service.addPhoto(OWNER_ID, 'https://example.com/a.jpg');
+      await service.addPhoto(OWNER_ID, 'https://example.com/a.jpg');
+
+      const [firstCall, secondCall] = prisma.profilePhoto.create.mock.calls;
+      expect(firstCall[0].data.cropFocalX).toBe(secondCall[0].data.cropFocalX);
+      expect(firstCall[0].data.cropFocalY).toBe(secondCall[0].data.cropFocalY);
+    });
+
+    it('keeps the focal point within the plausible face region', async () => {
+      prisma.profilePhoto.count.mockResolvedValue(0);
+      prisma.profilePhoto.findFirst.mockResolvedValue(null);
+      prisma.profilePhoto.create.mockResolvedValue({
+        id: PHOTO_ID,
+        mediaUrl: 'https://example.com/a.jpg',
+        impressions: 0,
+        rightSwipes: 0,
+      });
+
+      await service.addPhoto(OWNER_ID, 'https://example.com/a.jpg');
+
+      const { cropFocalX, cropFocalY } = prisma.profilePhoto.create.mock.calls[0][0].data;
+      expect(cropFocalX).toBeGreaterThanOrEqual(0.35);
+      expect(cropFocalX).toBeLessThanOrEqual(0.65);
+      expect(cropFocalY).toBeGreaterThanOrEqual(0.2);
+      expect(cropFocalY).toBeLessThanOrEqual(0.5);
+    });
   });
 
   describe('listMyPhotos', () => {
     it('marks the lowest-position photo as the lead and computes conversion rate', async () => {
       prisma.profilePhoto.findMany.mockResolvedValue([
-        { id: 'lead', mediaUrl: 'https://example.com/a.jpg', impressions: 10, rightSwipes: 4, qualityScore: 39 },
-        { id: 'second', mediaUrl: 'https://example.com/b.jpg', impressions: 0, rightSwipes: 0, qualityScore: 98 },
+        {
+          id: 'lead',
+          mediaUrl: 'https://example.com/a.jpg',
+          impressions: 10,
+          rightSwipes: 4,
+          qualityScore: 39,
+          cropFocalX: 0.5,
+          cropFocalY: 0.35,
+        },
+        {
+          id: 'second',
+          mediaUrl: 'https://example.com/b.jpg',
+          impressions: 0,
+          rightSwipes: 0,
+          qualityScore: 98,
+          cropFocalX: 0.4,
+          cropFocalY: 0.3,
+        },
       ]);
 
       const result = await service.listMyPhotos(OWNER_ID);
@@ -124,6 +191,8 @@ describe('ProfilePhotosService', () => {
           rightSwipes: 4,
           conversionRate: 0.4,
           qualityScore: 39,
+          cropFocalX: 0.5,
+          cropFocalY: 0.35,
         },
         {
           id: 'second',
@@ -133,6 +202,8 @@ describe('ProfilePhotosService', () => {
           rightSwipes: 0,
           conversionRate: null,
           qualityScore: 98,
+          cropFocalX: 0.4,
+          cropFocalY: 0.3,
         },
       ]);
     });
@@ -150,8 +221,24 @@ describe('ProfilePhotosService', () => {
 
     it('re-positions photos by quality score and promotes the top one to lead', async () => {
       prisma.profilePhoto.findMany.mockResolvedValue([
-        { id: 'high', mediaUrl: 'https://example.com/b.jpg', impressions: 0, rightSwipes: 0, qualityScore: 98 },
-        { id: 'low', mediaUrl: 'https://example.com/a.jpg', impressions: 10, rightSwipes: 4, qualityScore: 39 },
+        {
+          id: 'high',
+          mediaUrl: 'https://example.com/b.jpg',
+          impressions: 0,
+          rightSwipes: 0,
+          qualityScore: 98,
+          cropFocalX: 0.4,
+          cropFocalY: 0.3,
+        },
+        {
+          id: 'low',
+          mediaUrl: 'https://example.com/a.jpg',
+          impressions: 10,
+          rightSwipes: 4,
+          qualityScore: 39,
+          cropFocalX: 0.5,
+          cropFocalY: 0.35,
+        },
       ]);
 
       const result = await service.reorderByQuality(OWNER_ID);

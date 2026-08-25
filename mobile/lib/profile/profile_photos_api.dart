@@ -20,6 +20,8 @@ class ProfilePhoto {
     required this.rightSwipes,
     required this.conversionRate,
     required this.qualityScore,
+    required this.cropFocalX,
+    required this.cropFocalY,
   });
 
   final String id;
@@ -29,6 +31,13 @@ class ProfilePhoto {
   final int rightSwipes;
   final double? conversionRate;
   final int qualityScore;
+
+  /// Normalized (0-1) smart-crop focal point from AI facial detection. Each
+  /// axis maps to a Flutter `Alignment` via `value * 2 - 1` (-1 to 1,
+  /// centered at 0) so `Image` can crop/center on the detected face across
+  /// any container aspect ratio via `alignment:`.
+  final double cropFocalX;
+  final double cropFocalY;
 }
 
 /// Talks to the backend's profile photo gallery endpoints. The lead photo
@@ -143,6 +152,8 @@ class ProfilePhotosApi {
       rightSwipes: json['rightSwipes'] as int,
       conversionRate: (json['conversionRate'] as num?)?.toDouble(),
       qualityScore: json['qualityScore'] as int,
+      cropFocalX: (json['cropFocalX'] as num).toDouble(),
+      cropFocalY: (json['cropFocalY'] as num).toDouble(),
     );
   }
 
