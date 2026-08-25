@@ -7,10 +7,16 @@ const USER_ID = 'user-1';
 
 describe('CommunityGroupsService', () => {
   let service: CommunityGroupsService;
-  let prisma: { user: { findUnique: jest.Mock; update: jest.Mock } };
+  let prisma: {
+    user: { findUnique: jest.Mock; findMany: jest.Mock; update: jest.Mock };
+    blockedContact: { findMany: jest.Mock };
+  };
 
   beforeEach(() => {
-    prisma = { user: { findUnique: jest.fn(), update: jest.fn() } };
+    prisma = {
+      user: { findUnique: jest.fn(), findMany: jest.fn(), update: jest.fn() },
+      blockedContact: { findMany: jest.fn().mockResolvedValue([]) },
+    };
     service = new CommunityGroupsService(prisma as unknown as PrismaService);
   });
 
@@ -85,6 +91,49 @@ describe('CommunityGroupsService', () => {
         select: { communityGroupIds: true },
       });
       expect(result).toEqual(['book-lovers', 'foodies']);
+    });
+  });
+
+  describe('getGroupMembers', () => {
+    it('rejects an unknown group id', async () => {
+      await expect(service.getGroupMembers(USER_ID, 'not-a-real-group')).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(prisma.user.findMany).not.toHaveBeenCalled();
+    });
+
+    it('excludes the current user and blocked users, and returns basic profile info', async () => {
+      prisma.blockedContact.findMany
+        .mockResolvedValueOnce([{ blockedUserId: 'blocked-1' }])
+        .mockResolvedValueOnce([]);
+      prisma.user.findMany.mockResolvedValue([
+        { id: 'member-1', name: 'Alex', dateOfBirth: null, profilePhotoUrl: 'alex.jpg' },
+      ]);
+
+      const result = await service.getGroupMembers(USER_ID, 'book-lovers');
+
+      expect(prisma.user.findMany).toHaveBeenCalledWith({
+        where: {
+          id: { notIn: [USER_ID, 'blocked-1'] },
+          communityGroupIds: { has: 'book-lovers' },
+          onboardingCompletedAt: { not: null },
+          OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }],
+        },
+        take: 50,
+      });
+      expect(result).toEqual([
+        { id: 'member-1', name: 'Alex', age: null, profilePhotoUrl: 'alex.jpg' },
+      ]);
+    });
+
+    it('computes age from dateOfBirth when present', async () => {
+      prisma.user.findMany.mockResolvedValue([
+        { id: 'member-1', name: 'Alex', dateOfBirth: new Date('2000-01-01'), profilePhotoUrl: null },
+      ]);
+
+      const result = await service.getGroupMembers(USER_ID, 'book-lovers');
+
+      expect(result[0].age).toBeGreaterThan(0);
     });
   });
 

@@ -19,6 +19,15 @@ class CommunityGroup {
   final String description;
 }
 
+class GroupMember {
+  GroupMember({required this.id, this.name, this.age, this.profilePhotoUrl});
+
+  final String id;
+  final String? name;
+  final int? age;
+  final String? profilePhotoUrl;
+}
+
 /// Talks to the backend's community-groups endpoints: joining/leaving
 /// topic-based hubs (e.g. "Outdoor Adventurers") that a user's deck can
 /// later be filtered by - see LifestyleFiltersApi's filterCommunityGroups.
@@ -92,6 +101,32 @@ class CommunityGroupsApi {
     }
 
     return (jsonDecode(response.body) as List).cast<String>();
+  }
+
+  /// Other members of one community group, so a user can browse profiles
+  /// active within that specific niche rather than only their broader deck.
+  Future<List<GroupMember>> fetchGroupMembers(String groupId) async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/community-groups/$groupId/members'),
+      headers: _headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw CommunityGroupsApiException(_errorMessage(_decode(response), response.statusCode));
+    }
+
+    final list = jsonDecode(response.body) as List;
+    return list
+        .cast<Map<String, dynamic>>()
+        .map(
+          (json) => GroupMember(
+            id: json['id'] as String,
+            name: json['name'] as String?,
+            age: json['age'] as int?,
+            profilePhotoUrl: json['profilePhotoUrl'] as String?,
+          ),
+        )
+        .toList();
   }
 
   Map<String, dynamic> _decode(http.Response response) {

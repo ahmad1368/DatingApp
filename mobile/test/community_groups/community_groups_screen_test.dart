@@ -61,4 +61,47 @@ void main() {
     expect(joinRequest!.body, '{"groupId":"foodies"}');
     expect(find.text('Joined'), findsOneWidget);
   });
+
+  testWidgets('tapping a joined group opens its member browse screen', (tester) async {
+    final api = CommunityGroupsApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/community-groups/me') {
+          return _jsonResponse('["book-lovers"]', 200);
+        }
+        if (request.url.path == '/community-groups/book-lovers/members') {
+          return _jsonResponse('[{"id":"user-2","name":"Jane","age":29}]', 200);
+        }
+        return _jsonResponse(_catalogResponse, 200);
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: CommunityGroupsScreen(communityGroupsApi: api)));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Book Lovers'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Jane'), findsOneWidget);
+  });
+
+  testWidgets('tapping a group not yet joined does not navigate', (tester) async {
+    final api = CommunityGroupsApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/community-groups/me') {
+          return _jsonResponse('[]', 200);
+        }
+        return _jsonResponse(_catalogResponse, 200);
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: CommunityGroupsScreen(communityGroupsApi: api)));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Book Lovers'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Community Groups'), findsOneWidget);
+  });
 }

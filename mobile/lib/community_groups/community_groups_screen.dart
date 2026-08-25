@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'community_groups_api.dart';
+import 'group_members_screen.dart';
 
 /// Lets the user join or leave topic-based community hubs (e.g. "Outdoor
 /// Adventurers", "Book Lovers") to discover profiles within specific
@@ -81,6 +82,17 @@ class _CommunityGroupsScreenState extends State<CommunityGroupsScreen> {
                     child: ListTile(
                       title: Text(group.name),
                       subtitle: Text(group.description),
+                      onTap: _myGroupIds.contains(group.id)
+                          ? () => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => GroupMembersScreen(
+                                    communityGroupsApi: widget.communityGroupsApi,
+                                    groupId: group.id,
+                                    groupName: group.name,
+                                  ),
+                                ),
+                              )
+                          : null,
                       trailing: FilterChip(
                         label: Text(_myGroupIds.contains(group.id) ? 'Joined' : 'Join'),
                         selected: _myGroupIds.contains(group.id),

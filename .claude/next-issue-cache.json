@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-25T04:59:20.792Z",
+  "generated_at": "2026-08-25T05:07:11.484Z",
   "snapshot": [
     {
       "number": 454,
@@ -1635,22 +1635,9 @@
       "number": 128,
       "title": "Verification Badge Status Filter",
       "updatedAt": "2026-08-10T20:41:20Z"
-    },
-    {
-      "number": 127,
-      "title": "A la Carte Super Like Packs",
-      "updatedAt": "2026-08-10T20:41:18Z"
     }
   ],
   "queue": [
-    {
-      "number": 128,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
-    {
-      "number": 129,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 130,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"

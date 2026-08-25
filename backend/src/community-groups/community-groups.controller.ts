@@ -32,4 +32,10 @@ export class CommunityGroupsController {
   leaveGroup(@CurrentUser() user: AuthenticatedUser, @Param('groupId') groupId: string) {
     return this.communityGroupsService.leaveGroup(user.id, groupId);
   }
+
+  @Get(':groupId/members')
+  @UseGuards(JwtAuthGuard)
+  getGroupMembers(@CurrentUser() user: AuthenticatedUser, @Param('groupId') groupId: string) {
+    return this.communityGroupsService.getGroupMembers(user.id, groupId);
+  }
 }

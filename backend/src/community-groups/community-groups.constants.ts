@@ -19,6 +19,9 @@ export const COMMUNITY_GROUP_IDS = COMMUNITY_GROUPS.map((group) => group.id);
 
 export const MAX_COMMUNITY_GROUP_MEMBERSHIPS = 5;
 
+/** Caps how many members CommunityGroupsService.getGroupMembers returns for a single group browse. */
+export const COMMUNITY_GROUP_MEMBER_LIMIT = 50;
+
 export function findCommunityGroup(groupId: string): CommunityGroup | undefined {
   return COMMUNITY_GROUPS.find((group) => group.id === groupId);
 }
