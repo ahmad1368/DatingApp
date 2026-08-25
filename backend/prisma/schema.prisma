@@ -60,6 +60,15 @@ model User {
   smokingHabit                          String?
   drinkingHabit                         String?
   education                             String?
+  // Dynamic work/education verification: claimed immediately when
+  // requested (shown on profile right away, like any other field), but the
+  // isXVerified flag only flips true once WorkVerificationService.
+  // confirmVerification succeeds - see CredentialVerificationCode.
+  jobTitle                              String?
+  company                               String?
+  school                                String?
+  isWorkVerified                        Boolean   @default(false)
+  isEducationVerified                   Boolean   @default(false)
   religion                              String?
   dietaryPreference                     String?
   wantsChildren                         String?
@@ -137,6 +146,21 @@ model OtpCode {
 
   @@index([phoneNumber])
   @@map("otp_codes")
+}
+
+model CredentialVerificationCode {
+  id         String    @id @default(uuid())
+  userId     String
+  email      String
+  type       String
+  codeHash   String
+  expiresAt  DateTime
+  attempts   Int       @default(0)
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+  @@map("credential_verification_codes")
 }
 
 model SelfieVerificationChallenge {
