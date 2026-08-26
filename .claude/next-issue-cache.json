@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-26T01:35:46.783Z",
+  "generated_at": "2026-08-26T01:55:06.523Z",
   "snapshot": [
     {
       "number": 454,
@@ -1600,18 +1600,9 @@
       "number": 135,
       "title": "Compatibility Score Weighting Customizer",
       "updatedAt": "2026-08-10T20:41:34Z"
-    },
-    {
-      "number": 134,
-      "title": "Auto-Expiring Chat Media Attachments",
-      "updatedAt": "2026-08-10T20:41:32Z"
     }
   ],
   "queue": [
-    {
-      "number": 135,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 136,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"

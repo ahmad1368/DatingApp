@@ -3,8 +3,12 @@ import { PrismaService } from '../prisma/prisma.service';
 import { SubmitPersonalityTestDto } from './dto/submit-personality-test.dto';
 import {
   categoryForDimension,
+  DEFAULT_CATEGORY_WEIGHT,
+  MAX_CATEGORY_WEIGHT,
   MAX_LIKERT_SCORE,
+  MIN_CATEGORY_WEIGHT,
   MIN_LIKERT_SCORE,
+  PERSONALITY_CATEGORIES,
   PERSONALITY_TEST_ITEMS,
 } from './personality-test.constants';
 
@@ -103,10 +107,57 @@ export class PersonalityTestService {
       return { percentage: null, sharedDimensionCount: 0 };
     }
 
+    const weights = await this.getCategoryWeights(userId);
     return {
-      percentage: this.averageSimilarity(shared.comparisons),
+      percentage: this.weightedAverageSimilarity(shared.comparisons, weights),
       sharedDimensionCount: shared.comparisons.length,
     };
+  }
+
+  /**
+   * "Compatibility score weighting customizer": lets a user turn up how
+   * much a PERSONALITY_CATEGORIES group counts toward their own view of
+   * compatibility with someone else (e.g. Core Values over Social Habits),
+   * without changing the per-category breakdown itself - only the blended
+   * top-level percentage in getCompatibility/getCompatibilityBreakdown.
+   */
+  async getCategoryWeights(userId: string): Promise<Record<string, number>> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { compatibilityCategoryWeights: true },
+    });
+    return this.normalizeWeights(user?.compatibilityCategoryWeights as Record<string, number> | null);
+  }
+
+  async setCategoryWeights(
+    userId: string,
+    weights: Record<string, number>,
+  ): Promise<Record<string, number>> {
+    for (const [category, weight] of Object.entries(weights)) {
+      if (!PERSONALITY_CATEGORIES.includes(category)) {
+        throw new BadRequestException(`Unknown compatibility category: ${category}`);
+      }
+      if (typeof weight !== 'number' || weight < MIN_CATEGORY_WEIGHT || weight > MAX_CATEGORY_WEIGHT) {
+        throw new BadRequestException(
+          `Weight for ${category} must be between ${MIN_CATEGORY_WEIGHT} and ${MAX_CATEGORY_WEIGHT}.`,
+        );
+      }
+    }
+
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: { compatibilityCategoryWeights: weights },
+    });
+
+    return this.normalizeWeights(user.compatibilityCategoryWeights as Record<string, number> | null);
+  }
+
+  private normalizeWeights(stored: Record<string, number> | null | undefined): Record<string, number> {
+    const result: Record<string, number> = {};
+    for (const category of PERSONALITY_CATEGORIES) {
+      result[category] = stored?.[category] ?? DEFAULT_CATEGORY_WEIGHT;
+    }
+    return result;
   }
 
   /**
@@ -140,8 +191,9 @@ export class PersonalityTestService {
       }),
     );
 
+    const weights = await this.getCategoryWeights(userId);
     return {
-      percentage: this.averageSimilarity(shared.comparisons),
+      percentage: this.weightedAverageSimilarity(shared.comparisons, weights),
       sharedDimensionCount: shared.comparisons.length,
       categories,
     };
@@ -189,6 +241,29 @@ export class PersonalityTestService {
   private averageSimilarity(comparisons: DimensionComparison[]): number {
     const total = comparisons.reduce((sum, comparison) => sum + comparison.similarity, 0);
     return Math.round(total / comparisons.length);
+  }
+
+  /**
+   * Same as averageSimilarity, but each comparison is weighted by its
+   * category's weight first - with every category at the default weight,
+   * this reduces to the exact same result as averageSimilarity.
+   */
+  private weightedAverageSimilarity(
+    comparisons: DimensionComparison[],
+    weights: Record<string, number>,
+  ): number {
+    let totalWeight = 0;
+    let weightedSum = 0;
+    for (const comparison of comparisons) {
+      const category = categoryForDimension(comparison.dimension);
+      const weight = weights[category] ?? DEFAULT_CATEGORY_WEIGHT;
+      totalWeight += weight;
+      weightedSum += comparison.similarity * weight;
+    }
+    if (totalWeight === 0) {
+      return 0;
+    }
+    return Math.round(weightedSum / totalWeight);
   }
 
   private toView(profile: { dimensionScores: unknown; completedAt: Date }): PersonalityProfileView {

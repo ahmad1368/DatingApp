@@ -127,6 +127,12 @@ model User {
   screenCaptureViolationCount           Int       @default(0)
   screenCaptureFrozenUntil              DateTime?
   blurPhotosUntilMatch                  Boolean   @default(false)
+  // Per-category multiplier (0-2, default 1) applied to how much each
+  // PERSONALITY_CATEGORIES group contributes to this user's own view of
+  // their compatibility percentage with someone else - see
+  // PersonalityTestService.setCategoryWeights. Null/missing keys fall back
+  // to the default weight, so this stays optional.
+  compatibilityCategoryWeights           Json?
   profileCompletionRewardGrantedAt      DateTime?
   lastActiveAt                          DateTime?
   createdAt                             DateTime  @default(now())

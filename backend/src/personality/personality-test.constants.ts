@@ -66,3 +66,16 @@ const CATEGORY_BY_DIMENSION = new Map(
 export function categoryForDimension(dimension: string): string {
   return CATEGORY_BY_DIMENSION.get(dimension) ?? 'Other';
 }
+
+/**
+ * The four broad categories a user can weight against each other via
+ * PersonalityTestService.setCategoryWeights - e.g. someone who cares more
+ * about shared values than shared social habits can turn Core Values up
+ * and Social Habits down, shifting how much each contributes to their
+ * overall compatibility percentage with someone else.
+ */
+export const PERSONALITY_CATEGORIES = [...new Set(PERSONALITY_TEST_ITEMS.map((item) => item.category))];
+
+export const DEFAULT_CATEGORY_WEIGHT = 1;
+export const MIN_CATEGORY_WEIGHT = 0;
+export const MAX_CATEGORY_WEIGHT = 2;

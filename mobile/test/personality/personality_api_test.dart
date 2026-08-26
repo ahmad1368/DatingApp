@@ -66,4 +66,71 @@ void main() {
       );
     });
   });
+
+  group('PersonalityApi.fetchCategoryWeights', () {
+    test('sends the bearer token and parses the weights', () async {
+      final api = PersonalityApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'GET');
+          expect(request.url.path, '/personality-test/weights');
+          return _jsonResponse(
+            '{"Emotional Values":1,"Core Values":2,"Communication Style":1,"Social Habits":0}',
+            200,
+          );
+        }),
+      );
+
+      final weights = await api.fetchCategoryWeights();
+
+      expect(weights['Emotional Values'], 1.0);
+      expect(weights['Core Values'], 2.0);
+      expect(weights['Social Habits'], 0.0);
+    });
+
+    test('throws PersonalityApiException on a non-200 response', () async {
+      final api = PersonalityApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => _jsonResponse('', 500)),
+      );
+
+      expect(() => api.fetchCategoryWeights(), throwsA(isA<PersonalityApiException>()));
+    });
+  });
+
+  group('PersonalityApi.setCategoryWeights', () {
+    test('sends the weights and parses the normalized result', () async {
+      final api = PersonalityApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'POST');
+          expect(request.url.path, '/personality-test/weights');
+          expect(request.body, '{"weights":{"Core Values":2.0}}');
+          return _jsonResponse(
+            '{"Emotional Values":1,"Core Values":2,"Communication Style":1,"Social Habits":1}',
+            200,
+          );
+        }),
+      );
+
+      final weights = await api.setCategoryWeights({'Core Values': 2});
+
+      expect(weights['Core Values'], 2.0);
+    });
+
+    test('throws PersonalityApiException when a category is unknown', () async {
+      final api = PersonalityApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async =>
+              _jsonResponse('{"message":"Unknown compatibility category: Foo"}', 400),
+        ),
+      );
+
+      expect(
+        () => api.setCategoryWeights({'Foo': 1}),
+        throwsA(isA<PersonalityApiException>()),
+      );
+    });
+  });
 }
