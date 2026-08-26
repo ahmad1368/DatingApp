@@ -67,6 +67,7 @@ export interface DeckCard {
   complimentText: string | null;
   complimentTarget: string | null;
   mutualConnectionCount: number;
+  sharedSchool: string | null;
   communicationBoundaries: string | null;
   relationshipStructure: string | null;
   kinkTagBadges: string[];
@@ -301,6 +302,7 @@ export class DiscoveryService {
         complimentText: null,
         complimentTarget: null,
         viewerInterests: currentUser.interests,
+        viewerSchool: currentUser.school,
         mutualConnectionCount: mutualConnectionCounts.get(candidate.id) ?? 0,
       }),
     );
@@ -446,6 +448,7 @@ export class DiscoveryService {
         complimentText: complimentBySwiperId.get(liker.id)?.text ?? null,
         complimentTarget: complimentBySwiperId.get(liker.id)?.target ?? null,
         viewerInterests: currentUser.interests,
+        viewerSchool: currentUser.school,
         mutualConnectionCount: mutualConnectionCounts.get(liker.id) ?? 0,
       }),
     );
@@ -507,6 +510,7 @@ export class DiscoveryService {
       showLoveLanguagesOnProfile: boolean;
       attachmentStyle: string | null;
       showAttachmentStyleOnProfile: boolean;
+      school: string | null;
     },
     now: Date,
     origin: { latitude: number | null; longitude: number | null },
@@ -517,6 +521,7 @@ export class DiscoveryService {
       complimentText: string | null;
       complimentTarget: string | null;
       viewerInterests: string[];
+      viewerSchool: string | null;
       mutualConnectionCount: number;
     },
   ): DeckCard {
@@ -554,6 +559,7 @@ export class DiscoveryService {
       complimentText: flags.complimentText,
       complimentTarget: flags.complimentTarget,
       mutualConnectionCount: flags.mutualConnectionCount,
+      sharedSchool: this.buildSharedSchool(candidate.school, flags.viewerSchool),
       communicationBoundaries: candidate.showCommunicationBoundariesOnProfile
         ? candidate.communicationBoundaries
         : null,
@@ -641,6 +647,22 @@ export class DiscoveryService {
       badges.push(`${candidate.attachmentStyle} Attachment`);
     }
     return badges;
+  }
+
+  /**
+   * "Mutual Friend Network Visualization" - alumni-network half: surfaces
+   * the shared school name when the candidate and viewer both claimed the
+   * same one, so the app can show "You both went to X" without requiring
+   * either side's WorkVerificationService.confirmVerification to have run.
+   * Comparison is case/whitespace-insensitive since school is freeform text.
+   */
+  private buildSharedSchool(candidateSchool: string | null, viewerSchool: string | null): string | null {
+    if (!candidateSchool || !viewerSchool) {
+      return null;
+    }
+    return candidateSchool.trim().toLowerCase() === viewerSchool.trim().toLowerCase()
+      ? candidateSchool
+      : null;
   }
 
   getPassReasons(): readonly string[] {

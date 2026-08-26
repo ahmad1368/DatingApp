@@ -90,6 +90,33 @@ void main() {
     expect(find.textContaining('mutual connection'), findsNothing);
   });
 
+  testWidgets('shows a shared school badge when the candidate attended the same school', (tester) async {
+    final card = DeckCard(
+      id: 'user-2',
+      name: 'Jane',
+      age: 25,
+      interests: const ['Hiking'],
+      sharedSchool: 'NYU',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(home: Scaffold(body: Center(child: SwipeCard(card: card, onSwiped: (_) {})))),
+    );
+
+    expect(find.text('You both went to NYU'), findsOneWidget);
+    expect(find.byIcon(Icons.school), findsOneWidget);
+  });
+
+  testWidgets('hides the shared school badge when there is no shared school', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: Center(child: SwipeCard(card: _sampleCard(), onSwiped: (_) {}))),
+      ),
+    );
+
+    expect(find.textContaining('went to'), findsNothing);
+  });
+
   testWidgets('shows a playable voice intro control when the card has one', (tester) async {
     final card = DeckCard(
       id: 'user-2',
