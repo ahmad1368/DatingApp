@@ -527,6 +527,36 @@ model DateCheckIn {
   @@map("date_check_ins")
 }
 
+// A reusable, named contact a user can pick from when triggering SOS - see
+// SosAlert - distinct from DateCheckIn's one-off contact fields, which stay
+// tied to a single scheduled check-in.
+model EmergencyContact {
+  id        String   @id @default(uuid())
+  userId    String
+  name      String
+  phone     String
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("emergency_contacts")
+}
+
+// A live "help now" trigger during a date, distinct from DateCheckIn's
+// lazy missed-check-in alert: sent immediately to the selected
+// EmergencyContact rows with the sender's current coordinates.
+model SosAlert {
+  id         String   @id @default(uuid())
+  userId     String
+  matchId    String?
+  latitude   Float
+  longitude  Float
+  contactIds String[] @default([])
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@map("sos_alerts")
+}
+
 model PathCrossing {
   id         String   @id @default(uuid())
   userAId    String

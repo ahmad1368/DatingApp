@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 
 import 'safety_api.dart';
 
@@ -11,12 +12,43 @@ const _reportReasons = [
   'OTHER',
 ];
 
+class Coordinates {
+  const Coordinates({required this.latitude, required this.longitude});
+
+  final double latitude;
+  final double longitude;
+}
+
+Future<Coordinates> _defaultCurrentPositionProvider() async {
+  final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+  if (!serviceEnabled) {
+    throw SafetyApiException('Location services are disabled. Please enable them to send SOS.');
+  }
+
+  var permission = await Geolocator.checkPermission();
+  if (permission == LocationPermission.denied) {
+    permission = await Geolocator.requestPermission();
+  }
+  if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+    throw SafetyApiException('Location permission is required to send an SOS alert.');
+  }
+
+  final position = await Geolocator.getCurrentPosition();
+  return Coordinates(latitude: position.latitude, longitude: position.longitude);
+}
+
 /// A dedicated safety hub: educational resources, date check-in scheduling
-/// with emergency-contact details, and a direct user-reporting channel.
+/// with emergency-contact details, a reusable emergency-contact list, a
+/// quick-trigger SOS button, and a direct user-reporting channel.
 class SafetyCenterScreen extends StatefulWidget {
-  const SafetyCenterScreen({super.key, required this.safetyApi});
+  const SafetyCenterScreen({
+    super.key,
+    required this.safetyApi,
+    this.currentPositionProvider = _defaultCurrentPositionProvider,
+  });
 
   final SafetyApi safetyApi;
+  final Future<Coordinates> Function() currentPositionProvider;
 
   @override
   State<SafetyCenterScreen> createState() => _SafetyCenterScreenState();
@@ -25,7 +57,9 @@ class SafetyCenterScreen extends StatefulWidget {
 class _SafetyCenterScreenState extends State<SafetyCenterScreen> {
   List<SafetyResource> _resources = [];
   List<CheckIn> _checkIns = [];
+  List<EmergencyContact> _contacts = [];
   bool _isLoading = true;
+  bool _isSendingSos = false;
   String? _errorText;
   String? _statusText;
 
@@ -44,16 +78,62 @@ class _SafetyCenterScreenState extends State<SafetyCenterScreen> {
       final results = await Future.wait([
         widget.safetyApi.fetchResources(),
         widget.safetyApi.fetchCheckIns(),
+        widget.safetyApi.fetchEmergencyContacts(),
       ]);
       setState(() {
         _resources = results[0] as List<SafetyResource>;
         _checkIns = results[1] as List<CheckIn>;
+        _contacts = results[2] as List<EmergencyContact>;
       });
     } on SafetyApiException catch (e) {
       setState(() => _errorText = e.message);
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _addEmergencyContact(String name, String phone) async {
+    setState(() => _errorText = null);
+    try {
+      final contact = await widget.safetyApi.addEmergencyContact(name: name, phone: phone);
+      setState(() => _contacts = [..._contacts, contact]);
+    } on SafetyApiException catch (e) {
+      setState(() => _errorText = e.message);
+    }
+  }
+
+  Future<void> _deleteEmergencyContact(EmergencyContact contact) async {
+    setState(() => _errorText = null);
+    try {
+      await widget.safetyApi.deleteEmergencyContact(contact.id);
+      setState(() => _contacts = _contacts.where((c) => c.id != contact.id).toList());
+    } on SafetyApiException catch (e) {
+      setState(() => _errorText = e.message);
+    }
+  }
+
+  Future<void> _triggerSos() async {
+    setState(() {
+      _isSendingSos = true;
+      _errorText = null;
+      _statusText = null;
+    });
+    try {
+      final coordinates = await widget.currentPositionProvider();
+      final result = await widget.safetyApi.triggerSos(
+        latitude: coordinates.latitude,
+        longitude: coordinates.longitude,
+      );
+      setState(() {
+        _statusText = 'SOS sent to ${result.notifiedContactIds.length} contact(s).';
+      });
+    } on SafetyApiException catch (e) {
+      setState(() => _errorText = e.message);
+    } finally {
+      if (mounted) {
+        setState(() => _isSendingSos = false);
       }
     }
   }
@@ -166,6 +246,43 @@ class _SafetyCenterScreenState extends State<SafetyCenterScreen> {
     }
   }
 
+  Future<void> _openAddEmergencyContactDialog() async {
+    final nameController = TextEditingController();
+    final phoneController = TextEditingController();
+
+    final added = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add emergency contact'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(labelText: 'Name'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: phoneController,
+              keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(labelText: 'Phone'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Add')),
+        ],
+      ),
+    );
+
+    if (added == true &&
+        nameController.text.trim().isNotEmpty &&
+        phoneController.text.trim().isNotEmpty) {
+      await _addEmergencyContact(nameController.text.trim(), phoneController.text.trim());
+    }
+  }
+
   Future<void> _openReportUserDialog() async {
     final userIdController = TextEditingController();
     final detailsController = TextEditingController();
@@ -228,6 +345,18 @@ class _SafetyCenterScreenState extends State<SafetyCenterScreen> {
           ),
         ],
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _isSendingSos ? null : _triggerSos,
+        backgroundColor: Colors.red,
+        icon: _isSendingSos
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              )
+            : const Icon(Icons.sos),
+        label: const Text('SOS'),
+      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
@@ -243,6 +372,29 @@ class _SafetyCenterScreenState extends State<SafetyCenterScreen> {
                     padding: const EdgeInsets.only(bottom: 12),
                     child: Text(_statusText!, style: const TextStyle(fontWeight: FontWeight.bold)),
                   ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Emergency Contacts', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    TextButton.icon(
+                      onPressed: _openAddEmergencyContactDialog,
+                      icon: const Icon(Icons.person_add_alt),
+                      label: const Text('Add'),
+                    ),
+                  ],
+                ),
+                if (_contacts.isEmpty) const Text('No emergency contacts yet.'),
+                for (final contact in _contacts)
+                  ListTile(
+                    title: Text(contact.name),
+                    subtitle: Text(contact.phone),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.delete),
+                      tooltip: 'Remove',
+                      onPressed: () => _deleteEmergencyContact(contact),
+                    ),
+                  ),
+                const SizedBox(height: 24),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [

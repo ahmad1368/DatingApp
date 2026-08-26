@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-26T01:55:06.523Z",
+  "generated_at": "2026-08-26T02:07:39.559Z",
   "snapshot": [
     {
       "number": 454,
@@ -1595,18 +1595,9 @@
       "number": 136,
       "title": "Real-Time Emergency Date Assistance SOS",
       "updatedAt": "2026-08-10T20:41:36Z"
-    },
-    {
-      "number": 135,
-      "title": "Compatibility Score Weighting Customizer",
-      "updatedAt": "2026-08-10T20:41:34Z"
     }
   ],
   "queue": [
-    {
-      "number": 136,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 137,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"

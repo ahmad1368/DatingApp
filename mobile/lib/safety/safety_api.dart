@@ -54,8 +54,25 @@ class CheckIn {
   bool get isConfirmed => status == 'CONFIRMED';
 }
 
+class EmergencyContact {
+  EmergencyContact({required this.id, required this.name, required this.phone});
+
+  final String id;
+  final String name;
+  final String phone;
+}
+
+class SosAlertResult {
+  SosAlertResult({required this.id, required this.notifiedContactIds, required this.createdAt});
+
+  final String id;
+  final List<String> notifiedContactIds;
+  final DateTime createdAt;
+}
+
 /// Talks to the backend's safety center: educational resources, date
-/// check-ins, and user reporting. Requires a signed-in user's access token.
+/// check-ins, emergency contacts, SOS alerts, and user reporting. Requires
+/// a signed-in user's access token.
 class SafetyApi {
   SafetyApi({required this.accessToken, http.Client? client, String? baseUrl})
       : _client = client ?? http.Client(),
@@ -169,6 +186,85 @@ class SafetyApi {
     }
 
     return _toCheckIn(body);
+  }
+
+  Future<List<EmergencyContact>> fetchEmergencyContacts() async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/safety/emergency-contacts'),
+      headers: _headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw SafetyApiException(_errorMessage(_decode(response), response.statusCode));
+    }
+
+    final list = jsonDecode(response.body) as List;
+    return list.cast<Map<String, dynamic>>().map(_toEmergencyContact).toList();
+  }
+
+  Future<EmergencyContact> addEmergencyContact({required String name, required String phone}) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/safety/emergency-contacts'),
+      headers: _headers,
+      body: jsonEncode({'name': name, 'phone': phone}),
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 201) {
+      throw SafetyApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return _toEmergencyContact(body);
+  }
+
+  Future<void> deleteEmergencyContact(String contactId) async {
+    final response = await _client.delete(
+      Uri.parse('$_baseUrl/safety/emergency-contacts/$contactId'),
+      headers: _headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw SafetyApiException(_errorMessage(_decode(response), response.statusCode));
+    }
+  }
+
+  /// Quick-trigger SOS: immediately texts the current coordinates to the
+  /// given emergency contacts (or all of them, if [contactIds] is omitted).
+  Future<SosAlertResult> triggerSos({
+    required double latitude,
+    required double longitude,
+    String? matchId,
+    List<String>? contactIds,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/safety/sos'),
+      headers: _headers,
+      body: jsonEncode({
+        'latitude': latitude,
+        'longitude': longitude,
+        'matchId': ?matchId,
+        'contactIds': ?contactIds,
+      }),
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 201) {
+      throw SafetyApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return SosAlertResult(
+      id: body['id'] as String,
+      notifiedContactIds: (body['notifiedContactIds'] as List).cast<String>(),
+      createdAt: DateTime.parse(body['createdAt'] as String),
+    );
+  }
+
+  EmergencyContact _toEmergencyContact(Map<String, dynamic> json) {
+    return EmergencyContact(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      phone: json['phone'] as String,
+    );
   }
 
   CheckIn _toCheckIn(Map<String, dynamic> json) {
