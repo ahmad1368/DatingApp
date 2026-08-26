@@ -105,6 +105,43 @@ class PersonalityApi {
     );
   }
 
+  /// "Compatibility score weighting customizer": how much each category
+  /// (Emotional Values, Core Values, Communication Style, Social Habits)
+  /// counts toward this user's own compatibility percentage with someone
+  /// else. Each weight is 0-2; missing categories default to 1.
+  Future<Map<String, double>> fetchCategoryWeights() async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/personality-test/weights'),
+      headers: _headers,
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 200) {
+      throw PersonalityApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return _toWeights(body);
+  }
+
+  Future<Map<String, double>> setCategoryWeights(Map<String, double> weights) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/personality-test/weights'),
+      headers: _headers,
+      body: jsonEncode({'weights': weights}),
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 200) {
+      throw PersonalityApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return _toWeights(body);
+  }
+
+  Map<String, double> _toWeights(Map<String, dynamic> json) {
+    return json.map((category, weight) => MapEntry(category, (weight as num).toDouble()));
+  }
+
   Map<String, dynamic> _decode(http.Response response) {
     if (response.body.isEmpty) {
       return const {};

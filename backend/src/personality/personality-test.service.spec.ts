@@ -15,10 +15,16 @@ function fullValidResponses(overrides: Record<string, number> = {}) {
 
 describe('PersonalityTestService', () => {
   let service: PersonalityTestService;
-  let prisma: { personalityProfile: { upsert: jest.Mock; findUnique: jest.Mock } };
+  let prisma: {
+    personalityProfile: { upsert: jest.Mock; findUnique: jest.Mock };
+    user: { findUnique: jest.Mock; update: jest.Mock };
+  };
 
   beforeEach(() => {
-    prisma = { personalityProfile: { upsert: jest.fn(), findUnique: jest.fn() } };
+    prisma = {
+      personalityProfile: { upsert: jest.fn(), findUnique: jest.fn() },
+      user: { findUnique: jest.fn(), update: jest.fn() },
+    };
     service = new PersonalityTestService(prisma as unknown as PrismaService);
   });
 
@@ -133,6 +139,27 @@ describe('PersonalityTestService', () => {
       // Optimism: 100 - |80-100| = 80; Warmth: 100 - |60-60| = 100; avg = 90
       expect(result).toEqual({ percentage: 90, sharedDimensionCount: 2 });
     });
+
+    it('applies the viewing user\'s own category weights to the blended percentage', async () => {
+      // Optimism and Warmth are both 'Emotional Values'; Directness is 'Communication Style'.
+      prisma.personalityProfile.findUnique
+        .mockResolvedValueOnce({
+          dimensionScores: { Optimism: 80, Warmth: 60, Directness: 40 },
+        })
+        .mockResolvedValueOnce({
+          dimensionScores: { Optimism: 100, Warmth: 60, Directness: 100 },
+        });
+      prisma.user.findUnique.mockResolvedValue({
+        compatibilityCategoryWeights: { 'Emotional Values': 2, 'Communication Style': 0 },
+      });
+
+      const result = await service.getCompatibility(USER_ID, OTHER_ID);
+
+      // Emotional Values similarities: Optimism 80, Warmth 100 -> weighted 2x each;
+      // Communication Style (Directness, similarity 40) weighted 0x, so it drops out entirely.
+      // (80*2 + 100*2) / (2+2) = 90
+      expect(result.percentage).toBe(90);
+    });
   });
 
   describe('getCompatibilityBreakdown', () => {
@@ -181,6 +208,70 @@ describe('PersonalityTestService', () => {
         category: 'Communication Style',
         averageSimilarity: 40,
         dimensions: [{ dimension: 'Directness', myScore: 40, theirScore: 100, similarity: 40 }],
+      });
+    });
+  });
+
+  describe('getCategoryWeights', () => {
+    it('defaults every category to weight 1 when nothing is stored', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      const result = await service.getCategoryWeights(USER_ID);
+
+      expect(result).toEqual({
+        'Emotional Values': 1,
+        'Core Values': 1,
+        'Communication Style': 1,
+        'Social Habits': 1,
+      });
+    });
+
+    it('fills in the default for any category missing from the stored weights', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        compatibilityCategoryWeights: { 'Core Values': 1.5 },
+      });
+
+      const result = await service.getCategoryWeights(USER_ID);
+
+      expect(result['Core Values']).toBe(1.5);
+      expect(result['Social Habits']).toBe(1);
+    });
+  });
+
+  describe('setCategoryWeights', () => {
+    it('rejects an unknown category', async () => {
+      await expect(
+        service.setCategoryWeights(USER_ID, { 'Not A Real Category': 1 }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects a weight outside the 0-2 range', async () => {
+      await expect(
+        service.setCategoryWeights(USER_ID, { 'Core Values': 3 }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it('persists the weights and returns the normalized set', async () => {
+      prisma.user.update.mockResolvedValue({
+        compatibilityCategoryWeights: { 'Core Values': 2, 'Social Habits': 0 },
+      });
+
+      const result = await service.setCategoryWeights(USER_ID, {
+        'Core Values': 2,
+        'Social Habits': 0,
+      });
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: USER_ID },
+        data: { compatibilityCategoryWeights: { 'Core Values': 2, 'Social Habits': 0 } },
+      });
+      expect(result).toEqual({
+        'Emotional Values': 1,
+        'Core Values': 2,
+        'Communication Style': 1,
+        'Social Habits': 0,
       });
     });
   });

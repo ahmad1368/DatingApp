@@ -1,6 +1,7 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AuthenticatedUser, JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { SetCompatibilityWeightsDto } from './dto/set-compatibility-weights.dto';
 import { SubmitPersonalityTestDto } from './dto/submit-personality-test.dto';
 import { PersonalityTestService } from './personality-test.service';
 
@@ -24,6 +25,19 @@ export class PersonalityTestController {
   @UseGuards(JwtAuthGuard)
   getMyProfile(@CurrentUser() user: AuthenticatedUser) {
     return this.personalityTestService.getMyProfile(user.id);
+  }
+
+  @Get('weights')
+  @UseGuards(JwtAuthGuard)
+  getCategoryWeights(@CurrentUser() user: AuthenticatedUser) {
+    return this.personalityTestService.getCategoryWeights(user.id);
+  }
+
+  @Post('weights')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  setCategoryWeights(@CurrentUser() user: AuthenticatedUser, @Body() dto: SetCompatibilityWeightsDto) {
+    return this.personalityTestService.setCategoryWeights(user.id, dto.weights);
   }
 
   @Get('compatibility/:otherUserId')
