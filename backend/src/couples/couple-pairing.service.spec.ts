@@ -11,7 +11,7 @@ const LINK_ID = 'link-1';
 describe('CouplePairingService', () => {
   let service: CouplePairingService;
   let prisma: {
-    user: { findUnique: jest.Mock };
+    user: { findUnique: jest.Mock; findMany: jest.Mock; update: jest.Mock };
     couplePairing: {
       findFirst: jest.Mock;
       findUnique: jest.Mock;
@@ -31,7 +31,7 @@ describe('CouplePairingService', () => {
 
   beforeEach(() => {
     prisma = {
-      user: { findUnique: jest.fn() },
+      user: { findUnique: jest.fn(), findMany: jest.fn().mockResolvedValue([]), update: jest.fn() },
       couplePairing: {
         findFirst: jest.fn(),
         findUnique: jest.fn(),
@@ -115,7 +115,7 @@ describe('CouplePairingService', () => {
   });
 
   describe('listPartners', () => {
-    it('maps each link to the other participant', async () => {
+    it('maps each link to the other participant, with their display name', async () => {
       prisma.partnerLink.findMany.mockResolvedValue([
         {
           id: LINK_ID,
@@ -130,12 +130,30 @@ describe('CouplePairingService', () => {
           createdAt: new Date('2026-01-02T00:00:00.000Z'),
         },
       ]);
+      prisma.user.findMany.mockResolvedValue([
+        { id: PARTNER_ID, name: 'Alex' },
+        { id: OTHER_PARTNER_ID, name: 'Sam' },
+      ]);
 
       const result = await service.listPartners(REQUESTER_ID);
 
+      expect(prisma.user.findMany).toHaveBeenCalledWith({
+        where: { id: { in: [PARTNER_ID, OTHER_PARTNER_ID] } },
+        select: { id: true, name: true },
+      });
       expect(result).toEqual([
-        { id: LINK_ID, partnerId: PARTNER_ID, linkedAt: '2026-01-01T00:00:00.000Z' },
-        { id: 'link-2', partnerId: OTHER_PARTNER_ID, linkedAt: '2026-01-02T00:00:00.000Z' },
+        {
+          id: LINK_ID,
+          partnerId: PARTNER_ID,
+          partnerName: 'Alex',
+          linkedAt: '2026-01-01T00:00:00.000Z',
+        },
+        {
+          id: 'link-2',
+          partnerId: OTHER_PARTNER_ID,
+          partnerName: 'Sam',
+          linkedAt: '2026-01-02T00:00:00.000Z',
+        },
       ]);
     });
   });
@@ -275,6 +293,7 @@ describe('CouplePairingService', () => {
         jointBrowsingEnabled: true,
         createdAt: new Date('2026-01-01T00:00:00.000Z'),
       });
+      prisma.user.findUnique.mockResolvedValue({ name: 'Alex' });
 
       const result = await service.setJointBrowsingMode(REQUESTER_ID, PARTNER_ID, true);
 
@@ -285,9 +304,86 @@ describe('CouplePairingService', () => {
       expect(result).toEqual({
         id: LINK_ID,
         partnerId: PARTNER_ID,
+        partnerName: 'Alex',
         linkedAt: '2026-01-01T00:00:00.000Z',
         jointBrowsingEnabled: true,
       });
+    });
+  });
+
+  describe('getActiveBrowsingPartner', () => {
+    it('reports null when the user is browsing solo', async () => {
+      prisma.user.findUnique.mockResolvedValue({ activeBrowsingPartnerId: null });
+
+      const result = await service.getActiveBrowsingPartner(REQUESTER_ID);
+
+      expect(result).toEqual({ activeBrowsingPartnerId: null });
+    });
+
+    it('reports the currently active browsing partner', async () => {
+      prisma.user.findUnique.mockResolvedValue({ activeBrowsingPartnerId: PARTNER_ID });
+
+      const result = await service.getActiveBrowsingPartner(REQUESTER_ID);
+
+      expect(result).toEqual({ activeBrowsingPartnerId: PARTNER_ID });
+    });
+  });
+
+  describe('setActiveBrowsingPartner', () => {
+    it('rejects switching to a partner without joint browsing enabled', async () => {
+      prisma.partnerLink.findFirst.mockResolvedValue({
+        id: LINK_ID,
+        userAId: REQUESTER_ID,
+        userBId: PARTNER_ID,
+        jointBrowsingEnabled: false,
+      });
+
+      await expect(
+        service.setActiveBrowsingPartner(REQUESTER_ID, PARTNER_ID),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects switching to a partner who is not linked at all', async () => {
+      prisma.partnerLink.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.setActiveBrowsingPartner(REQUESTER_ID, PARTNER_ID),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it('switches to joint browsing with a partner who has it enabled', async () => {
+      prisma.partnerLink.findFirst.mockResolvedValue({
+        id: LINK_ID,
+        userAId: REQUESTER_ID,
+        userBId: PARTNER_ID,
+        jointBrowsingEnabled: true,
+      });
+      prisma.user.update.mockResolvedValue({ activeBrowsingPartnerId: PARTNER_ID });
+
+      const result = await service.setActiveBrowsingPartner(REQUESTER_ID, PARTNER_ID);
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: REQUESTER_ID },
+        data: { activeBrowsingPartnerId: PARTNER_ID },
+        select: { activeBrowsingPartnerId: true },
+      });
+      expect(result).toEqual({ activeBrowsingPartnerId: PARTNER_ID });
+    });
+
+    it('always allows switching back to solo browsing', async () => {
+      prisma.user.update.mockResolvedValue({ activeBrowsingPartnerId: null });
+
+      const result = await service.setActiveBrowsingPartner(REQUESTER_ID, null);
+
+      expect(prisma.partnerLink.findFirst).not.toHaveBeenCalled();
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: REQUESTER_ID },
+        data: { activeBrowsingPartnerId: null },
+        select: { activeBrowsingPartnerId: true },
+      });
+      expect(result).toEqual({ activeBrowsingPartnerId: null });
     });
   });
 

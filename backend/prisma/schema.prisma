@@ -99,6 +99,11 @@ model User {
   filterCommunityGroups                 String[]  @default([])
   incognitoEnabled                      Boolean   @default(false)
   activeMode                            String    @default("DATING")
+  // "Couple & Group Profile Browsing Switch": which linked partner (if any)
+  // the deck is currently being browsed jointly with - see
+  // CouplePairingService.setActiveBrowsingPartner and DiscoveryService.
+  // getDeck's joint-exclusion logic. Null means solo browsing.
+  activeBrowsingPartnerId               String?
   snoozedUntil                          DateTime?
   snoozeStatusMessage                   String?
   readReceiptsEnabled                   Boolean   @default(true)

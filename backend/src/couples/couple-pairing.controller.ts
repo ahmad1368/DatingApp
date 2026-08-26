@@ -2,6 +2,7 @@ import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Put, UseGuard
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AuthenticatedUser, JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { InviteCouplePairingDto } from './dto/invite-couple-pairing.dto';
+import { SetActiveBrowsingPartnerDto } from './dto/set-active-browsing-partner.dto';
 import { SetJointBrowsingModeDto } from './dto/set-joint-browsing-mode.dto';
 import { UnpairDto } from './dto/unpair.dto';
 import { CouplePairingService } from './couple-pairing.service';
@@ -43,6 +44,20 @@ export class CouplePairingController {
   @HttpCode(HttpStatus.OK)
   unpair(@CurrentUser() user: AuthenticatedUser, @Body() dto: UnpairDto) {
     return this.couplePairingService.unpair(user.id, dto.partnerUserId);
+  }
+
+  @Get('active-browsing')
+  getActiveBrowsingPartner(@CurrentUser() user: AuthenticatedUser) {
+    return this.couplePairingService.getActiveBrowsingPartner(user.id);
+  }
+
+  @Put('active-browsing')
+  @HttpCode(HttpStatus.OK)
+  setActiveBrowsingPartner(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: SetActiveBrowsingPartnerDto,
+  ) {
+    return this.couplePairingService.setActiveBrowsingPartner(user.id, dto.partnerId ?? null);
   }
 
   @Put(':partnerId/browsing-mode')

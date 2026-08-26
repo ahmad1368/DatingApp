@@ -157,8 +157,16 @@ export class DiscoveryService {
       select: { targetUserId: true },
     });
     const blockedIds = await getBlockedUserIds(this.prisma, userId);
+    const jointPartnerSwipedIds = currentUser.activeBrowsingPartnerId
+      ? await this.getJointPartnerSwipedIds(userId, currentUser.activeBrowsingPartnerId)
+      : [];
 
-    const excludedIds = [userId, ...swiped.map((s) => s.targetUserId), ...blockedIds];
+    const excludedIds = [
+      userId,
+      ...swiped.map((s) => s.targetUserId),
+      ...blockedIds,
+      ...jointPartnerSwipedIds,
+    ];
     const lifestyleWhere = this.buildLifestyleFilterWhere(currentUser);
     const now = new Date();
     const notSnoozedWhere: Prisma.UserWhereInput = {
@@ -1289,6 +1297,35 @@ export class DiscoveryService {
       }),
       this.prisma.user.update({ where: { id: ownerId }, data: { profilePhotoUrl: best.mediaUrl } }),
     ]);
+  }
+
+  /**
+   * "Couple & Group Profile Browsing Switch": when browsing jointly (User.
+   * activeBrowsingPartnerId, set via CouplePairingService.
+   * setActiveBrowsingPartner), candidates the partner has already swiped on
+   * are excluded here too, so the couple's joint deck never repeats a card
+   * either side has already acted on. Falls back to no extra exclusions if
+   * joint browsing was turned off on the link after the switch was set.
+   */
+  private async getJointPartnerSwipedIds(userId: string, partnerId: string): Promise<string[]> {
+    const link = await this.prisma.partnerLink.findFirst({
+      where: {
+        jointBrowsingEnabled: true,
+        OR: [
+          { userAId: userId, userBId: partnerId },
+          { userAId: partnerId, userBId: userId },
+        ],
+      },
+    });
+    if (!link) {
+      return [];
+    }
+
+    const partnerSwiped = await this.prisma.swipe.findMany({
+      where: { swiperId: partnerId },
+      select: { targetUserId: true },
+    });
+    return partnerSwiped.map((swipe) => swipe.targetUserId);
   }
 
   private buildLifestyleFilterWhere(currentUser: {
