@@ -44,9 +44,31 @@ export class PowerUpsService {
         return this.purchaseExtraProfileViews(userId, powerUp);
       case 'extend-match-timer':
         return this.purchaseMatchExtension(userId, powerUp, matchId);
+      case 'unmatch-protection':
+        return this.purchaseUnmatchProtection(userId, powerUp, user.unmatchProtectionEnabled);
       default:
         return this.purchaseSuperLike(userId, powerUp);
     }
+  }
+
+  private async purchaseUnmatchProtection(
+    userId: string,
+    powerUp: PowerUp,
+    alreadyEnabled: boolean,
+  ): Promise<PurchasePowerUpResult> {
+    if (alreadyEnabled) {
+      throw new BadRequestException('Unmatch protection is already enabled.');
+    }
+
+    const updatedUser = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        giftTokenBalance: { decrement: powerUp.coinCost },
+        unmatchProtectionEnabled: true,
+      },
+    });
+
+    return { coinBalance: updatedUser.giftTokenBalance, powerUpId: powerUp.id };
   }
 
   private async purchaseBoost(userId: string, powerUp: PowerUp): Promise<PurchasePowerUpResult> {

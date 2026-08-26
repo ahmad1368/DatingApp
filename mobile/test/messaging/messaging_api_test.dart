@@ -287,6 +287,74 @@ void main() {
     });
   });
 
+  group('MessagingApi.fetchArchivedThreads', () {
+    test('sends the bearer token and parses the archived threads', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.headers['Authorization'], 'Bearer a-jwt');
+          expect(request.url.path, '/matches/archived');
+          return http.Response(
+            '[{"dissolvedMatchId":"dissolved-1","otherUserId":"user-2",'
+            '"otherUserName":"Sam","otherUserPhotoUrl":"sam.jpg",'
+            '"dissolvedAt":"2026-01-02T00:00:00.000Z","messageCount":3}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final threads = await api.fetchArchivedThreads();
+
+      expect(threads, hasLength(1));
+      expect(threads.first.dissolvedMatchId, 'dissolved-1');
+      expect(threads.first.messageCount, 3);
+    });
+
+    test('throws MessagingApiException on a non-200 response', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => http.Response('', 500)),
+      );
+
+      expect(() => api.fetchArchivedThreads(), throwsA(isA<MessagingApiException>()));
+    });
+  });
+
+  group('MessagingApi.fetchArchivedThreadMessages', () {
+    test('sends the bearer token and parses the archived messages', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.url.path, '/matches/archived/dissolved-1/messages');
+          return http.Response(
+            '[{"id":"am-1","senderId":"user-2","contentType":"TEXT","content":"hi",'
+            '"mediaUrl":null,"createdAt":"2026-01-01T00:00:00.000Z"}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final messages = await api.fetchArchivedThreadMessages('dissolved-1');
+
+      expect(messages, hasLength(1));
+      expect(messages.first.content, 'hi');
+    });
+
+    test('throws MessagingApiException on a non-200 response', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => http.Response('', 404)),
+      );
+
+      expect(
+        () => api.fetchArchivedThreadMessages('dissolved-1'),
+        throwsA(isA<MessagingApiException>()),
+      );
+    });
+  });
+
   group('MessagingApi.unmatch', () {
     test('sends a POST to the unmatch endpoint', () async {
       http.Request? capturedRequest;

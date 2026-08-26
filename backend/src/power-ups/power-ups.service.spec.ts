@@ -155,6 +155,30 @@ describe('PowerUpsService', () => {
       });
     });
 
+    describe('unmatch-protection', () => {
+      it('deducts coins and enables the protection flag', async () => {
+        prisma.user.findUnique.mockResolvedValue({ giftTokenBalance: 100, unmatchProtectionEnabled: false });
+        prisma.user.update.mockResolvedValue({ giftTokenBalance: 25 });
+
+        const result = await service.purchasePowerUp(USER_ID, 'unmatch-protection');
+
+        expect(prisma.user.update).toHaveBeenCalledWith({
+          where: { id: USER_ID },
+          data: { giftTokenBalance: { decrement: 75 }, unmatchProtectionEnabled: true },
+        });
+        expect(result).toEqual({ coinBalance: 25, powerUpId: 'unmatch-protection' });
+      });
+
+      it('rejects buying it again once already enabled', async () => {
+        prisma.user.findUnique.mockResolvedValue({ giftTokenBalance: 100, unmatchProtectionEnabled: true });
+
+        await expect(service.purchasePowerUp(USER_ID, 'unmatch-protection')).rejects.toBeInstanceOf(
+          BadRequestException,
+        );
+        expect(prisma.user.update).not.toHaveBeenCalled();
+      });
+    });
+
     describe('extra-profile-views', () => {
       it('deducts coins and grants bonus deck slots', async () => {
         prisma.user.findUnique.mockResolvedValue({ giftTokenBalance: 50 });
