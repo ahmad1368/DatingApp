@@ -29,6 +29,7 @@ describe('DiscoveryService', () => {
     profilePhoto: { findFirst: jest.Mock; findMany: jest.Mock; update: jest.Mock };
     message: { create: jest.Mock };
     icebreakerResponse: { createMany: jest.Mock };
+    profilePromptVideoAnswer: { findMany: jest.Mock };
     $transaction: jest.Mock;
   };
 
@@ -59,6 +60,7 @@ describe('DiscoveryService', () => {
       },
       message: { create: jest.fn() },
       icebreakerResponse: { createMany: jest.fn() },
+      profilePromptVideoAnswer: { findMany: jest.fn().mockResolvedValue([]) },
       $transaction: jest.fn((ops: unknown[]) => Promise.all(ops)),
     };
     matchingService = { getCompatibility: jest.fn() };
@@ -1371,6 +1373,91 @@ describe('DiscoveryService', () => {
         },
         take: 60,
       });
+    });
+  });
+
+  describe('getVideoFeed', () => {
+    it('throws NotFoundException when the user does not exist', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(service.getVideoFeed(USER_ID)).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('only requests candidates with a video snippet or a video prompt answer', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: USER_ID, activeMode: 'DATING' });
+      prisma.swipe.findMany.mockResolvedValue([]);
+      prisma.profilePromptVideoAnswer.findMany.mockResolvedValue([
+        { userId: 'video-answer-user', promptId: 'perfect-first-date', videoUrl: 'https://example.com/a.mp4' },
+      ]);
+      prisma.user.findMany.mockResolvedValue([]);
+
+      await service.getVideoFeed(USER_ID);
+
+      expect(prisma.profilePromptVideoAnswer.findMany).toHaveBeenCalledWith({
+        where: { userId: { notIn: [USER_ID] } },
+        distinct: ['userId'],
+        orderBy: { createdAt: 'desc' },
+      });
+      expect(prisma.user.findMany).toHaveBeenCalledWith({
+        where: {
+          id: { notIn: [USER_ID] },
+          onboardingCompletedAt: { not: null },
+          activeMode: 'DATING',
+          OR: [{ videoSnippetUrl: { not: null } }, { id: { in: ['video-answer-user'] } }],
+        },
+        take: 20,
+      });
+    });
+
+    it("prefers a candidate's video snippet over a prompt answer when both exist", async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: USER_ID, activeMode: 'DATING' });
+      prisma.profilePromptVideoAnswer.findMany.mockResolvedValue([
+        { userId: 'candidate-1', promptId: 'perfect-first-date', videoUrl: 'https://example.com/answer.mp4' },
+      ]);
+      prisma.user.findMany.mockResolvedValue([
+        {
+          id: 'candidate-1',
+          name: 'Jane',
+          dateOfBirth: null,
+          videoSnippetUrl: 'https://example.com/snippet.mp4',
+        },
+      ]);
+
+      const feed = await service.getVideoFeed(USER_ID);
+
+      expect(feed).toEqual([
+        {
+          id: 'candidate-1',
+          name: 'Jane',
+          age: null,
+          videoUrl: 'https://example.com/snippet.mp4',
+          videoSource: 'SNIPPET',
+          promptQuestion: null,
+        },
+      ]);
+    });
+
+    it('falls back to the video prompt answer when there is no snippet', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: USER_ID, activeMode: 'DATING' });
+      prisma.profilePromptVideoAnswer.findMany.mockResolvedValue([
+        { userId: 'candidate-1', promptId: 'perfect-first-date', videoUrl: 'https://example.com/answer.mp4' },
+      ]);
+      prisma.user.findMany.mockResolvedValue([
+        { id: 'candidate-1', name: 'Jane', dateOfBirth: null, videoSnippetUrl: null },
+      ]);
+
+      const feed = await service.getVideoFeed(USER_ID);
+
+      expect(feed).toEqual([
+        {
+          id: 'candidate-1',
+          name: 'Jane',
+          age: null,
+          videoUrl: 'https://example.com/answer.mp4',
+          videoSource: 'PROMPT_ANSWER',
+          promptQuestion: 'My idea of a perfect first date is...',
+        },
+      ]);
     });
   });
 

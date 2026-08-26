@@ -19,6 +19,11 @@ export class DiscoveryController {
     return this.discoveryService.getDeck(user.id);
   }
 
+  @Get('video-feed')
+  getVideoFeed(@CurrentUser() user: AuthenticatedUser) {
+    return this.discoveryService.getVideoFeed(user.id);
+  }
+
   @Get('pass-reasons')
   getPassReasons() {
     return this.discoveryService.getPassReasons();

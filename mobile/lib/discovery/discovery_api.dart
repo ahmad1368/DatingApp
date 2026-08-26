@@ -67,6 +67,29 @@ class DeckCard {
   final List<String> kinkTagBadges;
 }
 
+/// A card in the "vertical video feed" - only candidates with an actual
+/// video (a profile video snippet, or a video answer to a profile prompt)
+/// appear here, so swiping is always on video content.
+class VideoFeedCard {
+  VideoFeedCard({
+    required this.id,
+    this.name,
+    this.age,
+    required this.videoUrl,
+    required this.videoSource,
+    this.promptQuestion,
+  });
+
+  final String id;
+  final String? name;
+  final int? age;
+  final String videoUrl;
+
+  /// 'SNIPPET' or 'PROMPT_ANSWER'.
+  final String videoSource;
+  final String? promptQuestion;
+}
+
 class SnoozeStatus {
   SnoozeStatus({this.snoozedUntil, this.statusMessage});
 
@@ -146,6 +169,35 @@ class DiscoveryApi {
 
     final list = jsonDecode(response.body) as List;
     return list.cast<Map<String, dynamic>>().map(_toDeckCard).toList();
+  }
+
+  /// "Vertical video feed": a discovery surface restricted to candidates
+  /// who have actual video content, so every card is swiped directly on
+  /// video. Swiping a card still goes through [recordSwipe].
+  Future<List<VideoFeedCard>> fetchVideoFeed() async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/discovery/video-feed'),
+      headers: _headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw DiscoveryApiException(_errorMessage(_decode(response), response.statusCode));
+    }
+
+    final list = jsonDecode(response.body) as List;
+    return list
+        .cast<Map<String, dynamic>>()
+        .map(
+          (json) => VideoFeedCard(
+            id: json['id'] as String,
+            name: json['name'] as String?,
+            age: json['age'] as int?,
+            videoUrl: json['videoUrl'] as String,
+            videoSource: json['videoSource'] as String,
+            promptQuestion: json['promptQuestion'] as String?,
+          ),
+        )
+        .toList();
   }
 
   DeckCard _toDeckCard(Map<String, dynamic> json) {

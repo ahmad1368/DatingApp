@@ -37,10 +37,12 @@ import {
   TRENDING_BONUS_PER_RIGHT_SWIPE,
   TRENDING_BONUS_CAP,
   PROXIMITY_SCORE_DECAY_KM,
+  VIDEO_FEED_SIZE,
 } from './discovery.constants';
 import { getZodiacSign } from '../matching/zodiac.utils';
 import { calculateAge } from './utils/age';
 import { MatchingService } from '../matching/matching.service';
+import { findProfilePrompt } from '../profile-prompts/profile-prompts.constants';
 
 export interface DeckCard {
   id: string;
@@ -68,6 +70,22 @@ export interface DeckCard {
   communicationBoundaries: string | null;
   relationshipStructure: string | null;
   kinkTagBadges: string[];
+}
+
+/**
+ * A single card in the "vertical video feed" (see DiscoveryService.
+ * getVideoFeed): only candidates with a video snippet or at least one video
+ * prompt answer appear here, so swiping is always on actual video content -
+ * a candidate with both shows their snippet, since that's their intended
+ * headline clip.
+ */
+export interface VideoFeedCard {
+  id: string;
+  name: string | null;
+  age: number | null;
+  videoUrl: string;
+  videoSource: 'SNIPPET' | 'PROMPT_ANSWER';
+  promptQuestion: string | null;
 }
 
 export interface SwipeResult {
@@ -278,6 +296,61 @@ export class DiscoveryService {
         mutualConnectionCount: mutualConnectionCounts.get(candidate.id) ?? 0,
       }),
     );
+  }
+
+  /**
+   * "Vertical video feed": a discovery surface restricted to candidates who
+   * have actual video content (a profile video snippet, or a video answer
+   * to a profile prompt) so every card can be swiped directly on video -
+   * swiping itself still goes through the normal [recordSwipe], this only
+   * changes which candidates are offered and in what order they're shown.
+   */
+  async getVideoFeed(userId: string): Promise<VideoFeedCard[]> {
+    const currentUser = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!currentUser) {
+      throw new NotFoundException('User not found.');
+    }
+
+    const swiped = await this.prisma.swipe.findMany({
+      where: { swiperId: userId },
+      select: { targetUserId: true },
+    });
+    const blockedIds = await getBlockedUserIds(this.prisma, userId);
+    const excludedIds = [userId, ...swiped.map((s) => s.targetUserId), ...blockedIds];
+
+    const videoAnswers = await this.prisma.profilePromptVideoAnswer.findMany({
+      where: { userId: { notIn: excludedIds } },
+      distinct: ['userId'],
+      orderBy: { createdAt: 'desc' },
+    });
+    const videoAnswerByUserId = new Map(videoAnswers.map((answer) => [answer.userId, answer]));
+
+    const candidates = await this.prisma.user.findMany({
+      where: {
+        id: { notIn: excludedIds },
+        onboardingCompletedAt: { not: null },
+        activeMode: currentUser.activeMode,
+        OR: [
+          { videoSnippetUrl: { not: null } },
+          { id: { in: [...videoAnswerByUserId.keys()] } },
+        ],
+      },
+      take: VIDEO_FEED_SIZE,
+    });
+
+    const now = new Date();
+    return candidates.map((candidate) => {
+      const useSnippet = candidate.videoSnippetUrl != null;
+      const promptAnswer = videoAnswerByUserId.get(candidate.id);
+      return {
+        id: candidate.id,
+        name: candidate.name,
+        age: candidate.dateOfBirth ? calculateAge(candidate.dateOfBirth, now) : null,
+        videoUrl: useSnippet ? candidate.videoSnippetUrl! : promptAnswer!.videoUrl,
+        videoSource: useSnippet ? 'SNIPPET' : ('PROMPT_ANSWER' as const),
+        promptQuestion: useSnippet ? null : findProfilePrompt(promptAnswer!.promptId)?.question ?? null,
+      };
+    });
   }
 
   /**

@@ -1076,4 +1076,31 @@ void main() {
 
     expect(find.text('Who Liked You'), findsOneWidget);
   });
+
+  testWidgets('tapping the video-feed icon opens the video feed', (tester) async {
+    final api = DiscoveryApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/discovery/deck') {
+          return http.Response('[]', 200, headers: {'content-type': 'application/json'});
+        }
+        if (request.url.path == '/discovery/video-feed') {
+          return http.Response('[]', 200, headers: {'content-type': 'application/json'});
+        }
+        return http.Response(
+          '{"active":false,"expiresAt":null,"viewCount":0}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: SwipeDeckScreen(discoveryApi: api)));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.video_collection));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Video Feed'), findsOneWidget);
+  });
 }
