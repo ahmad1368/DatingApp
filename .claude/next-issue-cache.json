@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-25T05:52:20.558Z",
+  "generated_at": "2026-08-26T01:35:46.783Z",
   "snapshot": [
     {
       "number": 454,
@@ -1605,18 +1605,9 @@
       "number": 134,
       "title": "Auto-Expiring Chat Media Attachments",
       "updatedAt": "2026-08-10T20:41:32Z"
-    },
-    {
-      "number": 133,
-      "title": "Dynamic Work & Education Verification",
-      "updatedAt": "2026-08-10T20:41:30Z"
     }
   ],
   "queue": [
-    {
-      "number": 134,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 135,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"

@@ -532,6 +532,82 @@ void main() {
       expect(message.moderationFlagged, isTrue);
       expect(message.moderationCategories, ['sexual']);
     });
+
+    test('sends expiryMode and viewTimerSeconds for an auto-expiring attachment', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(
+            request.body,
+            '{"contentType":"IMAGE","mediaUrl":"https://example.com/photo.jpg",'
+            '"expiryMode":"TIMER","viewTimerSeconds":5}',
+          );
+          return http.Response(
+            '{"id":"m3","senderId":"user-1","contentType":"IMAGE","content":null,'
+            '"mediaUrl":null,"isBlurred":true,"expiryMode":"TIMER","viewTimerSeconds":5,'
+            '"isEphemeralExpired":false,"createdAt":"2026-01-01T00:00:00.000Z"}',
+            201,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final message = await api.sendMediaMessage(
+        matchId: 'match-1',
+        contentType: 'IMAGE',
+        mediaUrl: 'https://example.com/photo.jpg',
+        expiryMode: 'TIMER',
+        viewTimerSeconds: 5,
+      );
+
+      expect(message.expiryMode, 'TIMER');
+      expect(message.viewTimerSeconds, 5);
+      expect(message.isEphemeral, isTrue);
+      expect(message.mediaUrl, isNull);
+    });
+  });
+
+  group('MessagingApi.viewEphemeralMedia', () {
+    test('sends a POST to the view endpoint and parses the revealed message', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'POST');
+          expect(request.url.path, '/matches/match-1/messages/m3/view');
+          return http.Response(
+            '{"id":"m3","senderId":"user-2","contentType":"IMAGE","content":null,'
+            '"mediaUrl":"https://example.com/photo.jpg","isBlurred":false,'
+            '"expiryMode":"VIEW_ONCE","isEphemeralExpired":true,'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final message = await api.viewEphemeralMedia(matchId: 'match-1', messageId: 'm3');
+
+      expect(message.mediaUrl, 'https://example.com/photo.jpg');
+      expect(message.isEphemeralExpired, isTrue);
+    });
+
+    test('throws MessagingApiException when the attachment has already expired', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '{"message":"This message has already expired."}',
+            400,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      expect(
+        () => api.viewEphemeralMedia(matchId: 'match-1', messageId: 'm3'),
+        throwsA(isA<MessagingApiException>()),
+      );
+    });
   });
 
   group('MessagingApi.sendVoiceNote', () {

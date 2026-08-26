@@ -524,6 +524,9 @@ describe('MessagingService', () => {
         readAt: null,
         icebreaker: null,
         poll: null,
+        expiryMode: null,
+        viewTimerSeconds: null,
+        isEphemeralExpired: false,
         createdAt: '2026-01-01T00:00:00.000Z',
       });
     });
@@ -595,6 +598,8 @@ describe('MessagingService', () => {
           isBlurred: true,
           moderationFlagged: false,
           moderationCategories: [],
+          expiryMode: null,
+          viewTimerSeconds: null,
         },
       });
       expect(result.isBlurred).toBe(true);
@@ -635,6 +640,8 @@ describe('MessagingService', () => {
           isBlurred: false,
           moderationFlagged: false,
           moderationCategories: [],
+          expiryMode: null,
+          viewTimerSeconds: null,
         },
       });
       expect(result.isBlurred).toBe(false);
@@ -672,6 +679,8 @@ describe('MessagingService', () => {
           isBlurred: true,
           moderationFlagged: true,
           moderationCategories: ['sexual'],
+          expiryMode: null,
+          viewTimerSeconds: null,
         },
       });
       expect(result.moderationFlagged).toBe(true);
@@ -733,10 +742,222 @@ describe('MessagingService', () => {
           isBlurred: false,
           moderationFlagged: false,
           moderationCategories: [],
+          expiryMode: null,
+          viewTimerSeconds: null,
         },
       });
       expect(result.isBlurred).toBe(false);
       expect(imageModerator.moderate).not.toHaveBeenCalled();
+    });
+
+    it('rejects TIMER without a viewTimerSeconds', async () => {
+      mockMatch();
+      mockUsers({ [WOMAN_ID]: ['Woman'], [MAN_ID]: ['Man'] });
+
+      await expect(
+        service.sendMediaMessage(WOMAN_ID, MATCH_ID, 'IMAGE', 'https://example.com/photo.jpg', 'TIMER'),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.message.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects a viewTimerSeconds without TIMER', async () => {
+      mockMatch();
+      mockUsers({ [WOMAN_ID]: ['Woman'], [MAN_ID]: ['Man'] });
+
+      await expect(
+        service.sendMediaMessage(
+          WOMAN_ID,
+          MATCH_ID,
+          'IMAGE',
+          'https://example.com/photo.jpg',
+          undefined,
+          5,
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.message.create).not.toHaveBeenCalled();
+    });
+
+    it('persists expiryMode and viewTimerSeconds for an auto-expiring TIMER photo', async () => {
+      mockMatch();
+      mockUsers({ [WOMAN_ID]: ['Woman'], [MAN_ID]: ['Man'] });
+      prisma.message.create.mockResolvedValue({
+        id: 'message-6',
+        senderId: WOMAN_ID,
+        contentType: 'IMAGE',
+        content: null,
+        mediaUrl: 'https://example.com/photo.jpg',
+        isBlurred: true,
+        expiryMode: 'TIMER',
+        viewTimerSeconds: 5,
+        viewedAt: null,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const result = await service.sendMediaMessage(
+        WOMAN_ID,
+        MATCH_ID,
+        'IMAGE',
+        'https://example.com/photo.jpg',
+        'TIMER',
+        5,
+      );
+
+      expect(prisma.message.create).toHaveBeenCalledWith({
+        data: {
+          matchId: MATCH_ID,
+          senderId: WOMAN_ID,
+          contentType: 'IMAGE',
+          mediaUrl: 'https://example.com/photo.jpg',
+          isBlurred: true,
+          moderationFlagged: false,
+          moderationCategories: [],
+          expiryMode: 'TIMER',
+          viewTimerSeconds: 5,
+        },
+      });
+      // Not yet viewed, so the mediaUrl is hidden even from this send response.
+      expect(result.mediaUrl).toBeNull();
+      expect(result.expiryMode).toBe('TIMER');
+      expect(result.viewTimerSeconds).toBe(5);
+      expect(result.isEphemeralExpired).toBe(false);
+    });
+  });
+
+  describe('viewEphemeralMedia', () => {
+    it('throws when the message does not belong to this match', async () => {
+      mockMatch();
+      prisma.message.findUnique.mockResolvedValue({ id: 'm1', matchId: 'other-match' });
+
+      await expect(service.viewEphemeralMedia(MAN_ID, MATCH_ID, 'm1')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+
+    it('throws when the sender tries to view their own attachment', async () => {
+      mockMatch();
+      prisma.message.findUnique.mockResolvedValue({
+        id: 'm1',
+        matchId: MATCH_ID,
+        senderId: WOMAN_ID,
+        expiryMode: 'VIEW_ONCE',
+        viewTimerSeconds: null,
+        viewedAt: null,
+      });
+
+      await expect(service.viewEphemeralMedia(WOMAN_ID, MATCH_ID, 'm1')).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+    });
+
+    it('throws when the message is not an expiring attachment', async () => {
+      mockMatch();
+      prisma.message.findUnique.mockResolvedValue({
+        id: 'm1',
+        matchId: MATCH_ID,
+        senderId: WOMAN_ID,
+        expiryMode: null,
+      });
+
+      await expect(service.viewEphemeralMedia(MAN_ID, MATCH_ID, 'm1')).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+    });
+
+    it('throws when a VIEW_ONCE attachment has already been viewed', async () => {
+      mockMatch();
+      prisma.message.findUnique.mockResolvedValue({
+        id: 'm1',
+        matchId: MATCH_ID,
+        senderId: WOMAN_ID,
+        expiryMode: 'VIEW_ONCE',
+        viewTimerSeconds: null,
+        viewedAt: new Date(),
+      });
+
+      await expect(service.viewEphemeralMedia(MAN_ID, MATCH_ID, 'm1')).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(prisma.message.update).not.toHaveBeenCalled();
+    });
+
+    it('throws when a TIMER attachment already expired', async () => {
+      mockMatch();
+      prisma.message.findUnique.mockResolvedValue({
+        id: 'm1',
+        matchId: MATCH_ID,
+        senderId: WOMAN_ID,
+        expiryMode: 'TIMER',
+        viewTimerSeconds: 5,
+        viewedAt: new Date(Date.now() - 60_000),
+      });
+
+      await expect(service.viewEphemeralMedia(MAN_ID, MATCH_ID, 'm1')).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+    });
+
+    it('reveals the media and stamps viewedAt on first view', async () => {
+      mockMatch();
+      prisma.message.findUnique.mockResolvedValue({
+        id: 'm1',
+        matchId: MATCH_ID,
+        senderId: WOMAN_ID,
+        contentType: 'IMAGE',
+        content: null,
+        mediaUrl: 'https://example.com/photo.jpg',
+        isBlurred: false,
+        expiryMode: 'VIEW_ONCE',
+        viewTimerSeconds: null,
+        viewedAt: null,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+      prisma.message.update.mockResolvedValue({
+        id: 'm1',
+        matchId: MATCH_ID,
+        senderId: WOMAN_ID,
+        contentType: 'IMAGE',
+        content: null,
+        mediaUrl: 'https://example.com/photo.jpg',
+        isBlurred: false,
+        expiryMode: 'VIEW_ONCE',
+        viewTimerSeconds: null,
+        viewedAt: new Date(),
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const result = await service.viewEphemeralMedia(MAN_ID, MATCH_ID, 'm1');
+
+      expect(prisma.message.update).toHaveBeenCalledWith({
+        where: { id: 'm1' },
+        data: { viewedAt: expect.any(Date) },
+      });
+      // The one and only response that ever shows this VIEW_ONCE photo's URL.
+      expect(result.mediaUrl).toBe('https://example.com/photo.jpg');
+      expect(result.isEphemeralExpired).toBe(true);
+    });
+
+    it('does not re-stamp viewedAt on a repeat view within a TIMER window', async () => {
+      mockMatch();
+      const viewedAt = new Date(Date.now() - 1000);
+      prisma.message.findUnique.mockResolvedValue({
+        id: 'm1',
+        matchId: MATCH_ID,
+        senderId: WOMAN_ID,
+        contentType: 'IMAGE',
+        content: null,
+        mediaUrl: 'https://example.com/photo.jpg',
+        isBlurred: false,
+        expiryMode: 'TIMER',
+        viewTimerSeconds: 30,
+        viewedAt,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const result = await service.viewEphemeralMedia(MAN_ID, MATCH_ID, 'm1');
+
+      expect(prisma.message.update).not.toHaveBeenCalled();
+      expect(result.mediaUrl).toBe('https://example.com/photo.jpg');
+      expect(result.isEphemeralExpired).toBe(false);
     });
   });
 
@@ -1004,6 +1225,9 @@ describe('MessagingService', () => {
           readAt: null,
           icebreaker: null,
           poll: null,
+          expiryMode: null,
+          viewTimerSeconds: null,
+          isEphemeralExpired: false,
           createdAt: '2026-01-01T00:00:00.000Z',
         },
       ]);

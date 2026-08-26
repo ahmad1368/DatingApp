@@ -1,5 +1,11 @@
-import { IsIn, IsUrl } from 'class-validator';
-import { MEDIA_CONTENT_TYPES } from '../messaging.constants';
+import { IsIn, IsInt, IsOptional, IsUrl, Max, Min } from 'class-validator';
+import {
+  EXPIRY_MODES,
+  ExpiryMode,
+  MAX_VIEW_TIMER_SECONDS,
+  MEDIA_CONTENT_TYPES,
+  MIN_VIEW_TIMER_SECONDS,
+} from '../messaging.constants';
 
 export class SendMediaMessageDto {
   @IsIn(MEDIA_CONTENT_TYPES)
@@ -7,4 +13,15 @@ export class SendMediaMessageDto {
 
   @IsUrl()
   mediaUrl!: string;
+
+  @IsOptional()
+  @IsIn(EXPIRY_MODES)
+  expiryMode?: ExpiryMode;
+
+  /** Required (and only meaningful) when expiryMode is 'TIMER'. */
+  @IsOptional()
+  @IsInt()
+  @Min(MIN_VIEW_TIMER_SECONDS)
+  @Max(MAX_VIEW_TIMER_SECONDS)
+  viewTimerSeconds?: number;
 }

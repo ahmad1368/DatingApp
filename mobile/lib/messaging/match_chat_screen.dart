@@ -355,6 +355,24 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
     }
   }
 
+  Future<void> _viewEphemeralMedia(ChatMessage message) async {
+    setState(() => _errorText = null);
+    try {
+      final revealed = await widget.messagingApi.viewEphemeralMedia(
+        matchId: widget.matchId,
+        messageId: message.id,
+      );
+      setState(() {
+        _messages = [
+          for (final existing in _messages)
+            if (existing.id == revealed.id) revealed else existing,
+        ];
+      });
+    } on MessagingApiException catch (e) {
+      setState(() => _errorText = e.message);
+    }
+  }
+
   Future<void> _toggleReadReceipts() async {
     setState(() => _errorText = null);
     try {
@@ -792,6 +810,9 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
       case 'GIF':
         return _networkImage(message.mediaUrl!);
       case 'IMAGE':
+        if (message.isEphemeral) {
+          return _buildEphemeralPhoto(message, isMine);
+        }
         final shouldBlur = message.isBlurred && !isMine;
         final image = _networkImage(message.mediaUrl!);
         if (!shouldBlur) {
@@ -847,6 +868,63 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
       default:
         return Text(message.content ?? '');
     }
+  }
+
+  /// An auto-expiring photo: shows the image itself while it's currently
+  /// viewable (server only includes mediaUrl in that window - see
+  /// MessageView.isEphemeralExpired), otherwise a tap-to-view prompt for
+  /// the recipient or a status line for the sender/once it's gone.
+  Widget _buildEphemeralPhoto(ChatMessage message, bool isMine) {
+    if (message.mediaUrl != null) {
+      return _networkImage(message.mediaUrl!);
+    }
+    if (message.isEphemeralExpired) {
+      return const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.no_photography_outlined),
+          SizedBox(width: 4),
+          Text('Photo expired'),
+        ],
+      );
+    }
+    if (isMine) {
+      return const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.photo_outlined),
+          SizedBox(width: 4),
+          Text('Disappearing photo sent'),
+        ],
+      );
+    }
+    final label = message.expiryMode == 'VIEW_ONCE'
+        ? 'Tap to view once'
+        : 'Tap to view (disappears in ${message.viewTimerSeconds}s)';
+    return GestureDetector(
+      onTap: () => _viewEphemeralMedia(message),
+      child: Container(
+        width: 160,
+        height: 160,
+        color: Colors.black87,
+        alignment: Alignment.center,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              message.expiryMode == 'VIEW_ONCE' ? Icons.looks_one_outlined : Icons.timer_outlined,
+              color: Colors.white,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildIcebreakerContent(ChatMessage message) {

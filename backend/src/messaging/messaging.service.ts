@@ -8,6 +8,7 @@ import {
   computeExtendedExpiresAt,
   computeFirstMessageExpiresAt,
   daysSince,
+  ExpiryMode,
   findBackgroundSound,
   findIcebreakerPrompt,
   findVoiceEffect,
@@ -15,6 +16,7 @@ import {
   GHOSTING_PROTECTION_INACTIVITY_DAYS,
   ICEBREAKER_PROMPTS,
   IcebreakerPrompt,
+  isEphemeralExpired,
   isWoman,
   MAX_POLL_OPTIONS,
   MIN_POLL_OPTIONS,
@@ -74,6 +76,9 @@ export interface MessageView {
   readAt: string | null;
   icebreaker: IcebreakerView | null;
   poll: PollView | null;
+  expiryMode: ExpiryMode | null;
+  viewTimerSeconds: number | null;
+  isEphemeralExpired: boolean;
   createdAt: string;
 }
 
@@ -240,13 +245,27 @@ export class MessagingService {
    * the reveal prompt can carry an extra warning - a failure of that check
    * (e.g. the moderation service being unavailable) doesn't block sending,
    * it just leaves the image unflagged.
+   *
+   * [expiryMode] optionally makes this an auto-expiring attachment: 'TIMER'
+   * requires [viewTimerSeconds]; 'VIEW_ONCE' must not have one. Neither
+   * starts counting down until the recipient actually opens it via
+   * [viewEphemeralMedia] - see isEphemeralExpired.
    */
   async sendMediaMessage(
     userId: string,
     matchId: string,
     contentType: string,
     mediaUrl: string,
+    expiryMode?: ExpiryMode,
+    viewTimerSeconds?: number,
   ): Promise<MessageView> {
+    if (expiryMode === 'TIMER' && viewTimerSeconds == null) {
+      throw new BadRequestException('viewTimerSeconds is required when expiryMode is TIMER.');
+    }
+    if (expiryMode !== 'TIMER' && viewTimerSeconds != null) {
+      throw new BadRequestException('viewTimerSeconds can only be set when expiryMode is TIMER.');
+    }
+
     const { match, firstMessageSent } = await this.assertCanSend(userId, matchId);
 
     const moderation =
@@ -263,6 +282,8 @@ export class MessagingService {
         isBlurred,
         moderationFlagged: moderation?.flagged ?? false,
         moderationCategories: moderation?.categories ?? [],
+        expiryMode: expiryMode ?? null,
+        viewTimerSeconds: viewTimerSeconds ?? null,
       },
     });
 
@@ -362,6 +383,41 @@ export class MessagingService {
     });
 
     return this.toMessageView(updated, userId);
+  }
+
+  /**
+   * Opens an auto-expiring photo/GIF: the recipient's first call here
+   * starts its countdown (immediate for VIEW_ONCE, viewTimerSeconds later
+   * for TIMER - see isEphemeralExpired) and is the only response that ever
+   * includes the real mediaUrl for a TIMER message past its window or a
+   * VIEW_ONCE message at all - every other read (listMessages, a repeat
+   * call here) sees mediaUrl as null once expired.
+   */
+  async viewEphemeralMedia(userId: string, matchId: string, messageId: string): Promise<MessageView> {
+    await this.getMatchForUser(userId, matchId);
+
+    const message = await this.prisma.message.findUnique({ where: { id: messageId } });
+    if (!message || message.matchId !== matchId) {
+      throw new NotFoundException('Message not found.');
+    }
+    if (message.senderId === userId) {
+      throw new ForbiddenException('Only the recipient can view this message.');
+    }
+    if (!message.expiryMode) {
+      throw new BadRequestException('This message is not an auto-expiring attachment.');
+    }
+    if (isEphemeralExpired(message, new Date())) {
+      throw new BadRequestException('This message has already expired.');
+    }
+
+    const updated = message.viewedAt
+      ? message
+      : await this.prisma.message.update({
+          where: { id: messageId },
+          data: { viewedAt: new Date() },
+        });
+
+    return this.toMessageView(updated, userId, [], [], true);
   }
 
   /**
@@ -1002,18 +1058,31 @@ export class MessagingService {
       backgroundSoundId?: string | null;
       pollOptions?: string[];
       readAt: Date | null;
+      expiryMode?: string | null;
+      viewTimerSeconds?: number | null;
+      viewedAt?: Date | null;
       createdAt: Date;
     },
     userId: string,
     icebreakerResponses: { userId: string; optionIndex: number }[] = [],
     pollVotes: { userId: string; optionIndex: number }[] = [],
+    revealMediaUrl = false,
   ): MessageView {
+    const expiryMode = (message.expiryMode as ExpiryMode | undefined) ?? null;
+    const expired = isEphemeralExpired(
+      { expiryMode, viewTimerSeconds: message.viewTimerSeconds ?? null, viewedAt: message.viewedAt ?? null },
+      new Date(),
+    );
+    const hasBeenViewed = message.viewedAt != null;
+    const mediaUrl =
+      expiryMode && !revealMediaUrl ? (expired || !hasBeenViewed ? null : message.mediaUrl) : message.mediaUrl;
+
     return {
       id: message.id,
       senderId: message.senderId,
       contentType: message.contentType,
       content: message.content,
-      mediaUrl: message.mediaUrl,
+      mediaUrl,
       isBlurred: message.isBlurred,
       moderationFlagged: message.moderationFlagged ?? false,
       moderationCategories: message.moderationCategories ?? [],
@@ -1021,6 +1090,9 @@ export class MessagingService {
       voiceEffectId: message.voiceEffectId ?? null,
       backgroundSoundId: message.backgroundSoundId ?? null,
       readAt: message.readAt ? message.readAt.toISOString() : null,
+      expiryMode,
+      viewTimerSeconds: message.viewTimerSeconds ?? null,
+      isEphemeralExpired: expired,
       icebreaker: this.toIcebreakerView(message.contentType, message.content, userId, icebreakerResponses),
       poll: this.toPollView(message.contentType, message.content, message.pollOptions, userId, pollVotes),
       createdAt: message.createdAt.toISOString(),
