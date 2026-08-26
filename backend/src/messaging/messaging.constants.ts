@@ -22,6 +22,29 @@ export function daysSince(date: Date, now: Date): number {
 
 export const MEDIA_CONTENT_TYPES = ['IMAGE', 'GIF'] as const;
 
+// Auto-expiring media: VIEW_ONCE disappears immediately after the
+// recipient's first view; TIMER disappears viewTimerSeconds after that
+// first view. Neither starts counting down until actually opened - see
+// MessagingService.viewEphemeralMedia.
+export const EXPIRY_MODES = ['VIEW_ONCE', 'TIMER'] as const;
+export type ExpiryMode = (typeof EXPIRY_MODES)[number];
+
+export const MIN_VIEW_TIMER_SECONDS = 1;
+export const MAX_VIEW_TIMER_SECONDS = 60;
+
+export function isEphemeralExpired(
+  message: { expiryMode: string | null; viewTimerSeconds: number | null; viewedAt: Date | null },
+  now: Date,
+): boolean {
+  if (!message.expiryMode || !message.viewedAt) {
+    return false;
+  }
+  if (message.expiryMode === 'VIEW_ONCE') {
+    return true;
+  }
+  return now.getTime() > message.viewedAt.getTime() + (message.viewTimerSeconds ?? 0) * 1000;
+}
+
 export const DEFAULT_GIF_SEARCH_LIMIT = 20;
 export const MAX_GIF_SEARCH_LIMIT = 50;
 

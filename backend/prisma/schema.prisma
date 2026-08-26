@@ -239,6 +239,12 @@ model Message {
   backgroundSoundId    String?
   pollOptions          String[]  @default([])
   readAt               DateTime?
+  // Auto-expiring media: null expiryMode means a normal, permanent message.
+  // See isEphemeralExpired in messaging.constants.ts for how these three
+  // combine to decide whether mediaUrl is currently visible.
+  expiryMode           String?
+  viewTimerSeconds     Int?
+  viewedAt             DateTime?
   createdAt            DateTime  @default(now())
 
   match Match @relation(fields: [matchId], references: [id])

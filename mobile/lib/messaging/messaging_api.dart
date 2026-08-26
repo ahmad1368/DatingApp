@@ -107,6 +107,9 @@ class ChatMessage {
     this.readAt,
     this.icebreaker,
     this.poll,
+    this.expiryMode,
+    this.viewTimerSeconds,
+    this.isEphemeralExpired = false,
     required this.createdAt,
   });
 
@@ -124,9 +127,16 @@ class ChatMessage {
   final DateTime? readAt;
   final Icebreaker? icebreaker;
   final Poll? poll;
+
+  /// 'VIEW_ONCE' or 'TIMER' for an auto-expiring photo/GIF; null for a
+  /// normal, permanent message.
+  final String? expiryMode;
+  final int? viewTimerSeconds;
+  final bool isEphemeralExpired;
   final DateTime createdAt;
 
   bool get isRead => readAt != null;
+  bool get isEphemeral => expiryMode != null;
 }
 
 class Poll {
@@ -422,19 +432,46 @@ class MessagingApi {
     return _toChatMessage(body);
   }
 
+  /// [expiryMode] ('VIEW_ONCE' or 'TIMER') makes this an auto-expiring
+  /// attachment; [viewTimerSeconds] is required for 'TIMER' and must be
+  /// omitted otherwise.
   Future<ChatMessage> sendMediaMessage({
     required String matchId,
     required String contentType,
     required String mediaUrl,
+    String? expiryMode,
+    int? viewTimerSeconds,
   }) async {
     final response = await _client.post(
       Uri.parse('$_baseUrl/matches/$matchId/media'),
       headers: _headers,
-      body: jsonEncode({'contentType': contentType, 'mediaUrl': mediaUrl}),
+      body: jsonEncode({
+        'contentType': contentType,
+        'mediaUrl': mediaUrl,
+        'expiryMode': ?expiryMode,
+        'viewTimerSeconds': ?viewTimerSeconds,
+      }),
     );
 
     final body = _decode(response);
     if (response.statusCode != 201) {
+      throw MessagingApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return _toChatMessage(body);
+  }
+
+  /// Opens an auto-expiring photo/GIF: starts its countdown and is the only
+  /// response that ever includes the real mediaUrl for a VIEW_ONCE message,
+  /// or a TIMER message past its window - see [ChatMessage.isEphemeral].
+  Future<ChatMessage> viewEphemeralMedia({required String matchId, required String messageId}) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/matches/$matchId/messages/$messageId/view'),
+      headers: _headers,
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 200) {
       throw MessagingApiException(_errorMessage(body, response.statusCode));
     }
 
@@ -783,6 +820,9 @@ class MessagingApi {
               totalVotes: pollJson['totalVotes'] as int,
             )
           : null,
+      expiryMode: json['expiryMode'] as String?,
+      viewTimerSeconds: json['viewTimerSeconds'] as int?,
+      isEphemeralExpired: json['isEphemeralExpired'] as bool? ?? false,
       createdAt: DateTime.parse(json['createdAt'] as String),
     );
   }

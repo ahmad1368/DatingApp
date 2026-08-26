@@ -299,6 +299,157 @@ void main() {
     expect(find.text('Tap to reveal'), findsNothing);
   });
 
+  testWidgets('shows a tap-to-view prompt for a VIEW_ONCE photo and reveals it once tapped', (
+    tester,
+  ) async {
+    http.Request? viewRequest;
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path.endsWith('/view')) {
+          viewRequest = request;
+          return http.Response(
+            '{"id":"m1","senderId":"user-woman","contentType":"IMAGE","content":null,'
+            '"mediaUrl":"https://example.com/photo.jpg","isBlurred":false,'
+            '"expiryMode":"VIEW_ONCE","isEphemeralExpired":true,'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(
+            '[{"id":"m1","senderId":"user-woman","contentType":"IMAGE","content":null,'
+            '"mediaUrl":null,"isBlurred":false,"expiryMode":"VIEW_ONCE",'
+            '"isEphemeralExpired":false,"createdAt":"2026-01-01T00:00:00.000Z"}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":null,"isExpired":false,'
+          '"firstMessageSent":true,"canSendFirstMessage":true}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchChatScreen(messagingApi: api, matchId: 'match-1', currentUserId: 'user-man'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Tap to view once'), findsOneWidget);
+
+    await tester.tap(find.text('Tap to view once'));
+    await tester.pumpAndSettle();
+
+    expect(viewRequest, isNotNull);
+    expect(viewRequest!.url.path, '/matches/match-1/messages/m1/view');
+    expect(find.text('Tap to view once'), findsNothing);
+  });
+
+  testWidgets('shows a countdown prompt for a TIMER photo and a status line for the sender', (
+    tester,
+  ) async {
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(
+            '[{"id":"m1","senderId":"user-man","contentType":"IMAGE","content":null,'
+            '"mediaUrl":null,"isBlurred":false,"expiryMode":"TIMER","viewTimerSeconds":5,'
+            '"isEphemeralExpired":false,"createdAt":"2026-01-01T00:00:00.000Z"}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":null,"isExpired":false,'
+          '"firstMessageSent":true,"canSendFirstMessage":true}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchChatScreen(messagingApi: api, matchId: 'match-1', currentUserId: 'user-woman'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Tap to view (disappears in 5s)'), findsOneWidget);
+  });
+
+  testWidgets('shows a sent status line for the sender of a disappearing photo', (tester) async {
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(
+            '[{"id":"m1","senderId":"user-woman","contentType":"IMAGE","content":null,'
+            '"mediaUrl":null,"isBlurred":false,"expiryMode":"VIEW_ONCE",'
+            '"isEphemeralExpired":false,"createdAt":"2026-01-01T00:00:00.000Z"}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":null,"isExpired":false,'
+          '"firstMessageSent":true,"canSendFirstMessage":true}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchChatScreen(messagingApi: api, matchId: 'match-1', currentUserId: 'user-woman'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Disappearing photo sent'), findsOneWidget);
+  });
+
+  testWidgets('shows a photo expired label once an ephemeral photo has expired', (tester) async {
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(
+            '[{"id":"m1","senderId":"user-woman","contentType":"IMAGE","content":null,'
+            '"mediaUrl":null,"isBlurred":false,"expiryMode":"VIEW_ONCE",'
+            '"isEphemeralExpired":true,"createdAt":"2026-01-01T00:00:00.000Z"}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":null,"isExpired":false,'
+          '"firstMessageSent":true,"canSendFirstMessage":true}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchChatScreen(messagingApi: api, matchId: 'match-1', currentUserId: 'user-man'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Photo expired'), findsOneWidget);
+  });
+
   testWidgets('opens the GIF picker, searches, and sends the selected GIF', (tester) async {
     http.Request? sendRequest;
     final api = MessagingApi(

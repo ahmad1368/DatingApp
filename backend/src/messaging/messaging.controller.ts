@@ -203,7 +203,14 @@ export class MessagingController {
     @Param('matchId') matchId: string,
     @Body() dto: SendMediaMessageDto,
   ) {
-    return this.messagingService.sendMediaMessage(user.id, matchId, dto.contentType, dto.mediaUrl);
+    return this.messagingService.sendMediaMessage(
+      user.id,
+      matchId,
+      dto.contentType,
+      dto.mediaUrl,
+      dto.expiryMode,
+      dto.viewTimerSeconds,
+    );
   }
 
   @Post(':matchId/voice-note')
@@ -269,6 +276,16 @@ export class MessagingController {
     @Param('messageId') messageId: string,
   ) {
     return this.messagingService.revealImage(user.id, matchId, messageId);
+  }
+
+  @Post(':matchId/messages/:messageId/view')
+  @HttpCode(HttpStatus.OK)
+  viewEphemeralMedia(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('matchId') matchId: string,
+    @Param('messageId') messageId: string,
+  ) {
+    return this.messagingService.viewEphemeralMedia(user.id, matchId, messageId);
   }
 
   @Post(':matchId/messages/:messageId/report')
