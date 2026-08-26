@@ -22,6 +22,11 @@ export const POWER_UPS: PowerUp[] = [
   { id: 'super-like-pack-25', label: 'Super Like Pack (25)', coinCost: 350, quantity: 25 },
   { id: 'extra-profile-views', label: 'Extra Profile Views (+20)', coinCost: 30 },
   { id: 'extend-match-timer', label: 'Extend Match Timer', coinCost: 40 },
+  // Standalone, permanent toggle (not a subscription perk): once purchased,
+  // an unmatch or expired-unmessaged dissolution archives that
+  // conversation's messages instead of deleting them - see
+  // MessagingService.dissolveMatch and User.unmatchProtectionEnabled.
+  { id: 'unmatch-protection', label: 'Unmatch Protection', coinCost: 75 },
 ];
 
 /** How many bonus candidates the "Extra Profile Views" power-up adds to the next deck fetch. */

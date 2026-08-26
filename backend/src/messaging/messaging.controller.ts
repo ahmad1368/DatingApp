@@ -88,6 +88,19 @@ export class MessagingController {
     return this.messagingService.reconnectMatch(user.id, dissolvedMatchId);
   }
 
+  @Get('archived')
+  listArchivedThreads(@CurrentUser() user: AuthenticatedUser) {
+    return this.messagingService.listArchivedThreads(user.id);
+  }
+
+  @Get('archived/:dissolvedMatchId/messages')
+  getArchivedThreadMessages(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('dissolvedMatchId') dissolvedMatchId: string,
+  ) {
+    return this.messagingService.getArchivedThreadMessages(user.id, dissolvedMatchId);
+  }
+
   @Put('read-receipts')
   @HttpCode(HttpStatus.OK)
   setReadReceiptsEnabled(@CurrentUser() user: AuthenticatedUser, @Body() dto: SetReadReceiptsDto) {

@@ -224,4 +224,27 @@ void main() {
     expect(unmatchRequest, isNotNull);
     expect(find.text('No matches yet.'), findsOneWidget);
   });
+
+  testWidgets('opens archived conversations from the app bar', (tester) async {
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/matches/archived') {
+          return http.Response('[]', 200, headers: {'content-type': 'application/json'});
+        }
+        return http.Response('[]', 200, headers: {'content-type': 'application/json'});
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(home: MatchesScreen(messagingApi: api, currentUserId: 'user-1')),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    await tester.tap(find.byIcon(Icons.archive_outlined));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Archived Conversations'), findsOneWidget);
+  });
 }

@@ -133,6 +133,11 @@ model User {
   // PersonalityTestService.setCategoryWeights. Null/missing keys fall back
   // to the default weight, so this stays optional.
   compatibilityCategoryWeights           Json?
+  // A la carte purchase (see PowerUpsService/POWER_UPS 'unmatch-protection'):
+  // once true, MessagingService.dissolveMatch archives a dissolving match's
+  // messages into ArchivedMessage instead of deleting them, for either
+  // participant who has this enabled.
+  unmatchProtectionEnabled               Boolean   @default(false)
   profileCompletionRewardGrantedAt      DateTime?
   lastActiveAt                          DateTime?
   createdAt                             DateTime  @default(now())
@@ -827,6 +832,23 @@ model DissolvedMatch {
   @@index([userAId])
   @@index([userBId])
   @@map("dissolved_matches")
+}
+
+// A la carte "Unmatch Protection" (see User.unmatchProtectionEnabled and
+// PowerUpsService): a read-only snapshot of a dissolved match's messages,
+// taken at dissolve time instead of letting MessagingService.dissolveMatch
+// delete them outright.
+model ArchivedMessage {
+  id               String   @id @default(uuid())
+  dissolvedMatchId String
+  senderId         String
+  contentType      String
+  content          String?
+  mediaUrl         String?
+  createdAt        DateTime
+
+  @@index([dissolvedMatchId])
+  @@map("archived_messages")
 }
 
 // A recorded profile view. Anonymous (premium-only) visits are simply never

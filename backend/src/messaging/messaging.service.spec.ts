@@ -36,6 +36,7 @@ describe('MessagingService', () => {
     pollVote: { findMany: jest.Mock; upsert: jest.Mock };
     swipe: { deleteMany: jest.Mock };
     dissolvedMatch: { findMany: jest.Mock; findUnique: jest.Mock; create: jest.Mock; delete: jest.Mock };
+    archivedMessage: { findMany: jest.Mock; createMany: jest.Mock };
     matchNote: { findUnique: jest.Mock; upsert: jest.Mock; deleteMany: jest.Mock };
     partnerLink: { findFirst: jest.Mock };
     $transaction: jest.Mock;
@@ -63,7 +64,7 @@ describe('MessagingService', () => {
         updateMany: jest.fn(),
         deleteMany: jest.fn(),
       },
-      user: { findUnique: jest.fn(), findMany: jest.fn(), update: jest.fn() },
+      user: { findUnique: jest.fn(), findMany: jest.fn().mockResolvedValue([]), update: jest.fn() },
       icebreakerResponse: { findMany: jest.fn().mockResolvedValue([]), upsert: jest.fn() },
       pollVote: { findMany: jest.fn().mockResolvedValue([]), upsert: jest.fn() },
       swipe: { deleteMany: jest.fn() },
@@ -73,6 +74,7 @@ describe('MessagingService', () => {
         create: jest.fn(),
         delete: jest.fn(),
       },
+      archivedMessage: { findMany: jest.fn().mockResolvedValue([]), createMany: jest.fn() },
       matchNote: { findUnique: jest.fn(), upsert: jest.fn(), deleteMany: jest.fn() },
       partnerLink: { findFirst: jest.fn() },
       $transaction: jest.fn((ops: unknown[]) => Promise.all(ops)),
@@ -1724,7 +1726,13 @@ describe('MessagingService', () => {
         data: { userAId: WOMAN_ID, userBId: MAN_ID },
       });
       expect(matches).toEqual([]);
-      expect(prisma.user.findMany).not.toHaveBeenCalled();
+      // Only the unmatch-protection check (inside dissolveMatch) calls this -
+      // the empty match list itself never needs to fetch other-user profiles.
+      expect(prisma.user.findMany).toHaveBeenCalledTimes(1);
+      expect(prisma.user.findMany).toHaveBeenCalledWith({
+        where: { id: { in: [WOMAN_ID, MAN_ID] } },
+        select: { id: true, unmatchProtectionEnabled: true },
+      });
     });
 
     it('flags a match for a ghosting prompt when the other side sent the last message days ago', async () => {
@@ -1811,6 +1819,170 @@ describe('MessagingService', () => {
         data: { userAId: WOMAN_ID, userBId: MAN_ID },
       });
       expect(result).toEqual({ unmatched: true });
+    });
+
+    it('does not archive messages when neither side has unmatch protection', async () => {
+      mockMatch({ firstMessageSentAt: new Date() });
+      prisma.user.findMany.mockResolvedValue([
+        { id: WOMAN_ID, unmatchProtectionEnabled: false },
+        { id: MAN_ID, unmatchProtectionEnabled: false },
+      ]);
+
+      await service.unmatch(WOMAN_ID, MATCH_ID);
+
+      expect(prisma.archivedMessage.createMany).not.toHaveBeenCalled();
+    });
+
+    it("archives messages when either side has unmatch protection enabled", async () => {
+      mockMatch({ firstMessageSentAt: new Date() });
+      prisma.user.findMany.mockResolvedValue([
+        { id: WOMAN_ID, unmatchProtectionEnabled: false },
+        { id: MAN_ID, unmatchProtectionEnabled: true },
+      ]);
+      prisma.dissolvedMatch.create.mockResolvedValue({ id: 'dissolved-1' });
+      prisma.message.findMany.mockResolvedValue([
+        {
+          id: 'm1',
+          senderId: WOMAN_ID,
+          contentType: 'TEXT',
+          content: 'hi',
+          mediaUrl: null,
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ]);
+
+      await service.unmatch(WOMAN_ID, MATCH_ID);
+
+      expect(prisma.archivedMessage.createMany).toHaveBeenCalledWith({
+        data: [
+          {
+            dissolvedMatchId: 'dissolved-1',
+            senderId: WOMAN_ID,
+            contentType: 'TEXT',
+            content: 'hi',
+            mediaUrl: null,
+            createdAt: new Date('2026-01-01T00:00:00.000Z'),
+          },
+        ],
+      });
+    });
+
+    it('does not create archivedMessage rows for a protected match with no messages', async () => {
+      mockMatch({ firstMessageSentAt: null });
+      prisma.user.findMany.mockResolvedValue([{ id: WOMAN_ID, unmatchProtectionEnabled: true }]);
+      prisma.dissolvedMatch.create.mockResolvedValue({ id: 'dissolved-1' });
+      prisma.message.findMany.mockResolvedValue([]);
+
+      await service.unmatch(WOMAN_ID, MATCH_ID);
+
+      expect(prisma.archivedMessage.createMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('listArchivedThreads', () => {
+    it('returns an empty list when nothing is dissolved', async () => {
+      prisma.dissolvedMatch.findMany.mockResolvedValue([]);
+
+      const result = await service.listArchivedThreads(WOMAN_ID);
+
+      expect(result).toEqual([]);
+    });
+
+    it('excludes dissolved matches with no archived messages', async () => {
+      prisma.dissolvedMatch.findMany.mockResolvedValue([
+        { id: 'dissolved-1', userAId: WOMAN_ID, userBId: MAN_ID, dissolvedAt: new Date() },
+      ]);
+      prisma.archivedMessage.findMany.mockResolvedValue([]);
+
+      const result = await service.listArchivedThreads(WOMAN_ID);
+
+      expect(result).toEqual([]);
+    });
+
+    it('includes dissolved matches that have archived messages, with a count and other-user info', async () => {
+      prisma.dissolvedMatch.findMany.mockResolvedValue([
+        {
+          id: 'dissolved-1',
+          userAId: WOMAN_ID,
+          userBId: MAN_ID,
+          dissolvedAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ]);
+      prisma.archivedMessage.findMany.mockResolvedValue([
+        { dissolvedMatchId: 'dissolved-1' },
+        { dissolvedMatchId: 'dissolved-1' },
+      ]);
+      prisma.user.findMany.mockResolvedValue([{ id: MAN_ID, name: 'Sam', profilePhotoUrl: null }]);
+
+      const result = await service.listArchivedThreads(WOMAN_ID);
+
+      expect(result).toEqual([
+        {
+          dissolvedMatchId: 'dissolved-1',
+          otherUserId: MAN_ID,
+          otherUserName: 'Sam',
+          otherUserPhotoUrl: null,
+          dissolvedAt: '2026-01-01T00:00:00.000Z',
+          messageCount: 2,
+        },
+      ]);
+    });
+  });
+
+  describe('getArchivedThreadMessages', () => {
+    it('throws when the archived thread does not exist', async () => {
+      prisma.dissolvedMatch.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.getArchivedThreadMessages(WOMAN_ID, 'dissolved-1'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it("throws when the thread doesn't belong to the requesting user", async () => {
+      prisma.dissolvedMatch.findUnique.mockResolvedValue({
+        id: 'dissolved-1',
+        userAId: MAN_ID,
+        userBId: 'someone-else',
+      });
+
+      await expect(
+        service.getArchivedThreadMessages(WOMAN_ID, 'dissolved-1'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('returns the archived messages in order', async () => {
+      prisma.dissolvedMatch.findUnique.mockResolvedValue({
+        id: 'dissolved-1',
+        userAId: WOMAN_ID,
+        userBId: MAN_ID,
+      });
+      prisma.archivedMessage.findMany.mockResolvedValue([
+        {
+          id: 'am-1',
+          senderId: WOMAN_ID,
+          contentType: 'TEXT',
+          content: 'hi',
+          mediaUrl: null,
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ]);
+
+      const result = await service.getArchivedThreadMessages(WOMAN_ID, 'dissolved-1');
+
+      expect(prisma.archivedMessage.findMany).toHaveBeenCalledWith({
+        where: { dissolvedMatchId: 'dissolved-1' },
+        orderBy: { createdAt: 'asc' },
+      });
+      expect(result).toEqual([
+        {
+          id: 'am-1',
+          senderId: WOMAN_ID,
+          contentType: 'TEXT',
+          content: 'hi',
+          mediaUrl: null,
+          createdAt: '2026-01-01T00:00:00.000Z',
+        },
+      ]);
     });
   });
 

@@ -91,6 +91,45 @@ class ReconnectableMatch {
   final DateTime dissolvedAt;
 }
 
+/// A la carte "Unmatch Protection": a dissolved match whose conversation
+/// was archived (rather than deleted) because either side had the
+/// protection power-up enabled - see MessagingApi.fetchArchivedThreads.
+class ArchivedThread {
+  ArchivedThread({
+    required this.dissolvedMatchId,
+    required this.otherUserId,
+    this.otherUserName,
+    this.otherUserPhotoUrl,
+    required this.dissolvedAt,
+    required this.messageCount,
+  });
+
+  final String dissolvedMatchId;
+  final String otherUserId;
+  final String? otherUserName;
+  final String? otherUserPhotoUrl;
+  final DateTime dissolvedAt;
+  final int messageCount;
+}
+
+class ArchivedChatMessage {
+  ArchivedChatMessage({
+    required this.id,
+    required this.senderId,
+    required this.contentType,
+    this.content,
+    this.mediaUrl,
+    required this.createdAt,
+  });
+
+  final String id;
+  final String senderId;
+  final String contentType;
+  final String? content;
+  final String? mediaUrl;
+  final DateTime createdAt;
+}
+
 class ChatMessage {
   ChatMessage({
     required this.id,
@@ -378,6 +417,54 @@ class MessagingApi {
     );
 
     return _parseMatchStatus(response);
+  }
+
+  /// A la carte "Unmatch Protection": lists dissolved matches whose
+  /// conversation was archived rather than deleted.
+  Future<List<ArchivedThread>> fetchArchivedThreads() async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/matches/archived'),
+      headers: _headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw MessagingApiException(_errorMessage(_decode(response), response.statusCode));
+    }
+
+    final list = jsonDecode(response.body) as List;
+    return list.cast<Map<String, dynamic>>().map((json) {
+      return ArchivedThread(
+        dissolvedMatchId: json['dissolvedMatchId'] as String,
+        otherUserId: json['otherUserId'] as String,
+        otherUserName: json['otherUserName'] as String?,
+        otherUserPhotoUrl: json['otherUserPhotoUrl'] as String?,
+        dissolvedAt: DateTime.parse(json['dissolvedAt'] as String),
+        messageCount: json['messageCount'] as int,
+      );
+    }).toList();
+  }
+
+  Future<List<ArchivedChatMessage>> fetchArchivedThreadMessages(String dissolvedMatchId) async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/matches/archived/$dissolvedMatchId/messages'),
+      headers: _headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw MessagingApiException(_errorMessage(_decode(response), response.statusCode));
+    }
+
+    final list = jsonDecode(response.body) as List;
+    return list.cast<Map<String, dynamic>>().map((json) {
+      return ArchivedChatMessage(
+        id: json['id'] as String,
+        senderId: json['senderId'] as String,
+        contentType: json['contentType'] as String,
+        content: json['content'] as String?,
+        mediaUrl: json['mediaUrl'] as String?,
+        createdAt: DateTime.parse(json['createdAt'] as String),
+      );
+    }).toList();
   }
 
   MatchStatus _parseMatchStatus(http.Response response) {

@@ -103,6 +103,24 @@ export interface ReconnectableMatchView {
   dissolvedAt: string;
 }
 
+export interface ArchivedThreadView {
+  dissolvedMatchId: string;
+  otherUserId: string;
+  otherUserName: string | null;
+  otherUserPhotoUrl: string | null;
+  dissolvedAt: string;
+  messageCount: number;
+}
+
+export interface ArchivedMessageView {
+  id: string;
+  senderId: string;
+  contentType: string;
+  content: string | null;
+  mediaUrl: string | null;
+  createdAt: string;
+}
+
 export interface MatchSummaryView {
   matchId: string;
   otherUserId: string;
@@ -730,6 +748,83 @@ export class MessagingService {
     return { unmatched: true };
   }
 
+  /**
+   * A la carte "Unmatch Protection": dissolved matches that actually have
+   * an archived transcript (see dissolveMatch) - a dissolved match with
+   * nothing archived (protection wasn't on, or there was nothing to save)
+   * never shows up here.
+   */
+  async listArchivedThreads(userId: string): Promise<ArchivedThreadView[]> {
+    const dissolved = await this.prisma.dissolvedMatch.findMany({
+      where: { OR: [{ userAId: userId }, { userBId: userId }] },
+      orderBy: { dissolvedAt: 'desc' },
+    });
+    if (dissolved.length === 0) {
+      return [];
+    }
+
+    const archivedMessages = await this.prisma.archivedMessage.findMany({
+      where: { dissolvedMatchId: { in: dissolved.map((d) => d.id) } },
+      select: { dissolvedMatchId: true },
+    });
+    const countByDissolvedId = new Map<string, number>();
+    for (const message of archivedMessages) {
+      countByDissolvedId.set(
+        message.dissolvedMatchId,
+        (countByDissolvedId.get(message.dissolvedMatchId) ?? 0) + 1,
+      );
+    }
+
+    const archived = dissolved.filter((d) => (countByDissolvedId.get(d.id) ?? 0) > 0);
+    if (archived.length === 0) {
+      return [];
+    }
+
+    const otherUserIds = archived.map((d) => (d.userAId === userId ? d.userBId : d.userAId));
+    const otherUsers = await this.prisma.user.findMany({
+      where: { id: { in: otherUserIds } },
+      select: { id: true, name: true, profilePhotoUrl: true },
+    });
+    const otherUserById = new Map(otherUsers.map((user) => [user.id, user]));
+
+    return archived.map((d) => {
+      const otherUserId = d.userAId === userId ? d.userBId : d.userAId;
+      const otherUser = otherUserById.get(otherUserId);
+      return {
+        dissolvedMatchId: d.id,
+        otherUserId,
+        otherUserName: otherUser?.name ?? null,
+        otherUserPhotoUrl: otherUser?.profilePhotoUrl ?? null,
+        dissolvedAt: d.dissolvedAt.toISOString(),
+        messageCount: countByDissolvedId.get(d.id) ?? 0,
+      };
+    });
+  }
+
+  async getArchivedThreadMessages(
+    userId: string,
+    dissolvedMatchId: string,
+  ): Promise<ArchivedMessageView[]> {
+    const dissolved = await this.prisma.dissolvedMatch.findUnique({ where: { id: dissolvedMatchId } });
+    if (!dissolved || (dissolved.userAId !== userId && dissolved.userBId !== userId)) {
+      throw new NotFoundException('Archived thread not found.');
+    }
+
+    const messages = await this.prisma.archivedMessage.findMany({
+      where: { dissolvedMatchId },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    return messages.map((message) => ({
+      id: message.id,
+      senderId: message.senderId,
+      contentType: message.contentType,
+      content: message.content,
+      mediaUrl: message.mediaUrl,
+      createdAt: message.createdAt.toISOString(),
+    }));
+  }
+
   private async getLastMessageByMatchId(
     matchIds: string[],
   ): Promise<Map<string, { senderId: string; createdAt: Date }>> {
@@ -752,7 +847,41 @@ export class MessagingService {
     return lastByMatchId;
   }
 
+  /**
+   * A la carte "Unmatch Protection" (see PowerUpsService, User.
+   * unmatchProtectionEnabled): if either side of this match has purchased
+   * it, the conversation is archived into ArchivedMessage instead of being
+   * deleted outright, viewable read-only via listArchivedThreads/
+   * getArchivedThreadMessages - otherwise dissolving still deletes
+   * everything as before.
+   */
   private async dissolveMatch(match: MatchRecord): Promise<void> {
+    const participants = await this.prisma.user.findMany({
+      where: { id: { in: [match.userAId, match.userBId] } },
+      select: { id: true, unmatchProtectionEnabled: true },
+    });
+    const isProtected = participants.some((user) => user.unmatchProtectionEnabled);
+
+    const dissolved = await this.prisma.dissolvedMatch.create({
+      data: { userAId: match.userAId, userBId: match.userBId },
+    });
+
+    if (isProtected) {
+      const messages = await this.prisma.message.findMany({ where: { matchId: match.id } });
+      if (messages.length > 0) {
+        await this.prisma.archivedMessage.createMany({
+          data: messages.map((message) => ({
+            dissolvedMatchId: dissolved.id,
+            senderId: message.senderId,
+            contentType: message.contentType,
+            content: message.content,
+            mediaUrl: message.mediaUrl,
+            createdAt: message.createdAt,
+          })),
+        });
+      }
+    }
+
     await this.prisma.$transaction([
       this.prisma.message.deleteMany({ where: { matchId: match.id } }),
       this.prisma.swipe.deleteMany({
@@ -764,9 +893,6 @@ export class MessagingService {
         },
       }),
       this.prisma.match.delete({ where: { id: match.id } }),
-      this.prisma.dissolvedMatch.create({
-        data: { userAId: match.userAId, userBId: match.userBId },
-      }),
     ]);
   }
 
