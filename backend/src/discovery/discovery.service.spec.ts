@@ -23,6 +23,7 @@ describe('DiscoveryService', () => {
       delete: jest.Mock;
     };
     match: { create: jest.Mock; findUnique: jest.Mock; delete: jest.Mock };
+    partnerLink: { findFirst: jest.Mock };
     boost: { findFirst: jest.Mock; findMany: jest.Mock; create: jest.Mock; updateMany: jest.Mock };
     blockedContact: { findMany: jest.Mock };
     socialContact: { findMany: jest.Mock };
@@ -45,6 +46,7 @@ describe('DiscoveryService', () => {
         delete: jest.fn(),
       },
       match: { create: jest.fn(), findUnique: jest.fn(), delete: jest.fn() },
+      partnerLink: { findFirst: jest.fn() },
       boost: {
         findFirst: jest.fn(),
         findMany: jest.fn().mockResolvedValue([]),
@@ -144,6 +146,91 @@ describe('DiscoveryService', () => {
       expect(deck[0].isSuperLike).toBe(false);
       expect(deck[0].relationshipIntentBadges).toEqual([]);
       expect(deck[0].videoSnippetUrl).toBe('https://example.com/snippet.mp4');
+    });
+
+    it('also excludes candidates the joint browsing partner has already swiped on', async () => {
+      const PARTNER_ID = 'partner-1';
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: 0,
+        longitude: 0,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        activeBrowsingPartnerId: PARTNER_ID,
+        ...noFilters,
+      });
+      prisma.partnerLink.findFirst.mockResolvedValue({
+        id: 'link-1',
+        userAId: USER_ID,
+        userBId: PARTNER_ID,
+        jointBrowsingEnabled: true,
+      });
+      prisma.swipe.findMany
+        .mockResolvedValueOnce([{ targetUserId: 'already-swiped' }]) // own swipes
+        .mockResolvedValueOnce([{ targetUserId: 'partner-swiped' }]) // partner's swipes
+        .mockResolvedValueOnce([]); // no super likers
+      prisma.user.findMany.mockResolvedValue([]);
+
+      await service.getDeck(USER_ID);
+
+      expect(prisma.partnerLink.findFirst).toHaveBeenCalledWith({
+        where: {
+          jointBrowsingEnabled: true,
+          OR: [
+            { userAId: USER_ID, userBId: PARTNER_ID },
+            { userAId: PARTNER_ID, userBId: USER_ID },
+          ],
+        },
+      });
+      expect(prisma.user.findMany).toHaveBeenCalledWith({
+        where: {
+          id: { notIn: [USER_ID, 'already-swiped', 'partner-swiped'] },
+          onboardingCompletedAt: { not: null },
+          activeMode: 'DATING',
+          AND: [
+            { OR: [{ incognitoEnabled: false }, { id: { in: [] } }] },
+            { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
+          ],
+        },
+        take: 60,
+      });
+    });
+
+    it('ignores a stale joint browsing partner once joint browsing is disabled on the link', async () => {
+      const PARTNER_ID = 'partner-1';
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: 0,
+        longitude: 0,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        activeBrowsingPartnerId: PARTNER_ID,
+        ...noFilters,
+      });
+      prisma.partnerLink.findFirst.mockResolvedValue(null);
+      prisma.swipe.findMany
+        .mockResolvedValueOnce([{ targetUserId: 'already-swiped' }])
+        .mockResolvedValueOnce([]);
+      prisma.user.findMany.mockResolvedValue([]);
+
+      await service.getDeck(USER_ID);
+
+      expect(prisma.user.findMany).toHaveBeenCalledWith({
+        where: {
+          id: { notIn: [USER_ID, 'already-swiped'] },
+          onboardingCompletedAt: { not: null },
+          activeMode: 'DATING',
+          AND: [
+            { OR: [{ incognitoEnabled: false }, { id: { in: [] } }] },
+            { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
+          ],
+        },
+        take: 60,
+      });
     });
 
     it('includes each candidate mutual connection count from synced contacts', async () => {

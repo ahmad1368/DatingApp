@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-26T03:40:14.200Z",
+  "generated_at": "2026-08-26T03:54:22.314Z",
   "snapshot": [
     {
       "number": 454,
@@ -1575,18 +1575,9 @@
       "number": 140,
       "title": "Couple & Group Profile Browsing Switch",
       "updatedAt": "2026-08-10T20:41:44Z"
-    },
-    {
-      "number": 139,
-      "title": "Pet & Animal Compatibility Indicators",
-      "updatedAt": "2026-08-10T20:41:42Z"
     }
   ],
   "queue": [
-    {
-      "number": 140,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 141,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"

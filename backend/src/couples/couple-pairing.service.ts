@@ -13,8 +13,13 @@ export interface CouplePairingView {
 export interface PartnerLinkView {
   id: string;
   partnerId: string;
+  partnerName: string | null;
   linkedAt: string;
   jointBrowsingEnabled: boolean;
+}
+
+export interface ActiveBrowsingPartnerView {
+  activeBrowsingPartnerId: string | null;
 }
 
 interface CouplePairingRecord {
@@ -92,7 +97,14 @@ export class CouplePairingService {
       orderBy: { createdAt: 'desc' },
     });
 
-    return links.map((link) => this.toPartnerLinkView(userId, link));
+    const partnerIds = links.map((link) => (link.userAId === userId ? link.userBId : link.userAId));
+    const partners =
+      partnerIds.length > 0
+        ? await this.prisma.user.findMany({ where: { id: { in: partnerIds } }, select: { id: true, name: true } })
+        : [];
+    const nameById = new Map(partners.map((partner) => [partner.id, partner.name]));
+
+    return links.map((link) => this.toPartnerLinkView(userId, link, nameById));
   }
 
   async respond(userId: string, pairingId: string, accept: boolean): Promise<CouplePairingView> {
@@ -155,7 +167,8 @@ export class CouplePairingService {
       data: { jointBrowsingEnabled: enabled },
     });
 
-    return this.toPartnerLinkView(userId, updated);
+    const partner = await this.prisma.user.findUnique({ where: { id: partnerId }, select: { name: true } });
+    return this.toPartnerLinkView(userId, updated, new Map([[partnerId, partner?.name ?? null]]));
   }
 
   /** Unlinks the caller from one specific partner, leaving any others intact. */
@@ -192,12 +205,58 @@ export class CouplePairingService {
     };
   }
 
-  private toPartnerLinkView(userId: string, link: PartnerLinkRecord): PartnerLinkView {
+  private toPartnerLinkView(
+    userId: string,
+    link: PartnerLinkRecord,
+    nameById: Map<string, string | null>,
+  ): PartnerLinkView {
+    const partnerId = link.userAId === userId ? link.userBId : link.userAId;
     return {
       id: link.id,
-      partnerId: link.userAId === userId ? link.userBId : link.userAId,
+      partnerId,
+      partnerName: nameById.get(partnerId) ?? null,
       linkedAt: link.createdAt.toISOString(),
       jointBrowsingEnabled: link.jointBrowsingEnabled,
     };
+  }
+
+  /**
+   * "Couple & Group Profile Browsing Switch": which linked partner (if any)
+   * the caller's discovery deck is currently browsed jointly with - see
+   * DiscoveryService.getDeck's joint-exclusion logic.
+   */
+  async getActiveBrowsingPartner(userId: string): Promise<ActiveBrowsingPartnerView> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { activeBrowsingPartnerId: true },
+    });
+    return { activeBrowsingPartnerId: user?.activeBrowsingPartnerId ?? null };
+  }
+
+  /**
+   * Switches the caller between solo browsing (partnerId omitted/null) and
+   * joint browsing with one specific linked partner. Requires joint
+   * browsing to already be enabled on that pair's link (see
+   * setJointBrowsingMode) - otherwise there'd be nothing shared to merge
+   * into the joint deck.
+   */
+  async setActiveBrowsingPartner(
+    userId: string,
+    partnerId: string | null,
+  ): Promise<ActiveBrowsingPartnerView> {
+    if (partnerId !== null) {
+      const link = await this.findLink(userId, partnerId);
+      if (!link || !link.jointBrowsingEnabled) {
+        throw new BadRequestException('Joint browsing is not enabled with this partner.');
+      }
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: { activeBrowsingPartnerId: partnerId },
+      select: { activeBrowsingPartnerId: true },
+    });
+
+    return { activeBrowsingPartnerId: updated.activeBrowsingPartnerId };
   }
 }
