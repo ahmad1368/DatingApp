@@ -15,6 +15,13 @@ describe('SafetyService', () => {
     user: { findUnique: jest.Mock };
     userReport: { create: jest.Mock };
     dateCheckIn: { create: jest.Mock; findMany: jest.Mock; findUnique: jest.Mock; update: jest.Mock };
+    emergencyContact: {
+      create: jest.Mock;
+      findMany: jest.Mock;
+      findUnique: jest.Mock;
+      delete: jest.Mock;
+    };
+    sosAlert: { create: jest.Mock };
   };
   let smsProvider: SmsProvider;
 
@@ -28,6 +35,13 @@ describe('SafetyService', () => {
         findUnique: jest.fn(),
         update: jest.fn(),
       },
+      emergencyContact: {
+        create: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
+        findUnique: jest.fn(),
+        delete: jest.fn(),
+      },
+      sosAlert: { create: jest.fn() },
     };
     smsProvider = {
       sendOtp: jest.fn().mockResolvedValue(undefined),
@@ -316,6 +330,145 @@ describe('SafetyService', () => {
       });
       expect(checkIn.status).toBe('CONFIRMED');
       expect(checkIn.confirmedAt).toBe(confirmedAt.toISOString());
+    });
+  });
+
+  describe('addEmergencyContact', () => {
+    it('creates and returns the contact', async () => {
+      prisma.emergencyContact.create.mockResolvedValue({
+        id: 'contact-1',
+        name: 'Sam',
+        phone: '+15551234567',
+      });
+
+      const contact = await service.addEmergencyContact(USER_ID, 'Sam', '+15551234567');
+
+      expect(prisma.emergencyContact.create).toHaveBeenCalledWith({
+        data: { userId: USER_ID, name: 'Sam', phone: '+15551234567' },
+      });
+      expect(contact).toEqual({ id: 'contact-1', name: 'Sam', phone: '+15551234567' });
+    });
+  });
+
+  describe('listEmergencyContacts', () => {
+    it("returns the user's contacts", async () => {
+      prisma.emergencyContact.findMany.mockResolvedValue([
+        { id: 'contact-1', name: 'Sam', phone: '+15551234567' },
+      ]);
+
+      const contacts = await service.listEmergencyContacts(USER_ID);
+
+      expect(prisma.emergencyContact.findMany).toHaveBeenCalledWith({
+        where: { userId: USER_ID },
+        orderBy: { createdAt: 'asc' },
+      });
+      expect(contacts).toEqual([{ id: 'contact-1', name: 'Sam', phone: '+15551234567' }]);
+    });
+  });
+
+  describe('deleteEmergencyContact', () => {
+    it('throws when the contact does not exist', async () => {
+      prisma.emergencyContact.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.deleteEmergencyContact(USER_ID, 'contact-1'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it("throws when deleting someone else's contact", async () => {
+      prisma.emergencyContact.findUnique.mockResolvedValue({ id: 'contact-1', userId: OTHER_ID });
+
+      await expect(
+        service.deleteEmergencyContact(OUTSIDER_ID, 'contact-1'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('deletes the contact', async () => {
+      prisma.emergencyContact.findUnique.mockResolvedValue({ id: 'contact-1', userId: USER_ID });
+
+      const result = await service.deleteEmergencyContact(USER_ID, 'contact-1');
+
+      expect(prisma.emergencyContact.delete).toHaveBeenCalledWith({ where: { id: 'contact-1' } });
+      expect(result).toEqual({ deleted: true });
+    });
+  });
+
+  describe('triggerSos', () => {
+    it('rejects when the user has no emergency contacts', async () => {
+      prisma.user.findUnique.mockResolvedValue({ name: 'Ahmad' });
+      prisma.emergencyContact.findMany.mockResolvedValue([]);
+
+      await expect(service.triggerSos(USER_ID, 37.7749, -122.4194)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(smsProvider.sendMessage).not.toHaveBeenCalled();
+    });
+
+    it('throws when a requested contact id does not belong to the user', async () => {
+      prisma.user.findUnique.mockResolvedValue({ name: 'Ahmad' });
+      prisma.emergencyContact.findMany.mockResolvedValue([
+        { id: 'contact-1', name: 'Sam', phone: '+15551234567' },
+      ]);
+
+      await expect(
+        service.triggerSos(USER_ID, 37.7749, -122.4194, undefined, ['not-mine']),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('texts every contact when none are specified and records the alert', async () => {
+      prisma.user.findUnique.mockResolvedValue({ name: 'Ahmad' });
+      prisma.emergencyContact.findMany.mockResolvedValue([
+        { id: 'contact-1', name: 'Sam', phone: '+15551234567' },
+        { id: 'contact-2', name: 'Jo', phone: '+15557654321' },
+      ]);
+      prisma.sosAlert.create.mockResolvedValue({
+        id: 'alert-1',
+        contactIds: ['contact-1', 'contact-2'],
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const result = await service.triggerSos(USER_ID, 37.7749, -122.4194, 'match-1');
+
+      expect(smsProvider.sendMessage).toHaveBeenCalledWith(
+        '+15551234567',
+        expect.stringContaining('37.7749,-122.4194'),
+      );
+      expect(smsProvider.sendMessage).toHaveBeenCalledWith(
+        '+15557654321',
+        expect.stringContaining('Ahmad'),
+      );
+      expect(prisma.sosAlert.create).toHaveBeenCalledWith({
+        data: {
+          userId: USER_ID,
+          matchId: 'match-1',
+          latitude: 37.7749,
+          longitude: -122.4194,
+          contactIds: ['contact-1', 'contact-2'],
+        },
+      });
+      expect(result).toEqual({
+        id: 'alert-1',
+        notifiedContactIds: ['contact-1', 'contact-2'],
+        createdAt: '2026-01-01T00:00:00.000Z',
+      });
+    });
+
+    it('only texts the selected contacts when contactIds is given', async () => {
+      prisma.user.findUnique.mockResolvedValue({ name: 'Ahmad' });
+      prisma.emergencyContact.findMany.mockResolvedValue([
+        { id: 'contact-1', name: 'Sam', phone: '+15551234567' },
+        { id: 'contact-2', name: 'Jo', phone: '+15557654321' },
+      ]);
+      prisma.sosAlert.create.mockResolvedValue({
+        id: 'alert-1',
+        contactIds: ['contact-2'],
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      await service.triggerSos(USER_ID, 37.7749, -122.4194, undefined, ['contact-2']);
+
+      expect(smsProvider.sendMessage).toHaveBeenCalledTimes(1);
+      expect(smsProvider.sendMessage).toHaveBeenCalledWith('+15557654321', expect.any(String));
     });
   });
 });

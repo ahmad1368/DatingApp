@@ -38,6 +38,9 @@ void main() {
         if (request.url.path == '/safety/resources') {
           return _jsonResponse('[]', 200);
         }
+        if (request.url.path == '/safety/emergency-contacts') {
+          return _jsonResponse('[]', 200);
+        }
         return _jsonResponse(
           '[{"id":"check-in-1","matchId":null,"location":"Cafe","scheduledAt":"2026-01-01T20:00:00.000Z",'
           '"emergencyContactName":null,"emergencyContactPhone":null,"notes":null,"confirmedAt":null,'
@@ -70,6 +73,9 @@ void main() {
             '"confirmedAt":"2026-01-01T19:00:00.000Z","status":"CONFIRMED"}',
             200,
           );
+        }
+        if (request.url.path == '/safety/emergency-contacts') {
+          return _jsonResponse('[]', 200);
         }
         return _jsonResponse(
           '[{"id":"check-in-1","matchId":null,"location":"Cafe","scheduledAt":"2026-01-01T20:00:00.000Z",'
@@ -178,6 +184,9 @@ void main() {
         if (request.url.path == '/safety/resources') {
           return _jsonResponse('[]', 200);
         }
+        if (request.url.path == '/safety/emergency-contacts') {
+          return _jsonResponse('[]', 200);
+        }
         return _jsonResponse(
           '[{"id":"check-in-1","matchId":null,"location":null,"scheduledAt":"2026-01-01T20:00:00.000Z",'
           '"emergencyContactName":"Sam","emergencyContactPhone":"+15551234567","notes":null,'
@@ -221,5 +230,148 @@ void main() {
     expect(reportRequest, isNotNull);
     expect(reportRequest!.body, contains('"reportedUserId":"user-2"'));
     expect(find.text('Report submitted. Our team will review it.'), findsOneWidget);
+  });
+
+  testWidgets('shows existing emergency contacts and adds a new one', (tester) async {
+    http.Request? addRequest;
+    var contactsCallCount = 0;
+    final api = SafetyApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/safety/resources') {
+          return _jsonResponse('[]', 200);
+        }
+        if (request.method == 'POST' && request.url.path == '/safety/emergency-contacts') {
+          addRequest = request;
+          return _jsonResponse('{"id":"contact-2","name":"Jo","phone":"+15557654321"}', 201);
+        }
+        if (request.url.path == '/safety/emergency-contacts') {
+          contactsCallCount += 1;
+          return _jsonResponse('[{"id":"contact-1","name":"Sam","phone":"+15551234567"}]', 200);
+        }
+        return _jsonResponse('[]', 200);
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: SafetyCenterScreen(safetyApi: api)));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sam'), findsOneWidget);
+
+    await tester.tap(find.text('Add'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'Name'), 'Jo');
+    await tester.enterText(find.widgetWithText(TextField, 'Phone'), '+15557654321');
+    await tester.tap(find.text('Add').last);
+    await tester.pumpAndSettle();
+
+    expect(addRequest, isNotNull);
+    expect(addRequest!.body, '{"name":"Jo","phone":"+15557654321"}');
+    expect(find.text('Jo'), findsOneWidget);
+    expect(contactsCallCount, 1);
+  });
+
+  testWidgets('removing an emergency contact deletes it from the list', (tester) async {
+    http.Request? deleteRequest;
+    final api = SafetyApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/safety/resources') {
+          return _jsonResponse('[]', 200);
+        }
+        if (request.method == 'DELETE') {
+          deleteRequest = request;
+          return http.Response('', 200);
+        }
+        if (request.url.path == '/safety/emergency-contacts') {
+          return _jsonResponse('[{"id":"contact-1","name":"Sam","phone":"+15551234567"}]', 200);
+        }
+        return _jsonResponse('[]', 200);
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: SafetyCenterScreen(safetyApi: api)));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.delete));
+    await tester.pumpAndSettle();
+
+    expect(deleteRequest, isNotNull);
+    expect(deleteRequest!.url.path, '/safety/emergency-contacts/contact-1');
+    expect(find.text('Sam'), findsNothing);
+  });
+
+  testWidgets('tapping SOS sends the current location and shows a confirmation', (tester) async {
+    http.Request? sosRequest;
+    final api = SafetyApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/safety/resources') {
+          return _jsonResponse('[]', 200);
+        }
+        if (request.method == 'POST' && request.url.path == '/safety/sos') {
+          sosRequest = request;
+          return _jsonResponse(
+            '{"id":"alert-1","notifiedContactIds":["contact-1","contact-2"],'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}',
+            201,
+          );
+        }
+        return _jsonResponse('[]', 200);
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SafetyCenterScreen(
+          safetyApi: api,
+          currentPositionProvider: () async => const Coordinates(latitude: 37.7749, longitude: -122.4194),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('SOS'));
+    await tester.pumpAndSettle();
+
+    expect(sosRequest, isNotNull);
+    expect(sosRequest!.body, '{"latitude":37.7749,"longitude":-122.4194}');
+    expect(find.text('SOS sent to 2 contact(s).'), findsOneWidget);
+  });
+
+  testWidgets('shows an error when triggering SOS fails', (tester) async {
+    final api = SafetyApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/safety/resources') {
+          return _jsonResponse('[]', 200);
+        }
+        if (request.method == 'POST' && request.url.path == '/safety/sos') {
+          return _jsonResponse(
+            '{"message":"Add at least one emergency contact before triggering SOS."}',
+            400,
+          );
+        }
+        return _jsonResponse('[]', 200);
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SafetyCenterScreen(
+          safetyApi: api,
+          currentPositionProvider: () async => const Coordinates(latitude: 37.7749, longitude: -122.4194),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('SOS'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Add at least one emergency contact before triggering SOS.'),
+      findsOneWidget,
+    );
   });
 }

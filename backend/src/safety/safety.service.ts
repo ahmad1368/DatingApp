@@ -26,6 +26,18 @@ export interface CheckInView {
   alertSent: boolean;
 }
 
+export interface EmergencyContactView {
+  id: string;
+  name: string;
+  phone: string;
+}
+
+export interface SosAlertResult {
+  id: string;
+  notifiedContactIds: string[];
+  createdAt: string;
+}
+
 @Injectable()
 export class SafetyService {
   constructor(
@@ -121,6 +133,85 @@ export class SafetyService {
     });
 
     return this.toCheckInView(updated);
+  }
+
+  async addEmergencyContact(userId: string, name: string, phone: string): Promise<EmergencyContactView> {
+    const contact = await this.prisma.emergencyContact.create({ data: { userId, name, phone } });
+    return this.toContactView(contact);
+  }
+
+  async listEmergencyContacts(userId: string): Promise<EmergencyContactView[]> {
+    const contacts = await this.prisma.emergencyContact.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'asc' },
+    });
+    return contacts.map((contact) => this.toContactView(contact));
+  }
+
+  async deleteEmergencyContact(userId: string, contactId: string): Promise<{ deleted: boolean }> {
+    const contact = await this.prisma.emergencyContact.findUnique({ where: { id: contactId } });
+    if (!contact || contact.userId !== userId) {
+      throw new NotFoundException('Emergency contact not found.');
+    }
+
+    await this.prisma.emergencyContact.delete({ where: { id: contactId } });
+    return { deleted: true };
+  }
+
+  /**
+   * Immediate "help now" trigger during a live date: texts the caller's
+   * current coordinates to the selected (or, if none chosen, all) emergency
+   * contacts right away - unlike DateCheckIn's lazy missed-check-in alert,
+   * this fires the moment the user taps SOS, not on a delay.
+   */
+  async triggerSos(
+    userId: string,
+    latitude: number,
+    longitude: number,
+    matchId?: string,
+    contactIds?: string[],
+  ): Promise<SosAlertResult> {
+    const [user, allContacts] = await Promise.all([
+      this.prisma.user.findUnique({ where: { id: userId }, select: { name: true } }),
+      this.prisma.emergencyContact.findMany({ where: { userId } }),
+    ]);
+
+    const targets = contactIds
+      ? allContacts.filter((contact) => contactIds.includes(contact.id))
+      : allContacts;
+
+    if (contactIds && targets.length !== contactIds.length) {
+      throw new NotFoundException('One or more emergency contacts were not found.');
+    }
+    if (targets.length === 0) {
+      throw new BadRequestException('Add at least one emergency contact before triggering SOS.');
+    }
+
+    const mapsLink = `https://maps.google.com/?q=${latitude},${longitude}`;
+    const senderName = user?.name ?? 'Someone you know';
+    const message = `URGENT: ${senderName} triggered an SOS alert during a date and may need help. Live location: ${mapsLink}`;
+
+    await Promise.all(targets.map((contact) => this.smsProvider.sendMessage(contact.phone, message)));
+
+    const alert = await this.prisma.sosAlert.create({
+      data: {
+        userId,
+        matchId: matchId ?? null,
+        latitude,
+        longitude,
+        contactIds: targets.map((contact) => contact.id),
+      },
+    });
+
+    return {
+      id: alert.id,
+      notifiedContactIds: alert.contactIds,
+      createdAt: alert.createdAt.toISOString(),
+    };
+  }
+
+  private toContactView(contact: { id: string; name: string; phone: string }): EmergencyContactView {
+    return { id: contact.id, name: contact.name, phone: contact.phone };
   }
 
   private toReportView(report: {
