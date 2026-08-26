@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-26T03:54:22.314Z",
+  "generated_at": "2026-08-26T04:13:08.290Z",
   "snapshot": [
     {
       "number": 454,
@@ -1570,18 +1570,9 @@
       "number": 141,
       "title": "Mutual Friend Network Visualization",
       "updatedAt": "2026-08-10T20:41:46Z"
-    },
-    {
-      "number": 140,
-      "title": "Couple & Group Profile Browsing Switch",
-      "updatedAt": "2026-08-10T20:41:44Z"
     }
   ],
   "queue": [
-    {
-      "number": 141,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 142,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"

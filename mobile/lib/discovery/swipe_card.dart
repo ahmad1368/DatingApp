@@ -224,6 +224,19 @@ class _CardContent extends StatelessWidget {
                     ),
                   ],
                 ),
+              if (card.sharedSchool != null)
+                Row(
+                  children: [
+                    const Icon(Icons.school, size: 16),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        'You both went to ${card.sharedSchool}',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
               if (card.relationshipIntentBadges.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Wrap(

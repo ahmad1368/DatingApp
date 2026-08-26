@@ -33,6 +33,7 @@ class DeckCard {
     this.complimentText,
     this.complimentTarget,
     this.mutualConnectionCount = 0,
+    this.sharedSchool,
     this.communicationBoundaries,
     this.relationshipStructure,
     this.kinkTagBadges = const [],
@@ -62,6 +63,7 @@ class DeckCard {
   final String? complimentText;
   final String? complimentTarget;
   final int mutualConnectionCount;
+  final String? sharedSchool;
   final String? communicationBoundaries;
   final String? relationshipStructure;
   final List<String> kinkTagBadges;
@@ -223,6 +225,7 @@ class DiscoveryApi {
       complimentText: json['complimentText'] as String?,
       complimentTarget: json['complimentTarget'] as String?,
       mutualConnectionCount: json['mutualConnectionCount'] as int? ?? 0,
+      sharedSchool: json['sharedSchool'] as String?,
       communicationBoundaries: json['communicationBoundaries'] as String?,
       relationshipStructure: json['relationshipStructure'] as String?,
       kinkTagBadges: (json['kinkTagBadges'] as List?)?.cast<String>() ?? const [],
