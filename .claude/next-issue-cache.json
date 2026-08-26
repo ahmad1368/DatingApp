@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-26T03:04:42.142Z",
+  "generated_at": "2026-08-26T03:40:14.200Z",
   "snapshot": [
     {
       "number": 454,
@@ -1580,18 +1580,9 @@
       "number": 139,
       "title": "Pet & Animal Compatibility Indicators",
       "updatedAt": "2026-08-10T20:41:42Z"
-    },
-    {
-      "number": 138,
-      "title": "Interactive Icebreaker Video Shorts",
-      "updatedAt": "2026-08-10T20:41:40Z"
     }
   ],
   "queue": [
-    {
-      "number": 139,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 140,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"

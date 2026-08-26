@@ -10,6 +10,7 @@ import {
   MAX_FILTER_SELECTIONS,
   MAX_HEIGHT_CM,
   MIN_HEIGHT_CM,
+  PET_ALLERGY_STATUS_OPTIONS,
   PET_OWNERSHIP_OPTIONS,
   RELIGIONS,
   SMOKING_HABITS,
@@ -54,6 +55,10 @@ export class SetLifestyleFiltersDto {
   @IsOptional()
   @IsIn(PET_OWNERSHIP_OPTIONS)
   petOwnership?: string;
+
+  @IsOptional()
+  @IsIn(PET_ALLERGY_STATUS_OPTIONS)
+  petAllergyStatus?: string;
 
   @IsBoolean()
   showLifestyleBadgesOnProfile!: boolean;
@@ -102,6 +107,16 @@ export class SetLifestyleFiltersDto {
   @ArrayMaxSize(MAX_FILTER_SELECTIONS)
   @IsIn(RELATIONSHIP_DESIRES, { each: true })
   filterRelationshipDesires!: string[];
+
+  @IsArray()
+  @ArrayMaxSize(MAX_FILTER_SELECTIONS)
+  @IsIn(PET_OWNERSHIP_OPTIONS, { each: true })
+  filterPetOwnership!: string[];
+
+  @IsArray()
+  @ArrayMaxSize(MAX_FILTER_SELECTIONS)
+  @IsIn(PET_ALLERGY_STATUS_OPTIONS, { each: true })
+  filterPetAllergyStatus!: string[];
 
   /** When true, the deck only shows candidates who share at least one interest tag. */
   @IsBoolean()

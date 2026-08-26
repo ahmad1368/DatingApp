@@ -82,6 +82,8 @@ describe('DiscoveryService', () => {
     filterRelationshipGoals: [],
     filterKinkTags: [],
     filterRelationshipDesires: [],
+    filterPetOwnership: [],
+    filterPetAllergyStatus: [],
     filterSharedInterestsOnly: false,
     interests: [],
   };
@@ -258,6 +260,7 @@ describe('DiscoveryService', () => {
           heightCm: 178,
           workoutHabit: 'Often',
           petOwnership: 'Dog',
+          petAllergyStatus: 'Allergy Free',
           smokingHabit: 'Never',
           drinkingHabit: 'Socially',
           showLifestyleBadgesOnProfile: true,
@@ -270,6 +273,7 @@ describe('DiscoveryService', () => {
         '178 cm',
         'Workout: Often',
         'Dog',
+        'Allergy Free',
         'Smoking: Never',
         'Drinking: Socially',
       ]);
@@ -736,6 +740,40 @@ describe('DiscoveryService', () => {
           ],
           kinkTags: { hasSome: ['BDSM', 'Roleplay'] },
           relationshipDesires: { hasSome: ['Long-Term Relationship'] },
+        },
+        take: 60,
+      });
+    });
+
+    it('applies pet ownership and pet allergy filters to the candidate query', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+        filterPetOwnership: ['Dog', 'Cat'],
+        filterPetAllergyStatus: ['Allergy Free'],
+      });
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      prisma.user.findMany.mockResolvedValue([]);
+
+      await service.getDeck(USER_ID);
+
+      expect(prisma.user.findMany).toHaveBeenCalledWith({
+        where: {
+          id: { notIn: [USER_ID] },
+          onboardingCompletedAt: { not: null },
+          activeMode: 'DATING',
+          AND: [
+            { OR: [{ incognitoEnabled: false }, { id: { in: [] } }] },
+            { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
+          ],
+          petOwnership: { in: ['Dog', 'Cat'] },
+          petAllergyStatus: { in: ['Allergy Free'] },
         },
         take: 60,
       });

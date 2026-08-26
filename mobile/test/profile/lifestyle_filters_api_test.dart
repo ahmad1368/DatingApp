@@ -12,6 +12,8 @@ String _fullFiltersJson({
   String relationshipDesires = '[]',
   bool verifiedOnly = false,
   String communityGroups = '[]',
+  String petOwnership = '[]',
+  String petAllergyStatus = '[]',
 }) =>
     '''
 {
@@ -24,6 +26,7 @@ String _fullFiltersJson({
   "heightCm": null,
   "workoutHabit": null,
   "petOwnership": null,
+  "petAllergyStatus": null,
   "showLifestyleBadgesOnProfile": true,
   "filterSmokingHabits": [],
   "filterDrinkingHabits": [],
@@ -34,6 +37,8 @@ String _fullFiltersJson({
   "filterRelationshipGoals": $relationshipGoals,
   "filterKinkTags": [],
   "filterRelationshipDesires": $relationshipDesires,
+  "filterPetOwnership": $petOwnership,
+  "filterPetAllergyStatus": $petAllergyStatus,
   "filterSharedInterestsOnly": false,
   "filterVerifiedOnly": $verifiedOnly,
   "filterCommunityGroups": $communityGroups
@@ -97,6 +102,59 @@ void main() {
     });
   });
 
+  group('LifestyleFiltersApi.fetchPetOwnershipOptions', () {
+    test('parses the pet ownership catalog', () async {
+      final api = LifestyleFiltersApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.url.path, '/profile/lifestyle/catalog');
+          return _jsonResponse('{"petOwnershipOptions":["No Pets","Dog","Cat"]}', 200);
+        }),
+      );
+
+      final options = await api.fetchPetOwnershipOptions();
+
+      expect(options, ['No Pets', 'Dog', 'Cat']);
+    });
+
+    test('throws LifestyleFiltersApiException on a non-200 response', () async {
+      final api = LifestyleFiltersApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => _jsonResponse('{"message":"boom"}', 500)),
+      );
+
+      expect(() => api.fetchPetOwnershipOptions(), throwsA(isA<LifestyleFiltersApiException>()));
+    });
+  });
+
+  group('LifestyleFiltersApi.fetchPetAllergyStatusOptions', () {
+    test('parses the pet allergy status catalog', () async {
+      final api = LifestyleFiltersApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.url.path, '/profile/lifestyle/catalog');
+          return _jsonResponse('{"petAllergyStatusOptions":["Allergy Free","Has Pet Allergies"]}', 200);
+        }),
+      );
+
+      final options = await api.fetchPetAllergyStatusOptions();
+
+      expect(options, ['Allergy Free', 'Has Pet Allergies']);
+    });
+
+    test('throws LifestyleFiltersApiException on a non-200 response', () async {
+      final api = LifestyleFiltersApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => _jsonResponse('{"message":"boom"}', 500)),
+      );
+
+      expect(
+        () => api.fetchPetAllergyStatusOptions(),
+        throwsA(isA<LifestyleFiltersApiException>()),
+      );
+    });
+  });
+
   group('LifestyleFiltersApi.fetchFilters', () {
     test('sends the bearer token and parses the current filters', () async {
       final api = LifestyleFiltersApi(
@@ -155,6 +213,8 @@ void main() {
         filterRelationshipGoals: const [],
         filterKinkTags: const [],
         filterRelationshipDesires: const [],
+        filterPetOwnership: const [],
+        filterPetAllergyStatus: const [],
         filterSharedInterestsOnly: false,
         filterVerifiedOnly: false,
         filterCommunityGroups: const [],
@@ -225,6 +285,36 @@ void main() {
 
       expect(putRequest!.body, contains('"filterRelationshipDesires":["Marriage"]'));
       expect(updated.filterRelationshipDesires, ['Marriage']);
+    });
+
+    test('sends the updated filterPetOwnership and filterPetAllergyStatus lists', () async {
+      http.Request? putRequest;
+      final api = LifestyleFiltersApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          putRequest = request;
+          return _jsonResponse(
+            _fullFiltersJson(petOwnership: '["Dog","Cat"]', petAllergyStatus: '["Allergy Free"]'),
+            200,
+          );
+        }),
+      );
+      final current = await LifestyleFiltersApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => _jsonResponse(_fullFiltersJson(), 200)),
+      ).fetchFilters();
+
+      final updated = await api.setFilters(
+        current.copyWith(
+          filterPetOwnership: ['Dog', 'Cat'],
+          filterPetAllergyStatus: ['Allergy Free'],
+        ),
+      );
+
+      expect(putRequest!.body, contains('"filterPetOwnership":["Dog","Cat"]'));
+      expect(putRequest!.body, contains('"filterPetAllergyStatus":["Allergy Free"]'));
+      expect(updated.filterPetOwnership, ['Dog', 'Cat']);
+      expect(updated.filterPetAllergyStatus, ['Allergy Free']);
     });
   });
 }

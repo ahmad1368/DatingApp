@@ -75,6 +75,7 @@ model User {
   heightCm                              Int?
   workoutHabit                          String?
   petOwnership                          String?
+  petAllergyStatus                      String?
   showLifestyleBadgesOnProfile          Boolean   @default(true)
   showZodiacOnProfile                   Boolean   @default(true)
   loveLanguages                         String[]  @default([])
@@ -90,6 +91,8 @@ model User {
   filterRelationshipGoals               String[]  @default([])
   filterKinkTags                        String[]  @default([])
   filterRelationshipDesires             String[]  @default([])
+  filterPetOwnership                    String[]  @default([])
+  filterPetAllergyStatus                String[]  @default([])
   filterSharedInterestsOnly             Boolean   @default(false)
   filterVerifiedOnly                    Boolean   @default(false)
   communityGroupIds                     String[]  @default([])

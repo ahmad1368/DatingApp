@@ -24,6 +24,7 @@ String _fullFiltersJson({String communityGroups = '[]'}) => '''
   "heightCm": null,
   "workoutHabit": null,
   "petOwnership": null,
+  "petAllergyStatus": null,
   "showLifestyleBadgesOnProfile": true,
   "filterSmokingHabits": [],
   "filterDrinkingHabits": [],
@@ -34,6 +35,8 @@ String _fullFiltersJson({String communityGroups = '[]'}) => '''
   "filterRelationshipGoals": [],
   "filterKinkTags": [],
   "filterRelationshipDesires": [],
+  "filterPetOwnership": [],
+  "filterPetAllergyStatus": [],
   "filterSharedInterestsOnly": false,
   "filterVerifiedOnly": false,
   "filterCommunityGroups": $communityGroups

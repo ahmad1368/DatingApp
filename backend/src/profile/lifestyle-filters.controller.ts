@@ -12,6 +12,7 @@ import {
   EDUCATION_LEVELS,
   MAX_HEIGHT_CM,
   MIN_HEIGHT_CM,
+  PET_ALLERGY_STATUS_OPTIONS,
   PET_OWNERSHIP_OPTIONS,
   RELIGIONS,
   SMOKING_HABITS,
@@ -38,6 +39,7 @@ export class LifestyleFiltersController {
       communityGroups: COMMUNITY_GROUPS,
       workoutHabits: WORKOUT_HABITS,
       petOwnershipOptions: PET_OWNERSHIP_OPTIONS,
+      petAllergyStatusOptions: PET_ALLERGY_STATUS_OPTIONS,
       minHeightCm: MIN_HEIGHT_CM,
       maxHeightCm: MAX_HEIGHT_CM,
     };
