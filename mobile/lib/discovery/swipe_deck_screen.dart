@@ -8,6 +8,7 @@ import 'liked_by_grid_screen.dart';
 import 'profile_visitors_screen.dart';
 import 'profile_visits_api.dart';
 import 'swipe_card.dart';
+import 'video_feed_screen.dart';
 
 /// After this many continuous swipes, the deck prompts for a quick quality
 /// rating (see _SwipeDeckScreenState._maybePromptDeckFeedback) - tracked
@@ -472,12 +473,26 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Discover · ${_modeLabel(_activeMode)}'),
+              Flexible(
+                child: Text(
+                  'Discover · ${_modeLabel(_activeMode)}',
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
               const Icon(Icons.arrow_drop_down),
             ],
           ),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.video_collection),
+            tooltip: 'Video feed',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => VideoFeedScreen(discoveryApi: widget.discoveryApi),
+              ),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.grid_view),
             tooltip: 'Who liked you',

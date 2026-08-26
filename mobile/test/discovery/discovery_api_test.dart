@@ -818,4 +818,62 @@ void main() {
       expect(status.statusMessage, 'On Vacation');
     });
   });
+
+  group('DiscoveryApi.fetchVideoFeed', () {
+    test('parses video feed cards from a snippet', () async {
+      final api = DiscoveryApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'GET');
+          expect(request.url.path, '/discovery/video-feed');
+          return http.Response(
+            '[{"id":"user-2","name":"Jane","age":25,'
+            '"videoUrl":"https://example.com/snippet.mp4","videoSource":"SNIPPET",'
+            '"promptQuestion":null}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final feed = await api.fetchVideoFeed();
+
+      expect(feed, hasLength(1));
+      expect(feed.first.id, 'user-2');
+      expect(feed.first.name, 'Jane');
+      expect(feed.first.age, 25);
+      expect(feed.first.videoUrl, 'https://example.com/snippet.mp4');
+      expect(feed.first.videoSource, 'SNIPPET');
+      expect(feed.first.promptQuestion, isNull);
+    });
+
+    test('parses a prompt-answer video card with its question', () async {
+      final api = DiscoveryApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '[{"id":"user-3","name":"Sam","age":29,'
+            '"videoUrl":"https://example.com/answer.mp4","videoSource":"PROMPT_ANSWER",'
+            '"promptQuestion":"What is your simple pleasure?"}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      final feed = await api.fetchVideoFeed();
+
+      expect(feed.first.videoSource, 'PROMPT_ANSWER');
+      expect(feed.first.promptQuestion, 'What is your simple pleasure?');
+    });
+
+    test('throws DiscoveryApiException on a non-200 response', () async {
+      final api = DiscoveryApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => http.Response('', 500)),
+      );
+
+      expect(() => api.fetchVideoFeed(), throwsA(isA<DiscoveryApiException>()));
+    });
+  });
 }

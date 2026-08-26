@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-26T02:39:09.799Z",
+  "generated_at": "2026-08-26T03:04:42.142Z",
   "snapshot": [
     {
       "number": 454,
@@ -1585,18 +1585,9 @@
       "number": 138,
       "title": "Interactive Icebreaker Video Shorts",
       "updatedAt": "2026-08-10T20:41:40Z"
-    },
-    {
-      "number": 137,
-      "title": "A la Carte Chat Unmatch Protection",
-      "updatedAt": "2026-08-10T20:41:38Z"
     }
   ],
   "queue": [
-    {
-      "number": 138,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 139,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"

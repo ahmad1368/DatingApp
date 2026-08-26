@@ -21,6 +21,9 @@ export type PassReason = (typeof PASS_REASONS)[number];
 
 export const DEFAULT_DECK_SIZE = 20;
 
+/** How many candidates DiscoveryService.getVideoFeed returns per fetch. */
+export const VIDEO_FEED_SIZE = 20;
+
 export const ACTIVE_MODES = ['DATING', 'BFF', 'BIZZ'] as const;
 
 export type ActiveMode = (typeof ACTIVE_MODES)[number];
