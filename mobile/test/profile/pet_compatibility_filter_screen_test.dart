@@ -4,12 +4,12 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'package:mobile/profile/lifestyle_filters_api.dart';
-import 'package:mobile/profile/relationship_desires_filter_screen.dart';
+import 'package:mobile/profile/pet_compatibility_filter_screen.dart';
 
 http.Response _jsonResponse(String body, int status) =>
     http.Response(body, status, headers: {'content-type': 'application/json'});
 
-String _fullFiltersJson({String relationshipDesires = '[]'}) => '''
+String _fullFiltersJson({String petOwnership = '[]', String petAllergyStatus = '[]'}) => '''
 {
   "smokingHabit": null,
   "drinkingHabit": null,
@@ -30,69 +30,82 @@ String _fullFiltersJson({String relationshipDesires = '[]'}) => '''
   "filterWantsChildren": [],
   "filterRelationshipGoals": [],
   "filterKinkTags": [],
-  "filterRelationshipDesires": $relationshipDesires,
-  "filterPetOwnership": [],
-  "filterPetAllergyStatus": [],
+  "filterRelationshipDesires": [],
+  "filterPetOwnership": $petOwnership,
+  "filterPetAllergyStatus": $petAllergyStatus,
   "filterSharedInterestsOnly": false,
   "filterVerifiedOnly": false,
   "filterCommunityGroups": []
 }
 ''';
 
+const _catalogResponse = '{"petOwnershipOptions":["No Pets","Dog","Cat"],'
+    '"petAllergyStatusOptions":["Allergy Free","Has Pet Allergies"]}';
+
 void main() {
-  testWidgets('shows the catalog with the current selection pre-checked', (tester) async {
+  testWidgets('shows both catalogs with the current selections pre-checked', (tester) async {
     final api = LifestyleFiltersApi(
       accessToken: 'a-jwt',
       client: MockClient((request) async {
         if (request.url.path == '/profile/lifestyle/catalog') {
-          return _jsonResponse(
-            '{"relationshipDesires":["Casual Dating","Long-Term Relationship","Marriage"]}',
-            200,
-          );
+          return _jsonResponse(_catalogResponse, 200);
         }
-        return _jsonResponse(_fullFiltersJson(relationshipDesires: '["Marriage"]'), 200);
+        return _jsonResponse(
+          _fullFiltersJson(petOwnership: '["Dog"]', petAllergyStatus: '["Allergy Free"]'),
+          200,
+        );
       }),
     );
 
     await tester.pumpWidget(
-      MaterialApp(home: RelationshipDesiresFilterScreen(lifestyleFiltersApi: api)),
+      MaterialApp(home: PetCompatibilityFilterScreen(lifestyleFiltersApi: api)),
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Marriage'), findsOneWidget);
-    final chip = tester.widget<FilterChip>(
-      find.ancestor(of: find.text('Marriage'), matching: find.byType(FilterChip)),
+    final dogChip = tester.widget<FilterChip>(
+      find.ancestor(of: find.text('Dog'), matching: find.byType(FilterChip)),
     );
-    expect(chip.selected, isTrue);
+    expect(dogChip.selected, isTrue);
+
+    final allergyChip = tester.widget<FilterChip>(
+      find.ancestor(of: find.text('Allergy Free'), matching: find.byType(FilterChip)),
+    );
+    expect(allergyChip.selected, isTrue);
   });
 
-  testWidgets('selecting a desire and saving sends the updated filter list', (tester) async {
+  testWidgets('selecting options and saving sends both updated filter lists', (tester) async {
     http.Request? putRequest;
     final api = LifestyleFiltersApi(
       accessToken: 'a-jwt',
       client: MockClient((request) async {
         if (request.url.path == '/profile/lifestyle/catalog') {
-          return _jsonResponse('{"relationshipDesires":["Casual Dating","Marriage"]}', 200);
+          return _jsonResponse(_catalogResponse, 200);
         }
         if (request.method == 'PUT') {
           putRequest = request;
-          return _jsonResponse(_fullFiltersJson(relationshipDesires: '["Casual Dating"]'), 200);
+          return _jsonResponse(
+            _fullFiltersJson(petOwnership: '["Cat"]', petAllergyStatus: '["Has Pet Allergies"]'),
+            200,
+          );
         }
         return _jsonResponse(_fullFiltersJson(), 200);
       }),
     );
 
     await tester.pumpWidget(
-      MaterialApp(home: RelationshipDesiresFilterScreen(lifestyleFiltersApi: api)),
+      MaterialApp(home: PetCompatibilityFilterScreen(lifestyleFiltersApi: api)),
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Casual Dating'));
+    await tester.tap(find.text('Cat'));
+    await tester.pump();
+    await tester.tap(find.text('Has Pet Allergies'));
     await tester.pump();
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
 
     expect(putRequest, isNotNull);
-    expect(putRequest!.body, contains('"filterRelationshipDesires":["Casual Dating"]'));
+    expect(putRequest!.body, contains('"filterPetOwnership":["Cat"]'));
+    expect(putRequest!.body, contains('"filterPetAllergyStatus":["Has Pet Allergies"]'));
   });
 }

@@ -490,6 +490,7 @@ export class DiscoveryService {
       heightCm: number | null;
       workoutHabit: string | null;
       petOwnership: string | null;
+      petAllergyStatus: string | null;
       smokingHabit: string | null;
       drinkingHabit: string | null;
       showLifestyleBadgesOnProfile: boolean;
@@ -584,6 +585,7 @@ export class DiscoveryService {
     heightCm: number | null;
     workoutHabit: string | null;
     petOwnership: string | null;
+    petAllergyStatus: string | null;
     smokingHabit: string | null;
     drinkingHabit: string | null;
     showLifestyleBadgesOnProfile: boolean;
@@ -600,6 +602,9 @@ export class DiscoveryService {
     }
     if (candidate.petOwnership) {
       badges.push(candidate.petOwnership);
+    }
+    if (candidate.petAllergyStatus) {
+      badges.push(candidate.petAllergyStatus);
     }
     if (candidate.smokingHabit) {
       badges.push(`Smoking: ${candidate.smokingHabit}`);
@@ -1296,6 +1301,8 @@ export class DiscoveryService {
     filterRelationshipGoals: string[];
     filterKinkTags?: string[];
     filterRelationshipDesires?: string[];
+    filterPetOwnership?: string[];
+    filterPetAllergyStatus?: string[];
     filterSharedInterestsOnly: boolean;
     filterVerifiedOnly?: boolean;
     filterCommunityGroups?: string[];
@@ -1329,6 +1336,12 @@ export class DiscoveryService {
     }
     if ((currentUser.filterRelationshipDesires ?? []).length > 0) {
       where.relationshipDesires = { hasSome: currentUser.filterRelationshipDesires };
+    }
+    if ((currentUser.filterPetOwnership ?? []).length > 0) {
+      where.petOwnership = { in: currentUser.filterPetOwnership };
+    }
+    if ((currentUser.filterPetAllergyStatus ?? []).length > 0) {
+      where.petAllergyStatus = { in: currentUser.filterPetAllergyStatus };
     }
     if (currentUser.filterSharedInterestsOnly && currentUser.interests.length > 0) {
       where.interests = { hasSome: currentUser.interests };

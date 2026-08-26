@@ -55,5 +55,7 @@ export const PET_OWNERSHIP_OPTIONS = [
   'Pet-Free but Love Them',
 ] as const;
 
+export const PET_ALLERGY_STATUS_OPTIONS = ['Allergy Free', 'Has Pet Allergies'] as const;
+
 export const MIN_HEIGHT_CM = 100;
 export const MAX_HEIGHT_CM = 250;

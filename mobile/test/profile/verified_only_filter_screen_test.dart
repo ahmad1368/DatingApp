@@ -20,6 +20,7 @@ String _fullFiltersJson({bool verifiedOnly = false}) => '''
   "heightCm": null,
   "workoutHabit": null,
   "petOwnership": null,
+  "petAllergyStatus": null,
   "showLifestyleBadgesOnProfile": true,
   "filterSmokingHabits": [],
   "filterDrinkingHabits": [],
@@ -30,6 +31,8 @@ String _fullFiltersJson({bool verifiedOnly = false}) => '''
   "filterRelationshipGoals": [],
   "filterKinkTags": [],
   "filterRelationshipDesires": [],
+  "filterPetOwnership": [],
+  "filterPetAllergyStatus": [],
   "filterSharedInterestsOnly": false,
   "filterVerifiedOnly": $verifiedOnly,
   "filterCommunityGroups": []
