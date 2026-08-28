@@ -127,6 +127,9 @@ describe('MatchingService', () => {
         zodiacSign: null,
         otherZodiacSign: null,
         zodiacHarmony: null,
+        zodiacElement: null,
+        otherZodiacElement: null,
+        zodiacCompatibilityScore: null,
       });
     });
 
@@ -157,6 +160,9 @@ describe('MatchingService', () => {
         zodiacSign: null,
         otherZodiacSign: null,
         zodiacHarmony: null,
+        zodiacElement: null,
+        otherZodiacElement: null,
+        zodiacCompatibilityScore: null,
       });
     });
 
@@ -187,6 +193,9 @@ describe('MatchingService', () => {
         zodiacSign: null,
         otherZodiacSign: null,
         zodiacHarmony: null,
+        zodiacElement: null,
+        otherZodiacElement: null,
+        zodiacCompatibilityScore: null,
       });
     });
 
@@ -232,6 +241,9 @@ describe('MatchingService', () => {
       expect(result.zodiacSign).toBe('Leo');
       expect(result.otherZodiacSign).toBe('Aries');
       expect(result.zodiacHarmony).toBe('Highly Compatible');
+      expect(result.zodiacElement).toBe('Fire');
+      expect(result.otherZodiacElement).toBe('Fire');
+      expect(result.zodiacCompatibilityScore).toBe(90);
     });
 
     it('leaves zodiac fields null when either user has no date of birth', async () => {
@@ -245,6 +257,9 @@ describe('MatchingService', () => {
       expect(result.zodiacSign).toBeNull();
       expect(result.otherZodiacSign).toBeNull();
       expect(result.zodiacHarmony).toBeNull();
+      expect(result.zodiacElement).toBeNull();
+      expect(result.otherZodiacElement).toBeNull();
+      expect(result.zodiacCompatibilityScore).toBeNull();
     });
   });
 });

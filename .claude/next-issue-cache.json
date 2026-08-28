@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-28T05:44:42.077Z",
+  "generated_at": "2026-08-28T05:55:32.437Z",
   "snapshot": [
     {
       "number": 454,
@@ -1555,18 +1555,9 @@
       "number": 144,
       "title": "Daily Curated Profiles Refresh Timer",
       "updatedAt": "2026-08-10T20:41:53Z"
-    },
-    {
-      "number": 143,
-      "title": "AI Photo Gallery Curator",
-      "updatedAt": "2026-08-10T20:41:51Z"
     }
   ],
   "queue": [
-    {
-      "number": 144,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 145,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"

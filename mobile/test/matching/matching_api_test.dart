@@ -98,7 +98,8 @@ void main() {
           expect(request.url.path, '/questionnaire/compatibility/user-2');
           return http.Response(
             '{"percentage":87,"sharedQuestionCount":3,"zodiacSign":"Leo",'
-            '"otherZodiacSign":"Aries","zodiacHarmony":"Highly Compatible"}',
+            '"otherZodiacSign":"Aries","zodiacHarmony":"Highly Compatible",'
+            '"zodiacElement":"Fire","otherZodiacElement":"Fire","zodiacCompatibilityScore":90}',
             200,
             headers: {'content-type': 'application/json'},
           );
@@ -110,6 +111,9 @@ void main() {
       expect(result.percentage, 87);
       expect(result.sharedQuestionCount, 3);
       expect(result.zodiacHarmony, 'Highly Compatible');
+      expect(result.zodiacElement, 'Fire');
+      expect(result.otherZodiacElement, 'Fire');
+      expect(result.zodiacCompatibilityScore, 90);
     });
 
     test('parses a null percentage when there are no shared answers', () async {
