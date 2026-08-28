@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-28T13:47:03.228Z",
+  "generated_at": "2026-08-28T13:57:58.765Z",
   "snapshot": [
     {
       "number": 454,
@@ -1472,11 +1472,6 @@
       "updatedAt": "2026-08-10T20:42:27Z"
     },
     {
-      "number": 160,
-      "title": "Date Reservation & Ticket Integration",
-      "updatedAt": "2026-08-10T20:42:25Z"
-    },
-    {
       "number": 159,
       "title": "Pair Profile Account Linking",
       "updatedAt": "2026-08-10T20:42:23Z"
@@ -1518,10 +1513,6 @@
     }
   ],
   "queue": [
-    {
-      "number": 161,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 162,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 
@@ -47,10 +49,51 @@ class _LocationSettingsScreenState extends State<LocationSettingsScreen> {
 
   double _radiusKm = 50;
   String _distanceUnit = 'KM';
+  bool _autoExpandRadiusEnabled = true;
   List<NearbyUser> _nearbyUsers = const [];
   bool _isBusy = false;
   String? _errorText;
   String? _statusText;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadRadiusSettings());
+  }
+
+  /// Best-effort load of the saved radius/unit/auto-expand preference.
+  /// Failure here shouldn't surface to the user; it just means this screen
+  /// falls back to its defaults until the user changes something.
+  Future<void> _loadRadiusSettings() async {
+    try {
+      final settings = await widget.locationApi.fetchRadiusSettings();
+      if (mounted) {
+        setState(() {
+          _radiusKm = settings.searchRadiusKm.toDouble();
+          _distanceUnit = settings.distanceUnit;
+          _autoExpandRadiusEnabled = settings.autoExpandRadiusEnabled;
+        });
+      }
+    } catch (_) {
+      // Ignored - see doc comment above.
+    }
+  }
+
+  Future<void> _toggleAutoExpandRadius(bool enabled) async {
+    setState(() {
+      _autoExpandRadiusEnabled = enabled;
+      _errorText = null;
+    });
+    try {
+      final settings = await widget.locationApi.setAutoExpandRadius(enabled);
+      setState(() => _autoExpandRadiusEnabled = settings.autoExpandRadiusEnabled);
+    } on LocationApiException catch (e) {
+      setState(() {
+        _autoExpandRadiusEnabled = !enabled;
+        _errorText = e.message;
+      });
+    }
+  }
 
   Future<void> _setDistanceUnit(String unit) async {
     if (unit == _distanceUnit) {
@@ -187,6 +230,15 @@ class _LocationSettingsScreenState extends State<LocationSettingsScreen> {
                 ElevatedButton(
                   onPressed: _isBusy ? null : _saveRadius,
                   child: const Text('Save radius'),
+                ),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Automatically expand radius when few nearby matches'),
+                  subtitle: const Text(
+                    'Widens your search for a single deck fetch instead of showing a near-empty deck.',
+                  ),
+                  value: _autoExpandRadiusEnabled,
+                  onChanged: _toggleAutoExpandRadius,
                 ),
               ],
             ),
