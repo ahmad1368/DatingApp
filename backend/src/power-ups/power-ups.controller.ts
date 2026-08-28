@@ -19,4 +19,10 @@ export class PowerUpsController {
   purchasePowerUp(@CurrentUser() user: AuthenticatedUser, @Body() dto: PurchasePowerUpDto) {
     return this.powerUpsService.purchasePowerUp(user.id, dto.powerUpId, dto.matchId);
   }
+
+  @Post('activate-boost')
+  @HttpCode(HttpStatus.CREATED)
+  activateBoost(@CurrentUser() user: AuthenticatedUser) {
+    return this.powerUpsService.activateBoost(user.id);
+  }
 }

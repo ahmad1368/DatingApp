@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-28T06:38:34.795Z",
+  "generated_at": "2026-08-28T06:45:32.142Z",
   "snapshot": [
     {
       "number": 454,
@@ -1497,11 +1497,6 @@
       "updatedAt": "2026-08-10T20:42:17Z"
     },
     {
-      "number": 155,
-      "title": "Profile Photo Captions & Alt Text Support",
-      "updatedAt": "2026-08-10T20:42:15Z"
-    },
-    {
       "number": 154,
       "title": "Dietary & Lifestyle Compatibility Filters",
       "updatedAt": "2026-08-10T20:42:13Z"
@@ -1515,11 +1510,6 @@
       "number": 152,
       "title": "Passport Location Spoofing with Pinpoint Placement",
       "updatedAt": "2026-08-10T20:42:09Z"
-    },
-    {
-      "number": 151,
-      "title": "In-Chat Voice Message Transcription",
-      "updatedAt": "2026-08-10T20:42:07Z"
     },
     {
       "number": 150,
@@ -1543,10 +1533,6 @@
     }
   ],
   "queue": [
-    {
-      "number": 156,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 157,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"

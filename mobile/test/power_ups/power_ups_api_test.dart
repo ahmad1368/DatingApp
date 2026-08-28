@@ -77,4 +77,31 @@ void main() {
       expect(() => api.purchasePowerUp('boost'), throwsA(isA<PowerUpsApiException>()));
     });
   });
+
+  group('PowerUpsApi.activateBoost', () {
+    test('posts to the activate-boost endpoint and returns the remaining credits', () async {
+      final api = PowerUpsApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'POST');
+          expect(request.url.path, '/power-ups/activate-boost');
+          return _jsonResponse('{"bonusBoosts":2,"expiresAt":"2026-01-01T00:30:00.000Z"}', 201);
+        }),
+      );
+
+      expect(await api.activateBoost(), 2);
+    });
+
+    test('throws PowerUpsApiException when there are no boost credits', () async {
+      final api = PowerUpsApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async =>
+              _jsonResponse('{"message":"No boost credits available. Purchase a boost pack first."}', 400),
+        ),
+      );
+
+      expect(() => api.activateBoost(), throwsA(isA<PowerUpsApiException>()));
+    });
+  });
 }

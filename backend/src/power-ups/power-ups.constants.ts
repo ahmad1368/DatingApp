@@ -12,6 +12,12 @@ export interface PowerUp {
 // wallet top-ups (see WalletService).
 export const POWER_UPS: PowerUp[] = [
   { id: 'boost', label: 'Profile Boost (30 min)', coinCost: 100 },
+  // Bulk boost packs: stockpiled credits, not activated on purchase - see
+  // PowerUpsService.purchaseBoostPack/activateBoost - so a strategic user
+  // can buy ahead at a discount and deploy each boost during peak hours or
+  // a busy weekend instead of right away.
+  { id: 'boost-pack-3', label: 'Boost Pack (3x 30 min)', coinCost: 250, quantity: 3 },
+  { id: 'boost-pack-5', label: 'Boost Pack (5x 30 min)', coinCost: 375, quantity: 5 },
   { id: 'super-like', label: 'Extra Super Like', coinCost: 20, quantity: 1 },
   // Bulk packs: a standalone microtransaction that grants several bonus
   // super likes at once, at a discount over buying that many one at a time

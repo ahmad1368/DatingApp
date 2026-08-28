@@ -9,6 +9,11 @@ export interface PurchasePowerUpResult {
   powerUpId: string;
 }
 
+export interface ActivateBoostResult {
+  bonusBoosts: number;
+  expiresAt: string;
+}
+
 /**
  * One-time, coin-purchased perks (boost, extra super like, extra profile
  * views, extend match timer) that work without a subscription - spent from
@@ -40,6 +45,9 @@ export class PowerUpsService {
     switch (powerUp.id) {
       case 'boost':
         return this.purchaseBoost(userId, powerUp);
+      case 'boost-pack-3':
+      case 'boost-pack-5':
+        return this.purchaseBoostPack(userId, powerUp);
       case 'extra-profile-views':
         return this.purchaseExtraProfileViews(userId, powerUp);
       case 'extend-match-timer':
@@ -90,6 +98,54 @@ export class PowerUpsService {
     ]);
 
     return { coinBalance: updatedUser.giftTokenBalance, powerUpId: powerUp.id };
+  }
+
+  /**
+   * Discounted bulk pack: unlike a single boost purchase, this never
+   * activates anything itself - it just credits `bonusBoosts` so the user
+   * can deploy each one later via [activateBoost] whenever they choose
+   * (e.g. a busy weekend or peak hour), which is the whole point of buying
+   * ahead in bulk.
+   */
+  private async purchaseBoostPack(userId: string, powerUp: PowerUp): Promise<PurchasePowerUpResult> {
+    const updatedUser = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        giftTokenBalance: { decrement: powerUp.coinCost },
+        bonusBoosts: { increment: powerUp.quantity ?? 1 },
+      },
+    });
+
+    return { coinBalance: updatedUser.giftTokenBalance, powerUpId: powerUp.id };
+  }
+
+  /** Spends one stockpiled boost credit (from a boost pack) to activate a boost right now. */
+  async activateBoost(userId: string): Promise<ActivateBoostResult> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found.');
+    }
+    if (user.bonusBoosts <= 0) {
+      throw new BadRequestException('No boost credits available. Purchase a boost pack first.');
+    }
+
+    const existingBoost = await this.prisma.boost.findFirst({
+      where: { userId, expiresAt: { gt: new Date() } },
+    });
+    if (existingBoost) {
+      throw new BadRequestException('You already have an active boost.');
+    }
+
+    const expiresAt = computeBoostExpiresAt(new Date());
+    const [updatedUser] = await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: userId },
+        data: { bonusBoosts: { decrement: 1 } },
+      }),
+      this.prisma.boost.create({ data: { userId, expiresAt } }),
+    ]);
+
+    return { bonusBoosts: updatedUser.bonusBoosts, expiresAt: expiresAt.toISOString() };
   }
 
   /** Handles both the single super like and its bulk packs - see POWER_UPS.quantity. */

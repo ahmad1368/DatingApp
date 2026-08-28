@@ -52,8 +52,26 @@ class _PowerUpsScreenState extends State<PowerUpsScreen> {
       final newBalance = await widget.powerUpsApi.purchasePowerUp(powerUp.id);
       setState(() {
         _coinBalance = newBalance;
-        _statusText = '${powerUp.label} activated!';
+        _statusText = powerUp.id.startsWith('boost-pack')
+            ? '${powerUp.label} purchased! Use a credit whenever you want a boost.'
+            : '${powerUp.label} activated!';
       });
+    } on PowerUpsApiException catch (e) {
+      setState(() => _errorText = e.message);
+    }
+  }
+
+  /// Spends one stockpiled boost credit (from a boost pack) to activate a
+  /// boost right now - unlike a direct boost purchase, this doesn't cost
+  /// coins since the credit was already paid for.
+  Future<void> _activateBoost() async {
+    setState(() {
+      _errorText = null;
+      _statusText = null;
+    });
+    try {
+      final remaining = await widget.powerUpsApi.activateBoost();
+      setState(() => _statusText = 'Boost activated! $remaining credit(s) left.');
     } on PowerUpsApiException catch (e) {
       setState(() => _errorText = e.message);
     }
@@ -75,6 +93,12 @@ class _PowerUpsScreenState extends State<PowerUpsScreen> {
                   ),
                   const SizedBox(height: 12),
                 ],
+                OutlinedButton.icon(
+                  onPressed: _activateBoost,
+                  icon: const Icon(Icons.bolt),
+                  label: const Text('Use a boost credit'),
+                ),
+                const SizedBox(height: 12),
                 for (final powerUp in _catalog)
                   Card(
                     child: ListTile(
