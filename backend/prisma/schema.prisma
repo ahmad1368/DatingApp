@@ -78,6 +78,12 @@ model User {
   petAllergyStatus                      String?
   showLifestyleBadgesOnProfile          Boolean   @default(true)
   showZodiacOnProfile                   Boolean   @default(true)
+  // Profile header avatar: either a curated 3D style (see AVATAR_STYLES in
+  // avatar.constants.ts) or a linked third-party image (e.g. Bitmoji) -
+  // mutually exclusive, only one is ever set at a time. See AvatarService.
+  avatarStyleId                         String?
+  thirdPartyAvatarUrl                   String?
+  showAvatarOnProfile                   Boolean   @default(true)
   loveLanguages                         String[]  @default([])
   showLoveLanguagesOnProfile            Boolean   @default(true)
   attachmentStyle                       String?

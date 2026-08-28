@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-28T06:45:32.142Z",
+  "generated_at": "2026-08-28T13:40:10.926Z",
   "snapshot": [
     {
       "number": 454,
@@ -1487,16 +1487,6 @@
       "updatedAt": "2026-08-10T20:42:21Z"
     },
     {
-      "number": 157,
-      "title": "Match Inactivity Auto-Archiving",
-      "updatedAt": "2026-08-10T20:42:19Z"
-    },
-    {
-      "number": 156,
-      "title": "Consumable Profile Boost Bundles",
-      "updatedAt": "2026-08-10T20:42:17Z"
-    },
-    {
       "number": 154,
       "title": "Dietary & Lifestyle Compatibility Filters",
       "updatedAt": "2026-08-10T20:42:13Z"
@@ -1533,10 +1523,6 @@
     }
   ],
   "queue": [
-    {
-      "number": 158,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 159,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
