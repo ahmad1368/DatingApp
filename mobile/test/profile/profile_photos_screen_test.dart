@@ -187,6 +187,87 @@ void main() {
     expect(find.textContaining('Quality score: 98'), findsOneWidget);
   });
 
+  testWidgets('shows curation suggestions and deletes the flagged photo on tap', (tester) async {
+    http.Request? deleteRequest;
+    final api = ProfilePhotosApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/profile-photos/blur-until-match') {
+          return _blurResponse();
+        }
+        if (request.url.path == '/profile-photos/curation-suggestions') {
+          return http.Response(
+            '{"suggestedRemovals":[{"photoId":"photo-1","mediaUrl":"https://example.com/a.jpg",'
+            '"reasons":["BLURRY"]}],"suggestedOrder":["photo-1"]}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (request.method == 'DELETE') {
+          deleteRequest = request;
+          return http.Response('{}', 200, headers: {'content-type': 'application/json'});
+        }
+        return http.Response(
+          '[{"id":"photo-1","mediaUrl":"https://example.com/a.jpg","isLead":true,'
+          '"impressions":0,"rightSwipes":0,"conversionRate":null,"qualityScore":10,'
+          '"cropFocalX":0.5,"cropFocalY":0.35}]',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: ProfilePhotosScreen(profilePhotosApi: api)));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.auto_fix_high));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Suggested cleanup'), findsOneWidget);
+    expect(find.text('Blurry'), findsOneWidget);
+
+    await tester.tap(find.text('Remove'));
+    await tester.pumpAndSettle();
+
+    expect(deleteRequest, isNotNull);
+    expect(deleteRequest!.url.path, '/profile-photos/photo-1');
+    expect(find.text('No profile photos yet. Add one to get started.'), findsOneWidget);
+  });
+
+  testWidgets('shows a confirmation when the curator finds nothing to clean up', (tester) async {
+    final api = ProfilePhotosApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/profile-photos/blur-until-match') {
+          return _blurResponse();
+        }
+        if (request.url.path == '/profile-photos/curation-suggestions') {
+          return http.Response(
+            '{"suggestedRemovals":[],"suggestedOrder":["photo-1"]}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '[{"id":"photo-1","mediaUrl":"https://example.com/a.jpg","isLead":true,'
+          '"impressions":0,"rightSwipes":0,"conversionRate":null,"qualityScore":90,'
+          '"cropFocalX":0.5,"cropFocalY":0.35}]',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: ProfilePhotosScreen(profilePhotosApi: api)));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.auto_fix_high));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Your gallery looks great - nothing to clean up.'), findsOneWidget);
+    expect(find.text('Suggested cleanup'), findsNothing);
+  });
+
   testWidgets('toggling blur until match sends the updated preference', (tester) async {
     http.Request? putRequest;
     final api = ProfilePhotosApi(

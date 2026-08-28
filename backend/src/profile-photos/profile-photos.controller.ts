@@ -33,6 +33,11 @@ export class ProfilePhotosController {
     return this.profilePhotosService.reorderByQuality(user.id);
   }
 
+  @Get('curation-suggestions')
+  getCurationSuggestions(@CurrentUser() user: AuthenticatedUser) {
+    return this.profilePhotosService.getCurationSuggestions(user.id);
+  }
+
   @Get('blur-until-match')
   getBlurUntilMatch(@CurrentUser() user: AuthenticatedUser) {
     return this.profilePhotosService.getBlurUntilMatch(user.id);

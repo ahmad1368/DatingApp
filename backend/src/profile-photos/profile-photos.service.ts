@@ -1,7 +1,12 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
-import { MAX_PROFILE_PHOTOS } from './profile-photos.constants';
+import {
+  LOW_ENGAGEMENT_CONVERSION_THRESHOLD,
+  LOW_QUALITY_THRESHOLD,
+  MAX_PROFILE_PHOTOS,
+  MIN_IMPRESSIONS_FOR_ENGAGEMENT_SIGNAL,
+} from './profile-photos.constants';
 
 export interface ProfilePhotoView {
   id: string;
@@ -18,6 +23,19 @@ export interface ProfilePhotoView {
 export interface CropFocalPoint {
   x: number;
   y: number;
+}
+
+export type PhotoCurationReason = 'BLURRY' | 'DUPLICATE' | 'LOW_ENGAGEMENT';
+
+export interface PhotoCurationSuggestion {
+  photoId: string;
+  mediaUrl: string;
+  reasons: PhotoCurationReason[];
+}
+
+export interface PhotoGalleryCuration {
+  suggestedRemovals: PhotoCurationSuggestion[];
+  suggestedOrder: string[];
 }
 
 /**
@@ -152,6 +170,55 @@ export class ProfilePhotosService {
     });
 
     return photos.map((photo, index) => this.toView(photo, index === 0));
+  }
+
+  /**
+   * Stands in for real computer-vision gallery curation (no such library
+   * exists in this codebase - see scorePhotoQuality above for the same
+   * approach): flags photos to remove - a low qualityScore stands in for
+   * "blurry", a repeated mediaUrl for "duplicate", and a conversion rate
+   * well below average once a photo has enough impressions to trust the
+   * signal for "low-engagement" - and proposes a best-first order for the
+   * whole gallery, ranked the same way as reorderByQuality. Read-only: the
+   * caller acts on a suggestion via the existing deletePhoto/reorderByQuality
+   * endpoints, so this never mutates anything itself.
+   */
+  async getCurationSuggestions(userId: string): Promise<PhotoGalleryCuration> {
+    const photos = await this.prisma.profilePhoto.findMany({
+      where: { ownerId: userId },
+      orderBy: { position: 'asc' },
+    });
+
+    const seenMediaUrls = new Set<string>();
+    const suggestedRemovals: PhotoCurationSuggestion[] = [];
+
+    for (const photo of photos) {
+      const reasons: PhotoCurationReason[] = [];
+
+      if (photo.qualityScore < LOW_QUALITY_THRESHOLD) {
+        reasons.push('BLURRY');
+      }
+      if (seenMediaUrls.has(photo.mediaUrl)) {
+        reasons.push('DUPLICATE');
+      }
+      seenMediaUrls.add(photo.mediaUrl);
+      if (
+        photo.impressions >= MIN_IMPRESSIONS_FOR_ENGAGEMENT_SIGNAL &&
+        photo.rightSwipes / photo.impressions < LOW_ENGAGEMENT_CONVERSION_THRESHOLD
+      ) {
+        reasons.push('LOW_ENGAGEMENT');
+      }
+
+      if (reasons.length > 0) {
+        suggestedRemovals.push({ photoId: photo.id, mediaUrl: photo.mediaUrl, reasons });
+      }
+    }
+
+    const suggestedOrder = [...photos]
+      .sort((a, b) => b.qualityScore - a.qualityScore)
+      .map((photo) => photo.id);
+
+    return { suggestedRemovals, suggestedOrder };
   }
 
   /**

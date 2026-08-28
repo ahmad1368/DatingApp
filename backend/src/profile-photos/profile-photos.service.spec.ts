@@ -262,6 +262,111 @@ describe('ProfilePhotosService', () => {
     });
   });
 
+  describe('getCurationSuggestions', () => {
+    it('returns no suggestions for a small, healthy, distinct gallery', async () => {
+      prisma.profilePhoto.findMany.mockResolvedValue([
+        {
+          id: 'good',
+          mediaUrl: 'https://example.com/a.jpg',
+          impressions: 5,
+          rightSwipes: 4,
+          qualityScore: 80,
+        },
+      ]);
+
+      const result = await service.getCurationSuggestions(OWNER_ID);
+
+      expect(result.suggestedRemovals).toEqual([]);
+      expect(result.suggestedOrder).toEqual(['good']);
+    });
+
+    it('flags a low quality score as blurry', async () => {
+      prisma.profilePhoto.findMany.mockResolvedValue([
+        { id: 'blurry', mediaUrl: 'https://example.com/a.jpg', impressions: 0, rightSwipes: 0, qualityScore: 10 },
+      ]);
+
+      const result = await service.getCurationSuggestions(OWNER_ID);
+
+      expect(result.suggestedRemovals).toEqual([
+        { photoId: 'blurry', mediaUrl: 'https://example.com/a.jpg', reasons: ['BLURRY'] },
+      ]);
+    });
+
+    it('flags a repeated media URL as a duplicate, keeping the first occurrence clean', async () => {
+      prisma.profilePhoto.findMany.mockResolvedValue([
+        { id: 'first', mediaUrl: 'https://example.com/a.jpg', impressions: 0, rightSwipes: 0, qualityScore: 80 },
+        { id: 'copy', mediaUrl: 'https://example.com/a.jpg', impressions: 0, rightSwipes: 0, qualityScore: 80 },
+      ]);
+
+      const result = await service.getCurationSuggestions(OWNER_ID);
+
+      expect(result.suggestedRemovals).toEqual([
+        { photoId: 'copy', mediaUrl: 'https://example.com/a.jpg', reasons: ['DUPLICATE'] },
+      ]);
+    });
+
+    it('flags low engagement only once a photo has enough impressions to trust the signal', async () => {
+      prisma.profilePhoto.findMany.mockResolvedValue([
+        {
+          id: 'too-new',
+          mediaUrl: 'https://example.com/a.jpg',
+          impressions: 5,
+          rightSwipes: 0,
+          qualityScore: 80,
+        },
+        {
+          id: 'proven-low',
+          mediaUrl: 'https://example.com/b.jpg',
+          impressions: 40,
+          rightSwipes: 1,
+          qualityScore: 80,
+        },
+      ]);
+
+      const result = await service.getCurationSuggestions(OWNER_ID);
+
+      expect(result.suggestedRemovals).toEqual([
+        { photoId: 'proven-low', mediaUrl: 'https://example.com/b.jpg', reasons: ['LOW_ENGAGEMENT'] },
+      ]);
+    });
+
+    it('can flag a photo for multiple reasons at once', async () => {
+      prisma.profilePhoto.findMany.mockResolvedValue([
+        { id: 'first', mediaUrl: 'https://example.com/a.jpg', impressions: 0, rightSwipes: 0, qualityScore: 80 },
+        { id: 'copy', mediaUrl: 'https://example.com/a.jpg', impressions: 0, rightSwipes: 0, qualityScore: 10 },
+      ]);
+
+      const result = await service.getCurationSuggestions(OWNER_ID);
+
+      expect(result.suggestedRemovals).toEqual([
+        { photoId: 'copy', mediaUrl: 'https://example.com/a.jpg', reasons: ['BLURRY', 'DUPLICATE'] },
+      ]);
+    });
+
+    it('proposes a best-first order ranked by quality score, independent of the removal list', async () => {
+      prisma.profilePhoto.findMany.mockResolvedValue([
+        { id: 'low', mediaUrl: 'https://example.com/a.jpg', impressions: 0, rightSwipes: 0, qualityScore: 20 },
+        { id: 'high', mediaUrl: 'https://example.com/b.jpg', impressions: 0, rightSwipes: 0, qualityScore: 90 },
+      ]);
+
+      const result = await service.getCurationSuggestions(OWNER_ID);
+
+      expect(result.suggestedOrder).toEqual(['high', 'low']);
+    });
+
+    it('does not mutate any photo records - suggestions only', async () => {
+      prisma.profilePhoto.findMany.mockResolvedValue([
+        { id: 'blurry', mediaUrl: 'https://example.com/a.jpg', impressions: 0, rightSwipes: 0, qualityScore: 10 },
+      ]);
+
+      await service.getCurationSuggestions(OWNER_ID);
+
+      expect(prisma.profilePhoto.update).not.toHaveBeenCalled();
+      expect(prisma.profilePhoto.delete).not.toHaveBeenCalled();
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+  });
+
   describe('deletePhoto', () => {
     it('throws when the photo does not exist', async () => {
       prisma.profilePhoto.findUnique.mockResolvedValue(null);
