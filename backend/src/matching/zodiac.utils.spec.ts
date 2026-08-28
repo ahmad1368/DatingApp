@@ -1,4 +1,9 @@
-import { computeZodiacHarmony, getZodiacSign } from './zodiac.utils';
+import {
+  computeZodiacCompatibilityScore,
+  computeZodiacHarmony,
+  getZodiacElement,
+  getZodiacSign,
+} from './zodiac.utils';
 
 function utcDate(month: number, day: number, year = 2000): Date {
   return new Date(Date.UTC(year, month - 1, day));
@@ -48,5 +53,43 @@ describe('computeZodiacHarmony', () => {
 
   it('rates fire and earth as challenging', () => {
     expect(computeZodiacHarmony('Aries', 'Taurus')).toBe('Challenging, But Possible');
+  });
+});
+
+describe('getZodiacElement', () => {
+  it.each([
+    ['Fire', 'Aries'],
+    ['Fire', 'Leo'],
+    ['Fire', 'Sagittarius'],
+    ['Earth', 'Taurus'],
+    ['Earth', 'Virgo'],
+    ['Earth', 'Capricorn'],
+    ['Air', 'Gemini'],
+    ['Air', 'Libra'],
+    ['Air', 'Aquarius'],
+    ['Water', 'Cancer'],
+    ['Water', 'Scorpio'],
+    ['Water', 'Pisces'],
+  ] as const)('returns %s for %s', (expectedElement, sign) => {
+    expect(getZodiacElement(sign)).toBe(expectedElement);
+  });
+});
+
+describe('computeZodiacCompatibilityScore', () => {
+  it('scores the same sign the highest', () => {
+    expect(computeZodiacCompatibilityScore('Leo', 'Leo')).toBe(90);
+  });
+
+  it('scores the same element as highly compatible', () => {
+    expect(computeZodiacCompatibilityScore('Aries', 'Leo')).toBe(90);
+  });
+
+  it('scores a harmonious element pair (fire/air) above a challenging one', () => {
+    const harmonious = computeZodiacCompatibilityScore('Aries', 'Gemini');
+    const challenging = computeZodiacCompatibilityScore('Aries', 'Taurus');
+
+    expect(harmonious).toBe(70);
+    expect(challenging).toBe(45);
+    expect(harmonious).toBeGreaterThan(challenging);
   });
 });

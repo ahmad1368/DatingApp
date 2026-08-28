@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service';
 import { SubmitAnswerDto } from './dto/submit-answer.dto';
 import { ANSWER_IMPORTANCE_WEIGHTS, AnswerImportance } from './matching.constants';
-import { computeZodiacHarmony, getZodiacSign } from './zodiac.utils';
+import { computeZodiacCompatibilityScore, computeZodiacHarmony, getZodiacElement, getZodiacSign } from './zodiac.utils';
 
 export interface QuestionView {
   id: string;
@@ -23,6 +23,9 @@ export interface CompatibilityResult {
   zodiacSign: string | null;
   otherZodiacSign: string | null;
   zodiacHarmony: string | null;
+  zodiacElement: string | null;
+  otherZodiacElement: string | null;
+  zodiacCompatibilityScore: number | null;
 }
 
 interface AnswerRecord {
@@ -115,9 +118,19 @@ export class MatchingService {
   private computeZodiac(
     dateOfBirth: Date | null,
     otherDateOfBirth: Date | null,
-  ): Pick<CompatibilityResult, 'zodiacSign' | 'otherZodiacSign' | 'zodiacHarmony'> {
+  ): Pick<
+    CompatibilityResult,
+    'zodiacSign' | 'otherZodiacSign' | 'zodiacHarmony' | 'zodiacElement' | 'otherZodiacElement' | 'zodiacCompatibilityScore'
+  > {
     if (!dateOfBirth || !otherDateOfBirth) {
-      return { zodiacSign: null, otherZodiacSign: null, zodiacHarmony: null };
+      return {
+        zodiacSign: null,
+        otherZodiacSign: null,
+        zodiacHarmony: null,
+        zodiacElement: null,
+        otherZodiacElement: null,
+        zodiacCompatibilityScore: null,
+      };
     }
 
     const zodiacSign = getZodiacSign(dateOfBirth);
@@ -126,6 +139,9 @@ export class MatchingService {
       zodiacSign,
       otherZodiacSign,
       zodiacHarmony: computeZodiacHarmony(zodiacSign, otherZodiacSign),
+      zodiacElement: getZodiacElement(zodiacSign),
+      otherZodiacElement: getZodiacElement(otherZodiacSign),
+      zodiacCompatibilityScore: computeZodiacCompatibilityScore(zodiacSign, otherZodiacSign),
     };
   }
 

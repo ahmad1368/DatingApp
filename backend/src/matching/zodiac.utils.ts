@@ -15,7 +15,7 @@ export const ZODIAC_SIGNS = [
 
 export type ZodiacSign = (typeof ZODIAC_SIGNS)[number];
 
-type ZodiacElement = 'Fire' | 'Earth' | 'Air' | 'Water';
+export type ZodiacElement = 'Fire' | 'Earth' | 'Air' | 'Water';
 
 const ZODIAC_ELEMENTS: Record<ZodiacSign, ZodiacElement> = {
   Aries: 'Fire',
@@ -31,6 +31,11 @@ const ZODIAC_ELEMENTS: Record<ZodiacSign, ZodiacElement> = {
   Scorpio: 'Water',
   Pisces: 'Water',
 };
+
+/** The Fire/Earth/Air/Water element grouping a zodiac sign belongs to. */
+export function getZodiacElement(sign: ZodiacSign): ZodiacElement {
+  return ZODIAC_ELEMENTS[sign];
+}
 
 // (month, day) each sign's date range begins on, in calendar order starting
 // from Jan 1 - the range "wraps" because Capricorn spans the year boundary
@@ -70,6 +75,23 @@ const HARMONIOUS_ELEMENT_PAIRS: [ZodiacElement, ZodiacElement][] = [
   ['Earth', 'Water'],
 ];
 
+type ZodiacCompatibilityTier = 'HIGHLY_COMPATIBLE' | 'COMPATIBLE' | 'CHALLENGING';
+
+const ZODIAC_HARMONY_LABELS: Record<ZodiacCompatibilityTier, string> = {
+  HIGHLY_COMPATIBLE: 'Highly Compatible',
+  COMPATIBLE: 'Compatible',
+  CHALLENGING: 'Challenging, But Possible',
+};
+
+// A 0-100 stand-in score for the same tiers computeZodiacHarmony labels, for
+// callers (e.g. a profile compatibility breakdown) that want a number
+// alongside - or instead of - the text.
+const ZODIAC_COMPATIBILITY_SCORES: Record<ZodiacCompatibilityTier, number> = {
+  HIGHLY_COMPATIBLE: 90,
+  COMPATIBLE: 70,
+  CHALLENGING: 45,
+};
+
 /**
  * A simple astrological-harmony heuristic based on element groupings, not a
  * substitute for a full natal chart: same sign or element is "Highly
@@ -77,22 +99,31 @@ const HARMONIOUS_ELEMENT_PAIRS: [ZodiacElement, ZodiacElement][] = [
  * earth+water) are "Compatible", everything else is "Challenging, But
  * Possible".
  */
-export function computeZodiacHarmony(signA: ZodiacSign, signB: ZodiacSign): string {
+function computeZodiacTier(signA: ZodiacSign, signB: ZodiacSign): ZodiacCompatibilityTier {
   if (signA === signB) {
-    return 'Highly Compatible';
+    return 'HIGHLY_COMPATIBLE';
   }
 
   const elementA = ZODIAC_ELEMENTS[signA];
   const elementB = ZODIAC_ELEMENTS[signB];
   if (elementA === elementB) {
-    return 'Highly Compatible';
+    return 'HIGHLY_COMPATIBLE';
   }
   if (
     HARMONIOUS_ELEMENT_PAIRS.some(
       ([x, y]) => (elementA === x && elementB === y) || (elementA === y && elementB === x),
     )
   ) {
-    return 'Compatible';
+    return 'COMPATIBLE';
   }
-  return 'Challenging, But Possible';
+  return 'CHALLENGING';
+}
+
+export function computeZodiacHarmony(signA: ZodiacSign, signB: ZodiacSign): string {
+  return ZODIAC_HARMONY_LABELS[computeZodiacTier(signA, signB)];
+}
+
+/** Numeric counterpart of {@link computeZodiacHarmony}, for a score-based UI. */
+export function computeZodiacCompatibilityScore(signA: ZodiacSign, signB: ZodiacSign): number {
+  return ZODIAC_COMPATIBILITY_SCORES[computeZodiacTier(signA, signB)];
 }

@@ -40,6 +40,9 @@ class CompatibilityResult {
     this.zodiacSign,
     this.otherZodiacSign,
     this.zodiacHarmony,
+    this.zodiacElement,
+    this.otherZodiacElement,
+    this.zodiacCompatibilityScore,
   });
 
   final int? percentage;
@@ -47,6 +50,14 @@ class CompatibilityResult {
   final String? zodiacSign;
   final String? otherZodiacSign;
   final String? zodiacHarmony;
+
+  /// The Fire/Earth/Air/Water element each sign belongs to - see
+  /// zodiac.utils.ts's getZodiacElement on the backend.
+  final String? zodiacElement;
+  final String? otherZodiacElement;
+
+  /// 0-100 numeric counterpart of [zodiacHarmony], for a score-based display.
+  final int? zodiacCompatibilityScore;
 }
 
 /// The importance levels a user can assign to a questionnaire answer, from
@@ -144,6 +155,9 @@ class MatchingApi {
       zodiacSign: body['zodiacSign'] as String?,
       otherZodiacSign: body['otherZodiacSign'] as String?,
       zodiacHarmony: body['zodiacHarmony'] as String?,
+      zodiacElement: body['zodiacElement'] as String?,
+      otherZodiacElement: body['otherZodiacElement'] as String?,
+      zodiacCompatibilityScore: body['zodiacCompatibilityScore'] as int?,
     );
   }
 
