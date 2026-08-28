@@ -38,6 +38,30 @@ class VoicePromptAnswer {
   final DateTime createdAt;
 }
 
+/// A reaction to someone else's voice prompt answer - a text comment, a
+/// recorded audio reply, or both. See ProfilePromptsApi.reactToVoicePrompt.
+class VoicePromptReaction {
+  VoicePromptReaction({
+    required this.id,
+    required this.fromUserId,
+    required this.toUserId,
+    required this.promptId,
+    this.comment,
+    this.audioReplyUrl,
+    this.durationSeconds,
+    required this.createdAt,
+  });
+
+  final String id;
+  final String fromUserId;
+  final String toUserId;
+  final String promptId;
+  final String? comment;
+  final String? audioReplyUrl;
+  final int? durationSeconds;
+  final DateTime createdAt;
+}
+
 class VideoPromptAnswer {
   VideoPromptAnswer({
     required this.promptId,
@@ -147,6 +171,49 @@ class ProfilePromptsApi {
     }
   }
 
+  /// Reacts to [targetUserId]'s voice answer to [promptId] with a text
+  /// [comment], a recorded [audioReplyUrl], or both - at least one is
+  /// required.
+  Future<VoicePromptReaction> reactToVoicePrompt({
+    required String promptId,
+    required String targetUserId,
+    String? comment,
+    String? audioReplyUrl,
+    int? durationSeconds,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/profile-prompts/$promptId/reactions'),
+      headers: _headers,
+      body: jsonEncode({
+        'targetUserId': targetUserId,
+        if (comment != null) 'comment': comment,
+        if (audioReplyUrl != null) 'audioReplyUrl': audioReplyUrl,
+        if (durationSeconds != null) 'durationSeconds': durationSeconds,
+      }),
+    );
+
+    if (response.statusCode != 201) {
+      throw ProfilePromptsApiException(_errorMessage(_decode(response), response.statusCode));
+    }
+
+    return _toVoicePromptReaction(_decode(response));
+  }
+
+  /// Reactions received on the caller's own voice answer to [promptId].
+  Future<List<VoicePromptReaction>> fetchReactions(String promptId) async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/profile-prompts/$promptId/reactions'),
+      headers: _headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw ProfilePromptsApiException(_errorMessage(_decode(response), response.statusCode));
+    }
+
+    final list = jsonDecode(response.body) as List;
+    return list.cast<Map<String, dynamic>>().map(_toVoicePromptReaction).toList();
+  }
+
   Future<List<VideoPromptAnswer>> fetchMyVideoAnswers() async {
     final response = await _client.get(
       Uri.parse('$_baseUrl/profile-prompts/video/me'),
@@ -216,6 +283,19 @@ class ProfilePromptsApi {
       question: json['question'] as String,
       videoUrl: json['videoUrl'] as String,
       durationSeconds: json['durationSeconds'] as int,
+      createdAt: DateTime.parse(json['createdAt'] as String),
+    );
+  }
+
+  VoicePromptReaction _toVoicePromptReaction(Map<String, dynamic> json) {
+    return VoicePromptReaction(
+      id: json['id'] as String,
+      fromUserId: json['fromUserId'] as String,
+      toUserId: json['toUserId'] as String,
+      promptId: json['promptId'] as String,
+      comment: json['comment'] as String?,
+      audioReplyUrl: json['audioReplyUrl'] as String?,
+      durationSeconds: json['durationSeconds'] as int?,
       createdAt: DateTime.parse(json['createdAt'] as String),
     );
   }

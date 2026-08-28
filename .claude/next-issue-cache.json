@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-28T13:57:58.765Z",
+  "generated_at": "2026-08-28T14:02:56.928Z",
   "snapshot": [
     {
       "number": 454,
@@ -1467,11 +1467,6 @@
       "updatedAt": "2026-08-10T20:42:29Z"
     },
     {
-      "number": 161,
-      "title": "Smart Matching Radius Auto-Expansion",
-      "updatedAt": "2026-08-10T20:42:27Z"
-    },
-    {
       "number": 159,
       "title": "Pair Profile Account Linking",
       "updatedAt": "2026-08-10T20:42:23Z"
@@ -1513,14 +1508,6 @@
     }
   ],
   "queue": [
-    {
-      "number": 162,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
-    {
-      "number": 163,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 164,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"

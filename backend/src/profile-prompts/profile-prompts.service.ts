@@ -20,6 +20,17 @@ export interface VideoPromptAnswerView {
   createdAt: string;
 }
 
+export interface VoicePromptReactionView {
+  id: string;
+  fromUserId: string;
+  toUserId: string;
+  promptId: string;
+  comment: string | null;
+  audioReplyUrl: string | null;
+  durationSeconds: number | null;
+  createdAt: string;
+}
+
 @Injectable()
 export class ProfilePromptsService {
   constructor(
@@ -95,6 +106,80 @@ export class ProfilePromptsService {
     await this.prisma.profilePromptVoiceAnswer.delete({
       where: { userId_promptId: { userId, promptId } },
     });
+  }
+
+  /**
+   * Reacts to someone else's voice prompt answer with a text comment, a
+   * recorded audio reply, or both - a direct, targeted counterpart to the
+   * generic profile-item like/comment (ProfileItemLikeService), scoped to
+   * one specific prompt rather than the whole profile.
+   */
+  async reactToVoicePrompt(
+    fromUserId: string,
+    toUserId: string,
+    promptId: string,
+    comment?: string,
+    audioReplyUrl?: string,
+    durationSeconds?: number,
+  ): Promise<VoicePromptReactionView> {
+    if (fromUserId === toUserId) {
+      throw new BadRequestException('You cannot react to your own voice prompt.');
+    }
+    if (!comment && !audioReplyUrl) {
+      throw new BadRequestException('Include a comment, an audio reply, or both.');
+    }
+
+    const targetAnswer = await this.prisma.profilePromptVoiceAnswer.findUnique({
+      where: { userId_promptId: { userId: toUserId, promptId } },
+    });
+    if (!targetAnswer) {
+      throw new NotFoundException('This user has no voice answer for that prompt.');
+    }
+
+    const reaction = await this.prisma.voicePromptReaction.create({
+      data: {
+        fromUserId,
+        toUserId,
+        promptId,
+        comment: comment ?? null,
+        audioReplyUrl: audioReplyUrl ?? null,
+        durationSeconds: durationSeconds ?? null,
+      },
+    });
+
+    return this.toReactionView(reaction);
+  }
+
+  /** Reactions received on one of the caller's own voice prompt answers. */
+  async listReactions(userId: string, promptId: string): Promise<VoicePromptReactionView[]> {
+    const reactions = await this.prisma.voicePromptReaction.findMany({
+      where: { toUserId: userId, promptId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return reactions.map((reaction) => this.toReactionView(reaction));
+  }
+
+  private toReactionView(reaction: {
+    id: string;
+    fromUserId: string;
+    toUserId: string;
+    promptId: string;
+    comment: string | null;
+    audioReplyUrl: string | null;
+    durationSeconds: number | null;
+    createdAt: Date;
+  }): VoicePromptReactionView {
+    return {
+      id: reaction.id,
+      fromUserId: reaction.fromUserId,
+      toUserId: reaction.toUserId,
+      promptId: reaction.promptId,
+      comment: reaction.comment,
+      audioReplyUrl: reaction.audioReplyUrl,
+      durationSeconds: reaction.durationSeconds,
+      createdAt: reaction.createdAt.toISOString(),
+    };
   }
 
   /**

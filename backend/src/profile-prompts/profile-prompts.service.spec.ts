@@ -21,6 +21,10 @@ describe('ProfilePromptsService', () => {
       findUnique: jest.Mock;
       delete: jest.Mock;
     };
+    voicePromptReaction: {
+      create: jest.Mock;
+      findMany: jest.Mock;
+    };
   };
   let transcriptionProvider: { transcribe: jest.Mock };
 
@@ -37,6 +41,10 @@ describe('ProfilePromptsService', () => {
         findMany: jest.fn(),
         findUnique: jest.fn(),
         delete: jest.fn(),
+      },
+      voicePromptReaction: {
+        create: jest.fn(),
+        findMany: jest.fn(),
       },
     };
     transcriptionProvider = { transcribe: jest.fn().mockResolvedValue('a transcript') };
@@ -177,6 +185,139 @@ describe('ProfilePromptsService', () => {
       expect(prisma.profilePromptVoiceAnswer.delete).toHaveBeenCalledWith({
         where: { userId_promptId: { userId: USER_ID, promptId } },
       });
+    });
+  });
+
+  describe('reactToVoicePrompt', () => {
+    const promptId = PROFILE_PROMPTS[0].id;
+    const OTHER_USER_ID = 'user-2';
+
+    it('rejects reacting to your own voice prompt', async () => {
+      await expect(
+        service.reactToVoicePrompt(USER_ID, USER_ID, promptId, 'Nice answer!'),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.voicePromptReaction.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects a reaction with neither a comment nor an audio reply', async () => {
+      await expect(
+        service.reactToVoicePrompt(USER_ID, OTHER_USER_ID, promptId),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.voicePromptReaction.create).not.toHaveBeenCalled();
+    });
+
+    it('throws when the target has no voice answer for that prompt', async () => {
+      prisma.profilePromptVoiceAnswer.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.reactToVoicePrompt(USER_ID, OTHER_USER_ID, promptId, 'Nice answer!'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(prisma.voicePromptReaction.create).not.toHaveBeenCalled();
+    });
+
+    it('creates a text-comment reaction', async () => {
+      prisma.profilePromptVoiceAnswer.findUnique.mockResolvedValue({
+        userId: OTHER_USER_ID,
+        promptId,
+      });
+      prisma.voicePromptReaction.create.mockResolvedValue({
+        id: 'reaction-1',
+        fromUserId: USER_ID,
+        toUserId: OTHER_USER_ID,
+        promptId,
+        comment: 'Nice answer!',
+        audioReplyUrl: null,
+        durationSeconds: null,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const result = await service.reactToVoicePrompt(USER_ID, OTHER_USER_ID, promptId, 'Nice answer!');
+
+      expect(prisma.voicePromptReaction.create).toHaveBeenCalledWith({
+        data: {
+          fromUserId: USER_ID,
+          toUserId: OTHER_USER_ID,
+          promptId,
+          comment: 'Nice answer!',
+          audioReplyUrl: null,
+          durationSeconds: null,
+        },
+      });
+      expect(result).toEqual({
+        id: 'reaction-1',
+        fromUserId: USER_ID,
+        toUserId: OTHER_USER_ID,
+        promptId,
+        comment: 'Nice answer!',
+        audioReplyUrl: null,
+        durationSeconds: null,
+        createdAt: '2026-01-01T00:00:00.000Z',
+      });
+    });
+
+    it('creates an audio-reply reaction', async () => {
+      prisma.profilePromptVoiceAnswer.findUnique.mockResolvedValue({
+        userId: OTHER_USER_ID,
+        promptId,
+      });
+      prisma.voicePromptReaction.create.mockResolvedValue({
+        id: 'reaction-2',
+        fromUserId: USER_ID,
+        toUserId: OTHER_USER_ID,
+        promptId,
+        comment: null,
+        audioReplyUrl: 'file:///tmp/reply.m4a',
+        durationSeconds: 8,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const result = await service.reactToVoicePrompt(
+        USER_ID,
+        OTHER_USER_ID,
+        promptId,
+        undefined,
+        'file:///tmp/reply.m4a',
+        8,
+      );
+
+      expect(prisma.voicePromptReaction.create).toHaveBeenCalledWith({
+        data: {
+          fromUserId: USER_ID,
+          toUserId: OTHER_USER_ID,
+          promptId,
+          comment: null,
+          audioReplyUrl: 'file:///tmp/reply.m4a',
+          durationSeconds: 8,
+        },
+      });
+      expect(result.audioReplyUrl).toBe('file:///tmp/reply.m4a');
+    });
+  });
+
+  describe('listReactions', () => {
+    it('returns reactions received on the caller’s own voice prompt, most recent first', async () => {
+      const promptId = PROFILE_PROMPTS[0].id;
+      prisma.voicePromptReaction.findMany.mockResolvedValue([
+        {
+          id: 'reaction-1',
+          fromUserId: 'user-2',
+          toUserId: USER_ID,
+          promptId,
+          comment: 'Love this!',
+          audioReplyUrl: null,
+          durationSeconds: null,
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ]);
+
+      const result = await service.listReactions(USER_ID, promptId);
+
+      expect(prisma.voicePromptReaction.findMany).toHaveBeenCalledWith({
+        where: { toUserId: USER_ID, promptId },
+        orderBy: { createdAt: 'desc' },
+      });
+      expect(result).toHaveLength(1);
+      expect(result[0].comment).toBe('Love this!');
     });
   });
 

@@ -381,6 +381,22 @@ model ProfilePromptVideoAnswer {
   @@map("profile_prompt_video_answers")
 }
 
+// A reaction to someone else's ProfilePromptVoiceAnswer: a text comment, a
+// recorded audio reply, or both - see ProfilePromptsService.reactToVoicePrompt.
+model VoicePromptReaction {
+  id              String   @id @default(uuid())
+  fromUserId      String
+  toUserId        String
+  promptId        String
+  comment         String?
+  audioReplyUrl   String?
+  durationSeconds Int?
+  createdAt       DateTime @default(now())
+
+  @@index([toUserId, promptId])
+  @@map("voice_prompt_reactions")
+}
+
 model BlockedContact {
   id            String   @id @default(uuid())
   userId        String

@@ -3,6 +3,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AuthenticatedUser, JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RecordVideoAnswerDto } from './dto/record-video-answer.dto';
 import { RecordVoiceAnswerDto } from './dto/record-voice-answer.dto';
+import { ReactToVoicePromptDto } from './dto/react-to-voice-prompt.dto';
 import { ProfilePromptsService } from './profile-prompts.service';
 
 @Controller('profile-prompts')
@@ -50,6 +51,28 @@ export class ProfilePromptsController {
   @HttpCode(HttpStatus.OK)
   deleteAnswer(@CurrentUser() user: AuthenticatedUser, @Param('promptId') promptId: string) {
     return this.profilePromptsService.deleteAnswer(user.id, promptId);
+  }
+
+  @Post(':promptId/reactions')
+  @HttpCode(HttpStatus.CREATED)
+  reactToVoicePrompt(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('promptId') promptId: string,
+    @Body() dto: ReactToVoicePromptDto,
+  ) {
+    return this.profilePromptsService.reactToVoicePrompt(
+      user.id,
+      dto.targetUserId,
+      promptId,
+      dto.comment,
+      dto.audioReplyUrl,
+      dto.durationSeconds,
+    );
+  }
+
+  @Get(':promptId/reactions')
+  listReactions(@CurrentUser() user: AuthenticatedUser, @Param('promptId') promptId: string) {
+    return this.profilePromptsService.listReactions(user.id, promptId);
   }
 
   @Post('video-answers')
