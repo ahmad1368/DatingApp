@@ -16,6 +16,7 @@ import {
   GHOSTING_PROMPT_THRESHOLD_DAYS,
   GHOSTING_PROTECTION_INACTIVITY_DAYS,
   ICEBREAKER_PROMPTS,
+  INACTIVITY_AUTO_ARCHIVE_DAYS,
   IcebreakerPrompt,
   isEphemeralExpired,
   isWoman,
@@ -133,6 +134,14 @@ export interface MatchSummaryView {
   canExtend: boolean;
   createdAt: string;
   needsGhostingPrompt: boolean;
+}
+
+export interface InactiveThreadView {
+  matchId: string;
+  otherUserId: string;
+  otherUserName: string | null;
+  otherUserPhotoUrl: string | null;
+  lastMessageAt: string;
 }
 
 interface MatchRecord {
@@ -693,6 +702,26 @@ export class MessagingService {
    * `needsGhostingPrompt` flag for whichever side owes the next reply.
    */
   async listMyMatches(userId: string): Promise<MatchSummaryView[]> {
+    const { active } = await this.buildMatchSummaries(userId);
+    return active;
+  }
+
+  /**
+   * Threads that have had a real conversation but have gone silent for
+   * INACTIVITY_AUTO_ARCHIVE_DAYS+ - auto-moved out of [listMyMatches] into
+   * this separate folder to declutter the main inbox. Nothing is deleted
+   * and the match still works normally; sending a new message naturally
+   * moves the thread back into listMyMatches next time it's fetched, since
+   * its last-message age drops back under the threshold.
+   */
+  async listInactiveThreads(userId: string): Promise<InactiveThreadView[]> {
+    const { inactive } = await this.buildMatchSummaries(userId);
+    return inactive;
+  }
+
+  private async buildMatchSummaries(
+    userId: string,
+  ): Promise<{ active: MatchSummaryView[]; inactive: InactiveThreadView[] }> {
     const matches: MatchListRecord[] = await this.prisma.match.findMany({
       where: { OR: [{ userAId: userId }, { userBId: userId }] },
       orderBy: { createdAt: 'desc' },
@@ -710,7 +739,7 @@ export class MessagingService {
     }
 
     if (alive.length === 0) {
-      return [];
+      return { active: [], inactive: [] };
     }
 
     const otherUserIds = alive.map((match) => (match.userAId === userId ? match.userBId : match.userAId));
@@ -723,17 +752,36 @@ export class MessagingService {
     ]);
     const otherUserById = new Map(otherUsers.map((user) => [user.id, user]));
 
-    return alive.map((match) => {
+    const active: MatchSummaryView[] = [];
+    const inactive: InactiveThreadView[] = [];
+
+    for (const match of alive) {
       const otherUserId = match.userAId === userId ? match.userBId : match.userAId;
       const otherUser = otherUserById.get(otherUserId);
       const firstMessageSent = match.firstMessageSentAt != null;
       const lastMessage = lastMessageByMatchId.get(match.id);
+
+      if (
+        firstMessageSent &&
+        lastMessage != null &&
+        daysSince(lastMessage.createdAt, now) >= INACTIVITY_AUTO_ARCHIVE_DAYS
+      ) {
+        inactive.push({
+          matchId: match.id,
+          otherUserId,
+          otherUserName: otherUser?.name ?? null,
+          otherUserPhotoUrl: otherUser?.profilePhotoUrl ?? null,
+          lastMessageAt: lastMessage.createdAt.toISOString(),
+        });
+        continue;
+      }
+
       const needsGhostingPrompt =
         lastMessage != null &&
         lastMessage.senderId !== userId &&
         daysSince(lastMessage.createdAt, now) >= GHOSTING_PROMPT_THRESHOLD_DAYS;
 
-      return {
+      active.push({
         matchId: match.id,
         otherUserId,
         otherUserName: otherUser?.name ?? null,
@@ -743,8 +791,10 @@ export class MessagingService {
         canExtend: !firstMessageSent && match.firstMessageExtendedAt == null,
         createdAt: match.createdAt.toISOString(),
         needsGhostingPrompt,
-      };
-    });
+      });
+    }
+
+    return { active, inactive };
   }
 
   /**

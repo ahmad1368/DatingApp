@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'archived_threads_screen.dart';
+import 'inactive_threads_screen.dart';
 import 'match_chat_screen.dart';
 import 'messaging_api.dart';
 
@@ -146,6 +147,18 @@ class _MatchesScreenState extends State<MatchesScreen> {
       appBar: AppBar(
         title: const Text('Matches'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.schedule_outlined),
+            tooltip: 'Inactive conversations',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => InactiveThreadsScreen(
+                  messagingApi: widget.messagingApi,
+                  currentUserId: widget.currentUserId,
+                ),
+              ),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.archive_outlined),
             tooltip: 'Archived conversations',
