@@ -70,6 +70,22 @@ class PowerUpsApi {
     return body['coinBalance'] as int;
   }
 
+  /// Spends one stockpiled boost credit (from a boost pack purchase) to
+  /// activate a boost right now. Returns the remaining bonus boost balance.
+  Future<int> activateBoost() async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/power-ups/activate-boost'),
+      headers: _headers,
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 201) {
+      throw PowerUpsApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return body['bonusBoosts'] as int;
+  }
+
   PowerUp _toPowerUp(Map<String, dynamic> json) {
     return PowerUp(
       id: json['id'] as String,

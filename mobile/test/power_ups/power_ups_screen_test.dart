@@ -51,6 +51,78 @@ void main() {
     expect(find.text('Coin balance: 100'), findsOneWidget);
   });
 
+  testWidgets('purchasing a boost pack shows a "purchased" message, not "activated"', (tester) async {
+    const boostPackCatalog =
+        '[{"id":"boost-pack-3","label":"Boost Pack (3x 30 min)","coinCost":250}]';
+    final api = PowerUpsApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/power-ups/catalog') {
+          return _jsonResponse(boostPackCatalog, 200);
+        }
+        return _jsonResponse('{"coinBalance":50,"powerUpId":"boost-pack-3"}', 201);
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: PowerUpsScreen(powerUpsApi: api)));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Activate'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Boost Pack (3x 30 min) purchased! Use a credit whenever you want a boost.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('using a boost credit shows the remaining balance', (tester) async {
+    http.Request? activateRequest;
+    final api = PowerUpsApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/power-ups/catalog') {
+          return _jsonResponse(_catalogResponse, 200);
+        }
+        activateRequest = request;
+        return _jsonResponse('{"bonusBoosts":2,"expiresAt":"2026-01-01T00:30:00.000Z"}', 201);
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: PowerUpsScreen(powerUpsApi: api)));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Use a boost credit'));
+    await tester.pumpAndSettle();
+
+    expect(activateRequest, isNotNull);
+    expect(activateRequest!.url.path, '/power-ups/activate-boost');
+    expect(find.text('Boost activated! 2 credit(s) left.'), findsOneWidget);
+  });
+
+  testWidgets('shows an error when there are no boost credits to use', (tester) async {
+    final api = PowerUpsApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/power-ups/catalog') {
+          return _jsonResponse(_catalogResponse, 200);
+        }
+        return _jsonResponse(
+          '{"message":"No boost credits available. Purchase a boost pack first."}',
+          400,
+        );
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: PowerUpsScreen(powerUpsApi: api)));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Use a boost credit'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('No boost credits available. Purchase a boost pack first.'), findsOneWidget);
+  });
+
   testWidgets('shows an error when the purchase fails', (tester) async {
     final api = PowerUpsApi(
       accessToken: 'a-jwt',

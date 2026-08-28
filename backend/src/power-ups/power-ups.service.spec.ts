@@ -86,6 +86,46 @@ describe('PowerUpsService', () => {
       });
     });
 
+    describe('boost-pack-3', () => {
+      it('deducts the discounted bulk price and credits 3 bonus boosts without activating one', async () => {
+        prisma.user.findUnique.mockResolvedValue({ giftTokenBalance: 300 });
+        prisma.user.update.mockResolvedValue({ giftTokenBalance: 50 });
+
+        const result = await service.purchasePowerUp(USER_ID, 'boost-pack-3');
+
+        expect(prisma.user.update).toHaveBeenCalledWith({
+          where: { id: USER_ID },
+          data: { giftTokenBalance: { decrement: 250 }, bonusBoosts: { increment: 3 } },
+        });
+        expect(prisma.boost.create).not.toHaveBeenCalled();
+        expect(result).toEqual({ coinBalance: 50, powerUpId: 'boost-pack-3' });
+      });
+    });
+
+    describe('boost-pack-5', () => {
+      it('deducts the discounted bulk price and credits 5 bonus boosts', async () => {
+        prisma.user.findUnique.mockResolvedValue({ giftTokenBalance: 400 });
+        prisma.user.update.mockResolvedValue({ giftTokenBalance: 25 });
+
+        const result = await service.purchasePowerUp(USER_ID, 'boost-pack-5');
+
+        expect(prisma.user.update).toHaveBeenCalledWith({
+          where: { id: USER_ID },
+          data: { giftTokenBalance: { decrement: 375 }, bonusBoosts: { increment: 5 } },
+        });
+        expect(result).toEqual({ coinBalance: 25, powerUpId: 'boost-pack-5' });
+      });
+
+      it('rejects when the coin balance is too low for the pack', async () => {
+        prisma.user.findUnique.mockResolvedValue({ giftTokenBalance: 100 });
+
+        await expect(service.purchasePowerUp(USER_ID, 'boost-pack-5')).rejects.toBeInstanceOf(
+          BadRequestException,
+        );
+        expect(prisma.user.update).not.toHaveBeenCalled();
+      });
+    });
+
     describe('super-like', () => {
       it('deducts coins and grants a bonus super like', async () => {
         prisma.user.findUnique.mockResolvedValue({ giftTokenBalance: 50 });
@@ -273,6 +313,48 @@ describe('PowerUpsService', () => {
         });
         expect(result).toEqual({ coinBalance: 60, powerUpId: 'extend-match-timer' });
       });
+    });
+  });
+
+  describe('activateBoost', () => {
+    it('throws when the user does not exist', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(service.activateBoost(USER_ID)).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('rejects when the user has no bonus boost credits', async () => {
+      prisma.user.findUnique.mockResolvedValue({ bonusBoosts: 0 });
+
+      await expect(service.activateBoost(USER_ID)).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.boost.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects when the user already has an active boost', async () => {
+      prisma.user.findUnique.mockResolvedValue({ bonusBoosts: 3 });
+      prisma.boost.findFirst.mockResolvedValue({ id: 'boost-1' });
+
+      await expect(service.activateBoost(USER_ID)).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.boost.create).not.toHaveBeenCalled();
+    });
+
+    it('spends one credit and activates a boost', async () => {
+      prisma.user.findUnique.mockResolvedValue({ bonusBoosts: 3 });
+      prisma.boost.findFirst.mockResolvedValue(null);
+      prisma.user.update.mockResolvedValue({ bonusBoosts: 2 });
+      prisma.boost.create.mockResolvedValue({ id: 'boost-1' });
+
+      const result = await service.activateBoost(USER_ID);
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: USER_ID },
+        data: { bonusBoosts: { decrement: 1 } },
+      });
+      expect(prisma.boost.create).toHaveBeenCalledWith({
+        data: { userId: USER_ID, expiresAt: expect.any(Date) },
+      });
+      expect(result.bonusBoosts).toBe(2);
+      expect(result.expiresAt).toEqual(expect.any(String));
     });
   });
 });

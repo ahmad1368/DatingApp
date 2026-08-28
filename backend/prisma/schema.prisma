@@ -113,6 +113,11 @@ model User {
   // getDeck() fetch by this many extra candidates, then resets to 0 - see
   // DiscoveryService.getDeck and PowerUpsService.purchaseExtraProfileViews.
   bonusDeckSlots                        Int       @default(0)
+  // Stockpiled boost credits from a discounted bulk pack (see the
+  // boost-pack-* POWER_UPS entries) - spent one at a time via
+  // PowerUpsService.activateBoost whenever the user wants, instead of
+  // activating immediately like a single "boost" purchase does.
+  bonusBoosts                           Int       @default(0)
   // Algorithm-driven match quality feedback: scales the proximity component
   // of rankRemainingCandidates's score, adjusted by DiscoveryService.
   // submitDeckFeedback - see applyDeckFeedback in discovery.constants.ts.
