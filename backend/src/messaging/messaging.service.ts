@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundEx
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { IMAGE_MODERATOR, ImageModerator } from './interfaces/image-moderator.interface';
+import { TRANSCRIPTION_PROVIDER, TranscriptionProvider } from './interfaces/transcription-provider.interface';
 import {
   BACKGROUND_SOUNDS,
   BackgroundSound,
@@ -74,6 +75,7 @@ export interface MessageView {
   voiceEffectId: string | null;
   backgroundSoundId: string | null;
   readAt: string | null;
+  transcript: string | null;
   icebreaker: IcebreakerView | null;
   poll: PollView | null;
   expiryMode: ExpiryMode | null;
@@ -155,6 +157,7 @@ export class MessagingService {
     private readonly prisma: PrismaService,
     @Inject(IMAGE_MODERATOR) private readonly imageModerator: ImageModerator,
     private readonly notificationsService: NotificationsService,
+    @Inject(TRANSCRIPTION_PROVIDER) private readonly transcriptionProvider: TranscriptionProvider,
   ) {}
 
   async getMatchStatus(userId: string, matchId: string): Promise<MatchStatus> {
@@ -343,6 +346,7 @@ export class MessagingService {
     }
 
     const { match, firstMessageSent } = await this.assertCanSend(userId, matchId);
+    const transcript = await this.transcribeSafely(mediaUrl);
 
     const message = await this.prisma.message.create({
       data: {
@@ -353,6 +357,7 @@ export class MessagingService {
         durationSeconds,
         voiceEffectId,
         backgroundSoundId,
+        transcript,
       },
     });
 
@@ -360,6 +365,19 @@ export class MessagingService {
     await this.notifyNewMessage(match, userId, 'Sent a voice note');
 
     return this.toMessageView(message, userId);
+  }
+
+  /**
+   * Auto-caption for a voice note, read aloud in noise-sensitive settings a
+   * recipient might be in - a transcription failure never blocks sending
+   * the recording itself, it just leaves the caption null.
+   */
+  private async transcribeSafely(audioUrl: string): Promise<string | null> {
+    try {
+      return await this.transcriptionProvider.transcribe(audioUrl);
+    } catch {
+      return null;
+    }
   }
 
   private async moderateImageSafely(
@@ -1217,6 +1235,7 @@ export class MessagingService {
       backgroundSoundId?: string | null;
       pollOptions?: string[];
       readAt: Date | null;
+      transcript?: string | null;
       expiryMode?: string | null;
       viewTimerSeconds?: number | null;
       viewedAt?: Date | null;
@@ -1249,6 +1268,7 @@ export class MessagingService {
       voiceEffectId: message.voiceEffectId ?? null,
       backgroundSoundId: message.backgroundSoundId ?? null,
       readAt: message.readAt ? message.readAt.toISOString() : null,
+      transcript: message.transcript ?? null,
       expiryMode,
       viewTimerSeconds: message.viewTimerSeconds ?? null,
       isEphemeralExpired: expired,

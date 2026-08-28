@@ -1242,6 +1242,38 @@ void main() {
     expect(find.textContaining('voice note'), findsOneWidget);
   });
 
+  testWidgets('shows the auto-generated transcript under a voice note', (tester) async {
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(
+            '[{"id":"m5","senderId":"user-man","contentType":"VOICE_NOTE","content":null,'
+            '"mediaUrl":"file:///tmp/note.m4a","isBlurred":false,"durationSeconds":5,'
+            '"transcript":"running a bit late!","createdAt":"2026-01-01T00:00:00.000Z"}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":null,"isExpired":false,'
+          '"firstMessageSent":true,"canSendFirstMessage":true}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchChatScreen(messagingApi: api, matchId: 'match-1', currentUserId: 'user-woman'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('running a bit late!'), findsOneWidget);
+  });
+
   testWidgets('shows an error when microphone permission is denied', (tester) async {
     final api = MessagingApi(
       accessToken: 'a-jwt',

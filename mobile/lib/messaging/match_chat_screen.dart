@@ -906,18 +906,32 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
       case 'ICEBREAKER':
         return _buildIcebreakerContent(message);
       case 'VOICE_NOTE':
-        return Row(
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            IconButton(
-              icon: const Icon(Icons.play_arrow),
-              onPressed: () => _playVoiceNote(message),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.play_arrow),
+                  onPressed: () => _playVoiceNote(message),
+                ),
+                Text('${message.durationSeconds ?? 0}s voice note'),
+                TextButton(
+                  onPressed: () => _cycleVoiceNoteSpeed(message),
+                  child: Text(_voiceNoteSpeedLabel(message)),
+                ),
+              ],
             ),
-            Text('${message.durationSeconds ?? 0}s voice note'),
-            TextButton(
-              onPressed: () => _cycleVoiceNoteSpeed(message),
-              child: Text(_voiceNoteSpeedLabel(message)),
-            ),
+            if (message.transcript != null)
+              Padding(
+                padding: const EdgeInsets.only(left: 12, right: 12, bottom: 4),
+                child: Text(
+                  message.transcript!,
+                  style: const TextStyle(fontStyle: FontStyle.italic, color: Colors.grey),
+                ),
+              ),
           ],
         );
       case 'TEXT':
