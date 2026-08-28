@@ -135,4 +135,99 @@ void main() {
     expect(find.text('Search radius: 31 mi'), findsOneWidget);
     expect(requestedBodies, contains('{"unit":"MI"}'));
   });
+
+  testWidgets('loads the saved radius settings on open', (tester) async {
+    final api = LocationApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/location/radius' && request.method == 'GET') {
+          return http.Response(
+            '{"searchRadiusKm":80,"autoExpandRadiusEnabled":false,"distanceUnit":"KM"}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response('[]', 200, headers: {'content-type': 'application/json'});
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LocationSettingsScreen(
+          locationApi: api,
+          currentPositionProvider: () async => const Coordinates(latitude: 0, longitude: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Search radius: 80 km'), findsOneWidget);
+    final toggle = tester.widget<SwitchListTile>(find.byType(SwitchListTile));
+    expect(toggle.value, isFalse);
+  });
+
+  testWidgets('toggling auto-expand radius calls the backend', (tester) async {
+    http.Request? putRequest;
+    final api = LocationApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/location/radius/auto-expand') {
+          putRequest = request;
+          return http.Response(
+            '{"searchRadiusKm":50,"autoExpandRadiusEnabled":false,"distanceUnit":"KM"}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response('[]', 200, headers: {'content-type': 'application/json'});
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LocationSettingsScreen(
+          locationApi: api,
+          currentPositionProvider: () async => const Coordinates(latitude: 0, longitude: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(SwitchListTile));
+    await tester.pumpAndSettle();
+
+    expect(putRequest, isNotNull);
+    expect(putRequest!.body, '{"enabled":false}');
+    final toggle = tester.widget<SwitchListTile>(find.byType(SwitchListTile));
+    expect(toggle.value, isFalse);
+  });
+
+  testWidgets('shows an error and reverts the toggle when saving fails', (tester) async {
+    final api = LocationApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/location/radius/auto-expand') {
+          return http.Response('{"message":"Not premium."}', 403);
+        }
+        return http.Response('[]', 200, headers: {'content-type': 'application/json'});
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LocationSettingsScreen(
+          locationApi: api,
+          currentPositionProvider: () async => const Coordinates(latitude: 0, longitude: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(SwitchListTile));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Not premium.'), findsOneWidget);
+    final toggle = tester.widget<SwitchListTile>(find.byType(SwitchListTile));
+    expect(toggle.value, isTrue);
+  });
 }
