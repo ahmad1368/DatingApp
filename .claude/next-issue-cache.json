@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-28T05:55:32.437Z",
+  "generated_at": "2026-08-28T06:03:57.431Z",
   "snapshot": [
     {
       "number": 454,
@@ -1547,25 +1547,12 @@
       "updatedAt": "2026-08-10T20:41:57Z"
     },
     {
-      "number": 145,
-      "title": "Astrology Element Compatibility Matrix",
-      "updatedAt": "2026-08-10T20:41:55Z"
-    },
-    {
       "number": 144,
       "title": "Daily Curated Profiles Refresh Timer",
       "updatedAt": "2026-08-10T20:41:53Z"
     }
   ],
   "queue": [
-    {
-      "number": 145,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
-    {
-      "number": 146,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 147,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
