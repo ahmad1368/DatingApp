@@ -6,6 +6,7 @@ import { TRANSCRIPTION_PROVIDER, TranscriptionProvider } from './interfaces/tran
 import {
   BACKGROUND_SOUNDS,
   BackgroundSound,
+  buildReservationUrl,
   computeExtendedExpiresAt,
   computeFirstMessageExpiresAt,
   daysSince,
@@ -23,6 +24,9 @@ import {
   MAX_POLL_OPTIONS,
   MIN_POLL_OPTIONS,
   POLL_CONTENT_TYPE,
+  RESERVATION_CONTENT_TYPE,
+  RESERVATION_PROVIDERS,
+  ReservationProvider,
   VOICE_EFFECTS,
   VOICE_NOTE_CONTENT_TYPE,
   VoiceEffect,
@@ -63,6 +67,12 @@ export interface PollView {
   totalVotes: number;
 }
 
+export interface ReservationView {
+  provider: string;
+  query: string;
+  url: string;
+}
+
 export interface MessageView {
   id: string;
   senderId: string;
@@ -79,6 +89,7 @@ export interface MessageView {
   transcript: string | null;
   icebreaker: IcebreakerView | null;
   poll: PollView | null;
+  reservation: ReservationView | null;
   expiryMode: ExpiryMode | null;
   viewTimerSeconds: number | null;
   isEphemeralExpired: boolean;
@@ -649,6 +660,42 @@ export class MessagingService {
     const votes = await this.prisma.pollVote.findMany({ where: { messageId } });
 
     return this.toMessageView(message, userId, [], votes);
+  }
+
+  /**
+   * In-chat reservation/ticket card: builds a deep-link to a third-party
+   * platform's search results for whatever the sender typed (see
+   * buildReservationUrl) so the recipient can tap through and finish
+   * booking on that site - see the doc comment on buildReservationUrl for
+   * why this never brokers the actual reservation itself.
+   */
+  async sendReservation(userId: string, matchId: string, provider: string, query: string): Promise<MessageView> {
+    if (!RESERVATION_PROVIDERS.includes(provider as ReservationProvider)) {
+      throw new BadRequestException('Unknown reservation provider.');
+    }
+
+    const { match, firstMessageSent } = await this.assertCanSend(userId, matchId);
+    const url = buildReservationUrl(provider as ReservationProvider, query);
+
+    const message = await this.prisma.message.create({
+      data: {
+        matchId,
+        senderId: userId,
+        contentType: RESERVATION_CONTENT_TYPE,
+        content: query,
+        reservationProvider: provider,
+        reservationUrl: url,
+      },
+    });
+
+    await this.markFirstMessageIfNeeded(matchId, firstMessageSent);
+    await this.notifyNewMessage(
+      match,
+      userId,
+      provider === 'OPENTABLE' ? `Sent a reservation link: ${query}` : `Sent an event ticket link: ${query}`,
+    );
+
+    return this.toMessageView(message, userId);
   }
 
   /**
@@ -1284,6 +1331,8 @@ export class MessagingService {
       voiceEffectId?: string | null;
       backgroundSoundId?: string | null;
       pollOptions?: string[];
+      reservationProvider?: string | null;
+      reservationUrl?: string | null;
       readAt: Date | null;
       transcript?: string | null;
       expiryMode?: string | null;
@@ -1324,8 +1373,26 @@ export class MessagingService {
       isEphemeralExpired: expired,
       icebreaker: this.toIcebreakerView(message.contentType, message.content, userId, icebreakerResponses),
       poll: this.toPollView(message.contentType, message.content, message.pollOptions, userId, pollVotes),
+      reservation: this.toReservationView(
+        message.contentType,
+        message.content,
+        message.reservationProvider,
+        message.reservationUrl,
+      ),
       createdAt: message.createdAt.toISOString(),
     };
+  }
+
+  private toReservationView(
+    contentType: string,
+    query: string | null,
+    provider: string | null | undefined,
+    url: string | null | undefined,
+  ): ReservationView | null {
+    if (contentType !== RESERVATION_CONTENT_TYPE || !query || !provider || !url) {
+      return null;
+    }
+    return { provider, query, url };
   }
 
   private toIcebreakerView(

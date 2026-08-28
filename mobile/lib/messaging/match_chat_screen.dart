@@ -455,6 +455,71 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
     );
   }
 
+  /// Composes and sends an in-chat reservation/ticket card: a deep-link to
+  /// OpenTable's or Eventbrite's own search results for whatever the user
+  /// typed - see MessagingApi.sendReservation.
+  Future<void> _openSendReservationDialog() async {
+    String provider = 'OPENTABLE';
+    final queryController = TextEditingController();
+
+    final result = await showDialog<Map<String, String>>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Reserve or buy tickets'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SegmentedButton<String>(
+                segments: const [
+                  ButtonSegment(value: 'OPENTABLE', label: Text('Restaurant')),
+                  ButtonSegment(value: 'EVENTBRITE', label: Text('Event')),
+                ],
+                selected: {provider},
+                onSelectionChanged: (selection) => setDialogState(() => provider = selection.first),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: queryController,
+                decoration: InputDecoration(
+                  hintText: provider == 'OPENTABLE' ? 'Restaurant name' : 'Event name',
+                ),
+                autofocus: true,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop({
+                'provider': provider,
+                'query': queryController.text.trim(),
+              }),
+              child: const Text('Send'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (result == null || result['query']!.isEmpty) {
+      return;
+    }
+
+    setState(() => _errorText = null);
+    try {
+      final message = await widget.messagingApi.sendReservation(
+        matchId: widget.matchId,
+        provider: result['provider']!,
+        query: result['query']!,
+      );
+      _onMessageSent(message);
+    } on MessagingApiException catch (e) {
+      setState(() => _errorText = e.message);
+    }
+  }
+
   Future<void> _startRecording() async {
     setState(() => _errorText = null);
 
@@ -646,6 +711,11 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
             icon: const Icon(Icons.place_outlined),
             tooltip: 'Suggest a place to meet',
             onPressed: _showMeetupSuggestions,
+          ),
+          IconButton(
+            icon: const Icon(Icons.confirmation_number_outlined),
+            tooltip: 'Reserve or buy tickets',
+            onPressed: _openSendReservationDialog,
           ),
           IconButton(
             icon: const Icon(Icons.photo_library_outlined),
@@ -934,10 +1004,43 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
               ),
           ],
         );
+      case 'RESERVATION':
+        return _buildReservationContent(message);
       case 'TEXT':
       default:
         return Text(message.content ?? '');
     }
+  }
+
+  Widget _buildReservationContent(ChatMessage message) {
+    final reservation = message.reservation;
+    if (reservation == null) {
+      return const Text('Reservation');
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              reservation.provider == 'OPENTABLE' ? Icons.restaurant_outlined : Icons.confirmation_number_outlined,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              reservation.provider == 'OPENTABLE' ? 'Table reservation' : 'Event tickets',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        Text(reservation.query),
+        SelectableText(
+          reservation.url,
+          style: const TextStyle(color: Colors.indigo, decoration: TextDecoration.underline),
+        ),
+      ],
+    );
   }
 
   /// An auto-expiring photo: shows the image itself while it's currently

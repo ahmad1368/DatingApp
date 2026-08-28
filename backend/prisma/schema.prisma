@@ -272,6 +272,12 @@ model Message {
   // message isn't a voice note.
   transcript           String?
   pollOptions          String[]  @default([])
+  // A RESERVATION message: a deep-link to a third-party reservation/ticket
+  // platform's search results - see buildReservationUrl in
+  // messaging.constants.ts. The search query itself lives in `content`,
+  // mirroring how a POLL's question is stored there too.
+  reservationProvider  String?
+  reservationUrl       String?
   readAt               DateTime?
   // Auto-expiring media: null expiryMode means a normal, permanent message.
   // See isEphemeralExpired in messaging.constants.ts for how these three

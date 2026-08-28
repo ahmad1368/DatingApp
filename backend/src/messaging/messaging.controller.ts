@@ -23,6 +23,7 @@ import { SendIcebreakerDto } from './dto/send-icebreaker.dto';
 import { RespondIcebreakerDto } from './dto/respond-icebreaker.dto';
 import { SendPollDto } from './dto/send-poll.dto';
 import { RespondPollDto } from './dto/respond-poll.dto';
+import { SendReservationDto } from './dto/send-reservation.dto';
 import { SendVoiceNoteDto } from './dto/send-voice-note.dto';
 import { SetMatchNoteDto } from './dto/set-match-note.dto';
 import { GifSearchService } from './gif-search.service';
@@ -300,6 +301,16 @@ export class MessagingController {
     @Body() dto: RespondPollDto,
   ) {
     return this.messagingService.respondToPoll(user.id, matchId, messageId, dto.optionIndex);
+  }
+
+  @Post(':matchId/reservation')
+  @HttpCode(HttpStatus.CREATED)
+  sendReservation(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('matchId') matchId: string,
+    @Body() dto: SendReservationDto,
+  ) {
+    return this.messagingService.sendReservation(user.id, matchId, dto.provider, dto.query);
   }
 
   @Post(':matchId/messages/:messageId/reveal')

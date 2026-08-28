@@ -63,6 +63,35 @@ export const POLL_CONTENT_TYPE = 'POLL';
 export const MIN_POLL_OPTIONS = 2;
 export const MAX_POLL_OPTIONS = 6;
 
+export const RESERVATION_CONTENT_TYPE = 'RESERVATION';
+export const RESERVATION_PROVIDERS = ['OPENTABLE', 'EVENTBRITE'] as const;
+export type ReservationProvider = (typeof RESERVATION_PROVIDERS)[number];
+
+const RESERVATION_SEARCH_URLS: Record<ReservationProvider, string> = {
+  OPENTABLE: 'https://www.opentable.com/s',
+  EVENTBRITE: 'https://www.eventbrite.com/d/search',
+};
+
+const RESERVATION_SEARCH_PARAMS: Record<ReservationProvider, string> = {
+  OPENTABLE: 'term',
+  EVENTBRITE: 'q',
+};
+
+/**
+ * Deep-links to a third-party reservation/ticketing platform's own search
+ * results for whatever the sender typed (a restaurant name for OpenTable, an
+ * event name for Eventbrite) - no OpenTable/Eventbrite API keys or OAuth
+ * flow exist in this codebase, so completing the actual booking happens on
+ * their site once the recipient taps through, the same "generate a search
+ * URL, don't broker the transaction" approach as
+ * DateSuggestionsService.buildMapsSearchUrl.
+ */
+export function buildReservationUrl(provider: ReservationProvider, query: string): string {
+  const base = RESERVATION_SEARCH_URLS[provider];
+  const param = RESERVATION_SEARCH_PARAMS[provider];
+  return `${base}?${param}=${encodeURIComponent(query)}`;
+}
+
 export interface VoiceEffect {
   id: string;
   label: string;

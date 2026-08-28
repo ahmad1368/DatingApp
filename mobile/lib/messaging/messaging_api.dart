@@ -167,6 +167,7 @@ class ChatMessage {
     this.readAt,
     this.icebreaker,
     this.poll,
+    this.reservation,
     this.expiryMode,
     this.viewTimerSeconds,
     this.isEphemeralExpired = false,
@@ -192,6 +193,7 @@ class ChatMessage {
   final DateTime? readAt;
   final Icebreaker? icebreaker;
   final Poll? poll;
+  final Reservation? reservation;
 
   /// 'VIEW_ONCE' or 'TIMER' for an auto-expiring photo/GIF; null for a
   /// normal, permanent message.
@@ -220,6 +222,18 @@ class Poll {
   final int totalVotes;
 
   bool get haveIVoted => myOptionIndex != null;
+}
+
+/// A deep-link to a third-party reservation/ticketing platform's search
+/// results for whatever the sender typed - see
+/// MessagingService.buildReservationUrl on the backend. Tapping [url] opens
+/// that platform's site to finish booking; nothing is reserved in-app.
+class Reservation {
+  Reservation({required this.provider, required this.query, required this.url});
+
+  final String provider;
+  final String query;
+  final String url;
 }
 
 class VoiceNoteEffect {
@@ -930,6 +944,28 @@ class MessagingApi {
     return _toChatMessage(body);
   }
 
+  /// [provider] must be 'OPENTABLE' (restaurant reservations) or
+  /// 'EVENTBRITE' (event tickets); [query] is the restaurant or event name
+  /// to search for on that platform.
+  Future<ChatMessage> sendReservation({
+    required String matchId,
+    required String provider,
+    required String query,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/matches/$matchId/reservation'),
+      headers: _headers,
+      body: jsonEncode({'provider': provider, 'query': query}),
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 201) {
+      throw MessagingApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return _toChatMessage(body);
+  }
+
   Future<void> reportMessage({
     required String matchId,
     required String messageId,
@@ -949,6 +985,7 @@ class MessagingApi {
   ChatMessage _toChatMessage(Map<String, dynamic> json) {
     final icebreakerJson = json['icebreaker'] as Map<String, dynamic>?;
     final pollJson = json['poll'] as Map<String, dynamic>?;
+    final reservationJson = json['reservation'] as Map<String, dynamic>?;
     return ChatMessage(
       id: json['id'] as String,
       senderId: json['senderId'] as String,
@@ -980,6 +1017,13 @@ class MessagingApi {
               myOptionIndex: pollJson['myOptionIndex'] as int?,
               voteCounts: (pollJson['voteCounts'] as List).cast<int>(),
               totalVotes: pollJson['totalVotes'] as int,
+            )
+          : null,
+      reservation: reservationJson != null
+          ? Reservation(
+              provider: reservationJson['provider'] as String,
+              query: reservationJson['query'] as String,
+              url: reservationJson['url'] as String,
             )
           : null,
       expiryMode: json['expiryMode'] as String?,
