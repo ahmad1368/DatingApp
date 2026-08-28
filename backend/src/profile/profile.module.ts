@@ -25,6 +25,8 @@ import { ZodiacController } from './zodiac.controller';
 import { ZodiacService } from './zodiac.service';
 import { LoveStyleController } from './love-style.controller';
 import { LoveStyleService } from './love-style.service';
+import { AvatarController } from './avatar.controller';
+import { AvatarService } from './avatar.service';
 
 @Module({
   imports: [AuthModule, ConfigModule],
@@ -39,6 +41,7 @@ import { LoveStyleService } from './love-style.service';
     SpotifyController,
     ZodiacController,
     LoveStyleController,
+    AvatarController,
   ],
   providers: [
     VoiceIntroService,
@@ -59,6 +62,7 @@ import { LoveStyleService } from './love-style.service';
     },
     ZodiacService,
     LoveStyleService,
+    AvatarService,
   ],
 })
 export class ProfileModule {}
