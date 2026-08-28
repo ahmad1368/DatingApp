@@ -1467,6 +1467,91 @@ void main() {
     expect(find.text('Coffee Shop'), findsOneWidget);
   });
 
+  testWidgets('sends a restaurant reservation card', (tester) async {
+    http.Request? sendRequest;
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(_emptyMessages, 200, headers: {'content-type': 'application/json'});
+        }
+        if (request.method == 'POST' && request.url.path == '/matches/match-1/reservation') {
+          sendRequest = request;
+          return http.Response(
+            '{"id":"m1","senderId":"user-woman","contentType":"RESERVATION","content":"Luigi\'s",'
+            '"mediaUrl":null,"isBlurred":false,"reservation":{"provider":"OPENTABLE",'
+            '"query":"Luigi\'s","url":"https://www.opentable.com/s?term=Luigi\'s"},'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}',
+            201,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":null,'
+          '"isExpired":false,"firstMessageSent":true,"canSendFirstMessage":true}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchChatScreen(messagingApi: api, matchId: 'match-1', currentUserId: 'user-woman'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.confirmation_number_outlined));
+    await tester.pumpAndSettle();
+
+    final queryField = find.byWidgetPredicate(
+      (widget) => widget is TextField && widget.decoration?.hintText == 'Restaurant name',
+    );
+    await tester.enterText(queryField, "Luigi's");
+    await tester.tap(find.text('Send'));
+    await tester.pumpAndSettle();
+
+    expect(sendRequest, isNotNull);
+    expect(sendRequest!.body, '{"provider":"OPENTABLE","query":"Luigi\'s"}');
+    expect(find.text('Table reservation'), findsOneWidget);
+    expect(find.text("Luigi's"), findsOneWidget);
+  });
+
+  testWidgets('shows a received event ticket reservation card', (tester) async {
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(
+            '[{"id":"m1","senderId":"user-man","contentType":"RESERVATION","content":"Jazz Night",'
+            '"mediaUrl":null,"isBlurred":false,"reservation":{"provider":"EVENTBRITE",'
+            '"query":"Jazz Night","url":"https://www.eventbrite.com/d/search?q=Jazz%20Night"},'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":null,'
+          '"isExpired":false,"firstMessageSent":true,"canSendFirstMessage":true}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchChatScreen(messagingApi: api, matchId: 'match-1', currentUserId: 'user-woman'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Event tickets'), findsOneWidget);
+    expect(find.text('Jazz Night'), findsOneWidget);
+  });
+
   testWidgets('opens shared private photos for this match', (tester) async {
     final api = MessagingApi(
       accessToken: 'a-jwt',

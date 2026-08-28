@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-28T13:40:10.926Z",
+  "generated_at": "2026-08-28T13:47:03.228Z",
   "snapshot": [
     {
       "number": 454,
@@ -1482,11 +1482,6 @@
       "updatedAt": "2026-08-10T20:42:23Z"
     },
     {
-      "number": 158,
-      "title": "3D Avatar / Bitmoji Profile Integration",
-      "updatedAt": "2026-08-10T20:42:21Z"
-    },
-    {
       "number": 154,
       "title": "Dietary & Lifestyle Compatibility Filters",
       "updatedAt": "2026-08-10T20:42:13Z"
@@ -1523,14 +1518,6 @@
     }
   ],
   "queue": [
-    {
-      "number": 159,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
-    {
-      "number": 160,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 161,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"

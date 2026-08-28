@@ -1343,4 +1343,54 @@ void main() {
       expect(message.poll!.totalVotes, 2);
     });
   });
+
+  group('MessagingApi.sendReservation', () {
+    test('sends the provider and query, parsing the created message', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'POST');
+          expect(request.url.path, '/matches/match-1/reservation');
+          expect(request.body, '{"provider":"OPENTABLE","query":"Luigi\'s"}');
+          return http.Response(
+            '{"id":"m1","senderId":"user-1","contentType":"RESERVATION","content":"Luigi\'s",'
+            '"mediaUrl":null,"isBlurred":false,"reservation":{"provider":"OPENTABLE",'
+            '"query":"Luigi\'s","url":"https://www.opentable.com/s?term=Luigi\'s"},'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}',
+            201,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final message = await api.sendReservation(
+        matchId: 'match-1',
+        provider: 'OPENTABLE',
+        query: "Luigi's",
+      );
+
+      expect(message.contentType, 'RESERVATION');
+      expect(message.reservation, isNotNull);
+      expect(message.reservation!.provider, 'OPENTABLE');
+      expect(message.reservation!.url, "https://www.opentable.com/s?term=Luigi's");
+    });
+
+    test('throws MessagingApiException for an unknown provider', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '{"message":"Unknown reservation provider."}',
+            400,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      expect(
+        () => api.sendReservation(matchId: 'match-1', provider: 'RESY', query: "Luigi's"),
+        throwsA(isA<MessagingApiException>()),
+      );
+    });
+  });
 }

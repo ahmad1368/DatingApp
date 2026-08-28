@@ -531,6 +531,7 @@ describe('MessagingService', () => {
         readAt: null,
         icebreaker: null,
         poll: null,
+        reservation: null,
         expiryMode: null,
         viewTimerSeconds: null,
         isEphemeralExpired: false,
@@ -1282,6 +1283,7 @@ describe('MessagingService', () => {
           readAt: null,
           icebreaker: null,
           poll: null,
+          reservation: null,
           expiryMode: null,
           viewTimerSeconds: null,
           isEphemeralExpired: false,
@@ -1656,6 +1658,84 @@ describe('MessagingService', () => {
         myOptionIndex: null,
         voteCounts: [0, 0],
         totalVotes: 0,
+      });
+    });
+  });
+
+  describe('sendReservation', () => {
+    it('rejects an unknown provider', async () => {
+      await expect(
+        service.sendReservation(WOMAN_ID, MATCH_ID, 'RESY', "Luigi's"),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.message.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects the man sending the first reservation to a woman match', async () => {
+      mockMatch();
+      mockUsers({ [WOMAN_ID]: ['Woman'], [MAN_ID]: ['Man'] });
+
+      await expect(
+        service.sendReservation(MAN_ID, MATCH_ID, 'OPENTABLE', "Luigi's"),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('creates a RESERVATION message with an OpenTable search link', async () => {
+      mockMatch();
+      mockUsers({ [WOMAN_ID]: ['Woman'], [MAN_ID]: ['Man'] });
+      prisma.message.create.mockResolvedValue({
+        id: 'message-1',
+        senderId: WOMAN_ID,
+        contentType: 'RESERVATION',
+        content: "Luigi's",
+        reservationProvider: 'OPENTABLE',
+        reservationUrl: "https://www.opentable.com/s?term=Luigi's",
+        mediaUrl: null,
+        isBlurred: false,
+        readAt: null,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const result = await service.sendReservation(WOMAN_ID, MATCH_ID, 'OPENTABLE', "Luigi's");
+
+      expect(prisma.message.create).toHaveBeenCalledWith({
+        data: {
+          matchId: MATCH_ID,
+          senderId: WOMAN_ID,
+          contentType: 'RESERVATION',
+          content: "Luigi's",
+          reservationProvider: 'OPENTABLE',
+          reservationUrl: "https://www.opentable.com/s?term=Luigi's",
+        },
+      });
+      expect(result.reservation).toEqual({
+        provider: 'OPENTABLE',
+        query: "Luigi's",
+        url: "https://www.opentable.com/s?term=Luigi's",
+      });
+    });
+
+    it('creates a RESERVATION message with an Eventbrite search link', async () => {
+      mockMatch();
+      mockUsers({ [WOMAN_ID]: ['Woman'], [MAN_ID]: ['Man'] });
+      prisma.message.create.mockResolvedValue({
+        id: 'message-2',
+        senderId: WOMAN_ID,
+        contentType: 'RESERVATION',
+        content: 'Jazz Night',
+        reservationProvider: 'EVENTBRITE',
+        reservationUrl: 'https://www.eventbrite.com/d/search?q=Jazz%20Night',
+        mediaUrl: null,
+        isBlurred: false,
+        readAt: null,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const result = await service.sendReservation(WOMAN_ID, MATCH_ID, 'EVENTBRITE', 'Jazz Night');
+
+      expect(result.reservation).toEqual({
+        provider: 'EVENTBRITE',
+        query: 'Jazz Night',
+        url: 'https://www.eventbrite.com/d/search?q=Jazz%20Night',
       });
     });
   });
