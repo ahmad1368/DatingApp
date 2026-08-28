@@ -18,6 +18,7 @@ export interface ProfilePhotoView {
   qualityScore: number;
   cropFocalX: number;
   cropFocalY: number;
+  caption: string | null;
 }
 
 export interface CropFocalPoint {
@@ -119,6 +120,29 @@ export class ProfilePhotosService {
     });
 
     return photos.map((photo, index) => this.toView(photo, index === 0));
+  }
+
+  /** Sets, changes, or clears (pass null) the context/humor caption shown under this photo. */
+  async setPhotoCaption(userId: string, photoId: string, caption: string | null): Promise<ProfilePhotoView> {
+    const photo = await this.prisma.profilePhoto.findUnique({ where: { id: photoId } });
+    if (!photo) {
+      throw new NotFoundException('Profile photo not found.');
+    }
+    if (photo.ownerId !== userId) {
+      throw new ForbiddenException('You do not own this profile photo.');
+    }
+
+    const updated = await this.prisma.profilePhoto.update({
+      where: { id: photoId },
+      data: { caption },
+    });
+
+    const leadPhoto = await this.prisma.profilePhoto.findFirst({
+      where: { ownerId: userId },
+      orderBy: { position: 'asc' },
+    });
+
+    return this.toView(updated, leadPhoto?.id === updated.id);
   }
 
   async deletePhoto(userId: string, photoId: string): Promise<{ deleted: boolean }> {
@@ -252,6 +276,7 @@ export class ProfilePhotosService {
       qualityScore: number;
       cropFocalX: number;
       cropFocalY: number;
+      caption?: string | null;
     },
     isLead: boolean,
   ): ProfilePhotoView {
@@ -265,6 +290,7 @@ export class ProfilePhotosService {
       qualityScore: photo.qualityScore,
       cropFocalX: photo.cropFocalX,
       cropFocalY: photo.cropFocalY,
+      caption: photo.caption ?? null,
     };
   }
 }

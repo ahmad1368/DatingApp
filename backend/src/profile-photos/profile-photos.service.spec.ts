@@ -193,6 +193,7 @@ describe('ProfilePhotosService', () => {
           qualityScore: 39,
           cropFocalX: 0.5,
           cropFocalY: 0.35,
+          caption: null,
         },
         {
           id: 'second',
@@ -204,6 +205,7 @@ describe('ProfilePhotosService', () => {
           qualityScore: 98,
           cropFocalX: 0.4,
           cropFocalY: 0.3,
+          caption: null,
         },
       ]);
     });
@@ -364,6 +366,74 @@ describe('ProfilePhotosService', () => {
       expect(prisma.profilePhoto.update).not.toHaveBeenCalled();
       expect(prisma.profilePhoto.delete).not.toHaveBeenCalled();
       expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('setPhotoCaption', () => {
+    it('throws when the photo does not exist', async () => {
+      prisma.profilePhoto.findUnique.mockResolvedValue(null);
+
+      await expect(service.setPhotoCaption(OWNER_ID, PHOTO_ID, 'Hi!')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      expect(prisma.profilePhoto.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects captioning a photo owned by someone else', async () => {
+      prisma.profilePhoto.findUnique.mockResolvedValue({ id: PHOTO_ID, ownerId: OTHER_ID });
+
+      await expect(service.setPhotoCaption(OWNER_ID, PHOTO_ID, 'Hi!')).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+      expect(prisma.profilePhoto.update).not.toHaveBeenCalled();
+    });
+
+    it('sets the caption and reports isLead based on current position', async () => {
+      prisma.profilePhoto.findUnique.mockResolvedValue({ id: PHOTO_ID, ownerId: OWNER_ID });
+      prisma.profilePhoto.update.mockResolvedValue({
+        id: PHOTO_ID,
+        mediaUrl: 'https://example.com/a.jpg',
+        impressions: 0,
+        rightSwipes: 0,
+        qualityScore: 39,
+        cropFocalX: 0.5,
+        cropFocalY: 0.35,
+        caption: 'Hiking last summer',
+      });
+      prisma.profilePhoto.findFirst.mockResolvedValue({ id: PHOTO_ID });
+
+      const result = await service.setPhotoCaption(OWNER_ID, PHOTO_ID, 'Hiking last summer');
+
+      expect(prisma.profilePhoto.update).toHaveBeenCalledWith({
+        where: { id: PHOTO_ID },
+        data: { caption: 'Hiking last summer' },
+      });
+      expect(result.caption).toBe('Hiking last summer');
+      expect(result.isLead).toBe(true);
+    });
+
+    it('clears the caption when passed null', async () => {
+      prisma.profilePhoto.findUnique.mockResolvedValue({ id: PHOTO_ID, ownerId: OWNER_ID });
+      prisma.profilePhoto.update.mockResolvedValue({
+        id: PHOTO_ID,
+        mediaUrl: 'https://example.com/a.jpg',
+        impressions: 0,
+        rightSwipes: 0,
+        qualityScore: 39,
+        cropFocalX: 0.5,
+        cropFocalY: 0.35,
+        caption: null,
+      });
+      prisma.profilePhoto.findFirst.mockResolvedValue({ id: 'other-photo' });
+
+      const result = await service.setPhotoCaption(OWNER_ID, PHOTO_ID, null);
+
+      expect(prisma.profilePhoto.update).toHaveBeenCalledWith({
+        where: { id: PHOTO_ID },
+        data: { caption: null },
+      });
+      expect(result.caption).toBeNull();
+      expect(result.isLead).toBe(false);
     });
   });
 

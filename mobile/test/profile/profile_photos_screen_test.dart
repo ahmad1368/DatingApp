@@ -143,6 +143,49 @@ void main() {
     expect(find.text('No profile photos yet. Add one to get started.'), findsOneWidget);
   });
 
+  testWidgets('editing a caption saves it and shows it under the photo', (tester) async {
+    http.Request? putRequest;
+    final api = ProfilePhotosApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/profile-photos/blur-until-match') {
+          return _blurResponse();
+        }
+        if (request.method == 'PUT' && request.url.path == '/profile-photos/photo-1/caption') {
+          putRequest = request;
+          return http.Response(
+            '{"id":"photo-1","mediaUrl":"https://example.com/a.jpg","isLead":true,'
+            '"impressions":0,"rightSwipes":0,"conversionRate":null,"qualityScore":39,'
+            '"cropFocalX":0.5,"cropFocalY":0.35,"caption":"Hiking last summer"}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '[{"id":"photo-1","mediaUrl":"https://example.com/a.jpg","isLead":true,'
+          '"impressions":0,"rightSwipes":0,"conversionRate":null,"qualityScore":39,'
+          '"cropFocalX":0.5,"cropFocalY":0.35}]',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: ProfilePhotosScreen(profilePhotosApi: api)));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.edit_note));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), 'Hiking last summer');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    expect(putRequest, isNotNull);
+    expect(putRequest!.body, '{"caption":"Hiking last summer"}');
+    expect(find.textContaining('Hiking last summer'), findsOneWidget);
+  });
+
   testWidgets('tapping the AI reorder action re-ranks photos by quality score', (tester) async {
     http.Request? reorderRequest;
     final api = ProfilePhotosApi(
