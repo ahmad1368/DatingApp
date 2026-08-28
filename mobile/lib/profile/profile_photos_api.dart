@@ -40,6 +40,27 @@ class ProfilePhoto {
   final double cropFocalY;
 }
 
+/// Why the curator is suggesting a photo be removed - see
+/// ProfilePhotosService.getCurationSuggestions on the backend.
+enum PhotoCurationReason { blurry, duplicate, lowEngagement }
+
+class PhotoCurationSuggestion {
+  PhotoCurationSuggestion({required this.photoId, required this.mediaUrl, required this.reasons});
+
+  final String photoId;
+  final String mediaUrl;
+  final List<PhotoCurationReason> reasons;
+}
+
+class PhotoGalleryCuration {
+  PhotoGalleryCuration({required this.suggestedRemovals, required this.suggestedOrder});
+
+  final List<PhotoCurationSuggestion> suggestedRemovals;
+
+  /// Photo ids in the AI-recommended best-first order.
+  final List<String> suggestedOrder;
+}
+
 /// Talks to the backend's profile photo gallery endpoints. The lead photo
 /// (first in the list) is what's shown in other users' discovery decks, and
 /// automatically rotates server-side to whichever photo is converting best
@@ -110,6 +131,48 @@ class ProfilePhotosApi {
 
     final list = jsonDecode(response.body) as List;
     return list.cast<Map<String, dynamic>>().map(_toProfilePhoto).toList();
+  }
+
+  /// AI-curated cleanup pass over the gallery: which photos look blurry,
+  /// duplicated, or under-performing and worth removing, plus a proposed
+  /// best-first order for the whole gallery. Read-only - act on a
+  /// suggestion via [deletePhoto] or [reorderByQuality].
+  Future<PhotoGalleryCuration> fetchCurationSuggestions() async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/profile-photos/curation-suggestions'),
+      headers: _headers,
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 200) {
+      throw ProfilePhotosApiException(_errorMessage(body, response.statusCode));
+    }
+
+    final removals = (body['suggestedRemovals'] as List).cast<Map<String, dynamic>>().map((json) {
+      return PhotoCurationSuggestion(
+        photoId: json['photoId'] as String,
+        mediaUrl: json['mediaUrl'] as String,
+        reasons: (json['reasons'] as List).cast<String>().map(_toCurationReason).toList(),
+      );
+    }).toList();
+
+    return PhotoGalleryCuration(
+      suggestedRemovals: removals,
+      suggestedOrder: (body['suggestedOrder'] as List).cast<String>(),
+    );
+  }
+
+  PhotoCurationReason _toCurationReason(String reason) {
+    switch (reason) {
+      case 'BLURRY':
+        return PhotoCurationReason.blurry;
+      case 'DUPLICATE':
+        return PhotoCurationReason.duplicate;
+      case 'LOW_ENGAGEMENT':
+        return PhotoCurationReason.lowEngagement;
+      default:
+        throw ProfilePhotosApiException('Unknown curation reason: $reason');
+    }
   }
 
   /// Incognito photo blur: when enabled, this user's photos show blurred to

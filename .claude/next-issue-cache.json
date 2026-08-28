@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-28T04:51:39.378Z",
+  "generated_at": "2026-08-28T05:44:42.077Z",
   "snapshot": [
     {
       "number": 454,
@@ -1560,18 +1560,9 @@
       "number": 143,
       "title": "AI Photo Gallery Curator",
       "updatedAt": "2026-08-10T20:41:51Z"
-    },
-    {
-      "number": 142,
-      "title": "In-Chat Icebreaker Game Prompts",
-      "updatedAt": "2026-08-10T20:41:48Z"
     }
   ],
   "queue": [
-    {
-      "number": 143,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 144,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"

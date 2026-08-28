@@ -97,6 +97,40 @@ class _ProfilePhotosScreenState extends State<ProfilePhotosScreen> {
     }
   }
 
+  /// Fetches the AI curation pass and, if it found anything worth flagging,
+  /// shows a dialog so the user can delete a suggested removal in one tap
+  /// (or leave it - these are suggestions, nothing is deleted automatically).
+  Future<void> _openCurationSuggestions() async {
+    setState(() => _errorText = null);
+    PhotoGalleryCuration curation;
+    try {
+      curation = await widget.profilePhotosApi.fetchCurationSuggestions();
+    } on ProfilePhotosApiException catch (e) {
+      setState(() => _errorText = e.message);
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    if (curation.suggestedRemovals.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Your gallery looks great - nothing to clean up.')),
+      );
+      return;
+    }
+
+    final photoToDelete = await showDialog<ProfilePhoto>(
+      context: context,
+      builder: (context) => _CurationSuggestionsDialog(
+        suggestions: curation.suggestedRemovals,
+        photos: _photos,
+      ),
+    );
+    if (photoToDelete != null) {
+      await _deletePhoto(photoToDelete);
+    }
+  }
+
   String _statsLabel(ProfilePhoto photo) {
     final swipes = photo.conversionRate == null
         ? 'No swipes yet'
@@ -110,6 +144,11 @@ class _ProfilePhotosScreenState extends State<ProfilePhotosScreen> {
       appBar: AppBar(
         title: const Text('Profile Photos'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.auto_fix_high),
+            tooltip: 'AI gallery curator',
+            onPressed: _photos.isEmpty ? null : _openCurationSuggestions,
+          ),
           IconButton(
             icon: const Icon(Icons.auto_awesome),
             tooltip: 'Auto-rank by AI quality score',
@@ -191,6 +230,59 @@ class _ProfilePhotosScreenState extends State<ProfilePhotosScreen> {
                 ),
               ],
             ),
+    );
+  }
+}
+
+class _CurationSuggestionsDialog extends StatelessWidget {
+  const _CurationSuggestionsDialog({required this.suggestions, required this.photos});
+
+  final List<PhotoCurationSuggestion> suggestions;
+  final List<ProfilePhoto> photos;
+
+  static String _reasonLabel(PhotoCurationReason reason) {
+    switch (reason) {
+      case PhotoCurationReason.blurry:
+        return 'Blurry';
+      case PhotoCurationReason.duplicate:
+        return 'Duplicate';
+      case PhotoCurationReason.lowEngagement:
+        return 'Low engagement';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Suggested cleanup'),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: ListView.builder(
+          shrinkWrap: true,
+          itemCount: suggestions.length,
+          itemBuilder: (context, index) {
+            final suggestion = suggestions[index];
+            final photoIndex = photos.indexWhere((photo) => photo.id == suggestion.photoId);
+            final photo = photoIndex == -1 ? null : photos[photoIndex];
+            return ListTile(
+              title: Text(photo != null ? 'Photo ${photoIndex + 1}' : suggestion.mediaUrl),
+              subtitle: Text(suggestion.reasons.map(_reasonLabel).join(', ')),
+              trailing: photo == null
+                  ? null
+                  : TextButton(
+                      onPressed: () => Navigator.of(context).pop(photo),
+                      child: const Text('Remove'),
+                    ),
+            );
+          },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Close'),
+        ),
+      ],
     );
   }
 }

@@ -141,6 +141,43 @@ void main() {
     });
   });
 
+  group('ProfilePhotosApi.fetchCurationSuggestions', () {
+    test('parses suggested removals and the best-first order', () async {
+      final api = ProfilePhotosApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'GET');
+          expect(request.url.path, '/profile-photos/curation-suggestions');
+          return http.Response(
+            '{"suggestedRemovals":[{"photoId":"photo-1","mediaUrl":"https://example.com/a.jpg",'
+            '"reasons":["BLURRY","DUPLICATE"]}],"suggestedOrder":["photo-2","photo-1"]}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final curation = await api.fetchCurationSuggestions();
+
+      expect(curation.suggestedRemovals, hasLength(1));
+      expect(curation.suggestedRemovals.first.photoId, 'photo-1');
+      expect(curation.suggestedRemovals.first.reasons, [
+        PhotoCurationReason.blurry,
+        PhotoCurationReason.duplicate,
+      ]);
+      expect(curation.suggestedOrder, ['photo-2', 'photo-1']);
+    });
+
+    test('throws ProfilePhotosApiException on a non-200 response', () async {
+      final api = ProfilePhotosApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => http.Response('', 500)),
+      );
+
+      expect(() => api.fetchCurationSuggestions(), throwsA(isA<ProfilePhotosApiException>()));
+    });
+  });
+
   group('ProfilePhotosApi.fetchBlurUntilMatch', () {
     test('sends the bearer token and parses the preference', () async {
       final api = ProfilePhotosApi(
