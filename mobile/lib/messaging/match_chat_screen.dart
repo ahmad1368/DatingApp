@@ -73,6 +73,7 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
   int _recordedSeconds = 0;
   Timer? _recordTimer;
   String? _errorText;
+  IcebreakerPrompt? _suggestedIcebreaker;
 
   @override
   void initState() {
@@ -147,6 +148,7 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
       }
     }
     unawaited(_pingActivity());
+    unawaited(_loadSuggestedIcebreaker());
   }
 
   /// Best-effort activity heartbeat - opening a chat counts as being active.
@@ -155,6 +157,20 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
   Future<void> _pingActivity() async {
     try {
       await widget.messagingApi.recordActivity();
+    } catch (_) {
+      // Ignored - see doc comment above.
+    }
+  }
+
+  /// Best-effort fetch of the nudge banner suggesting an icebreaker for a
+  /// fresh, unplayed match. Failure here shouldn't surface to the user; it
+  /// just means the banner won't appear this visit.
+  Future<void> _loadSuggestedIcebreaker() async {
+    try {
+      final suggestion = await widget.messagingApi.fetchSuggestedIcebreaker(widget.matchId);
+      if (mounted) {
+        setState(() => _suggestedIcebreaker = suggestion);
+      }
     } catch (_) {
       // Ignored - see doc comment above.
     }
@@ -549,9 +565,14 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
         promptId: prompt.id,
       );
       _onMessageSent(message);
+      setState(() => _suggestedIcebreaker = null);
     } on MessagingApiException catch (e) {
       setState(() => _errorText = e.message);
     }
+  }
+
+  void _dismissSuggestedIcebreaker() {
+    setState(() => _suggestedIcebreaker = null);
   }
 
   Future<void> _respondToIcebreaker(ChatMessage message, int optionIndex) async {
@@ -726,6 +747,41 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
                           ? "You've requested photo verification."
                           : 'They requested photo verification from you.',
                       style: const TextStyle(fontStyle: FontStyle.italic),
+                    ),
+                  ),
+                if (_suggestedIcebreaker != null)
+                  Card(
+                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    color: Colors.indigo.shade50,
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.celebration_outlined, color: Colors.indigo),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Break the ice',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                Text(_suggestedIcebreaker!.question),
+                              ],
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () => _sendIcebreaker(_suggestedIcebreaker!),
+                            child: const Text('Send'),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close),
+                            tooltip: 'Dismiss',
+                            onPressed: _dismissSuggestedIcebreaker,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 Expanded(

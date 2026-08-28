@@ -55,6 +55,17 @@ export class MessagingController {
     return this.messagingService.getIcebreakerPrompts();
   }
 
+  /**
+   * A single curated icebreaker prompt to nudge a fresh match into playing,
+   * surfaced only while the match is still inside its first-message window
+   * and neither side has sent one yet - see
+   * MessagingService.getSuggestedIcebreaker.
+   */
+  @Get(':matchId/suggested-icebreaker')
+  getSuggestedIcebreaker(@CurrentUser() user: AuthenticatedUser, @Param('matchId') matchId: string) {
+    return this.messagingService.getSuggestedIcebreaker(user.id, matchId);
+  }
+
   @Get('voice-note-effects')
   getVoiceNoteEffects() {
     return this.messagingService.getVoiceNoteEffectsCatalog();

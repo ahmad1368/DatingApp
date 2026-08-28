@@ -1064,6 +1064,47 @@ void main() {
     });
   });
 
+  group('MessagingApi.fetchSuggestedIcebreaker', () {
+    test('parses the suggested prompt', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.url.path, '/matches/match-1/suggested-icebreaker');
+          return http.Response(
+            '{"id":"coffee-or-tea","question":"Coffee or tea?","optionA":"Coffee","optionB":"Tea"}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final prompt = await api.fetchSuggestedIcebreaker('match-1');
+
+      expect(prompt?.id, 'coffee-or-tea');
+      expect(prompt?.optionA, 'Coffee');
+    });
+
+    test('returns null once the match has left its window or already played', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => http.Response('null', 200, headers: {'content-type': 'application/json'})),
+      );
+
+      final prompt = await api.fetchSuggestedIcebreaker('match-1');
+
+      expect(prompt, isNull);
+    });
+
+    test('throws MessagingApiException on a non-200 response', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => http.Response('', 500)),
+      );
+
+      expect(() => api.fetchSuggestedIcebreaker('match-1'), throwsA(isA<MessagingApiException>()));
+    });
+  });
+
   group('MessagingApi.fetchIcebreakerSuggestions', () {
     test('parses the list of AI-suggested opening lines', () async {
       final api = MessagingApi(
