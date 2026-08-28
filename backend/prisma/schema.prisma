@@ -961,6 +961,9 @@ model ProfilePhoto {
   // consistently across different aspect ratio containers.
   cropFocalX   Float    @default(0.5)
   cropFocalY   Float    @default(0.35)
+  // User-written context or humor caption shown under this photo - see
+  // ProfilePhotosService.setPhotoCaption. Null until the owner sets one.
+  caption      String?
   createdAt    DateTime @default(now())
 
   @@index([ownerId])

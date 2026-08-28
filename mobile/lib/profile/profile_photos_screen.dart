@@ -131,6 +131,48 @@ class _ProfilePhotosScreenState extends State<ProfilePhotosScreen> {
     }
   }
 
+  /// Opens a dialog to add, edit, or clear a photo's caption. Saving an
+  /// empty string clears the caption (sent to the backend as null).
+  Future<void> _editCaption(ProfilePhoto photo) async {
+    final controller = TextEditingController(text: photo.caption ?? '');
+    final newCaption = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Photo caption'),
+        content: TextField(
+          controller: controller,
+          maxLength: 200,
+          maxLines: 3,
+          decoration: const InputDecoration(hintText: 'Add some context or humor…'),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    if (newCaption == null) {
+      return;
+    }
+
+    setState(() => _errorText = null);
+    try {
+      final updated = await widget.profilePhotosApi.setPhotoCaption(
+        photo.id,
+        newCaption.isEmpty ? null : newCaption,
+      );
+      setState(() {
+        _photos = [for (final p in _photos) if (p.id == updated.id) updated else p];
+      });
+    } on ProfilePhotosApiException catch (e) {
+      setState(() => _errorText = e.message);
+    }
+  }
+
   String _statsLabel(ProfilePhoto photo) {
     final swipes = photo.conversionRate == null
         ? 'No swipes yet'
@@ -218,11 +260,26 @@ class _ProfilePhotosScreenState extends State<ProfilePhotosScreen> {
                                 ),
                               ),
                               title: Text(photo.isLead ? 'Lead photo' : 'Photo ${index + 1}'),
-                              subtitle: Text(_statsLabel(photo)),
-                              trailing: IconButton(
-                                icon: const Icon(Icons.delete),
-                                tooltip: 'Delete',
-                                onPressed: () => _deletePhoto(photo),
+                              subtitle: Text(
+                                photo.caption == null
+                                    ? _statsLabel(photo)
+                                    : '${photo.caption}\n${_statsLabel(photo)}',
+                              ),
+                              isThreeLine: photo.caption != null,
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.edit_note),
+                                    tooltip: 'Edit caption',
+                                    onPressed: () => _editCaption(photo),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.delete),
+                                    tooltip: 'Delete',
+                                    onPressed: () => _deletePhoto(photo),
+                                  ),
+                                ],
                               ),
                             );
                           },

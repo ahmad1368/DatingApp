@@ -101,6 +101,64 @@ void main() {
     });
   });
 
+  group('ProfilePhotosApi.setPhotoCaption', () {
+    test('sends the caption and parses the updated photo', () async {
+      http.Request? putRequest;
+      final api = ProfilePhotosApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          putRequest = request;
+          return http.Response(
+            '{"id":"photo-1","mediaUrl":"https://example.com/a.jpg","isLead":true,'
+            '"impressions":0,"rightSwipes":0,"conversionRate":null,"qualityScore":39,'
+            '"cropFocalX":0.5,"cropFocalY":0.35,"caption":"Hiking last summer"}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final photo = await api.setPhotoCaption('photo-1', 'Hiking last summer');
+
+      expect(putRequest, isNotNull);
+      expect(putRequest!.method, 'PUT');
+      expect(putRequest!.url.path, '/profile-photos/photo-1/caption');
+      expect(putRequest!.body, '{"caption":"Hiking last summer"}');
+      expect(photo.caption, 'Hiking last summer');
+    });
+
+    test('sends an empty body when clearing the caption', () async {
+      http.Request? putRequest;
+      final api = ProfilePhotosApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          putRequest = request;
+          return http.Response(
+            '{"id":"photo-1","mediaUrl":"https://example.com/a.jpg","isLead":true,'
+            '"impressions":0,"rightSwipes":0,"conversionRate":null,"qualityScore":39,'
+            '"cropFocalX":0.5,"cropFocalY":0.35,"caption":null}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final photo = await api.setPhotoCaption('photo-1', null);
+
+      expect(putRequest!.body, '{}');
+      expect(photo.caption, isNull);
+    });
+
+    test('throws ProfilePhotosApiException on a non-200 response', () async {
+      final api = ProfilePhotosApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => http.Response('', 500)),
+      );
+
+      expect(() => api.setPhotoCaption('photo-1', 'Hi!'), throwsA(isA<ProfilePhotosApiException>()));
+    });
+  });
+
   group('ProfilePhotosApi.reorderByQuality', () {
     test('posts to the reorder endpoint and parses the re-ranked gallery', () async {
       http.Request? postRequest;

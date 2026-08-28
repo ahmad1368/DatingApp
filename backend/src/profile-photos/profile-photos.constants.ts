@@ -1,5 +1,7 @@
 export const MAX_PROFILE_PHOTOS = 9;
 
+export const MAX_PHOTO_CAPTION_LENGTH = 200;
+
 // Curation thresholds for ProfilePhotosService.getCurationSuggestions - see
 // that method's doc comment for what each one stands in for.
 export const LOW_QUALITY_THRESHOLD = 35;

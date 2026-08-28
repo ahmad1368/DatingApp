@@ -3,6 +3,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AuthenticatedUser, JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AddProfilePhotoDto } from './dto/add-profile-photo.dto';
 import { SetBlurUntilMatchDto } from './dto/set-blur-until-match.dto';
+import { SetPhotoCaptionDto } from './dto/set-photo-caption.dto';
 import { ProfilePhotosService } from './profile-photos.service';
 
 @Controller('profile-photos')
@@ -25,6 +26,16 @@ export class ProfilePhotosController {
   @HttpCode(HttpStatus.OK)
   deletePhoto(@CurrentUser() user: AuthenticatedUser, @Param('photoId') photoId: string) {
     return this.profilePhotosService.deletePhoto(user.id, photoId);
+  }
+
+  @Put(':photoId/caption')
+  @HttpCode(HttpStatus.OK)
+  setPhotoCaption(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('photoId') photoId: string,
+    @Body() dto: SetPhotoCaptionDto,
+  ) {
+    return this.profilePhotosService.setPhotoCaption(user.id, photoId, dto.caption ?? null);
   }
 
   @Post('reorder-by-quality')

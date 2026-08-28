@@ -22,6 +22,7 @@ class ProfilePhoto {
     required this.qualityScore,
     required this.cropFocalX,
     required this.cropFocalY,
+    this.caption,
   });
 
   final String id;
@@ -38,6 +39,10 @@ class ProfilePhoto {
   /// any container aspect ratio via `alignment:`.
   final double cropFocalX;
   final double cropFocalY;
+
+  /// User-written context or humor caption shown under this photo, null
+  /// until set - see ProfilePhotosApi.setPhotoCaption.
+  final String? caption;
 }
 
 /// Why the curator is suggesting a photo be removed - see
@@ -114,6 +119,22 @@ class ProfilePhotosApi {
     if (response.statusCode != 200) {
       throw ProfilePhotosApiException(_errorMessage(_decode(response), response.statusCode));
     }
+  }
+
+  /// Sets, changes, or clears (pass null) the caption shown under a photo.
+  Future<ProfilePhoto> setPhotoCaption(String photoId, String? caption) async {
+    final response = await _client.put(
+      Uri.parse('$_baseUrl/profile-photos/$photoId/caption'),
+      headers: _headers,
+      body: jsonEncode({if (caption != null) 'caption': caption}),
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 200) {
+      throw ProfilePhotosApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return _toProfilePhoto(body);
   }
 
   /// AI-suggested reorder: re-ranks the gallery by quality score (lighting,
@@ -217,6 +238,7 @@ class ProfilePhotosApi {
       qualityScore: json['qualityScore'] as int,
       cropFocalX: (json['cropFocalX'] as num).toDouble(),
       cropFocalY: (json['cropFocalY'] as num).toDouble(),
+      caption: json['caption'] as String?,
     );
   }
 
