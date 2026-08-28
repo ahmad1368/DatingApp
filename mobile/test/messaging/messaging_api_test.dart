@@ -287,6 +287,40 @@ void main() {
     });
   });
 
+  group('MessagingApi.fetchInactiveThreads', () {
+    test('sends the bearer token and parses the inactive threads', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.headers['Authorization'], 'Bearer a-jwt');
+          expect(request.url.path, '/matches/inactive');
+          return http.Response(
+            '[{"matchId":"match-1","otherUserId":"user-2",'
+            '"otherUserName":"Sam","otherUserPhotoUrl":"sam.jpg",'
+            '"lastMessageAt":"2026-01-02T00:00:00.000Z"}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final threads = await api.fetchInactiveThreads();
+
+      expect(threads, hasLength(1));
+      expect(threads.first.matchId, 'match-1');
+      expect(threads.first.otherUserName, 'Sam');
+    });
+
+    test('throws MessagingApiException on a non-200 response', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => http.Response('', 500)),
+      );
+
+      expect(() => api.fetchInactiveThreads(), throwsA(isA<MessagingApiException>()));
+    });
+  });
+
   group('MessagingApi.fetchArchivedThreads', () {
     test('sends the bearer token and parses the archived threads', () async {
       final api = MessagingApi(

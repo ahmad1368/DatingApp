@@ -1908,6 +1908,116 @@ describe('MessagingService', () => {
 
       expect(matches[0].needsGhostingPrompt).toBe(false);
     });
+
+    it('excludes a thread whose last message is 14+ days old', async () => {
+      prisma.match.findMany.mockResolvedValue([
+        {
+          id: MATCH_ID,
+          userAId: WOMAN_ID,
+          userBId: MAN_ID,
+          firstMessageExpiresAt: hoursFromNow(-100),
+          firstMessageSentAt: new Date('2026-01-01T00:00:00.000Z'),
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ]);
+      prisma.user.findMany.mockResolvedValue([{ id: MAN_ID, name: 'Sam', profilePhotoUrl: null }]);
+      prisma.message.findMany.mockResolvedValue([
+        { matchId: MATCH_ID, senderId: MAN_ID, createdAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000) },
+      ]);
+
+      const matches = await service.listMyMatches(WOMAN_ID);
+
+      expect(matches).toEqual([]);
+    });
+
+    it('does not exclude an unmessaged match even if it is old', async () => {
+      prisma.match.findMany.mockResolvedValue([
+        {
+          id: MATCH_ID,
+          userAId: WOMAN_ID,
+          userBId: MAN_ID,
+          firstMessageExpiresAt: hoursFromNow(24),
+          firstMessageSentAt: null,
+          createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+        },
+      ]);
+      prisma.user.findMany.mockResolvedValue([{ id: MAN_ID, name: 'Sam', profilePhotoUrl: null }]);
+
+      const matches = await service.listMyMatches(WOMAN_ID);
+
+      expect(matches).toHaveLength(1);
+    });
+  });
+
+  describe('listInactiveThreads', () => {
+    it('returns a thread whose last message is 14+ days old, with the other user profile info', async () => {
+      prisma.match.findMany.mockResolvedValue([
+        {
+          id: MATCH_ID,
+          userAId: WOMAN_ID,
+          userBId: MAN_ID,
+          firstMessageExpiresAt: hoursFromNow(-100),
+          firstMessageSentAt: new Date('2026-01-01T00:00:00.000Z'),
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ]);
+      prisma.user.findMany.mockResolvedValue([{ id: MAN_ID, name: 'Sam', profilePhotoUrl: 'sam.jpg' }]);
+      const lastMessageAt = new Date(Date.now() - 20 * 24 * 60 * 60 * 1000);
+      prisma.message.findMany.mockResolvedValue([
+        { matchId: MATCH_ID, senderId: MAN_ID, createdAt: lastMessageAt },
+      ]);
+
+      const threads = await service.listInactiveThreads(WOMAN_ID);
+
+      expect(threads).toEqual([
+        {
+          matchId: MATCH_ID,
+          otherUserId: MAN_ID,
+          otherUserName: 'Sam',
+          otherUserPhotoUrl: 'sam.jpg',
+          lastMessageAt: lastMessageAt.toISOString(),
+        },
+      ]);
+    });
+
+    it('does not include a recently-active thread', async () => {
+      prisma.match.findMany.mockResolvedValue([
+        {
+          id: MATCH_ID,
+          userAId: WOMAN_ID,
+          userBId: MAN_ID,
+          firstMessageExpiresAt: hoursFromNow(-100),
+          firstMessageSentAt: new Date('2026-01-01T00:00:00.000Z'),
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ]);
+      prisma.user.findMany.mockResolvedValue([{ id: MAN_ID, name: 'Sam', profilePhotoUrl: null }]);
+      prisma.message.findMany.mockResolvedValue([
+        { matchId: MATCH_ID, senderId: MAN_ID, createdAt: new Date(Date.now() - 60 * 60 * 1000) },
+      ]);
+
+      const threads = await service.listInactiveThreads(WOMAN_ID);
+
+      expect(threads).toEqual([]);
+    });
+
+    it('does not include an unmessaged match', async () => {
+      prisma.match.findMany.mockResolvedValue([
+        {
+          id: MATCH_ID,
+          userAId: WOMAN_ID,
+          userBId: MAN_ID,
+          firstMessageExpiresAt: hoursFromNow(24),
+          firstMessageSentAt: null,
+          createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+        },
+      ]);
+      prisma.user.findMany.mockResolvedValue([{ id: MAN_ID, name: 'Sam', profilePhotoUrl: null }]);
+
+      const threads = await service.listInactiveThreads(WOMAN_ID);
+
+      expect(threads).toEqual([]);
+    });
   });
 
   describe('unmatch', () => {

@@ -90,6 +90,16 @@ export class MessagingController {
     return this.messagingService.listReconnectableMatches(user.id);
   }
 
+  /**
+   * Threads with a real conversation that's gone quiet for 14+ days -
+   * auto-moved out of the main list() inbox to declutter it. See
+   * MessagingService.listInactiveThreads.
+   */
+  @Get('inactive')
+  listInactiveThreads(@CurrentUser() user: AuthenticatedUser) {
+    return this.messagingService.listInactiveThreads(user.id);
+  }
+
   @Post('reconnect/:dissolvedMatchId')
   @HttpCode(HttpStatus.OK)
   reconnectMatch(

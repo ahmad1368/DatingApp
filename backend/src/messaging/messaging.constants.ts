@@ -16,6 +16,14 @@ export const GHOSTING_PROMPT_THRESHOLD_DAYS = 3;
 // MessagingService.toMatchStatus.
 export const GHOSTING_PROTECTION_INACTIVITY_DAYS = 7;
 
+// A conversation that HAS exchanged messages but has gone completely quiet
+// for this many days is auto-moved out of the main inbox (listMyMatches)
+// into a separate "inactive" folder (listInactiveThreads) to declutter it -
+// see MessagingService.buildMatchSummaries. Nothing is deleted: sending a
+// new message naturally moves the thread back once its last-message age
+// drops back under this threshold.
+export const INACTIVITY_AUTO_ARCHIVE_DAYS = 14;
+
 export function daysSince(date: Date, now: Date): number {
   return (now.getTime() - date.getTime()) / (24 * 60 * 60 * 1000);
 }

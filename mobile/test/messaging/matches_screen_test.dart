@@ -247,4 +247,24 @@ void main() {
 
     expect(find.text('Archived Conversations'), findsOneWidget);
   });
+
+  testWidgets('opens inactive conversations from the app bar', (tester) async {
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient(
+        (request) async => http.Response('[]', 200, headers: {'content-type': 'application/json'}),
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(home: MatchesScreen(messagingApi: api, currentUserId: 'user-1')),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    await tester.tap(find.byIcon(Icons.schedule_outlined));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Inactive Conversations'), findsOneWidget);
+  });
 }

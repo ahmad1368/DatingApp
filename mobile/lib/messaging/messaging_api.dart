@@ -75,6 +75,26 @@ class MatchSummary {
   final bool needsGhostingPrompt;
 }
 
+/// A thread with a real conversation that's gone quiet for 14+ days,
+/// auto-moved out of [MessagingApi.fetchMyMatches] to declutter the main
+/// inbox - still a live match, not deleted; sending a new message moves it
+/// back on its own. See MessagingApi.fetchInactiveThreads.
+class InactiveThread {
+  InactiveThread({
+    required this.matchId,
+    required this.otherUserId,
+    this.otherUserName,
+    this.otherUserPhotoUrl,
+    required this.lastMessageAt,
+  });
+
+  final String matchId;
+  final String otherUserId;
+  final String? otherUserName;
+  final String? otherUserPhotoUrl;
+  final DateTime lastMessageAt;
+}
+
 class ReconnectableMatch {
   ReconnectableMatch({
     required this.dissolvedMatchId,
@@ -304,6 +324,28 @@ class MessagingApi {
         canExtend: json['canExtend'] as bool? ?? false,
         createdAt: DateTime.parse(json['createdAt'] as String),
         needsGhostingPrompt: json['needsGhostingPrompt'] as bool? ?? false,
+      );
+    }).toList();
+  }
+
+  Future<List<InactiveThread>> fetchInactiveThreads() async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/matches/inactive'),
+      headers: _headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw MessagingApiException(_errorMessage(_decode(response), response.statusCode));
+    }
+
+    final list = jsonDecode(response.body) as List;
+    return list.cast<Map<String, dynamic>>().map((json) {
+      return InactiveThread(
+        matchId: json['matchId'] as String,
+        otherUserId: json['otherUserId'] as String,
+        otherUserName: json['otherUserName'] as String?,
+        otherUserPhotoUrl: json['otherUserPhotoUrl'] as String?,
+        lastMessageAt: DateTime.parse(json['lastMessageAt'] as String),
       );
     }).toList();
   }
