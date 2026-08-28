@@ -47,6 +47,19 @@ export interface PersonalityCompatibilityBreakdown {
   categories: CategoryBreakdown[];
 }
 
+export interface CompatibilityReportSection {
+  title: string;
+  score: number;
+  insight: string;
+  dimensions: DimensionComparison[];
+}
+
+export interface CompatibilityReport {
+  percentage: number | null;
+  sharedDimensionCount: number;
+  sections: CompatibilityReportSection[];
+}
+
 @Injectable()
 export class PersonalityTestService {
   constructor(private readonly prisma: PrismaService) {}
@@ -197,6 +210,63 @@ export class PersonalityTestService {
       sharedDimensionCount: shared.comparisons.length,
       categories,
     };
+  }
+
+  /**
+   * The "diagnostic report" view: unlike getCompatibilityBreakdown (every
+   * category, purely numeric), this spotlights the three areas the issue
+   * that requested it called out - communication strengths, conflict
+   * resolution style (a single dimension inside Communication Style, pulled
+   * out for its own section since it drives so much relationship friction),
+   * and emotional compatibility - each with a plain-language insight
+   * derived from its score tier, and skips a section entirely if the pair
+   * has no shared dimensions there.
+   */
+  async getCompatibilityReport(userId: string, otherUserId: string): Promise<CompatibilityReport> {
+    const shared = await this.fetchSharedDimensions(userId, otherUserId);
+    if (!shared) {
+      return { percentage: null, sharedDimensionCount: 0, sections: [] };
+    }
+
+    const byDimension = new Map(shared.comparisons.map((comparison) => [comparison.dimension, comparison]));
+    const byCategory = new Map<string, DimensionComparison[]>();
+    for (const comparison of shared.comparisons) {
+      const category = categoryForDimension(comparison.dimension);
+      const existing = byCategory.get(category) ?? [];
+      existing.push(comparison);
+      byCategory.set(category, existing);
+    }
+
+    const conflictResolution = byDimension.get('Conflict Resolution Style');
+    const sectionSpecs = [
+      { title: 'Communication Strengths', dimensions: byCategory.get('Communication Style') ?? [] },
+      { title: 'Conflict Resolution Style', dimensions: conflictResolution ? [conflictResolution] : [] },
+      { title: 'Emotional Compatibility', dimensions: byCategory.get('Emotional Values') ?? [] },
+    ];
+
+    const sections: CompatibilityReportSection[] = sectionSpecs
+      .filter((spec) => spec.dimensions.length > 0)
+      .map((spec) => {
+        const score = this.averageSimilarity(spec.dimensions);
+        return { title: spec.title, score, insight: this.insightForScore(score), dimensions: spec.dimensions };
+      });
+
+    const weights = await this.getCategoryWeights(userId);
+    return {
+      percentage: this.weightedAverageSimilarity(shared.comparisons, weights),
+      sharedDimensionCount: shared.comparisons.length,
+      sections,
+    };
+  }
+
+  private insightForScore(score: number): string {
+    if (score >= 85) {
+      return 'Strongly aligned - this is likely to feel effortless together.';
+    }
+    if (score >= 65) {
+      return 'Generally compatible, with some differences worth navigating.';
+    }
+    return 'Notably different here - worth discussing openly rather than assuming.';
   }
 
   private async fetchSharedDimensions(

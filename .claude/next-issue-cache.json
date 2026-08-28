@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-28T06:03:57.431Z",
+  "generated_at": "2026-08-28T06:21:08.843Z",
   "snapshot": [
     {
       "number": 454,
@@ -1542,21 +1542,12 @@
       "updatedAt": "2026-08-10T20:41:59Z"
     },
     {
-      "number": 146,
-      "title": "Strict Member Vetting & Committee Approval",
-      "updatedAt": "2026-08-10T20:41:57Z"
-    },
-    {
       "number": 144,
       "title": "Daily Curated Profiles Refresh Timer",
       "updatedAt": "2026-08-10T20:41:53Z"
     }
   ],
   "queue": [
-    {
-      "number": 147,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 148,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"

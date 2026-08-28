@@ -212,6 +212,80 @@ describe('PersonalityTestService', () => {
     });
   });
 
+  describe('getCompatibilityReport', () => {
+    it('rejects comparing a user with themselves', async () => {
+      await expect(service.getCompatibilityReport(USER_ID, USER_ID)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+    });
+
+    it('returns an empty report when either user has not completed the test', async () => {
+      prisma.personalityProfile.findUnique
+        .mockResolvedValueOnce({ dimensionScores: { Optimism: 80 } })
+        .mockResolvedValueOnce(null);
+
+      const result = await service.getCompatibilityReport(USER_ID, OTHER_ID);
+
+      expect(result).toEqual({ percentage: null, sharedDimensionCount: 0, sections: [] });
+    });
+
+    it('builds sections for communication, conflict resolution, and emotional compatibility', async () => {
+      prisma.personalityProfile.findUnique
+        .mockResolvedValueOnce({
+          dimensionScores: { Optimism: 80, Directness: 40, 'Conflict Resolution Style': 90 },
+        })
+        .mockResolvedValueOnce({
+          dimensionScores: { Optimism: 100, Directness: 100, 'Conflict Resolution Style': 90 },
+        });
+
+      const result = await service.getCompatibilityReport(USER_ID, OTHER_ID);
+
+      const communication = result.sections.find((s) => s.title === 'Communication Strengths');
+      const conflict = result.sections.find((s) => s.title === 'Conflict Resolution Style');
+      const emotional = result.sections.find((s) => s.title === 'Emotional Compatibility');
+
+      // Communication Strengths includes every Communication Style dimension,
+      // Conflict Resolution Style included: Directness (sim 40) + Conflict
+      // Resolution Style (sim 100) -> avg 70.
+      expect(communication).toEqual({
+        title: 'Communication Strengths',
+        score: 70,
+        insight: 'Generally compatible, with some differences worth navigating.',
+        dimensions: [
+          { dimension: 'Directness', myScore: 40, theirScore: 100, similarity: 40 },
+          { dimension: 'Conflict Resolution Style', myScore: 90, theirScore: 90, similarity: 100 },
+        ],
+      });
+      // Conflict Resolution Style 90 vs 90 -> similarity 100
+      expect(conflict).toEqual({
+        title: 'Conflict Resolution Style',
+        score: 100,
+        insight: 'Strongly aligned - this is likely to feel effortless together.',
+        dimensions: [
+          { dimension: 'Conflict Resolution Style', myScore: 90, theirScore: 90, similarity: 100 },
+        ],
+      });
+      // Optimism 80 vs 100 -> similarity 80
+      expect(emotional).toEqual({
+        title: 'Emotional Compatibility',
+        score: 80,
+        insight: 'Generally compatible, with some differences worth navigating.',
+        dimensions: [{ dimension: 'Optimism', myScore: 80, theirScore: 100, similarity: 80 }],
+      });
+    });
+
+    it('omits a section entirely when there is no shared data for it', async () => {
+      prisma.personalityProfile.findUnique
+        .mockResolvedValueOnce({ dimensionScores: { Optimism: 80 } })
+        .mockResolvedValueOnce({ dimensionScores: { Optimism: 100 } });
+
+      const result = await service.getCompatibilityReport(USER_ID, OTHER_ID);
+
+      expect(result.sections).toHaveLength(1);
+      expect(result.sections[0].title).toBe('Emotional Compatibility');
+    });
+  });
+
   describe('getCategoryWeights', () => {
     it('defaults every category to weight 1 when nothing is stored', async () => {
       prisma.user.findUnique.mockResolvedValue(null);

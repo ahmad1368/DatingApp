@@ -49,6 +49,36 @@ class CompatibilityBreakdown {
   final List<CategoryBreakdown> categories;
 }
 
+class CompatibilityReportSection {
+  CompatibilityReportSection({
+    required this.title,
+    required this.score,
+    required this.insight,
+    required this.dimensions,
+  });
+
+  final String title;
+  final int score;
+  final String insight;
+  final List<DimensionComparison> dimensions;
+}
+
+/// A multi-page diagnostic report spotlighting communication strengths,
+/// conflict resolution style, and emotional compatibility - each a separate
+/// [CompatibilityReportSection] the client can render as its own page. See
+/// PersonalityTestService.getCompatibilityReport on the backend.
+class CompatibilityReport {
+  CompatibilityReport({
+    required this.percentage,
+    required this.sharedDimensionCount,
+    required this.sections,
+  });
+
+  final int? percentage;
+  final int sharedDimensionCount;
+  final List<CompatibilityReportSection> sections;
+}
+
 /// Talks to the backend's personality-test compatibility endpoints.
 class PersonalityApi {
   PersonalityApi({required this.accessToken, http.Client? client, String? baseUrl})
@@ -102,6 +132,39 @@ class PersonalityApi {
       myScore: json['myScore'] as int,
       theirScore: json['theirScore'] as int,
       similarity: json['similarity'] as int,
+    );
+  }
+
+  Future<CompatibilityReport> fetchCompatibilityReport(String otherUserId) async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/personality-test/compatibility/$otherUserId/report'),
+      headers: _headers,
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 200) {
+      throw PersonalityApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return CompatibilityReport(
+      percentage: body['percentage'] as int?,
+      sharedDimensionCount: body['sharedDimensionCount'] as int,
+      sections: (body['sections'] as List)
+          .cast<Map<String, dynamic>>()
+          .map(_toReportSection)
+          .toList(),
+    );
+  }
+
+  CompatibilityReportSection _toReportSection(Map<String, dynamic> json) {
+    return CompatibilityReportSection(
+      title: json['title'] as String,
+      score: json['score'] as int,
+      insight: json['insight'] as String,
+      dimensions: (json['dimensions'] as List)
+          .cast<Map<String, dynamic>>()
+          .map(_toDimensionComparison)
+          .toList(),
     );
   }
 

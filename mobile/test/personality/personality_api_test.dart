@@ -67,6 +67,64 @@ void main() {
     });
   });
 
+  group('PersonalityApi.fetchCompatibilityReport', () {
+    test('sends the bearer token and parses the report sections', () async {
+      final api = PersonalityApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.headers['Authorization'], 'Bearer a-jwt');
+          expect(request.url.path, '/personality-test/compatibility/user-2/report');
+          return _jsonResponse(
+            '{"percentage":85,"sharedDimensionCount":2,"sections":[{"title":"Emotional Compatibility",'
+            '"score":80,"insight":"Generally compatible, with some differences worth navigating.",'
+            '"dimensions":[{"dimension":"Optimism","myScore":80,"theirScore":100,"similarity":80}]}]}',
+            200,
+          );
+        }),
+      );
+
+      final result = await api.fetchCompatibilityReport('user-2');
+
+      expect(result.percentage, 85);
+      expect(result.sharedDimensionCount, 2);
+      expect(result.sections, hasLength(1));
+      expect(result.sections.first.title, 'Emotional Compatibility');
+      expect(result.sections.first.score, 80);
+      expect(result.sections.first.dimensions.first.dimension, 'Optimism');
+    });
+
+    test('parses an empty section list when there is no shared data', () async {
+      final api = PersonalityApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => _jsonResponse(
+            '{"percentage":null,"sharedDimensionCount":0,"sections":[]}',
+            200,
+          ),
+        ),
+      );
+
+      final result = await api.fetchCompatibilityReport('user-2');
+
+      expect(result.percentage, isNull);
+      expect(result.sections, isEmpty);
+    });
+
+    test('throws PersonalityApiException on a non-200 response', () async {
+      final api = PersonalityApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => _jsonResponse('{"message":"User not found."}', 404),
+        ),
+      );
+
+      expect(
+        () => api.fetchCompatibilityReport('user-2'),
+        throwsA(isA<PersonalityApiException>()),
+      );
+    });
+  });
+
   group('PersonalityApi.fetchCategoryWeights', () {
     test('sends the bearer token and parses the weights', () async {
       final api = PersonalityApi(
