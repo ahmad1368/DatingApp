@@ -143,6 +143,7 @@ class ChatMessage {
     this.durationSeconds,
     this.voiceEffectId,
     this.backgroundSoundId,
+    this.transcript,
     this.readAt,
     this.icebreaker,
     this.poll,
@@ -163,6 +164,11 @@ class ChatMessage {
   final int? durationSeconds;
   final String? voiceEffectId;
   final String? backgroundSoundId;
+
+  /// Auto-generated caption for a VOICE_NOTE message, for reading in
+  /// noise-sensitive environments - null if transcription failed or this
+  /// isn't a voice note.
+  final String? transcript;
   final DateTime? readAt;
   final Icebreaker? icebreaker;
   final Poll? poll;
@@ -913,6 +919,7 @@ class MessagingApi {
       durationSeconds: json['durationSeconds'] as int?,
       voiceEffectId: json['voiceEffectId'] as String?,
       backgroundSoundId: json['backgroundSoundId'] as String?,
+      transcript: json['transcript'] as String?,
       readAt: json['readAt'] != null ? DateTime.parse(json['readAt'] as String) : null,
       icebreaker: icebreakerJson != null
           ? Icebreaker(

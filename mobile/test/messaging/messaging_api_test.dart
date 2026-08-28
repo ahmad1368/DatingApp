@@ -759,6 +759,29 @@ void main() {
       expect(message.voiceEffectId, 'robot');
       expect(message.backgroundSoundId, 'rain');
     });
+
+    test('parses the auto-generated transcript when present', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '{"id":"m7","senderId":"user-1","contentType":"VOICE_NOTE","content":null,'
+            '"mediaUrl":"file:///tmp/note.m4a","isBlurred":false,"durationSeconds":12,'
+            '"transcript":"running a bit late!","createdAt":"2026-01-01T00:00:00.000Z"}',
+            201,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      final message = await api.sendVoiceNote(
+        matchId: 'match-1',
+        mediaUrl: 'file:///tmp/note.m4a',
+        durationSeconds: 12,
+      );
+
+      expect(message.transcript, 'running a bit late!');
+    });
   });
 
   group('MessagingApi.fetchVoiceNoteEffects', () {

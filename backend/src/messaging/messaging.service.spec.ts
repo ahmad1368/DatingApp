@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, NotFoundException } from '@nes
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ImageModerator } from './interfaces/image-moderator.interface';
+import { TranscriptionProvider } from './interfaces/transcription-provider.interface';
 import { MessagingService } from './messaging.service';
 
 const MATCH_ID = 'match-1';
@@ -43,10 +44,12 @@ describe('MessagingService', () => {
   };
   let imageModerator: { moderate: jest.Mock };
   let notificationsService: { notify: jest.Mock };
+  let transcriptionProvider: { transcribe: jest.Mock };
 
   beforeEach(() => {
     imageModerator = { moderate: jest.fn().mockResolvedValue({ flagged: false, categories: [] }) };
     notificationsService = { notify: jest.fn() };
+    transcriptionProvider = { transcribe: jest.fn().mockResolvedValue('a transcript') };
     prisma = {
       match: {
         findUnique: jest.fn(),
@@ -83,6 +86,7 @@ describe('MessagingService', () => {
       prisma as unknown as PrismaService,
       imageModerator as unknown as ImageModerator,
       notificationsService as unknown as NotificationsService,
+      transcriptionProvider as unknown as TranscriptionProvider,
     );
   });
 
@@ -523,6 +527,7 @@ describe('MessagingService', () => {
         moderationCategories: [],
         voiceEffectId: null,
         backgroundSoundId: null,
+        transcript: null,
         readAt: null,
         icebreaker: null,
         poll: null,
@@ -1039,6 +1044,7 @@ describe('MessagingService', () => {
           contentType: 'VOICE_NOTE',
           mediaUrl: 'file:///tmp/note.m4a',
           durationSeconds: 12,
+          transcript: 'a transcript',
         },
       });
       expect(result.contentType).toBe('VOICE_NOTE');
@@ -1046,6 +1052,52 @@ describe('MessagingService', () => {
       expect(result.mediaUrl).toBe('file:///tmp/note.m4a');
       expect(result.voiceEffectId).toBeNull();
       expect(result.backgroundSoundId).toBeNull();
+    });
+
+    it('transcribes the recording and stores the caption', async () => {
+      mockMatch();
+      mockUsers({ [WOMAN_ID]: ['Woman'], [MAN_ID]: ['Man'] });
+      transcriptionProvider.transcribe.mockResolvedValue('running a bit late!');
+      prisma.message.create.mockResolvedValue({
+        id: 'message-5',
+        senderId: WOMAN_ID,
+        contentType: 'VOICE_NOTE',
+        content: null,
+        mediaUrl: 'file:///tmp/note.m4a',
+        isBlurred: false,
+        durationSeconds: 12,
+        transcript: 'running a bit late!',
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const result = await service.sendVoiceNote(WOMAN_ID, MATCH_ID, 'file:///tmp/note.m4a', 12);
+
+      expect(transcriptionProvider.transcribe).toHaveBeenCalledWith('file:///tmp/note.m4a');
+      expect(result.transcript).toBe('running a bit late!');
+    });
+
+    it('leaves the transcript null when transcription fails', async () => {
+      mockMatch();
+      mockUsers({ [WOMAN_ID]: ['Woman'], [MAN_ID]: ['Man'] });
+      transcriptionProvider.transcribe.mockRejectedValue(new Error('service unavailable'));
+      prisma.message.create.mockResolvedValue({
+        id: 'message-5',
+        senderId: WOMAN_ID,
+        contentType: 'VOICE_NOTE',
+        content: null,
+        mediaUrl: 'file:///tmp/note.m4a',
+        isBlurred: false,
+        durationSeconds: 12,
+        transcript: null,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const result = await service.sendVoiceNote(WOMAN_ID, MATCH_ID, 'file:///tmp/note.m4a', 12);
+
+      expect(prisma.message.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ transcript: null }),
+      });
+      expect(result.transcript).toBeNull();
     });
 
     it('rejects an unknown voice effect', async () => {
@@ -1081,6 +1133,7 @@ describe('MessagingService', () => {
         durationSeconds: 12,
         voiceEffectId: 'robot',
         backgroundSoundId: 'rain',
+        transcript: 'a transcript',
         createdAt: new Date('2026-01-01T00:00:00.000Z'),
       });
 
@@ -1095,6 +1148,7 @@ describe('MessagingService', () => {
           durationSeconds: 12,
           voiceEffectId: 'robot',
           backgroundSoundId: 'rain',
+          transcript: 'a transcript',
         },
       });
       expect(result.voiceEffectId).toBe('robot');
@@ -1224,6 +1278,7 @@ describe('MessagingService', () => {
           moderationCategories: [],
           voiceEffectId: null,
           backgroundSoundId: null,
+          transcript: null,
           readAt: null,
           icebreaker: null,
           poll: null,

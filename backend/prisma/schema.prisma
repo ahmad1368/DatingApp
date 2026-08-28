@@ -256,6 +256,10 @@ model Message {
   durationSeconds      Int?
   voiceEffectId        String?
   backgroundSoundId    String?
+  // Auto-generated caption for a VOICE_NOTE message - see
+  // MessagingService.transcribeSafely. Null if transcription failed or the
+  // message isn't a voice note.
+  transcript           String?
   pollOptions          String[]  @default([])
   readAt               DateTime?
   // Auto-expiring media: null expiryMode means a normal, permanent message.
