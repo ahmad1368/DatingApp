@@ -146,6 +146,117 @@ void main() {
     });
   });
 
+  group('ProfilePromptsApi.reactToVoicePrompt', () {
+    test('sends a text comment reaction', () async {
+      http.Request? postRequest;
+      final api = ProfilePromptsApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          postRequest = request;
+          return _jsonResponse(
+            '{"id":"reaction-1","fromUserId":"user-1","toUserId":"user-2",'
+            '"promptId":"perfect-first-date","comment":"Love this!","audioReplyUrl":null,'
+            '"durationSeconds":null,"createdAt":"2026-01-01T00:00:00.000Z"}',
+            201,
+          );
+        }),
+      );
+
+      final reaction = await api.reactToVoicePrompt(
+        promptId: 'perfect-first-date',
+        targetUserId: 'user-2',
+        comment: 'Love this!',
+      );
+
+      expect(postRequest!.method, 'POST');
+      expect(postRequest!.url.path, '/profile-prompts/perfect-first-date/reactions');
+      expect(postRequest!.body, '{"targetUserId":"user-2","comment":"Love this!"}');
+      expect(reaction.comment, 'Love this!');
+      expect(reaction.audioReplyUrl, isNull);
+    });
+
+    test('sends an audio reply reaction', () async {
+      http.Request? postRequest;
+      final api = ProfilePromptsApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          postRequest = request;
+          return _jsonResponse(
+            '{"id":"reaction-2","fromUserId":"user-1","toUserId":"user-2",'
+            '"promptId":"perfect-first-date","comment":null,'
+            '"audioReplyUrl":"file:///tmp/reply.m4a","durationSeconds":8,'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}',
+            201,
+          );
+        }),
+      );
+
+      final reaction = await api.reactToVoicePrompt(
+        promptId: 'perfect-first-date',
+        targetUserId: 'user-2',
+        audioReplyUrl: 'file:///tmp/reply.m4a',
+        durationSeconds: 8,
+      );
+
+      expect(
+        postRequest!.body,
+        '{"targetUserId":"user-2","audioReplyUrl":"file:///tmp/reply.m4a","durationSeconds":8}',
+      );
+      expect(reaction.audioReplyUrl, 'file:///tmp/reply.m4a');
+      expect(reaction.durationSeconds, 8);
+    });
+
+    test('throws ProfilePromptsApiException when the target has no answer for that prompt', () async {
+      final api = ProfilePromptsApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async =>
+              _jsonResponse('{"message":"This user has no voice answer for that prompt."}', 404),
+        ),
+      );
+
+      expect(
+        () => api.reactToVoicePrompt(
+          promptId: 'perfect-first-date',
+          targetUserId: 'user-2',
+          comment: 'Hi',
+        ),
+        throwsA(isA<ProfilePromptsApiException>()),
+      );
+    });
+  });
+
+  group('ProfilePromptsApi.fetchReactions', () {
+    test('parses reactions received on the caller\'s own prompt answer', () async {
+      final api = ProfilePromptsApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.url.path, '/profile-prompts/perfect-first-date/reactions');
+          return _jsonResponse(
+            '[{"id":"reaction-1","fromUserId":"user-2","toUserId":"user-1",'
+            '"promptId":"perfect-first-date","comment":"Love this!","audioReplyUrl":null,'
+            '"durationSeconds":null,"createdAt":"2026-01-01T00:00:00.000Z"}]',
+            200,
+          );
+        }),
+      );
+
+      final reactions = await api.fetchReactions('perfect-first-date');
+
+      expect(reactions, hasLength(1));
+      expect(reactions.first.comment, 'Love this!');
+    });
+
+    test('throws ProfilePromptsApiException on a non-200 response', () async {
+      final api = ProfilePromptsApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => http.Response('', 500)),
+      );
+
+      expect(() => api.fetchReactions('perfect-first-date'), throwsA(isA<ProfilePromptsApiException>()));
+    });
+  });
+
   group('ProfilePromptsApi.fetchMyVideoAnswers', () {
     test('parses stored video answers', () async {
       final api = ProfilePromptsApi(
