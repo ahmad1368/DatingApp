@@ -547,6 +547,39 @@ export class MessagingService {
   }
 
   /**
+   * Nudges a fresh match toward playing an icebreaker: returns a prompt
+   * only while the match is still inside its first-message window (see
+   * FIRST_MESSAGE_WINDOW_HOURS) and only until either side has sent one,
+   * so the suggestion doesn't linger once the pair is already chatting.
+   * The pick is deterministic per match so repeat calls (e.g. re-opening
+   * the chat) show the same suggestion rather than a new one each time.
+   */
+  async getSuggestedIcebreaker(userId: string, matchId: string): Promise<IcebreakerPrompt | null> {
+    const match = await this.getMatchForUser(userId, matchId);
+
+    if (new Date() > match.firstMessageExpiresAt) {
+      return null;
+    }
+
+    const alreadySent = await this.prisma.message.findFirst({
+      where: { matchId, contentType: 'ICEBREAKER' },
+    });
+    if (alreadySent) {
+      return null;
+    }
+
+    return ICEBREAKER_PROMPTS[this.hashToIndex(matchId, ICEBREAKER_PROMPTS.length)];
+  }
+
+  private hashToIndex(value: string, modulus: number): number {
+    let hash = 0;
+    for (let i = 0; i < value.length; i++) {
+      hash = (hash * 31 + value.charCodeAt(i)) % modulus;
+    }
+    return hash;
+  }
+
+  /**
    * In-chat custom poll: unlike an icebreaker (a fixed two-option question
    * from a curated catalog), the sender writes their own question and
    * options - handy for deciding on a date spot or activity together.

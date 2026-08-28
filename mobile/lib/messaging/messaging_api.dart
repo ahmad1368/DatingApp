@@ -768,6 +768,32 @@ class MessagingApi {
         .toList();
   }
 
+  /// A single curated icebreaker prompt to nudge a fresh match into playing,
+  /// or null once the match has left its first-message window or either
+  /// side has already sent one.
+  Future<IcebreakerPrompt?> fetchSuggestedIcebreaker(String matchId) async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/matches/$matchId/suggested-icebreaker'),
+      headers: _headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw MessagingApiException(_errorMessage(_decode(response), response.statusCode));
+    }
+
+    if (response.body.isEmpty || response.body == 'null') {
+      return null;
+    }
+
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    return IcebreakerPrompt(
+      id: json['id'] as String,
+      question: json['question'] as String,
+      optionA: json['optionA'] as String,
+      optionB: json['optionB'] as String,
+    );
+  }
+
   /// AI-suggested opening lines for this match, based on shared interests
   /// and compatibility-questionnaire overlap.
   Future<List<String>> fetchIcebreakerSuggestions(String matchId) async {

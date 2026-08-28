@@ -1334,6 +1334,62 @@ describe('MessagingService', () => {
     });
   });
 
+  describe('getSuggestedIcebreaker', () => {
+    it('throws when the user is not part of the match', async () => {
+      mockMatch();
+
+      await expect(
+        service.getSuggestedIcebreaker('someone-else', MATCH_ID),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('returns null once the first-message window has expired', async () => {
+      mockMatch({ firstMessageExpiresAt: hoursFromNow(-1) });
+
+      const result = await service.getSuggestedIcebreaker(WOMAN_ID, MATCH_ID);
+
+      expect(result).toBeNull();
+    });
+
+    it('returns null once an icebreaker has already been sent in this match', async () => {
+      mockMatch();
+      prisma.message.findFirst.mockResolvedValue({ id: 'message-1', contentType: 'ICEBREAKER' });
+
+      const result = await service.getSuggestedIcebreaker(WOMAN_ID, MATCH_ID);
+
+      expect(result).toBeNull();
+      expect(prisma.message.findFirst).toHaveBeenCalledWith({
+        where: { matchId: MATCH_ID, contentType: 'ICEBREAKER' },
+      });
+    });
+
+    it('returns a curated prompt when the match is fresh and unplayed', async () => {
+      mockMatch();
+      prisma.message.findFirst.mockResolvedValue(null);
+
+      const result = await service.getSuggestedIcebreaker(WOMAN_ID, MATCH_ID);
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          id: expect.any(String),
+          question: expect.any(String),
+          optionA: expect.any(String),
+          optionB: expect.any(String),
+        }),
+      );
+    });
+
+    it('deterministically picks the same prompt for the same match', async () => {
+      mockMatch();
+      prisma.message.findFirst.mockResolvedValue(null);
+
+      const first = await service.getSuggestedIcebreaker(WOMAN_ID, MATCH_ID);
+      const second = await service.getSuggestedIcebreaker(WOMAN_ID, MATCH_ID);
+
+      expect(first?.id).toBe(second?.id);
+    });
+  });
+
   describe('sendIcebreaker', () => {
     it('rejects an unknown prompt id', async () => {
       await expect(
