@@ -36,6 +36,22 @@ class VettingApplication {
   bool get isApproved => status == 'APPROVED';
 }
 
+class VipReferralCode {
+  VipReferralCode({
+    required this.code,
+    required this.consumedAt,
+    required this.consumedByUserId,
+    required this.createdAt,
+  });
+
+  final String code;
+  final DateTime? consumedAt;
+  final String? consumedByUserId;
+  final DateTime createdAt;
+
+  bool get isUsed => consumedAt != null;
+}
+
 class QueuedApplication {
   QueuedApplication({
     required this.id,
@@ -183,6 +199,66 @@ class VettingApi {
     }
 
     return _toApplication(body);
+  }
+
+  /// VIP-only (see User.isVerified): generates a single-use invite code that
+  /// lets a referred contact bypass the standard waitlist/committee-approval
+  /// queue entirely.
+  Future<VipReferralCode> generateVipReferralCode() async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/vetting/vip-referral-codes'),
+      headers: _headers,
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 201) {
+      throw VettingApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return _toVipReferralCode(body);
+  }
+
+  /// The caller's own VIP referral codes, most recent first, including
+  /// which ones have already been used.
+  Future<List<VipReferralCode>> fetchMyVipReferralCodes() async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/vetting/vip-referral-codes'),
+      headers: _headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw VettingApiException(_errorMessage(_decode(response), response.statusCode));
+    }
+
+    final list = jsonDecode(response.body) as List;
+    return list.cast<Map<String, dynamic>>().map(_toVipReferralCode).toList();
+  }
+
+  /// Redeems a VIP referral code: instantly approves the caller's
+  /// application (creating it first if they haven't applied yet), bypassing
+  /// the peer-referral threshold and committee decision.
+  Future<VettingApplication> redeemVipReferralCode(String code) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/vetting/vip-referral-codes/redeem'),
+      headers: _headers,
+      body: jsonEncode({'code': code}),
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 200) {
+      throw VettingApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return _toApplication(body);
+  }
+
+  VipReferralCode _toVipReferralCode(Map<String, dynamic> json) {
+    return VipReferralCode(
+      code: json['code'] as String,
+      consumedAt: json['consumedAt'] != null ? DateTime.parse(json['consumedAt'] as String) : null,
+      consumedByUserId: json['consumedByUserId'] as String?,
+      createdAt: DateTime.parse(json['createdAt'] as String),
+    );
   }
 
   VettingApplication _toApplication(Map<String, dynamic> json) {

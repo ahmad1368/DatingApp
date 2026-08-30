@@ -719,6 +719,24 @@ model Referral {
   @@map("referrals")
 }
 
+// "VIP Referral Access Codes": a selfie-verified member's single-use invite
+// code that lets a referred contact bypass the standard Application
+// waitlist/committee-approval queue entirely - see
+// VipReferralService.redeemVipCode. Distinct from the reusable
+// User.referralCode (which only adds a peer referral toward the normal
+// REQUIRED_PEER_REFERRALS threshold, still gated on committee decide()).
+model VipReferralCode {
+  id               String    @id @default(uuid())
+  code             String    @unique
+  ownerId          String
+  consumedAt       DateTime?
+  consumedByUserId String?
+  createdAt        DateTime  @default(now())
+
+  @@index([ownerId])
+  @@map("vip_referral_codes")
+}
+
 model CouplePairing {
   id          String    @id @default(uuid())
   requesterId String
