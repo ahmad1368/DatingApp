@@ -21,6 +21,8 @@ String _fullFiltersJson({String petOwnership = '[]', String petAllergyStatus = '
   "workoutHabit": null,
   "petOwnership": null,
   "petAllergyStatus": null,
+  "politicalOrientation": null,
+  "civicActivityLevel": null,
   "showLifestyleBadgesOnProfile": true,
   "filterSmokingHabits": [],
   "filterDrinkingHabits": [],
@@ -33,6 +35,7 @@ String _fullFiltersJson({String petOwnership = '[]', String petAllergyStatus = '
   "filterRelationshipDesires": [],
   "filterPetOwnership": $petOwnership,
   "filterPetAllergyStatus": $petAllergyStatus,
+  "filterPoliticalOrientations": [],
   "filterSharedInterestsOnly": false,
   "filterVerifiedOnly": false,
   "filterCommunityGroups": []

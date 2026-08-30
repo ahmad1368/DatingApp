@@ -27,6 +27,8 @@ String _fullFiltersJson({
   "workoutHabit": null,
   "petOwnership": null,
   "petAllergyStatus": null,
+  "politicalOrientation": null,
+  "civicActivityLevel": null,
   "showLifestyleBadgesOnProfile": true,
   "filterSmokingHabits": [],
   "filterDrinkingHabits": [],
@@ -39,6 +41,7 @@ String _fullFiltersJson({
   "filterRelationshipDesires": $relationshipDesires,
   "filterPetOwnership": $petOwnership,
   "filterPetAllergyStatus": $petAllergyStatus,
+  "filterPoliticalOrientations": [],
   "filterSharedInterestsOnly": false,
   "filterVerifiedOnly": $verifiedOnly,
   "filterCommunityGroups": $communityGroups
@@ -155,6 +158,34 @@ void main() {
     });
   });
 
+  group('LifestyleFiltersApi.fetchPoliticalOrientationOptions', () {
+    test('parses the political orientation catalog', () async {
+      final api = LifestyleFiltersApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.url.path, '/profile/lifestyle/catalog');
+          return _jsonResponse('{"politicalOrientations":["Progressive","Moderate","Conservative"]}', 200);
+        }),
+      );
+
+      final options = await api.fetchPoliticalOrientationOptions();
+
+      expect(options, ['Progressive', 'Moderate', 'Conservative']);
+    });
+
+    test('throws LifestyleFiltersApiException on a non-200 response', () async {
+      final api = LifestyleFiltersApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => _jsonResponse('{"message":"boom"}', 500)),
+      );
+
+      expect(
+        () => api.fetchPoliticalOrientationOptions(),
+        throwsA(isA<LifestyleFiltersApiException>()),
+      );
+    });
+  });
+
   group('LifestyleFiltersApi.fetchFilters', () {
     test('sends the bearer token and parses the current filters', () async {
       final api = LifestyleFiltersApi(
@@ -215,6 +246,7 @@ void main() {
         filterRelationshipDesires: const [],
         filterPetOwnership: const [],
         filterPetAllergyStatus: const [],
+        filterPoliticalOrientations: const [],
         filterSharedInterestsOnly: false,
         filterVerifiedOnly: false,
         filterCommunityGroups: const [],
@@ -315,6 +347,28 @@ void main() {
       expect(putRequest!.body, contains('"filterPetAllergyStatus":["Allergy Free"]'));
       expect(updated.filterPetOwnership, ['Dog', 'Cat']);
       expect(updated.filterPetAllergyStatus, ['Allergy Free']);
+    });
+
+    test('sends the updated filterPoliticalOrientations list', () async {
+      http.Request? putRequest;
+      final api = LifestyleFiltersApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          putRequest = request;
+          return _jsonResponse(_fullFiltersJson(), 200);
+        }),
+      );
+      final current = await LifestyleFiltersApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => _jsonResponse(_fullFiltersJson(), 200)),
+      ).fetchFilters();
+
+      final updated = await api.setFilters(
+        current.copyWith(filterPoliticalOrientations: ['Moderate', 'Liberal']),
+      );
+
+      expect(putRequest!.body, contains('"filterPoliticalOrientations":["Moderate","Liberal"]'));
+      expect(updated.filterPoliticalOrientations, isEmpty);
     });
   });
 }

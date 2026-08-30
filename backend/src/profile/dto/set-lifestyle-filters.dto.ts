@@ -4,6 +4,7 @@ import { COMMUNITY_GROUP_IDS } from '../../community-groups/community-groups.con
 import { KINK_TAGS, RELATIONSHIP_DESIRES } from '../relationship-profile.constants';
 import {
   CHILDREN_PREFERENCES,
+  CIVIC_ACTIVITY_LEVELS,
   DIETARY_PREFERENCES,
   DRINKING_HABITS,
   EDUCATION_LEVELS,
@@ -12,6 +13,7 @@ import {
   MIN_HEIGHT_CM,
   PET_ALLERGY_STATUS_OPTIONS,
   PET_OWNERSHIP_OPTIONS,
+  POLITICAL_ORIENTATIONS,
   RELIGIONS,
   SMOKING_HABITS,
   WORKOUT_HABITS,
@@ -59,6 +61,14 @@ export class SetLifestyleFiltersDto {
   @IsOptional()
   @IsIn(PET_ALLERGY_STATUS_OPTIONS)
   petAllergyStatus?: string;
+
+  @IsOptional()
+  @IsIn(POLITICAL_ORIENTATIONS)
+  politicalOrientation?: string;
+
+  @IsOptional()
+  @IsIn(CIVIC_ACTIVITY_LEVELS)
+  civicActivityLevel?: string;
 
   @IsBoolean()
   showLifestyleBadgesOnProfile!: boolean;
@@ -117,6 +127,12 @@ export class SetLifestyleFiltersDto {
   @ArrayMaxSize(MAX_FILTER_SELECTIONS)
   @IsIn(PET_ALLERGY_STATUS_OPTIONS, { each: true })
   filterPetAllergyStatus!: string[];
+
+  /** When non-empty, the deck only shows candidates whose political orientation is one of these. */
+  @IsArray()
+  @ArrayMaxSize(MAX_FILTER_SELECTIONS)
+  @IsIn(POLITICAL_ORIENTATIONS, { each: true })
+  filterPoliticalOrientations!: string[];
 
   /** When true, the deck only shows candidates who share at least one interest tag. */
   @IsBoolean()

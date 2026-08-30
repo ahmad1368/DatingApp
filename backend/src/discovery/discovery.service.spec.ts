@@ -956,6 +956,38 @@ describe('DiscoveryService', () => {
       });
     });
 
+    it('applies the political orientation filter to the candidate query', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+        filterPoliticalOrientations: ['Moderate', 'Liberal'],
+      });
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      prisma.user.findMany.mockResolvedValue([]);
+
+      await service.getDeck(USER_ID);
+
+      expect(prisma.user.findMany).toHaveBeenCalledWith({
+        where: {
+          id: { notIn: [USER_ID] },
+          onboardingCompletedAt: { not: null },
+          activeMode: 'DATING',
+          AND: [
+            { OR: [{ incognitoEnabled: false }, { id: { in: [] } }] },
+            { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
+          ],
+          politicalOrientation: { in: ['Moderate', 'Liberal'] },
+        },
+        take: 60,
+      });
+    });
+
     it('filters the deck to shared-interest candidates only when opted in', async () => {
       prisma.user.findUnique.mockResolvedValue({
         id: USER_ID,

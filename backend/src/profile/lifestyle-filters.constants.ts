@@ -59,3 +59,26 @@ export const PET_ALLERGY_STATUS_OPTIONS = ['Allergy Free', 'Has Pet Allergies'] 
 
 export const MIN_HEIGHT_CM = 100;
 export const MAX_HEIGHT_CM = 250;
+
+// Ordered left-to-right on the ideological spectrum used by
+// computePoliticalAlignmentScore - the array position (not the label) is
+// what the distance calculation is based on, so reordering these changes
+// scoring. Apolitical/Prefer Not to Say fall outside the spectrum entirely.
+export const POLITICAL_ORIENTATIONS = [
+  'Progressive',
+  'Liberal',
+  'Moderate',
+  'Conservative',
+  'Libertarian',
+  'Apolitical',
+  'Prefer Not to Say',
+] as const;
+
+// Ordered from least to most engaged - array position drives the civic
+// engagement closeness component of computePoliticalAlignmentScore.
+export const CIVIC_ACTIVITY_LEVELS = [
+  'Not Active',
+  'Occasionally Active',
+  'Regularly Active',
+  'Highly Active',
+] as const;

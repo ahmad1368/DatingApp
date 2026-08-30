@@ -7,6 +7,7 @@ import { KINK_TAGS, RELATIONSHIP_DESIRES } from './relationship-profile.constant
 import { SetLifestyleFiltersDto } from './dto/set-lifestyle-filters.dto';
 import {
   CHILDREN_PREFERENCES,
+  CIVIC_ACTIVITY_LEVELS,
   DIETARY_PREFERENCES,
   DRINKING_HABITS,
   EDUCATION_LEVELS,
@@ -14,6 +15,7 @@ import {
   MIN_HEIGHT_CM,
   PET_ALLERGY_STATUS_OPTIONS,
   PET_OWNERSHIP_OPTIONS,
+  POLITICAL_ORIENTATIONS,
   RELIGIONS,
   SMOKING_HABITS,
   WORKOUT_HABITS,
@@ -42,6 +44,8 @@ export class LifestyleFiltersController {
       petAllergyStatusOptions: PET_ALLERGY_STATUS_OPTIONS,
       minHeightCm: MIN_HEIGHT_CM,
       maxHeightCm: MAX_HEIGHT_CM,
+      politicalOrientations: POLITICAL_ORIENTATIONS,
+      civicActivityLevels: CIVIC_ACTIVITY_LEVELS,
     };
   }
 

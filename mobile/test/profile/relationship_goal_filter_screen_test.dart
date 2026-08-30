@@ -21,6 +21,8 @@ String _fullFiltersJson({String relationshipGoals = '[]'}) => '''
   "workoutHabit": null,
   "petOwnership": null,
   "petAllergyStatus": null,
+  "politicalOrientation": null,
+  "civicActivityLevel": null,
   "showLifestyleBadgesOnProfile": true,
   "filterSmokingHabits": [],
   "filterDrinkingHabits": [],
@@ -33,6 +35,7 @@ String _fullFiltersJson({String relationshipGoals = '[]'}) => '''
   "filterRelationshipDesires": [],
   "filterPetOwnership": [],
   "filterPetAllergyStatus": [],
+  "filterPoliticalOrientations": [],
   "filterSharedInterestsOnly": false,
   "filterVerifiedOnly": false,
   "filterCommunityGroups": []

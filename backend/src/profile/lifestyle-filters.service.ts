@@ -13,6 +13,8 @@ export interface LifestyleFiltersResult {
   workoutHabit: string | null;
   petOwnership: string | null;
   petAllergyStatus: string | null;
+  politicalOrientation: string | null;
+  civicActivityLevel: string | null;
   showLifestyleBadgesOnProfile: boolean;
   filterSmokingHabits: string[];
   filterDrinkingHabits: string[];
@@ -25,6 +27,7 @@ export interface LifestyleFiltersResult {
   filterRelationshipDesires: string[];
   filterPetOwnership: string[];
   filterPetAllergyStatus: string[];
+  filterPoliticalOrientations: string[];
   filterSharedInterestsOnly: boolean;
   filterVerifiedOnly: boolean;
   filterCommunityGroups: string[];
@@ -41,6 +44,8 @@ interface LifestyleFiltersRecord {
   workoutHabit: string | null;
   petOwnership: string | null;
   petAllergyStatus: string | null;
+  politicalOrientation: string | null;
+  civicActivityLevel: string | null;
   showLifestyleBadgesOnProfile: boolean;
   filterSmokingHabits: string[];
   filterDrinkingHabits: string[];
@@ -53,6 +58,7 @@ interface LifestyleFiltersRecord {
   filterRelationshipDesires: string[];
   filterPetOwnership: string[];
   filterPetAllergyStatus: string[];
+  filterPoliticalOrientations: string[];
   filterSharedInterestsOnly: boolean;
   filterVerifiedOnly: boolean;
   filterCommunityGroups: string[];
@@ -69,6 +75,8 @@ const SELECT = {
   workoutHabit: true,
   petOwnership: true,
   petAllergyStatus: true,
+  politicalOrientation: true,
+  civicActivityLevel: true,
   showLifestyleBadgesOnProfile: true,
   filterSmokingHabits: true,
   filterDrinkingHabits: true,
@@ -81,6 +89,7 @@ const SELECT = {
   filterRelationshipDesires: true,
   filterPetOwnership: true,
   filterPetAllergyStatus: true,
+  filterPoliticalOrientations: true,
   filterSharedInterestsOnly: true,
   filterVerifiedOnly: true,
   filterCommunityGroups: true,
@@ -112,6 +121,8 @@ export class LifestyleFiltersService {
         workoutHabit: dto.workoutHabit ?? null,
         petOwnership: dto.petOwnership ?? null,
         petAllergyStatus: dto.petAllergyStatus ?? null,
+        politicalOrientation: dto.politicalOrientation ?? null,
+        civicActivityLevel: dto.civicActivityLevel ?? null,
         showLifestyleBadgesOnProfile: dto.showLifestyleBadgesOnProfile,
         filterSmokingHabits: dto.filterSmokingHabits,
         filterDrinkingHabits: dto.filterDrinkingHabits,
@@ -124,6 +135,7 @@ export class LifestyleFiltersService {
         filterRelationshipDesires: dto.filterRelationshipDesires,
         filterPetOwnership: dto.filterPetOwnership,
         filterPetAllergyStatus: dto.filterPetAllergyStatus,
+        filterPoliticalOrientations: dto.filterPoliticalOrientations,
         filterSharedInterestsOnly: dto.filterSharedInterestsOnly,
         filterVerifiedOnly: dto.filterVerifiedOnly,
         filterCommunityGroups: dto.filterCommunityGroups,
@@ -146,6 +158,8 @@ export class LifestyleFiltersService {
       workoutHabit: user?.workoutHabit ?? null,
       petOwnership: user?.petOwnership ?? null,
       petAllergyStatus: user?.petAllergyStatus ?? null,
+      politicalOrientation: user?.politicalOrientation ?? null,
+      civicActivityLevel: user?.civicActivityLevel ?? null,
       showLifestyleBadgesOnProfile: user?.showLifestyleBadgesOnProfile ?? true,
       filterSmokingHabits: user?.filterSmokingHabits ?? [],
       filterDrinkingHabits: user?.filterDrinkingHabits ?? [],
@@ -158,6 +172,7 @@ export class LifestyleFiltersService {
       filterRelationshipDesires: user?.filterRelationshipDesires ?? [],
       filterPetOwnership: user?.filterPetOwnership ?? [],
       filterPetAllergyStatus: user?.filterPetAllergyStatus ?? [],
+      filterPoliticalOrientations: user?.filterPoliticalOrientations ?? [],
       filterSharedInterestsOnly: user?.filterSharedInterestsOnly ?? false,
       filterVerifiedOnly: user?.filterVerifiedOnly ?? false,
       filterCommunityGroups: user?.filterCommunityGroups ?? [],

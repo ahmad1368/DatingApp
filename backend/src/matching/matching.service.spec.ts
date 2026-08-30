@@ -18,7 +18,11 @@ describe('MatchingService', () => {
     prisma = {
       question: { findMany: jest.fn(), findUnique: jest.fn() },
       questionAnswer: { upsert: jest.fn(), findMany: jest.fn() },
-      user: { findUnique: jest.fn().mockResolvedValue({ dateOfBirth: null }) },
+      user: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ dateOfBirth: null, politicalOrientation: null, civicActivityLevel: null }),
+      },
     };
     service = new MatchingService(prisma as unknown as PrismaService);
   });
@@ -130,6 +134,11 @@ describe('MatchingService', () => {
         zodiacElement: null,
         otherZodiacElement: null,
         zodiacCompatibilityScore: null,
+        politicalOrientation: null,
+        otherPoliticalOrientation: null,
+        civicActivityLevel: null,
+        otherCivicActivityLevel: null,
+        politicalAlignmentScore: null,
       });
     });
 
@@ -163,6 +172,11 @@ describe('MatchingService', () => {
         zodiacElement: null,
         otherZodiacElement: null,
         zodiacCompatibilityScore: null,
+        politicalOrientation: null,
+        otherPoliticalOrientation: null,
+        civicActivityLevel: null,
+        otherCivicActivityLevel: null,
+        politicalAlignmentScore: null,
       });
     });
 
@@ -196,6 +210,11 @@ describe('MatchingService', () => {
         zodiacElement: null,
         otherZodiacElement: null,
         zodiacCompatibilityScore: null,
+        politicalOrientation: null,
+        otherPoliticalOrientation: null,
+        civicActivityLevel: null,
+        otherCivicActivityLevel: null,
+        politicalAlignmentScore: null,
       });
     });
 
@@ -260,6 +279,42 @@ describe('MatchingService', () => {
       expect(result.zodiacElement).toBeNull();
       expect(result.otherZodiacElement).toBeNull();
       expect(result.zodiacCompatibilityScore).toBeNull();
+    });
+
+    it('computes a political alignment score when both users have declared an orientation', async () => {
+      prisma.questionAnswer.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      prisma.user.findUnique
+        .mockResolvedValueOnce({
+          dateOfBirth: null,
+          politicalOrientation: 'Progressive',
+          civicActivityLevel: 'Highly Active',
+        })
+        .mockResolvedValueOnce({
+          dateOfBirth: null,
+          politicalOrientation: 'Liberal',
+          civicActivityLevel: 'Regularly Active',
+        });
+
+      const result = await service.getCompatibility(USER_ID, OTHER_ID);
+
+      expect(result.politicalOrientation).toBe('Progressive');
+      expect(result.otherPoliticalOrientation).toBe('Liberal');
+      expect(result.civicActivityLevel).toBe('Highly Active');
+      expect(result.otherCivicActivityLevel).toBe('Regularly Active');
+      expect(result.politicalAlignmentScore).toBe(73);
+    });
+
+    it('leaves political fields null when either user has not declared an orientation', async () => {
+      prisma.questionAnswer.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      prisma.user.findUnique
+        .mockResolvedValueOnce({ dateOfBirth: null, politicalOrientation: 'Moderate', civicActivityLevel: null })
+        .mockResolvedValueOnce({ dateOfBirth: null, politicalOrientation: null, civicActivityLevel: null });
+
+      const result = await service.getCompatibility(USER_ID, OTHER_ID);
+
+      expect(result.politicalOrientation).toBe('Moderate');
+      expect(result.otherPoliticalOrientation).toBeNull();
+      expect(result.politicalAlignmentScore).toBeNull();
     });
   });
 });

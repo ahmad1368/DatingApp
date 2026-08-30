@@ -1362,6 +1362,7 @@ export class DiscoveryService {
     filterRelationshipDesires?: string[];
     filterPetOwnership?: string[];
     filterPetAllergyStatus?: string[];
+    filterPoliticalOrientations?: string[];
     filterSharedInterestsOnly: boolean;
     filterVerifiedOnly?: boolean;
     filterCommunityGroups?: string[];
@@ -1401,6 +1402,9 @@ export class DiscoveryService {
     }
     if ((currentUser.filterPetAllergyStatus ?? []).length > 0) {
       where.petAllergyStatus = { in: currentUser.filterPetAllergyStatus };
+    }
+    if ((currentUser.filterPoliticalOrientations ?? []).length > 0) {
+      where.politicalOrientation = { in: currentUser.filterPoliticalOrientations };
     }
     if (currentUser.filterSharedInterestsOnly && currentUser.interests.length > 0) {
       where.interests = { hasSome: currentUser.interests };
