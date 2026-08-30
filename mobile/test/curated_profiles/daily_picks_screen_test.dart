@@ -116,4 +116,26 @@ void main() {
 
     await tester.pumpWidget(Container());
   });
+
+  testWidgets('shows a top pick badge for the most compatible profile', (tester) async {
+    const topPickResponse = '[{"id":"user-2","name":"Jane","age":25,"profilePhotoUrl":null,'
+        '"compatibilityPercentage":95,"isTopPick":true}]';
+    final curatedApi = CuratedProfilesApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async => _routedResponse(request, topPickResponse)),
+    );
+    final discoveryApi = DiscoveryApi(accessToken: 'a-jwt', client: MockClient((request) async => http.Response('{}', 200)));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: DailyPicksScreen(curatedProfilesApi: curatedApi, discoveryApi: discoveryApi),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('95% compatible · Top Pick'), findsOneWidget);
+    expect(find.byIcon(Icons.star), findsOneWidget);
+
+    await tester.pumpWidget(Container());
+  });
 }

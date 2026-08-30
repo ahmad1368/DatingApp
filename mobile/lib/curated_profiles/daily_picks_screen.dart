@@ -127,9 +127,11 @@ class _DailyPicksScreenState extends State<DailyPicksScreen> {
                           itemBuilder: (context, index) {
                             final profile = _picks[index];
                             return ListTile(
-                              leading: profile.isStandout
-                                  ? const Icon(Icons.local_fire_department, color: Colors.deepOrange)
-                                  : null,
+                              leading: profile.isTopPick
+                                  ? const Icon(Icons.star, color: Colors.amber)
+                                  : profile.isStandout
+                                      ? const Icon(Icons.local_fire_department, color: Colors.deepOrange)
+                                      : null,
                               title: Text(
                                 profile.name != null
                                     ? '${profile.name}${profile.age != null ? ', ${profile.age}' : ''}'
@@ -137,9 +139,11 @@ class _DailyPicksScreenState extends State<DailyPicksScreen> {
                               ),
                               subtitle: profile.compatibilityPercentage != null
                                   ? Text(
-                                      profile.isStandout
-                                          ? '${profile.compatibilityPercentage}% compatible · Standout'
-                                          : '${profile.compatibilityPercentage}% compatible',
+                                      [
+                                        '${profile.compatibilityPercentage}% compatible',
+                                        if (profile.isTopPick) 'Top Pick',
+                                        if (profile.isStandout) 'Standout',
+                                      ].join(' · '),
                                     )
                                   : null,
                               trailing: Row(

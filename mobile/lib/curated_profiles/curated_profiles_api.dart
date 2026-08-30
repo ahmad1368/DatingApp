@@ -19,6 +19,7 @@ class CuratedProfile {
     this.profilePhotoUrl,
     this.compatibilityPercentage,
     this.isStandout = false,
+    this.isTopPick = false,
   });
 
   final String id;
@@ -27,6 +28,10 @@ class CuratedProfile {
   final String? profilePhotoUrl;
   final int? compatibilityPercentage;
   final bool isStandout;
+
+  /// The single highest-ranked profile in today's batch - see the backend's
+  /// "Most Compatible Pick" notification, which points at this same profile.
+  final bool isTopPick;
 }
 
 /// Talks to the backend's daily curated profiles ("bagels") endpoint.
@@ -80,6 +85,7 @@ class CuratedProfilesApi {
             profilePhotoUrl: json['profilePhotoUrl'] as String?,
             compatibilityPercentage: json['compatibilityPercentage'] as int?,
             isStandout: json['isStandout'] as bool? ?? false,
+            isTopPick: json['isTopPick'] as bool? ?? false,
           ),
         )
         .toList();

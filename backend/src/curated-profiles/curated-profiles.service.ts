@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { MatchingService } from '../matching/matching.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { getBlockedUserIds } from '../blocking/blocking.utils';
 import { LIKE_ACTIONS } from '../discovery/discovery.constants';
 import { calculateAge } from '../discovery/utils/age';
@@ -22,6 +23,8 @@ export interface CuratedProfile {
   profilePhotoUrl: string | null;
   compatibilityPercentage: number | null;
   isStandout: boolean;
+  /** The single highest-ranked profile in today's batch - see generatePicks's notifyTopPick. */
+  isTopPick: boolean;
 }
 
 export interface RefreshCountdown {
@@ -38,6 +41,7 @@ export class CuratedProfilesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly matchingService: MatchingService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   /**
@@ -151,7 +155,34 @@ export class CuratedProfilesService {
       skipDuplicates: true,
     });
 
+    if (top.length > 0) {
+      await this.notifyTopPick(userId, top[0]);
+    }
+
     return top;
+  }
+
+  /**
+   * "Most Compatible Pick" notification: fires once per day, the moment a
+   * fresh batch is generated (generatePicks only runs once per windowStart -
+   * see getDailyPicks), pointing the user at the single highest-ranked
+   * profile in that batch rather than making them dig through the list.
+   */
+  private async notifyTopPick(userId: string, topPick: DailyPickRecord): Promise<void> {
+    const candidate = await this.prisma.user.findUnique({
+      where: { id: topPick.candidateId },
+      select: { name: true },
+    });
+
+    await this.notificationsService.notify(
+      userId,
+      'TOP_PICK',
+      "Today's Most Compatible Pick",
+      candidate?.name
+        ? `${candidate.name} is your top match today - take a look!`
+        : 'Your top match today is ready - take a look!',
+      { candidateId: topPick.candidateId },
+    );
   }
 
   private async toCuratedProfiles(picks: DailyPickRecord[]): Promise<CuratedProfile[]> {
@@ -164,7 +195,7 @@ export class CuratedProfilesService {
     const now = new Date();
 
     const profiles: CuratedProfile[] = [];
-    for (const pick of picks) {
+    for (const [index, pick] of picks.entries()) {
       const candidate = candidateById.get(pick.candidateId);
       if (!candidate) {
         continue;
@@ -176,6 +207,7 @@ export class CuratedProfilesService {
         profilePhotoUrl: candidate.profilePhotoUrl,
         compatibilityPercentage: pick.compatibilityScore,
         isStandout: (engagementCounts.get(pick.candidateId) ?? 0) >= STANDOUT_ENGAGEMENT_THRESHOLD,
+        isTopPick: index === 0,
       });
     }
     return profiles;

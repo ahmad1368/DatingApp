@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-30T19:49:47.063Z",
+  "generated_at": "2026-08-30T20:04:44.092Z",
   "snapshot": [
     {
       "number": 454,
@@ -1412,11 +1412,6 @@
       "updatedAt": "2026-08-10T20:42:51Z"
     },
     {
-      "number": 172,
-      "title": "First Move Prompt Assistant for Men",
-      "updatedAt": "2026-08-10T20:42:49Z"
-    },
-    {
       "number": 162,
       "title": "24-Hour Rematch Extension Unlock",
       "updatedAt": "2026-08-10T20:42:29Z"
@@ -1463,10 +1458,6 @@
     }
   ],
   "queue": [
-    {
-      "number": 173,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 174,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
