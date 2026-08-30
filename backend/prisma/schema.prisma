@@ -88,6 +88,9 @@ model User {
   showLoveLanguagesOnProfile            Boolean   @default(true)
   attachmentStyle                       String?
   showAttachmentStyleOnProfile          Boolean   @default(true)
+  politicalOrientation                  String?
+  civicActivityLevel                    String?
+  filterPoliticalOrientations           String[]  @default([])
   filterSmokingHabits                   String[]  @default([])
   filterDrinkingHabits                  String[]  @default([])
   filterEducationLevels                 String[]  @default([])

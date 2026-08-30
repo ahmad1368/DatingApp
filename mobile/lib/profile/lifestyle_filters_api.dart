@@ -28,6 +28,8 @@ class LifestyleFilters {
     this.workoutHabit,
     this.petOwnership,
     this.petAllergyStatus,
+    this.politicalOrientation,
+    this.civicActivityLevel,
     required this.showLifestyleBadgesOnProfile,
     required this.filterSmokingHabits,
     required this.filterDrinkingHabits,
@@ -40,6 +42,7 @@ class LifestyleFilters {
     required this.filterRelationshipDesires,
     required this.filterPetOwnership,
     required this.filterPetAllergyStatus,
+    required this.filterPoliticalOrientations,
     required this.filterSharedInterestsOnly,
     required this.filterVerifiedOnly,
     required this.filterCommunityGroups,
@@ -55,6 +58,8 @@ class LifestyleFilters {
   final String? workoutHabit;
   final String? petOwnership;
   final String? petAllergyStatus;
+  final String? politicalOrientation;
+  final String? civicActivityLevel;
   final bool showLifestyleBadgesOnProfile;
   final List<String> filterSmokingHabits;
   final List<String> filterDrinkingHabits;
@@ -67,6 +72,7 @@ class LifestyleFilters {
   final List<String> filterRelationshipDesires;
   final List<String> filterPetOwnership;
   final List<String> filterPetAllergyStatus;
+  final List<String> filterPoliticalOrientations;
   final bool filterSharedInterestsOnly;
   final bool filterVerifiedOnly;
   final List<String> filterCommunityGroups;
@@ -76,6 +82,7 @@ class LifestyleFilters {
     List<String>? filterRelationshipDesires,
     List<String>? filterPetOwnership,
     List<String>? filterPetAllergyStatus,
+    List<String>? filterPoliticalOrientations,
     bool? filterVerifiedOnly,
     List<String>? filterCommunityGroups,
   }) {
@@ -90,6 +97,8 @@ class LifestyleFilters {
       workoutHabit: workoutHabit,
       petOwnership: petOwnership,
       petAllergyStatus: petAllergyStatus,
+      politicalOrientation: politicalOrientation,
+      civicActivityLevel: civicActivityLevel,
       showLifestyleBadgesOnProfile: showLifestyleBadgesOnProfile,
       filterSmokingHabits: filterSmokingHabits,
       filterDrinkingHabits: filterDrinkingHabits,
@@ -102,6 +111,7 @@ class LifestyleFilters {
       filterRelationshipDesires: filterRelationshipDesires ?? this.filterRelationshipDesires,
       filterPetOwnership: filterPetOwnership ?? this.filterPetOwnership,
       filterPetAllergyStatus: filterPetAllergyStatus ?? this.filterPetAllergyStatus,
+      filterPoliticalOrientations: filterPoliticalOrientations ?? this.filterPoliticalOrientations,
       filterSharedInterestsOnly: filterSharedInterestsOnly,
       filterVerifiedOnly: filterVerifiedOnly ?? this.filterVerifiedOnly,
       filterCommunityGroups: filterCommunityGroups ?? this.filterCommunityGroups,
@@ -170,6 +180,17 @@ class LifestyleFiltersApi {
     return (body['petAllergyStatusOptions'] as List).cast<String>();
   }
 
+  Future<List<String>> fetchPoliticalOrientationOptions() async {
+    final response = await _client.get(Uri.parse('$_baseUrl/profile/lifestyle/catalog'));
+
+    if (response.statusCode != 200) {
+      throw LifestyleFiltersApiException(_errorMessage(_decode(response), response.statusCode));
+    }
+
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    return (body['politicalOrientations'] as List).cast<String>();
+  }
+
   Future<LifestyleFilters> fetchFilters() async {
     final response = await _client.get(Uri.parse('$_baseUrl/profile/lifestyle'), headers: _headers);
 
@@ -196,6 +217,8 @@ class LifestyleFiltersApi {
         'workoutHabit': ?filters.workoutHabit,
         'petOwnership': ?filters.petOwnership,
         'petAllergyStatus': ?filters.petAllergyStatus,
+        'politicalOrientation': ?filters.politicalOrientation,
+        'civicActivityLevel': ?filters.civicActivityLevel,
         'showLifestyleBadgesOnProfile': filters.showLifestyleBadgesOnProfile,
         'filterSmokingHabits': filters.filterSmokingHabits,
         'filterDrinkingHabits': filters.filterDrinkingHabits,
@@ -208,6 +231,7 @@ class LifestyleFiltersApi {
         'filterRelationshipDesires': filters.filterRelationshipDesires,
         'filterPetOwnership': filters.filterPetOwnership,
         'filterPetAllergyStatus': filters.filterPetAllergyStatus,
+        'filterPoliticalOrientations': filters.filterPoliticalOrientations,
         'filterSharedInterestsOnly': filters.filterSharedInterestsOnly,
         'filterVerifiedOnly': filters.filterVerifiedOnly,
         'filterCommunityGroups': filters.filterCommunityGroups,
@@ -234,6 +258,8 @@ class LifestyleFiltersApi {
       workoutHabit: json['workoutHabit'] as String?,
       petOwnership: json['petOwnership'] as String?,
       petAllergyStatus: json['petAllergyStatus'] as String?,
+      politicalOrientation: json['politicalOrientation'] as String?,
+      civicActivityLevel: json['civicActivityLevel'] as String?,
       showLifestyleBadgesOnProfile: json['showLifestyleBadgesOnProfile'] as bool,
       filterSmokingHabits: (json['filterSmokingHabits'] as List).cast<String>(),
       filterDrinkingHabits: (json['filterDrinkingHabits'] as List).cast<String>(),
@@ -246,6 +272,7 @@ class LifestyleFiltersApi {
       filterRelationshipDesires: (json['filterRelationshipDesires'] as List).cast<String>(),
       filterPetOwnership: (json['filterPetOwnership'] as List).cast<String>(),
       filterPetAllergyStatus: (json['filterPetAllergyStatus'] as List).cast<String>(),
+      filterPoliticalOrientations: (json['filterPoliticalOrientations'] as List).cast<String>(),
       filterSharedInterestsOnly: json['filterSharedInterestsOnly'] as bool,
       filterVerifiedOnly: json['filterVerifiedOnly'] as bool,
       filterCommunityGroups: (json['filterCommunityGroups'] as List).cast<String>(),

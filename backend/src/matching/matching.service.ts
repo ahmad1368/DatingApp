@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { SubmitAnswerDto } from './dto/submit-answer.dto';
 import { ANSWER_IMPORTANCE_WEIGHTS, AnswerImportance } from './matching.constants';
 import { computeZodiacCompatibilityScore, computeZodiacHarmony, getZodiacElement, getZodiacSign } from './zodiac.utils';
+import { computePoliticalAlignmentScore } from './political-compatibility.utils';
 
 export interface QuestionView {
   id: string;
@@ -26,6 +27,11 @@ export interface CompatibilityResult {
   zodiacElement: string | null;
   otherZodiacElement: string | null;
   zodiacCompatibilityScore: number | null;
+  politicalOrientation: string | null;
+  otherPoliticalOrientation: string | null;
+  civicActivityLevel: string | null;
+  otherCivicActivityLevel: string | null;
+  politicalAlignmentScore: number | null;
 }
 
 interface AnswerRecord {
@@ -93,10 +99,17 @@ export class MatchingService {
     const [mine, theirs, me, other] = await Promise.all([
       this.prisma.questionAnswer.findMany({ where: { userId } }),
       this.prisma.questionAnswer.findMany({ where: { userId: otherUserId } }),
-      this.prisma.user.findUnique({ where: { id: userId }, select: { dateOfBirth: true } }),
-      this.prisma.user.findUnique({ where: { id: otherUserId }, select: { dateOfBirth: true } }),
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { dateOfBirth: true, politicalOrientation: true, civicActivityLevel: true },
+      }),
+      this.prisma.user.findUnique({
+        where: { id: otherUserId },
+        select: { dateOfBirth: true, politicalOrientation: true, civicActivityLevel: true },
+      }),
     ]);
     const zodiac = this.computeZodiac(me?.dateOfBirth ?? null, other?.dateOfBirth ?? null);
+    const political = this.computePolitical(me ?? null, other ?? null);
 
     const theirsByQuestion = new Map(theirs.map((answer) => [answer.questionId, answer]));
     const mineByQuestion = new Map(mine.map((answer) => [answer.questionId, answer]));
@@ -105,14 +118,14 @@ export class MatchingService {
       .length;
 
     if (sharedQuestionCount === 0) {
-      return { percentage: null, sharedQuestionCount: 0, ...zodiac };
+      return { percentage: null, sharedQuestionCount: 0, ...zodiac, ...political };
     }
 
     const mySatisfaction = this.satisfaction(mine, theirsByQuestion);
     const theirSatisfaction = this.satisfaction(theirs, mineByQuestion);
     const percentage = Math.round(Math.sqrt(mySatisfaction * theirSatisfaction) * 100);
 
-    return { percentage, sharedQuestionCount, ...zodiac };
+    return { percentage, sharedQuestionCount, ...zodiac, ...political };
   }
 
   private computeZodiac(
@@ -142,6 +155,32 @@ export class MatchingService {
       zodiacElement: getZodiacElement(zodiacSign),
       otherZodiacElement: getZodiacElement(otherZodiacSign),
       zodiacCompatibilityScore: computeZodiacCompatibilityScore(zodiacSign, otherZodiacSign),
+    };
+  }
+
+  private computePolitical(
+    me: { politicalOrientation: string | null; civicActivityLevel: string | null } | null,
+    other: { politicalOrientation: string | null; civicActivityLevel: string | null } | null,
+  ): Pick<
+    CompatibilityResult,
+    'politicalOrientation' | 'otherPoliticalOrientation' | 'civicActivityLevel' | 'otherCivicActivityLevel' | 'politicalAlignmentScore'
+  > {
+    const politicalOrientation = me?.politicalOrientation ?? null;
+    const otherPoliticalOrientation = other?.politicalOrientation ?? null;
+    const civicActivityLevel = me?.civicActivityLevel ?? null;
+    const otherCivicActivityLevel = other?.civicActivityLevel ?? null;
+
+    return {
+      politicalOrientation,
+      otherPoliticalOrientation,
+      civicActivityLevel,
+      otherCivicActivityLevel,
+      politicalAlignmentScore: computePoliticalAlignmentScore(
+        politicalOrientation,
+        otherPoliticalOrientation,
+        civicActivityLevel,
+        otherCivicActivityLevel,
+      ),
     };
   }
 
