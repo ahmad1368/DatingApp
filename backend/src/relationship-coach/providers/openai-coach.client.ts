@@ -32,7 +32,7 @@ export class OpenAiCoachClient implements AiCoachProvider {
           {
             role: 'system',
             content:
-              'You are a supportive dating coach. Given a summary of a user\'s match and messaging engagement, respond with a JSON object containing three string arrays: conversationOpeners, dateIdeas, and profileTips. Keep each suggestion short and actionable.',
+              'You are a supportive dating coach. Given a summary of a user\'s match and messaging engagement, respond with a JSON object containing three string arrays: conversationOpeners, dateIdeas, and profileTips. Keep each suggestion short and actionable. When matchProfilePromptAnswers is non-empty, prioritize conversationOpeners that directly reference one of those specific answers over generic ones.',
           },
           {
             role: 'user',
