@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-30T19:31:19.481Z",
+  "generated_at": "2026-08-30T19:39:51.482Z",
   "snapshot": [
     {
       "number": 454,
@@ -1422,11 +1422,6 @@
       "updatedAt": "2026-08-10T20:42:47Z"
     },
     {
-      "number": 170,
-      "title": "Post-Date Feedback & Algorithm Training (We Met Survey)",
-      "updatedAt": "2026-08-10T20:42:45Z"
-    },
-    {
       "number": 162,
       "title": "24-Hour Rematch Extension Unlock",
       "updatedAt": "2026-08-10T20:42:29Z"
@@ -1473,10 +1468,6 @@
     }
   ],
   "queue": [
-    {
-      "number": 171,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 172,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
