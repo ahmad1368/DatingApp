@@ -7,6 +7,7 @@ import 'package:mobile/gifting/gifting_api.dart';
 import 'package:mobile/messaging/date_suggestions_api.dart';
 import 'package:mobile/messaging/match_chat_screen.dart';
 import 'package:mobile/messaging/messaging_api.dart';
+import 'package:mobile/messaging/post_match_survey_api.dart';
 import 'package:mobile/profile/voice_player_controller.dart';
 import 'package:mobile/profile/voice_recorder_controller.dart';
 import 'package:mobile/vault/vault_api.dart';
@@ -1774,5 +1775,48 @@ void main() {
 
     expect(putRequest, isNotNull);
     expect(putRequest!.body, '{"content":"Loves hiking"}');
+  });
+
+  testWidgets('shows a badge on the survey icon when a prompt is due for this match', (tester) async {
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(_emptyMessages, 200, headers: {'content-type': 'application/json'});
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":null,'
+          '"isExpired":false,"firstMessageSent":true,"canSendFirstMessage":true}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+    final postMatchSurveyApi = PostMatchSurveyApi(
+      accessToken: 'a-jwt',
+      client: MockClient(
+        (request) async => http.Response(
+          '[{"matchId":"match-1","reason":"LONG_CHAT_STREAK",'
+          '"otherUserId":"user-man","otherUserName":"Man"}]',
+          200,
+          headers: {'content-type': 'application/json'},
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchChatScreen(
+          messagingApi: api,
+          matchId: 'match-1',
+          currentUserId: 'user-woman',
+          postMatchSurveyApi: postMatchSurveyApi,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final badge = tester.widget<Badge>(find.byType(Badge));
+    expect(badge.isLabelVisible, isTrue);
   });
 }

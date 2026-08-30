@@ -110,4 +110,38 @@ void main() {
       );
     });
   });
+
+  group('PostMatchSurveyApi.fetchDuePrompts', () {
+    test('sends the bearer token and parses the due prompts', () async {
+      final api = PostMatchSurveyApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.headers['Authorization'], 'Bearer a-jwt');
+          expect(request.method, 'GET');
+          expect(request.url.path, '/post-match-survey');
+          return _jsonResponse(
+            '[{"matchId":"match-1","reason":"PHONE_NUMBER_EXCHANGE",'
+            '"otherUserId":"user-2","otherUserName":"Alex"}]',
+            200,
+          );
+        }),
+      );
+
+      final prompts = await api.fetchDuePrompts();
+
+      expect(prompts, hasLength(1));
+      expect(prompts.first.matchId, 'match-1');
+      expect(prompts.first.reason, 'PHONE_NUMBER_EXCHANGE');
+      expect(prompts.first.otherUserName, 'Alex');
+    });
+
+    test('throws PostMatchSurveyApiException on a non-200 response', () async {
+      final api = PostMatchSurveyApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => _jsonResponse('{"message":"boom"}', 500)),
+      );
+
+      expect(() => api.fetchDuePrompts(), throwsA(isA<PostMatchSurveyApiException>()));
+    });
+  });
 }
