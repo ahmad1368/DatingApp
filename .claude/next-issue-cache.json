@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-30T18:19:48.776Z",
+  "generated_at": "2026-08-30T18:34:54.398Z",
   "snapshot": [
     {
       "number": 454,
@@ -1447,11 +1447,6 @@
       "updatedAt": "2026-08-10T20:42:37Z"
     },
     {
-      "number": 165,
-      "title": "Verified Self-ID Biometric Re-Check",
-      "updatedAt": "2026-08-10T20:42:35Z"
-    },
-    {
       "number": 162,
       "title": "24-Hour Rematch Extension Unlock",
       "updatedAt": "2026-08-10T20:42:29Z"
@@ -1498,10 +1493,6 @@
     }
   ],
   "queue": [
-    {
-      "number": 166,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 167,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
