@@ -311,12 +311,19 @@ export class MessagingService {
     mediaUrl: string,
     expiryMode?: ExpiryMode,
     viewTimerSeconds?: number,
+    durationSeconds?: number,
   ): Promise<MessageView> {
     if (expiryMode === 'TIMER' && viewTimerSeconds == null) {
       throw new BadRequestException('viewTimerSeconds is required when expiryMode is TIMER.');
     }
     if (expiryMode !== 'TIMER' && viewTimerSeconds != null) {
       throw new BadRequestException('viewTimerSeconds can only be set when expiryMode is TIMER.');
+    }
+    if (contentType === 'VIDEO_REACTION' && durationSeconds == null) {
+      throw new BadRequestException('durationSeconds is required for a VIDEO_REACTION.');
+    }
+    if (contentType !== 'VIDEO_REACTION' && durationSeconds != null) {
+      throw new BadRequestException('durationSeconds can only be set for a VIDEO_REACTION.');
     }
 
     const { match, firstMessageSent } = await this.assertCanSend(userId, matchId);
@@ -337,13 +344,24 @@ export class MessagingService {
         moderationCategories: moderation?.categories ?? [],
         expiryMode: expiryMode ?? null,
         viewTimerSeconds: viewTimerSeconds ?? null,
+        durationSeconds: durationSeconds ?? null,
       },
     });
 
     await this.markFirstMessageIfNeeded(matchId, firstMessageSent);
-    await this.notifyNewMessage(match, userId, contentType === 'GIF' ? 'Sent a GIF' : 'Sent a photo');
+    await this.notifyNewMessage(match, userId, this.mediaMessageNotificationText(contentType));
 
     return this.toMessageView(message, userId);
+  }
+
+  private mediaMessageNotificationText(contentType: string): string {
+    if (contentType === 'GIF') {
+      return 'Sent a GIF';
+    }
+    if (contentType === 'VIDEO_REACTION') {
+      return 'Sent a video reaction';
+    }
+    return 'Sent a photo';
   }
 
   /**

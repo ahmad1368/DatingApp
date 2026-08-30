@@ -667,6 +667,35 @@ void main() {
       expect(message.isEphemeral, isTrue);
       expect(message.mediaUrl, isNull);
     });
+
+    test('sends durationSeconds for a video reaction and parses the result', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(
+            request.body,
+            '{"contentType":"VIDEO_REACTION","mediaUrl":"file:///tmp/clip.mp4","durationSeconds":5}',
+          );
+          return http.Response(
+            '{"id":"m4","senderId":"user-1","contentType":"VIDEO_REACTION","content":null,'
+            '"mediaUrl":"file:///tmp/clip.mp4","isBlurred":false,"durationSeconds":5,'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}',
+            201,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final message = await api.sendMediaMessage(
+        matchId: 'match-1',
+        contentType: 'VIDEO_REACTION',
+        mediaUrl: 'file:///tmp/clip.mp4',
+        durationSeconds: 5,
+      );
+
+      expect(message.contentType, 'VIDEO_REACTION');
+      expect(message.durationSeconds, 5);
+    });
   });
 
   group('MessagingApi.viewEphemeralMedia', () {

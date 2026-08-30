@@ -28,7 +28,11 @@ export function daysSince(date: Date, now: Date): number {
   return (now.getTime() - date.getTime()) / (24 * 60 * 60 * 1000);
 }
 
-export const MEDIA_CONTENT_TYPES = ['IMAGE', 'GIF'] as const;
+export const MEDIA_CONTENT_TYPES = ['IMAGE', 'GIF', 'VIDEO_REACTION'] as const;
+
+// A quick, looping video reaction clip - kept short so it stays a fast
+// emotional beat rather than a full video message.
+export const MAX_VIDEO_REACTION_SECONDS = 5;
 
 // Auto-expiring media: VIEW_ONCE disappears immediately after the
 // recipient's first view; TIMER disappears viewTimerSeconds after that

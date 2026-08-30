@@ -613,6 +613,7 @@ describe('MessagingService', () => {
           moderationCategories: [],
           expiryMode: null,
           viewTimerSeconds: null,
+          durationSeconds: null,
         },
       });
       expect(result.isBlurred).toBe(true);
@@ -655,6 +656,7 @@ describe('MessagingService', () => {
           moderationCategories: [],
           expiryMode: null,
           viewTimerSeconds: null,
+          durationSeconds: null,
         },
       });
       expect(result.isBlurred).toBe(false);
@@ -694,6 +696,7 @@ describe('MessagingService', () => {
           moderationCategories: ['sexual'],
           expiryMode: null,
           viewTimerSeconds: null,
+          durationSeconds: null,
         },
       });
       expect(result.moderationFlagged).toBe(true);
@@ -757,6 +760,7 @@ describe('MessagingService', () => {
           moderationCategories: [],
           expiryMode: null,
           viewTimerSeconds: null,
+          durationSeconds: null,
         },
       });
       expect(result.isBlurred).toBe(false);
@@ -826,6 +830,7 @@ describe('MessagingService', () => {
           moderationCategories: [],
           expiryMode: 'TIMER',
           viewTimerSeconds: 5,
+          durationSeconds: null,
         },
       });
       // Not yet viewed, so the mediaUrl is hidden even from this send response.
@@ -833,6 +838,77 @@ describe('MessagingService', () => {
       expect(result.expiryMode).toBe('TIMER');
       expect(result.viewTimerSeconds).toBe(5);
       expect(result.isEphemeralExpired).toBe(false);
+    });
+
+    it('rejects a VIDEO_REACTION without a durationSeconds', async () => {
+      mockMatch();
+      mockUsers({ [WOMAN_ID]: ['Woman'], [MAN_ID]: ['Man'] });
+
+      await expect(
+        service.sendMediaMessage(WOMAN_ID, MATCH_ID, 'VIDEO_REACTION', 'https://example.com/clip.mp4'),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.message.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects a durationSeconds without VIDEO_REACTION', async () => {
+      mockMatch();
+      mockUsers({ [WOMAN_ID]: ['Woman'], [MAN_ID]: ['Man'] });
+
+      await expect(
+        service.sendMediaMessage(
+          WOMAN_ID,
+          MATCH_ID,
+          'IMAGE',
+          'https://example.com/photo.jpg',
+          undefined,
+          undefined,
+          5,
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.message.create).not.toHaveBeenCalled();
+    });
+
+    it('sends a video reaction unblurred and unmoderated', async () => {
+      mockMatch();
+      mockUsers({ [WOMAN_ID]: ['Woman'], [MAN_ID]: ['Man'] });
+      prisma.message.create.mockResolvedValue({
+        id: 'message-7',
+        senderId: WOMAN_ID,
+        contentType: 'VIDEO_REACTION',
+        content: null,
+        mediaUrl: 'https://example.com/clip.mp4',
+        isBlurred: false,
+        durationSeconds: 5,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const result = await service.sendMediaMessage(
+        WOMAN_ID,
+        MATCH_ID,
+        'VIDEO_REACTION',
+        'https://example.com/clip.mp4',
+        undefined,
+        undefined,
+        5,
+      );
+
+      expect(prisma.message.create).toHaveBeenCalledWith({
+        data: {
+          matchId: MATCH_ID,
+          senderId: WOMAN_ID,
+          contentType: 'VIDEO_REACTION',
+          mediaUrl: 'https://example.com/clip.mp4',
+          isBlurred: false,
+          moderationFlagged: false,
+          moderationCategories: [],
+          expiryMode: null,
+          viewTimerSeconds: null,
+          durationSeconds: 5,
+        },
+      });
+      expect(result.isBlurred).toBe(false);
+      expect(imageModerator.moderate).not.toHaveBeenCalled();
+      expect(result.durationSeconds).toBe(5);
     });
   });
 

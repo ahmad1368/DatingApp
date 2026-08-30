@@ -10,6 +10,7 @@ import 'package:mobile/messaging/messaging_api.dart';
 import 'package:mobile/messaging/post_match_survey_api.dart';
 import 'package:mobile/profile/voice_player_controller.dart';
 import 'package:mobile/profile/voice_recorder_controller.dart';
+import 'package:mobile/messaging/video_reaction_picker_controller.dart';
 import 'package:mobile/vault/vault_api.dart';
 
 const _emptyMessages = '[]';
@@ -43,6 +44,13 @@ class _FakePlayer implements VoicePlayerController {
 
   @override
   Future<void> stop() async {}
+}
+
+class _FakeVideoReactionPicker implements VideoReactionPickerController {
+  String? pickedPath = 'file:///tmp/reaction.mp4';
+
+  @override
+  Future<String?> recordVideoReaction() async => pickedPath;
 }
 
 void main() {
@@ -1713,6 +1721,57 @@ void main() {
     expect(sendRequest, isNotNull);
     expect(sendRequest!.body, '{"giftId":"rose"}');
     expect(find.text('Rose'), findsOneWidget);
+  });
+
+  testWidgets('records and sends a video reaction', (tester) async {
+    http.Request? sendRequest;
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(_emptyMessages, 200, headers: {'content-type': 'application/json'});
+        }
+        if (request.method == 'POST' && request.url.path == '/matches/match-1/media') {
+          sendRequest = request;
+          return http.Response(
+            '{"id":"m1","senderId":"user-woman","contentType":"VIDEO_REACTION","content":null,'
+            '"mediaUrl":"file:///tmp/reaction.mp4","isBlurred":false,"durationSeconds":5,'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}',
+            201,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":null,'
+          '"isExpired":false,"firstMessageSent":true,"canSendFirstMessage":true}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+    final videoReactionPicker = _FakeVideoReactionPicker();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchChatScreen(
+          messagingApi: api,
+          matchId: 'match-1',
+          currentUserId: 'user-woman',
+          videoReactionPicker: videoReactionPicker,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.videocam_outlined));
+    await tester.pumpAndSettle();
+
+    expect(sendRequest, isNotNull);
+    expect(
+      sendRequest!.body,
+      '{"contentType":"VIDEO_REACTION","mediaUrl":"file:///tmp/reaction.mp4","durationSeconds":5}',
+    );
+    expect(find.text('5s video reaction'), findsOneWidget);
   });
 
   testWidgets('shows a received event ticket reservation card', (tester) async {
