@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-30T18:56:47.721Z",
+  "generated_at": "2026-08-30T19:03:08.377Z",
   "snapshot": [
     {
       "number": 454,
@@ -1437,11 +1437,6 @@
       "updatedAt": "2026-08-10T20:42:41Z"
     },
     {
-      "number": 167,
-      "title": "In-App Date Planning Venue Recommendations",
-      "updatedAt": "2026-08-10T20:42:39Z"
-    },
-    {
       "number": 162,
       "title": "24-Hour Rematch Extension Unlock",
       "updatedAt": "2026-08-10T20:42:29Z"
@@ -1488,10 +1483,6 @@
     }
   ],
   "queue": [
-    {
-      "number": 168,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 169,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"

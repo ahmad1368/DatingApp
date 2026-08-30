@@ -217,4 +217,96 @@ void main() {
       expect(postRequest!.body, '{"decision":"REJECTED","reason":"Not a fit"}');
     });
   });
+
+  group('VettingApi.generateVipReferralCode', () {
+    test('parses the newly created code', () async {
+      final api = VettingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'POST');
+          expect(request.url.path, '/vetting/vip-referral-codes');
+          return _jsonResponse(
+            '{"code":"ABCD1234","consumedAt":null,"consumedByUserId":null,'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}',
+            201,
+          );
+        }),
+      );
+
+      final code = await api.generateVipReferralCode();
+
+      expect(code.code, 'ABCD1234');
+      expect(code.isUsed, isFalse);
+    });
+
+    test('throws VettingApiException for an unverified user', () async {
+      final api = VettingApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async =>
+              _jsonResponse('{"message":"Only verified members can generate a VIP referral code."}', 403),
+        ),
+      );
+
+      expect(() => api.generateVipReferralCode(), throwsA(isA<VettingApiException>()));
+    });
+  });
+
+  group('VettingApi.fetchMyVipReferralCodes', () {
+    test('parses used and unused codes', () async {
+      final api = VettingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.url.path, '/vetting/vip-referral-codes');
+          return _jsonResponse(
+            '[{"code":"ABCD1234","consumedAt":"2026-01-02T00:00:00.000Z",'
+            '"consumedByUserId":"applicant-1","createdAt":"2026-01-01T00:00:00.000Z"}]',
+            200,
+          );
+        }),
+      );
+
+      final codes = await api.fetchMyVipReferralCodes();
+
+      expect(codes, hasLength(1));
+      expect(codes.first.isUsed, isTrue);
+      expect(codes.first.consumedByUserId, 'applicant-1');
+    });
+  });
+
+  group('VettingApi.redeemVipReferralCode', () {
+    test('sends the code and parses the instantly-approved application', () async {
+      http.Request? postRequest;
+      final api = VettingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          postRequest = request;
+          return _jsonResponse(
+            '{"id":"app-1","userId":"user-1","status":"APPROVED","referralCount":0,'
+            '"socialLinks":[],"decisionReason":"Approved via VIP referral bypass.",'
+            '"createdAt":"2026-01-01T00:00:00.000Z","decidedAt":"2026-01-01T00:00:00.000Z"}',
+            200,
+          );
+        }),
+      );
+
+      final application = await api.redeemVipReferralCode('ABCD1234');
+
+      expect(postRequest!.url.path, '/vetting/vip-referral-codes/redeem');
+      expect(postRequest!.body, '{"code":"ABCD1234"}');
+      expect(application.isApproved, isTrue);
+    });
+
+    test('throws VettingApiException for an already-used code', () async {
+      final api = VettingApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async =>
+              _jsonResponse('{"message":"This VIP referral code has already been used."}', 400),
+        ),
+      );
+
+      expect(() => api.redeemVipReferralCode('ABCD1234'), throwsA(isA<VettingApiException>()));
+    });
+  });
 }
