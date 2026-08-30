@@ -17,19 +17,35 @@ class VenueSuggestion {
     required this.label,
     required this.description,
     required this.mapsSearchUrl,
+    required this.isMyPick,
+    required this.isPartnerPick,
   });
 
   final String id;
   final String label;
   final String description;
   final String mapsSearchUrl;
+  final bool isMyPick;
+  final bool isPartnerPick;
 }
 
 class MeetupSuggestions {
-  MeetupSuggestions({required this.distanceKm, required this.suggestions});
+  MeetupSuggestions({
+    required this.distanceKm,
+    required this.suggestions,
+    required this.mutualPickCategoryId,
+  });
 
   final double distanceKm;
   final List<VenueSuggestion> suggestions;
+  final String? mutualPickCategoryId;
+}
+
+class VenuePickResult {
+  VenuePickResult({required this.categoryId, required this.isMutualPick});
+
+  final String categoryId;
+  final bool isMutualPick;
 }
 
 /// Talks to the backend's date-location suggestion endpoint. Requires a
@@ -68,12 +84,36 @@ class DateSuggestionsApi {
         label: json['label'] as String,
         description: json['description'] as String,
         mapsSearchUrl: json['mapsSearchUrl'] as String,
+        isMyPick: json['isMyPick'] as bool? ?? false,
+        isPartnerPick: json['isPartnerPick'] as bool? ?? false,
       );
     }).toList();
 
     return MeetupSuggestions(
       distanceKm: (body['distanceKm'] as num).toDouble(),
       suggestions: suggestions,
+      mutualPickCategoryId: body['mutualPickCategoryId'] as String?,
+    );
+  }
+
+  /// Flags which suggested category the user would actually like to meet at
+  /// for this match - surfaced back to both sides (isMyPick/isPartnerPick)
+  /// so a shared pick stands out. Changeable at any time.
+  Future<VenuePickResult> pickVenueCategory(String matchId, String categoryId) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/date-suggestions/$matchId/pick'),
+      headers: _headers,
+      body: jsonEncode({'categoryId': categoryId}),
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 200) {
+      throw DateSuggestionsApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return VenuePickResult(
+      categoryId: body['categoryId'] as String,
+      isMutualPick: body['isMutualPick'] as bool,
     );
   }
 

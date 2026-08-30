@@ -23,6 +23,12 @@ export const VENUE_CATEGORIES: VenueCategory[] = [
     description: 'A relaxed evening option with a drink menu to talk over.',
   },
   {
+    id: 'lounge',
+    label: 'Lounge',
+    searchQuery: 'lounge',
+    description: 'A quieter, more upscale spot for easy conversation over cocktails.',
+  },
+  {
     id: 'park',
     label: 'Park',
     searchQuery: 'park',
@@ -47,3 +53,5 @@ export const VENUE_CATEGORIES: VenueCategory[] = [
     description: 'Something to look at together besides each other.',
   },
 ];
+
+export const VENUE_CATEGORY_IDS = VENUE_CATEGORIES.map((category) => category.id);

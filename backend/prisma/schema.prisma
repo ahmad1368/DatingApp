@@ -983,6 +983,22 @@ model VaultAlbumGrant {
   @@map("vault_album_grants")
 }
 
+// A user's pick of a suggested venue category (see VENUE_CATEGORIES) for a
+// specific match - one active pick per user per match, changeable at any
+// time. When both sides of a match have picked the same category,
+// DateSuggestionsService.suggestMeetupSpots surfaces it as a mutual pick.
+model MeetupSpotPick {
+  id         String   @id @default(uuid())
+  matchId    String
+  userId     String
+  categoryId String
+  createdAt  DateTime @default(now())
+
+  @@unique([matchId, userId])
+  @@index([matchId])
+  @@map("meetup_spot_picks")
+}
+
 // App-sponsored offline singles events (mixers, meetups, activities).
 // There's no admin panel anywhere in this codebase, so creation is gated by
 // the existing `isCommitteeMember` flag (already used the same way to gate

@@ -48,4 +48,47 @@ void main() {
       );
     });
   });
+
+  group('DateSuggestionsApi.pickVenueCategory', () {
+    test('sends the category id and parses the pick result', () async {
+      http.Request? capturedRequest;
+      final api = DateSuggestionsApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          capturedRequest = request;
+          return http.Response(
+            '{"categoryId":"cafe","isMutualPick":true}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final result = await api.pickVenueCategory('match-1', 'cafe');
+
+      expect(capturedRequest!.method, 'POST');
+      expect(capturedRequest!.url.path, '/date-suggestions/match-1/pick');
+      expect(capturedRequest!.body, '{"categoryId":"cafe"}');
+      expect(result.categoryId, 'cafe');
+      expect(result.isMutualPick, isTrue);
+    });
+
+    test('throws DateSuggestionsApiException for an unknown category', () async {
+      final api = DateSuggestionsApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '{"message":"Unknown venue category."}',
+            400,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      expect(
+        () => api.pickVenueCategory('match-1', 'not-real'),
+        throwsA(isA<DateSuggestionsApiException>()),
+      );
+    });
+  });
 }

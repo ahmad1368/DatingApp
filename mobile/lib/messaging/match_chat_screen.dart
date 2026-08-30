@@ -431,25 +431,56 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
             child: Text(error, style: const TextStyle(color: Colors.red)),
           );
         }
-        final result = suggestions!;
-        return SafeArea(
-          child: ListView(
-            shrinkWrap: true,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                child: Text(
-                  'Meetup spots ~${result.distanceKm.toStringAsFixed(1)} km apart',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
+        var result = suggestions!;
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            Future<void> pick(String categoryId) async {
+              try {
+                await widget.dateSuggestionsApi.pickVenueCategory(widget.matchId, categoryId);
+                final refreshed =
+                    await widget.dateSuggestionsApi.fetchMeetupSuggestions(widget.matchId);
+                setSheetState(() => result = refreshed);
+              } on DateSuggestionsApiException {
+                // Best-effort: the sheet just keeps showing the prior selection.
+              }
+            }
+
+            return SafeArea(
+              child: ListView(
+                shrinkWrap: true,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                    child: Text(
+                      'Meetup spots ~${result.distanceKm.toStringAsFixed(1)} km apart',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                  ),
+                  if (result.mutualPickCategoryId != null)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                      child: Text(
+                        'You both picked the same spot!',
+                        style: TextStyle(color: Theme.of(context).colorScheme.primary),
+                      ),
+                    ),
+                  for (final suggestion in result.suggestions)
+                    ListTile(
+                      title: Text(suggestion.label),
+                      subtitle: Text(suggestion.description),
+                      trailing: IconButton(
+                        icon: Icon(
+                          suggestion.isMyPick ? Icons.favorite : Icons.favorite_border,
+                          color: suggestion.isMyPick ? Theme.of(context).colorScheme.primary : null,
+                        ),
+                        tooltip: 'Pick this spot',
+                        onPressed: () => pick(suggestion.id),
+                      ),
+                    ),
+                ],
               ),
-              for (final suggestion in result.suggestions)
-                ListTile(
-                  title: Text(suggestion.label),
-                  subtitle: Text(suggestion.description),
-                ),
-            ],
-          ),
+            );
+          },
         );
       },
     );

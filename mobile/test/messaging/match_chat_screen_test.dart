@@ -1467,6 +1467,71 @@ void main() {
     expect(find.text('Coffee Shop'), findsOneWidget);
   });
 
+  testWidgets('picking a venue category shows a mutual-pick banner once both sides agree', (tester) async {
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(_emptyMessages, 200, headers: {'content-type': 'application/json'});
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":null,'
+          '"isExpired":false,"firstMessageSent":true,"canSendFirstMessage":true}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+    var picked = false;
+    final dateSuggestionsApi = DateSuggestionsApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.method == 'POST' && request.url.path.endsWith('/pick')) {
+          picked = true;
+          return http.Response(
+            '{"categoryId":"cafe","isMutualPick":true}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"midpoint":{"latitude":41.0,"longitude":-73.0},"distanceKm":3.4,'
+          '"suggestions":[{"id":"cafe","label":"Coffee Shop","searchQuery":"coffee shop",'
+          '"description":"Low-pressure and easy to leave whenever.",'
+          '"mapsSearchUrl":"https://www.google.com/maps/search/x",'
+          '"isMyPick":${picked},"isPartnerPick":true}],'
+          '"mutualPickCategoryId":${picked ? '"cafe"' : 'null'}}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchChatScreen(
+          messagingApi: api,
+          matchId: 'match-1',
+          currentUserId: 'user-woman',
+          dateSuggestionsApi: dateSuggestionsApi,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.place_outlined));
+    await tester.pumpAndSettle();
+
+    expect(find.text('You both picked the same spot!'), findsNothing);
+    expect(find.byIcon(Icons.favorite_border), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.favorite_border));
+    await tester.pumpAndSettle();
+
+    expect(find.text('You both picked the same spot!'), findsOneWidget);
+    expect(find.byIcon(Icons.favorite), findsOneWidget);
+  });
+
   testWidgets('sends a restaurant reservation card', (tester) async {
     http.Request? sendRequest;
     final api = MessagingApi(
