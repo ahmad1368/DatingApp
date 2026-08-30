@@ -6,6 +6,7 @@ const OWNER_ID = 'owner-1';
 const OTHER_ID = 'other-1';
 const PHOTO_ID = 'photo-1';
 const MATCH_ID = 'match-1';
+const ALBUM_ID = 'album-1';
 
 describe('VaultService', () => {
   let service: VaultService;
@@ -18,6 +19,7 @@ describe('VaultService', () => {
       deleteMany: jest.Mock;
       findMany: jest.Mock;
     };
+    vaultAlbum: { findUnique: jest.Mock };
     match: { findUnique: jest.Mock };
     $transaction: jest.Mock;
   };
@@ -38,6 +40,7 @@ describe('VaultService', () => {
         deleteMany: jest.fn(),
         findMany: jest.fn(),
       },
+      vaultAlbum: { findUnique: jest.fn() },
       match: { findUnique: jest.fn() },
       $transaction: jest.fn((ops: unknown[]) => Promise.all(ops)),
     };
@@ -59,15 +62,45 @@ describe('VaultService', () => {
       prisma.vaultPhoto.create.mockResolvedValue({
         id: PHOTO_ID,
         mediaUrl: 'https://example.com/a.jpg',
+        albumId: null,
         createdAt: new Date('2026-01-01T00:00:00.000Z'),
       });
 
       const result = await service.addPhoto(OWNER_ID, 'https://example.com/a.jpg');
 
       expect(prisma.vaultPhoto.create).toHaveBeenCalledWith({
-        data: { ownerId: OWNER_ID, mediaUrl: 'https://example.com/a.jpg' },
+        data: { ownerId: OWNER_ID, mediaUrl: 'https://example.com/a.jpg', albumId: null },
       });
       expect(result.grantedMatchIds).toEqual([]);
+      expect(result.albumId).toBeNull();
+    });
+
+    it('rejects assigning a photo to an album the owner does not own', async () => {
+      prisma.vaultPhoto.count.mockResolvedValue(0);
+      prisma.vaultAlbum.findUnique.mockResolvedValue({ id: ALBUM_ID, ownerId: OTHER_ID });
+
+      await expect(
+        service.addPhoto(OWNER_ID, 'https://example.com/a.jpg', ALBUM_ID),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(prisma.vaultPhoto.create).not.toHaveBeenCalled();
+    });
+
+    it('assigns the photo to the given album when owned', async () => {
+      prisma.vaultPhoto.count.mockResolvedValue(0);
+      prisma.vaultAlbum.findUnique.mockResolvedValue({ id: ALBUM_ID, ownerId: OWNER_ID });
+      prisma.vaultPhoto.create.mockResolvedValue({
+        id: PHOTO_ID,
+        mediaUrl: 'https://example.com/a.jpg',
+        albumId: ALBUM_ID,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const result = await service.addPhoto(OWNER_ID, 'https://example.com/a.jpg', ALBUM_ID);
+
+      expect(prisma.vaultPhoto.create).toHaveBeenCalledWith({
+        data: { ownerId: OWNER_ID, mediaUrl: 'https://example.com/a.jpg', albumId: ALBUM_ID },
+      });
+      expect(result.albumId).toBe(ALBUM_ID);
     });
   });
 
@@ -77,6 +110,7 @@ describe('VaultService', () => {
         {
           id: PHOTO_ID,
           mediaUrl: 'https://example.com/a.jpg',
+          albumId: null,
           createdAt: new Date('2026-01-01T00:00:00.000Z'),
           grants: [{ matchId: MATCH_ID }],
         },
@@ -88,6 +122,7 @@ describe('VaultService', () => {
         {
           id: PHOTO_ID,
           mediaUrl: 'https://example.com/a.jpg',
+          albumId: null,
           createdAt: '2026-01-01T00:00:00.000Z',
           grantedMatchIds: [MATCH_ID],
         },

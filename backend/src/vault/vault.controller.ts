@@ -28,7 +28,7 @@ export class VaultController {
   @Post('photos')
   @HttpCode(HttpStatus.CREATED)
   addPhoto(@CurrentUser() user: AuthenticatedUser, @Body() dto: AddVaultPhotoDto) {
-    return this.vaultService.addPhoto(user.id, dto.mediaUrl);
+    return this.vaultService.addPhoto(user.id, dto.mediaUrl, dto.albumId);
   }
 
   @Delete('photos/:photoId')

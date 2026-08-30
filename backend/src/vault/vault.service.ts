@@ -5,6 +5,7 @@ import { MAX_VAULT_PHOTOS } from './vault.constants';
 export interface VaultPhotoView {
   id: string;
   mediaUrl: string;
+  albumId: string | null;
   createdAt: string;
   grantedMatchIds: string[];
 }
@@ -19,14 +20,29 @@ export interface GrantedVaultPhotoView {
 export class VaultService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async addPhoto(userId: string, mediaUrl: string): Promise<VaultPhotoView> {
+  async addPhoto(userId: string, mediaUrl: string, albumId?: string): Promise<VaultPhotoView> {
     const existingCount = await this.prisma.vaultPhoto.count({ where: { ownerId: userId } });
     if (existingCount >= MAX_VAULT_PHOTOS) {
       throw new BadRequestException(`You can only keep up to ${MAX_VAULT_PHOTOS} vault photos.`);
     }
 
-    const photo = await this.prisma.vaultPhoto.create({ data: { ownerId: userId, mediaUrl } });
-    return { id: photo.id, mediaUrl: photo.mediaUrl, createdAt: photo.createdAt.toISOString(), grantedMatchIds: [] };
+    if (albumId) {
+      const album = await this.prisma.vaultAlbum.findUnique({ where: { id: albumId } });
+      if (!album || album.ownerId !== userId) {
+        throw new NotFoundException('Vault album not found.');
+      }
+    }
+
+    const photo = await this.prisma.vaultPhoto.create({
+      data: { ownerId: userId, mediaUrl, albumId: albumId ?? null },
+    });
+    return {
+      id: photo.id,
+      mediaUrl: photo.mediaUrl,
+      albumId: photo.albumId,
+      createdAt: photo.createdAt.toISOString(),
+      grantedMatchIds: [],
+    };
   }
 
   /** The owner's own management view: every vault photo plus which matches currently have access. */
@@ -40,6 +56,7 @@ export class VaultService {
     return photos.map((photo) => ({
       id: photo.id,
       mediaUrl: photo.mediaUrl,
+      albumId: photo.albumId,
       createdAt: photo.createdAt.toISOString(),
       grantedMatchIds: photo.grants.map((grant) => grant.matchId),
     }));

@@ -920,16 +920,22 @@ model ProfileVisit {
 
 // An extra photo that stays private by default; the owner explicitly grants
 // a specific match access to it (see VaultPhotoGrant) rather than it being
-// visible on the profile or in chat.
+// visible on the profile or in chat. Optionally grouped into a named
+// VaultAlbum (a "gallery") so a whole set of photos can be locked/unlocked
+// for a match in one action instead of one grant per photo - see
+// VaultAlbumGrant.
 model VaultPhoto {
   id        String   @id @default(uuid())
   ownerId   String
   mediaUrl  String
+  albumId   String?
   createdAt DateTime @default(now())
 
   grants VaultPhotoGrant[]
+  album  VaultAlbum? @relation(fields: [albumId], references: [id])
 
   @@index([ownerId])
+  @@index([albumId])
   @@map("vault_photos")
 }
 
@@ -945,6 +951,36 @@ model VaultPhotoGrant {
   @@index([vaultPhotoId])
   @@index([matchId])
   @@map("vault_photo_grants")
+}
+
+// A named grouping of VaultPhotos (a "gallery") that can be locked/unlocked
+// for a match as a single unit via VaultAlbumGrant, instead of granting each
+// photo in it individually.
+model VaultAlbum {
+  id        String   @id @default(uuid())
+  ownerId   String
+  name      String
+  createdAt DateTime @default(now())
+
+  photos VaultPhoto[]
+  grants VaultAlbumGrant[]
+
+  @@index([ownerId])
+  @@map("vault_albums")
+}
+
+model VaultAlbumGrant {
+  id           String   @id @default(uuid())
+  vaultAlbumId String
+  matchId      String
+  grantedAt    DateTime @default(now())
+
+  vaultAlbum VaultAlbum @relation(fields: [vaultAlbumId], references: [id])
+
+  @@unique([vaultAlbumId, matchId])
+  @@index([vaultAlbumId])
+  @@index([matchId])
+  @@map("vault_album_grants")
 }
 
 // App-sponsored offline singles events (mixers, meetups, activities).

@@ -15,12 +15,14 @@ class VaultPhoto {
   VaultPhoto({
     required this.id,
     required this.mediaUrl,
+    this.albumId,
     required this.createdAt,
     required this.grantedMatchIds,
   });
 
   final String id;
   final String mediaUrl;
+  final String? albumId;
   final DateTime createdAt;
   final List<String> grantedMatchIds;
 }
@@ -60,11 +62,11 @@ class VaultApi {
     return list.cast<Map<String, dynamic>>().map(_toVaultPhoto).toList();
   }
 
-  Future<VaultPhoto> addPhoto(String mediaUrl) async {
+  Future<VaultPhoto> addPhoto(String mediaUrl, {String? albumId}) async {
     final response = await _client.post(
       Uri.parse('$_baseUrl/vault/photos'),
       headers: _headers,
-      body: jsonEncode({'mediaUrl': mediaUrl}),
+      body: jsonEncode({'mediaUrl': mediaUrl, 'albumId': ?albumId}),
     );
 
     final body = _decode(response);
@@ -135,6 +137,7 @@ class VaultApi {
     return VaultPhoto(
       id: json['id'] as String,
       mediaUrl: json['mediaUrl'] as String,
+      albumId: json['albumId'] as String?,
       createdAt: DateTime.parse(json['createdAt'] as String),
       grantedMatchIds: (json['grantedMatchIds'] as List?)?.cast<String>() ?? const [],
     );
