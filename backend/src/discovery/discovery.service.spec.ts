@@ -31,6 +31,7 @@ describe('DiscoveryService', () => {
     message: { create: jest.Mock };
     icebreakerResponse: { createMany: jest.Mock };
     profilePromptVideoAnswer: { findMany: jest.Mock };
+    questionAnswer: { findMany: jest.Mock };
     $transaction: jest.Mock;
   };
 
@@ -63,6 +64,7 @@ describe('DiscoveryService', () => {
       message: { create: jest.fn() },
       icebreakerResponse: { createMany: jest.fn() },
       profilePromptVideoAnswer: { findMany: jest.fn().mockResolvedValue([]) },
+      questionAnswer: { findMany: jest.fn().mockResolvedValue([]) },
       $transaction: jest.fn((ops: unknown[]) => Promise.all(ops)),
     };
     matchingService = { getCompatibility: jest.fn() };
@@ -954,6 +956,65 @@ describe('DiscoveryService', () => {
         },
         take: 60,
       });
+    });
+
+    it('excludes a candidate who failed one of the current user\'s MANDATORY dealbreaker questions', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+      });
+      prisma.questionAnswer.findMany
+        .mockResolvedValueOnce([
+          { questionId: 'q-kids', acceptableAnswers: ['Yes'] },
+        ]) // this user's MANDATORY answers
+        .mockResolvedValueOnce([
+          { userId: 'dealbreaker-fail', questionId: 'q-kids', answer: 'No' },
+          { userId: 'dealbreaker-ok', questionId: 'q-kids', answer: 'Yes' },
+        ]); // everyone else's answers to that question
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      prisma.user.findMany.mockResolvedValue([]);
+
+      await service.getDeck(USER_ID);
+
+      expect(prisma.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            id: { notIn: [USER_ID, 'dealbreaker-fail'] },
+          }),
+        }),
+      );
+    });
+
+    it('does not exclude a candidate who simply has not answered the MANDATORY question', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+      });
+      prisma.questionAnswer.findMany
+        .mockResolvedValueOnce([{ questionId: 'q-kids', acceptableAnswers: ['Yes'] }])
+        .mockResolvedValueOnce([]); // nobody else has answered it
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      prisma.user.findMany.mockResolvedValue([]);
+
+      await service.getDeck(USER_ID);
+
+      expect(prisma.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ id: { notIn: [USER_ID] } }),
+        }),
+      );
     });
 
     it('applies the political orientation filter to the candidate query', async () => {
@@ -2595,6 +2656,36 @@ describe('DiscoveryService', () => {
 
       expect(grid).toEqual([]);
       expect(prisma.user.findMany).not.toHaveBeenCalled();
+    });
+
+    it('excludes a liker who failed a MANDATORY dealbreaker question', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        isPremium: true,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+      });
+      prisma.questionAnswer.findMany
+        .mockResolvedValueOnce([{ questionId: 'q-kids', acceptableAnswers: ['Yes'] }])
+        .mockResolvedValueOnce([{ userId: 'liker-fail', questionId: 'q-kids', answer: 'No' }]);
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+
+      await service.getLikedByGrid(USER_ID);
+
+      expect(prisma.swipe.findMany).toHaveBeenNthCalledWith(2, {
+        where: {
+          targetUserId: USER_ID,
+          action: { in: ['LIKE', 'SUPER_LIKE'] },
+          swiperId: { notIn: [USER_ID, 'liker-fail'] },
+        },
+        select: { swiperId: true, action: true, complimentText: true, complimentTarget: true },
+        orderBy: { createdAt: 'desc' },
+      });
     });
 
     it('applies the current active mode and lifestyle filters to the liker query', async () => {

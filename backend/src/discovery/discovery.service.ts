@@ -161,12 +161,14 @@ export class DiscoveryService {
     const jointPartnerSwipedIds = currentUser.activeBrowsingPartnerId
       ? await this.getJointPartnerSwipedIds(userId, currentUser.activeBrowsingPartnerId)
       : [];
+    const dealbreakerFailedIds = await this.getMandatoryDealbreakerFailedIds(userId);
 
     const excludedIds = [
       userId,
       ...swiped.map((s) => s.targetUserId),
       ...blockedIds,
       ...jointPartnerSwipedIds,
+      ...dealbreakerFailedIds,
     ];
     const lifestyleWhere = this.buildLifestyleFilterWhere(currentUser);
     const now = new Date();
@@ -389,7 +391,8 @@ export class DiscoveryService {
       select: { targetUserId: true },
     });
     const blockedIds = await getBlockedUserIds(this.prisma, userId);
-    const excludedIds = [userId, ...swiped.map((s) => s.targetUserId), ...blockedIds];
+    const dealbreakerFailedIds = await this.getMandatoryDealbreakerFailedIds(userId);
+    const excludedIds = [userId, ...swiped.map((s) => s.targetUserId), ...blockedIds, ...dealbreakerFailedIds];
 
     const likersOfMe = await this.prisma.swipe.findMany({
       where: {
@@ -1348,6 +1351,49 @@ export class DiscoveryService {
       select: { targetUserId: true },
     });
     return partnerSwiped.map((swipe) => swipe.targetUserId);
+  }
+
+  /**
+   * "Dealbreaker Filter Constraints": a MANDATORY-importance compatibility
+   * question (see MatchingService/matching.constants.ts) already zeroes the
+   * *displayed* compatibility score when the other side's answer isn't
+   * acceptable, but until now that never kept them out of the deck itself -
+   * only the fixed lifestyle filters (filterSmokingHabits etc.) actually
+   * excluded candidates. This closes that gap by treating a MANDATORY
+   * answer the same way: anyone who answered one of the current user's
+   * MANDATORY questions with a value outside its acceptableAnswers is
+   * excluded outright, everywhere excludedIds is used. Someone who simply
+   * hasn't answered the question isn't penalized, matching how
+   * MatchingService.satisfaction only scores questions both sides answered.
+   */
+  private async getMandatoryDealbreakerFailedIds(userId: string): Promise<string[]> {
+    const mandatoryAnswers = await this.prisma.questionAnswer.findMany({
+      where: { userId, importance: 'MANDATORY' },
+      select: { questionId: true, acceptableAnswers: true },
+    });
+    if (mandatoryAnswers.length === 0) {
+      return [];
+    }
+
+    const acceptableByQuestion = new Map(
+      mandatoryAnswers.map((answer) => [answer.questionId, new Set(answer.acceptableAnswers)]),
+    );
+    const theirAnswers = await this.prisma.questionAnswer.findMany({
+      where: {
+        questionId: { in: [...acceptableByQuestion.keys()] },
+        userId: { not: userId },
+      },
+      select: { userId: true, questionId: true, answer: true },
+    });
+
+    const failedUserIds = new Set<string>();
+    for (const theirAnswer of theirAnswers) {
+      const acceptable = acceptableByQuestion.get(theirAnswer.questionId);
+      if (acceptable && !acceptable.has(theirAnswer.answer)) {
+        failedUserIds.add(theirAnswer.userId);
+      }
+    }
+    return [...failedUserIds];
   }
 
   private buildLifestyleFilterWhere(currentUser: {
