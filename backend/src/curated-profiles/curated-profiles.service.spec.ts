@@ -1,6 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { MatchingService } from '../matching/matching.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CuratedProfilesService } from './curated-profiles.service';
 
 const USER_ID = 'user-1';
@@ -14,6 +15,7 @@ describe('CuratedProfilesService', () => {
     blockedContact: { findMany: jest.Mock };
   };
   let matchingService: { getCompatibility: jest.Mock };
+  let notificationsService: { notify: jest.Mock };
 
   beforeEach(() => {
     prisma = {
@@ -23,9 +25,11 @@ describe('CuratedProfilesService', () => {
       blockedContact: { findMany: jest.fn().mockResolvedValue([]) },
     };
     matchingService = { getCompatibility: jest.fn() };
+    notificationsService = { notify: jest.fn() };
     service = new CuratedProfilesService(
       prisma as unknown as PrismaService,
       matchingService as unknown as MatchingService,
+      notificationsService as unknown as NotificationsService,
     );
   });
 
@@ -61,6 +65,7 @@ describe('CuratedProfilesService', () => {
         profilePhotoUrl: 'https://example.com/jane.jpg',
         compatibilityPercentage: 88,
         isStandout: false,
+        isTopPick: true,
       },
     ]);
   });
@@ -170,6 +175,48 @@ describe('CuratedProfilesService', () => {
     });
     expect(picks.map((p) => p.id)).toEqual(['high-compat', 'low-compat']);
     expect(picks[0].compatibilityPercentage).toBe(95);
+    expect(picks[0].isTopPick).toBe(true);
+    expect(picks[1].isTopPick).toBe(false);
+  });
+
+  it('notifies the user about the top-ranked pick once a fresh batch is generated', async () => {
+    prisma.user.findUnique
+      .mockResolvedValueOnce({ id: USER_ID }) // getDailyPicks's own-user lookup
+      .mockResolvedValueOnce({ name: 'Alex' }); // notifyTopPick's candidate lookup
+    prisma.dailyPick.findMany.mockResolvedValueOnce([]);
+    prisma.swipe.findMany
+      .mockResolvedValueOnce([]) // own swipes
+      .mockResolvedValueOnce([]) // likersOfMe
+      .mockResolvedValue([]); // engagement-count lookups
+    prisma.user.findMany
+      .mockResolvedValueOnce([{ id: 'high-compat' }]) // candidate pool
+      .mockResolvedValueOnce([{ id: 'high-compat', name: 'Alex', dateOfBirth: null, profilePhotoUrl: null }]);
+    matchingService.getCompatibility.mockResolvedValue({ percentage: 95, sharedQuestionCount: 3 });
+
+    await service.getDailyPicks(USER_ID);
+
+    expect(notificationsService.notify).toHaveBeenCalledWith(
+      USER_ID,
+      'TOP_PICK',
+      "Today's Most Compatible Pick",
+      'Alex is your top match today - take a look!',
+      { candidateId: 'high-compat' },
+    );
+  });
+
+  it('does not notify when no fresh batch was generated (already cached)', async () => {
+    prisma.user.findUnique.mockResolvedValue({ id: USER_ID });
+    prisma.dailyPick.findMany.mockResolvedValueOnce([
+      { candidateId: 'candidate-1', compatibilityScore: 88 },
+    ]);
+    prisma.user.findMany.mockResolvedValue([
+      { id: 'candidate-1', name: 'Jane', dateOfBirth: null, profilePhotoUrl: null },
+    ]);
+    prisma.swipe.findMany.mockResolvedValue([]);
+
+    await service.getDailyPicks(USER_ID);
+
+    expect(notificationsService.notify).not.toHaveBeenCalled();
   });
 
   it('excludes users blocked in either direction via synced contacts from the candidate pool', async () => {
