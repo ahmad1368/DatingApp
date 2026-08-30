@@ -128,7 +128,11 @@ describe('VerificationService', () => {
       });
       expect(prisma.user.update).toHaveBeenCalledWith({
         where: { id: USER_ID },
-        data: { isVerified: true, verifiedAt: expect.any(Date) },
+        data: {
+          isVerified: true,
+          verifiedAt: expect.any(Date),
+          verifiedPhotoUrl: 'https://example.com/photo.jpg',
+        },
       });
       expect(result).toEqual({ isVerified: true, confidence: 0.95 });
     });
@@ -149,6 +153,80 @@ describe('VerificationService', () => {
 
       expect(prisma.user.update).not.toHaveBeenCalled();
       expect(result).toEqual({ isVerified: false, confidence: 0.5 });
+    });
+  });
+
+  describe('getVerificationStatus', () => {
+    it('throws NotFoundException when the user does not exist', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(service.getVerificationStatus(USER_ID)).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('is never due for an unverified user', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        isVerified: false,
+        verifiedAt: null,
+        profilePhotoUrl: null,
+        verifiedPhotoUrl: null,
+      });
+
+      const result = await service.getVerificationStatus(USER_ID);
+
+      expect(result).toEqual({
+        isVerified: false,
+        verifiedAt: null,
+        reverificationDue: false,
+        reverificationReason: null,
+      });
+    });
+
+    it('is not due when the photo is unchanged and within the periodic window', async () => {
+      const verifiedAt = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
+      prisma.user.findUnique.mockResolvedValue({
+        isVerified: true,
+        verifiedAt,
+        profilePhotoUrl: 'https://example.com/photo.jpg',
+        verifiedPhotoUrl: 'https://example.com/photo.jpg',
+      });
+
+      const result = await service.getVerificationStatus(USER_ID);
+
+      expect(result).toEqual({
+        isVerified: true,
+        verifiedAt: verifiedAt.toISOString(),
+        reverificationDue: false,
+        reverificationReason: null,
+      });
+    });
+
+    it('is due for PHOTO_CHANGED when the profile photo differs from the verified snapshot', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        isVerified: true,
+        verifiedAt: new Date(),
+        profilePhotoUrl: 'https://example.com/new-photo.jpg',
+        verifiedPhotoUrl: 'https://example.com/old-photo.jpg',
+      });
+
+      const result = await service.getVerificationStatus(USER_ID);
+
+      expect(result.reverificationDue).toBe(true);
+      expect(result.reverificationReason).toBe('PHOTO_CHANGED');
+    });
+
+    it('is due for PERIODIC when the photo is unchanged but the interval has elapsed', async () => {
+      const verifiedAt = new Date(Date.now() - 91 * 24 * 60 * 60 * 1000);
+      prisma.user.findUnique.mockResolvedValue({
+        isVerified: true,
+        verifiedAt,
+        profilePhotoUrl: 'https://example.com/photo.jpg',
+        verifiedPhotoUrl: 'https://example.com/photo.jpg',
+      });
+
+      const result = await service.getVerificationStatus(USER_ID);
+
+      expect(result.reverificationDue).toBe(true);
+      expect(result.reverificationReason).toBe('PERIODIC');
     });
   });
 });

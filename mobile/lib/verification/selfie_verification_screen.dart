@@ -22,13 +22,38 @@ class SelfieVerificationScreen extends StatefulWidget {
   State<SelfieVerificationScreen> createState() => _SelfieVerificationScreenState();
 }
 
+const Map<String, String> _reverificationReasons = {
+  'PHOTO_CHANGED': 'Your profile photo has changed since you last verified. '
+      'Please re-verify to keep your verified badge.',
+  'PERIODIC': 'It\'s been a while since you last verified. '
+      'Please re-verify to keep your verified badge.',
+};
+
 class _SelfieVerificationScreenState extends State<SelfieVerificationScreen> {
   final ImagePicker _imagePicker = ImagePicker();
 
   VerificationChallenge? _challenge;
   VerificationResult? _result;
+  VerificationStatus? _status;
   bool _isBusy = false;
   String? _errorText;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStatus();
+  }
+
+  Future<void> _loadStatus() async {
+    try {
+      final status = await widget.verificationApi.fetchStatus();
+      if (mounted) {
+        setState(() => _status = status);
+      }
+    } catch (_) {
+      // Best-effort: the reverification banner just stays hidden if this fails.
+    }
+  }
 
   Future<void> _requestChallenge() async {
     setState(() {
@@ -73,6 +98,9 @@ class _SelfieVerificationScreenState extends State<SelfieVerificationScreen> {
       setState(() {
         _result = result;
         _challenge = null;
+        if (result.isVerified) {
+          _status = null;
+        }
       });
     } on VerificationApiException catch (e) {
       setState(() => _errorText = e.message);
@@ -87,6 +115,7 @@ class _SelfieVerificationScreenState extends State<SelfieVerificationScreen> {
   Widget build(BuildContext context) {
     final challenge = _challenge;
     final result = _result;
+    final status = _status;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Verify your profile')),
@@ -95,6 +124,14 @@ class _SelfieVerificationScreenState extends State<SelfieVerificationScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (status != null && status.reverificationDue && result == null) ...[
+              Text(
+                _reverificationReasons[status.reverificationReason] ??
+                    'Please re-verify to keep your verified badge.',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+            ],
             if (result != null)
               Text(
                 result.isVerified

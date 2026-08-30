@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-30T02:52:59.534Z",
+  "generated_at": "2026-08-30T18:19:48.776Z",
   "snapshot": [
     {
       "number": 454,
@@ -1452,11 +1452,6 @@
       "updatedAt": "2026-08-10T20:42:35Z"
     },
     {
-      "number": 164,
-      "title": "Political Orientation & Value Matching",
-      "updatedAt": "2026-08-10T20:42:33Z"
-    },
-    {
       "number": 162,
       "title": "24-Hour Rematch Extension Unlock",
       "updatedAt": "2026-08-10T20:42:29Z"
@@ -1503,10 +1498,6 @@
     }
   ],
   "queue": [
-    {
-      "number": 165,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 166,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"

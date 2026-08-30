@@ -1,4 +1,4 @@
-import { Body, Controller, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AuthenticatedUser, JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { SubmitSelfieDto } from './dto/submit-selfie.dto';
@@ -8,6 +8,11 @@ import { VerificationService } from './verification.service';
 @UseGuards(JwtAuthGuard)
 export class VerificationController {
   constructor(private readonly verificationService: VerificationService) {}
+
+  @Get('status')
+  getStatus(@CurrentUser() user: AuthenticatedUser) {
+    return this.verificationService.getVerificationStatus(user.id);
+  }
 
   @Post('challenge')
   @HttpCode(HttpStatus.OK)

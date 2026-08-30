@@ -53,4 +53,66 @@ void main() {
 
     expect(find.text('Missing authentication token.'), findsOneWidget);
   });
+
+  testWidgets('shows a reverification banner when the status endpoint reports it is due', (tester) async {
+    final api = VerificationApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/verification/selfie/status') {
+          return http.Response(
+            '{"isVerified":true,"verifiedAt":"2026-01-01T00:00:00.000Z",'
+            '"reverificationDue":true,"reverificationReason":"PHOTO_CHANGED"}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"challengeId":"challenge-1","gesture":"SMILE","expiresInSeconds":120}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(home: SelfieVerificationScreen(verificationApi: api)),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(
+        'Your profile photo has changed since you last verified. '
+        'Please re-verify to keep your verified badge.',
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('shows no reverification banner when the status endpoint reports it is not due', (tester) async {
+    final api = VerificationApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/verification/selfie/status') {
+          return http.Response(
+            '{"isVerified":true,"verifiedAt":"2026-01-01T00:00:00.000Z",'
+            '"reverificationDue":false,"reverificationReason":null}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"challengeId":"challenge-1","gesture":"SMILE","expiresInSeconds":120}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(home: SelfieVerificationScreen(verificationApi: api)),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Please re-verify'), findsNothing);
+  });
 }
