@@ -1534,6 +1534,75 @@ void main() {
     expect(find.byIcon(Icons.favorite), findsOneWidget);
   });
 
+  testWidgets('picking an opener suggestion fills the composer', (tester) async {
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(_emptyMessages, 200, headers: {'content-type': 'application/json'});
+        }
+        if (request.url.path == '/matches/match-1/icebreaker-suggestions') {
+          return http.Response(
+            '["I saw you love hiking too - favorite trail?"]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":null,'
+          '"isExpired":false,"firstMessageSent":true,"canSendFirstMessage":true}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchChatScreen(messagingApi: api, matchId: 'match-1', currentUserId: 'user-woman'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.auto_awesome_outlined));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('I saw you love hiking too - favorite trail?'));
+    await tester.pumpAndSettle();
+
+    final textField = tester.widget<TextField>(find.byType(TextField));
+    expect(textField.controller!.text, 'I saw you love hiking too - favorite trail?');
+  });
+
+  testWidgets('disables the opener suggestions button before the message window unlocks', (tester) async {
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(_emptyMessages, 200, headers: {'content-type': 'application/json'});
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":"2026-01-02T00:00:00.000Z",'
+          '"isExpired":false,"firstMessageSent":false,"canSendFirstMessage":false}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchChatScreen(messagingApi: api, matchId: 'match-1', currentUserId: 'user-man'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final button = tester.widget<IconButton>(
+      find.ancestor(of: find.byIcon(Icons.auto_awesome_outlined), matching: find.byType(IconButton)),
+    );
+    expect(button.onPressed, isNull);
+  });
+
   testWidgets('sends a restaurant reservation card', (tester) async {
     http.Request? sendRequest;
     final api = MessagingApi(

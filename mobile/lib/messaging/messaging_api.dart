@@ -869,8 +869,9 @@ class MessagingApi {
     );
   }
 
-  /// AI-suggested opening lines for this match, based on shared interests
-  /// and compatibility-questionnaire overlap.
+  /// AI-suggested opening lines for this match, based on shared interests,
+  /// compatibility-questionnaire overlap, and - when available - the
+  /// match's own profile prompt answers.
   Future<List<String>> fetchIcebreakerSuggestions(String matchId) async {
     final response = await _client.get(
       Uri.parse('$_baseUrl/matches/$matchId/icebreaker-suggestions'),

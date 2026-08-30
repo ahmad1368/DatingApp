@@ -574,6 +574,54 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
 
   /// Lets the sender pick a gift from the full catalog and drop it into the
   /// chat as its own message - see MessagingApi.sendGiftMessage.
+  /// AI-tailored opening lines for this match (shared interests,
+  /// compatibility overlap, and - once she's answered any - her own profile
+  /// prompt answers) - see MessagingApi.fetchIcebreakerSuggestions. Only
+  /// enabled once the message window is unlocked, since there's nothing to
+  /// open yet before that.
+  Future<void> _openIcebreakerAssistant() async {
+    List<String> suggestions;
+    try {
+      suggestions = await widget.messagingApi.fetchIcebreakerSuggestions(widget.matchId);
+    } on MessagingApiException catch (e) {
+      setState(() => _errorText = e.message);
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Text('Opener suggestions', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+            if (suggestions.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: Text('No suggestions available right now.'),
+              ),
+            for (final suggestion in suggestions)
+              ListTile(
+                title: Text(suggestion),
+                onTap: () => Navigator.of(context).pop(suggestion),
+              ),
+          ],
+        ),
+      ),
+    );
+
+    if (selected != null) {
+      _controller.text = selected;
+    }
+  }
+
   Future<void> _openSendGiftDialog() async {
     List<VirtualGift> catalog;
     try {
@@ -815,6 +863,11 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
       appBar: AppBar(
         title: const Text('Chat'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.auto_awesome_outlined),
+            tooltip: 'Opener suggestions',
+            onPressed: _canType ? _openIcebreakerAssistant : null,
+          ),
           IconButton(
             icon: const Icon(Icons.place_outlined),
             tooltip: 'Suggest a place to meet',

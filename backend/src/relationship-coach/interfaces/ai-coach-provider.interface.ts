@@ -11,6 +11,14 @@ export interface CoachEngagementContext {
   sharedQuestionCount: number;
   /** Questionnaire-based compatibility score (0-100), or null if there's no overlap to score. */
   compatibilityPercentage: number | null;
+  /**
+   * The match's own profile prompt answers (question + transcribed voice
+   * answer - see ProfilePromptsService), so a conversation opener can
+   * reference something specific they actually said rather than only
+   * generic shared interests. Empty when no matchId was given or they
+   * haven't answered any prompts.
+   */
+  matchProfilePromptAnswers: { question: string; answer: string }[];
 }
 
 export interface CoachSuggestions {

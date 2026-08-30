@@ -13,6 +13,7 @@ describe('RelationshipCoachService', () => {
   let prisma: {
     user: { findUnique: jest.Mock };
     match: { findMany: jest.Mock; findUnique: jest.Mock };
+    profilePromptVoiceAnswer: { findMany: jest.Mock };
   };
   let matchingService: { getCompatibility: jest.Mock };
   let coachProvider: { generateSuggestions: jest.Mock };
@@ -21,6 +22,7 @@ describe('RelationshipCoachService', () => {
     prisma = {
       user: { findUnique: jest.fn() },
       match: { findMany: jest.fn(), findUnique: jest.fn() },
+      profilePromptVoiceAnswer: { findMany: jest.fn().mockResolvedValue([]) },
     };
     matchingService = {
       getCompatibility: jest.fn().mockResolvedValue({
@@ -86,6 +88,7 @@ describe('RelationshipCoachService', () => {
       sharedInterestsWithMatch: [],
       sharedQuestionCount: 0,
       compatibilityPercentage: null,
+      matchProfilePromptAnswers: [],
     });
     expect(matchingService.getCompatibility).not.toHaveBeenCalled();
     expect(result).toEqual({
@@ -182,6 +185,46 @@ describe('RelationshipCoachService', () => {
     expect(matchingService.getCompatibility).toHaveBeenCalledWith(USER_ID, OTHER_USER_ID);
     expect(coachProvider.generateSuggestions).toHaveBeenCalledWith(
       expect.objectContaining({ sharedQuestionCount: 5, compatibilityPercentage: 82 }),
+    );
+  });
+
+  it("includes the match's transcribed profile prompt answers", async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: USER_ID,
+      profilePhotoUrl: 'photo.jpg',
+      interests: [],
+      voiceIntroUrl: 'intro.mp3',
+      videoSnippetUrl: 'clip.mp4',
+      kinkTags: [],
+      loveLanguages: [],
+    });
+    prisma.match.findMany.mockResolvedValue([]);
+    prisma.match.findUnique.mockResolvedValue({ id: MATCH_ID, userAId: USER_ID, userBId: OTHER_USER_ID });
+    prisma.profilePromptVoiceAnswer.findMany.mockResolvedValue([
+      { promptId: 'perfect-first-date', transcript: 'A coffee walk and good conversation.' },
+      { promptId: 'unpopular-opinion', transcript: null },
+      { promptId: 'not-a-real-prompt', transcript: 'Should be dropped.' },
+    ]);
+    coachProvider.generateSuggestions.mockResolvedValue({
+      conversationOpeners: [],
+      dateIdeas: [],
+      profileTips: [],
+    });
+
+    await service.getTips(USER_ID, MATCH_ID);
+
+    expect(prisma.profilePromptVoiceAnswer.findMany).toHaveBeenCalledWith({
+      where: { userId: OTHER_USER_ID },
+    });
+    expect(coachProvider.generateSuggestions).toHaveBeenCalledWith(
+      expect.objectContaining({
+        matchProfilePromptAnswers: [
+          {
+            question: 'My idea of a perfect first date is...',
+            answer: 'A coffee walk and good conversation.',
+          },
+        ],
+      }),
     );
   });
 
