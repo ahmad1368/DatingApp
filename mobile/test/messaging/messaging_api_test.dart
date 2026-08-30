@@ -1393,4 +1393,54 @@ void main() {
       );
     });
   });
+
+  group('MessagingApi.sendGiftMessage', () {
+    test('sends the gift id and optional message, parsing the created message', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'POST');
+          expect(request.url.path, '/matches/match-1/gift');
+          expect(request.body, '{"giftId":"rose","message":"For you!"}');
+          return http.Response(
+            '{"id":"m1","senderId":"user-1","contentType":"GIFT","content":"rose",'
+            '"mediaUrl":null,"isBlurred":false,'
+            '"gift":{"giftId":"rose","name":"Rose","emoji":"🌹","tokenCost":10},'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}',
+            201,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final message = await api.sendGiftMessage(
+        matchId: 'match-1',
+        giftId: 'rose',
+        message: 'For you!',
+      );
+
+      expect(message.contentType, 'GIFT');
+      expect(message.gift, isNotNull);
+      expect(message.gift!.name, 'Rose');
+      expect(message.gift!.tokenCost, 10);
+    });
+
+    test('throws MessagingApiException for insufficient token balance', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '{"message":"Not enough gift tokens for this gift."}',
+            400,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      expect(
+        () => api.sendGiftMessage(matchId: 'match-1', giftId: 'crown'),
+        throwsA(isA<MessagingApiException>()),
+      );
+    });
+  });
 }

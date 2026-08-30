@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+import 'package:mobile/gifting/gifting_api.dart';
 import 'package:mobile/messaging/date_suggestions_api.dart';
 import 'package:mobile/messaging/match_chat_screen.dart';
 import 'package:mobile/messaging/messaging_api.dart';
@@ -1581,6 +1582,67 @@ void main() {
     expect(sendRequest!.body, '{"provider":"OPENTABLE","query":"Luigi\'s"}');
     expect(find.text('Table reservation'), findsOneWidget);
     expect(find.text("Luigi's"), findsOneWidget);
+  });
+
+  testWidgets('sends a gift from the catalog and shows it as a message', (tester) async {
+    http.Request? sendRequest;
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(_emptyMessages, 200, headers: {'content-type': 'application/json'});
+        }
+        if (request.method == 'POST' && request.url.path == '/matches/match-1/gift') {
+          sendRequest = request;
+          return http.Response(
+            '{"id":"m1","senderId":"user-woman","contentType":"GIFT","content":"rose",'
+            '"mediaUrl":null,"isBlurred":false,'
+            '"gift":{"giftId":"rose","name":"Rose","emoji":"🌹","tokenCost":10},'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}',
+            201,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":null,'
+          '"isExpired":false,"firstMessageSent":true,"canSendFirstMessage":true}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+    final giftingApi = GiftingApi(
+      accessToken: 'a-jwt',
+      client: MockClient(
+        (request) async => http.Response(
+          '[{"id":"rose","name":"Rose","emoji":"🌹","tokenCost":10}]',
+          200,
+          headers: {'content-type': 'application/json'},
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchChatScreen(
+          messagingApi: api,
+          matchId: 'match-1',
+          currentUserId: 'user-woman',
+          giftingApi: giftingApi,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.card_giftcard_outlined));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Rose'));
+    await tester.pumpAndSettle();
+
+    expect(sendRequest, isNotNull);
+    expect(sendRequest!.body, '{"giftId":"rose"}');
+    expect(find.text('Rose'), findsOneWidget);
   });
 
   testWidgets('shows a received event ticket reservation card', (tester) async {

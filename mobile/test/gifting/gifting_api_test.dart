@@ -25,6 +25,24 @@ void main() {
       expect(catalog, hasLength(1));
       expect(catalog.first.id, 'rose');
       expect(catalog.first.tokenCost, 10);
+      expect(catalog.first.animated, isFalse);
+    });
+
+    test('parses the animated flag when present', () async {
+      final api = GiftingApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '[{"id":"crown","name":"Crown","emoji":"👑","tokenCost":250,"animated":true}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      final catalog = await api.fetchCatalog();
+
+      expect(catalog.first.animated, isTrue);
     });
 
     test('throws GiftingApiException on a non-200 response', () async {

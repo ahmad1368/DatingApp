@@ -1,6 +1,8 @@
 import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { GiftingService } from '../gifting/gifting.service';
+import { findVirtualGift } from '../gifting/gifting.constants';
 import { IMAGE_MODERATOR, ImageModerator } from './interfaces/image-moderator.interface';
 import { TRANSCRIPTION_PROVIDER, TranscriptionProvider } from './interfaces/transcription-provider.interface';
 import {
@@ -23,6 +25,7 @@ import {
   isWoman,
   MAX_POLL_OPTIONS,
   MIN_POLL_OPTIONS,
+  GIFT_CONTENT_TYPE,
   POLL_CONTENT_TYPE,
   RESERVATION_CONTENT_TYPE,
   RESERVATION_PROVIDERS,
@@ -73,6 +76,13 @@ export interface ReservationView {
   url: string;
 }
 
+export interface GiftView {
+  giftId: string;
+  name: string;
+  emoji: string;
+  tokenCost: number;
+}
+
 export interface MessageView {
   id: string;
   senderId: string;
@@ -90,6 +100,7 @@ export interface MessageView {
   icebreaker: IcebreakerView | null;
   poll: PollView | null;
   reservation: ReservationView | null;
+  gift: GiftView | null;
   expiryMode: ExpiryMode | null;
   viewTimerSeconds: number | null;
   isEphemeralExpired: boolean;
@@ -178,6 +189,7 @@ export class MessagingService {
     @Inject(IMAGE_MODERATOR) private readonly imageModerator: ImageModerator,
     private readonly notificationsService: NotificationsService,
     @Inject(TRANSCRIPTION_PROVIDER) private readonly transcriptionProvider: TranscriptionProvider,
+    private readonly giftingService: GiftingService,
   ) {}
 
   async getMatchStatus(userId: string, matchId: string): Promise<MatchStatus> {
@@ -694,6 +706,39 @@ export class MessagingService {
       userId,
       provider === 'OPENTABLE' ? `Sent a reservation link: ${query}` : `Sent an event ticket link: ${query}`,
     );
+
+    return this.toMessageView(message, userId);
+  }
+
+  /**
+   * In-chat virtual gift card: spends the sender's gift tokens via
+   * GiftingService.sendGift (the same profile-to-profile balance/ledger
+   * logic live-streaming gifting reuses too) and then drops a GIFT message
+   * into the chat so it shows up inline instead of only on the recipient's
+   * received-gifts list.
+   */
+  async sendGiftMessage(
+    userId: string,
+    matchId: string,
+    giftId: string,
+    giftMessage?: string,
+  ): Promise<MessageView> {
+    const gift = findVirtualGift(giftId);
+    if (!gift) {
+      throw new BadRequestException('Unknown gift.');
+    }
+
+    const { match, firstMessageSent } = await this.assertCanSend(userId, matchId);
+    const otherUserId = match.userAId === userId ? match.userBId : match.userAId;
+
+    await this.giftingService.sendGift(userId, otherUserId, giftId, giftMessage);
+
+    const message = await this.prisma.message.create({
+      data: { matchId, senderId: userId, contentType: GIFT_CONTENT_TYPE, content: giftId },
+    });
+
+    await this.markFirstMessageIfNeeded(matchId, firstMessageSent);
+    await this.notifyNewMessage(match, userId, `Sent a gift: ${gift.name} ${gift.emoji}`);
 
     return this.toMessageView(message, userId);
   }
@@ -1379,8 +1424,20 @@ export class MessagingService {
         message.reservationProvider,
         message.reservationUrl,
       ),
+      gift: this.toGiftView(message.contentType, message.content),
       createdAt: message.createdAt.toISOString(),
     };
+  }
+
+  private toGiftView(contentType: string, giftId: string | null): GiftView | null {
+    if (contentType !== GIFT_CONTENT_TYPE || !giftId) {
+      return null;
+    }
+    const gift = findVirtualGift(giftId);
+    if (!gift) {
+      return null;
+    }
+    return { giftId: gift.id, name: gift.name, emoji: gift.emoji, tokenCost: gift.tokenCost };
   }
 
   private toReservationView(

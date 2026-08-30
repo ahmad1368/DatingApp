@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
+import '../gifting/gifting_api.dart';
 import '../profile/voice_player_controller.dart';
 import '../profile/voice_recorder_controller.dart';
 import '../safety/screen_security_api.dart';
@@ -33,6 +34,7 @@ class MatchChatScreen extends StatefulWidget {
     ScreenSecurityChannel? screenSecurityChannel,
     ScreenSecurityApi? screenSecurityApi,
     PostMatchSurveyApi? postMatchSurveyApi,
+    GiftingApi? giftingApi,
   })  : recorder = recorder ?? DeviceVoiceRecorderController(),
         player = player ?? DeviceVoicePlayerController(),
         dateSuggestionsApi =
@@ -42,7 +44,8 @@ class MatchChatScreen extends StatefulWidget {
         screenSecurityApi =
             screenSecurityApi ?? ScreenSecurityApi(accessToken: messagingApi.accessToken),
         postMatchSurveyApi =
-            postMatchSurveyApi ?? PostMatchSurveyApi(accessToken: messagingApi.accessToken);
+            postMatchSurveyApi ?? PostMatchSurveyApi(accessToken: messagingApi.accessToken),
+        giftingApi = giftingApi ?? GiftingApi(accessToken: messagingApi.accessToken);
 
   final MessagingApi messagingApi;
   final String matchId;
@@ -54,6 +57,7 @@ class MatchChatScreen extends StatefulWidget {
   final ScreenSecurityChannel screenSecurityChannel;
   final ScreenSecurityApi screenSecurityApi;
   final PostMatchSurveyApi postMatchSurveyApi;
+  final GiftingApi giftingApi;
 
   @override
   State<MatchChatScreen> createState() => _MatchChatScreenState();
@@ -551,6 +555,62 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
     }
   }
 
+  /// Lets the sender pick a gift from the full catalog and drop it into the
+  /// chat as its own message - see MessagingApi.sendGiftMessage.
+  Future<void> _openSendGiftDialog() async {
+    List<VirtualGift> catalog;
+    try {
+      catalog = await widget.giftingApi.fetchCatalog();
+    } on GiftingApiException catch (e) {
+      setState(() => _errorText = e.message);
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    final selected = await showModalBottomSheet<VirtualGift>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: GridView.count(
+          shrinkWrap: true,
+          crossAxisCount: 4,
+          padding: const EdgeInsets.all(16),
+          children: [
+            for (final gift in catalog)
+              InkWell(
+                onTap: () => Navigator.of(context).pop(gift),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(gift.emoji, style: const TextStyle(fontSize: 28)),
+                    Text(gift.name, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11)),
+                    Text('${gift.tokenCost}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+
+    if (selected == null) {
+      return;
+    }
+
+    setState(() => _errorText = null);
+    try {
+      final message = await widget.messagingApi.sendGiftMessage(
+        matchId: widget.matchId,
+        giftId: selected.id,
+      );
+      _onMessageSent(message);
+    } on MessagingApiException catch (e) {
+      setState(() => _errorText = e.message);
+    }
+  }
+
   Future<void> _startRecording() async {
     setState(() => _errorText = null);
 
@@ -747,6 +807,11 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
             icon: const Icon(Icons.confirmation_number_outlined),
             tooltip: 'Reserve or buy tickets',
             onPressed: _openSendReservationDialog,
+          ),
+          IconButton(
+            icon: const Icon(Icons.card_giftcard_outlined),
+            tooltip: 'Send a gift',
+            onPressed: _openSendGiftDialog,
           ),
           IconButton(
             icon: const Icon(Icons.photo_library_outlined),
@@ -1037,6 +1102,8 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
         );
       case 'RESERVATION':
         return _buildReservationContent(message);
+      case 'GIFT':
+        return _buildGiftContent(message);
       case 'TEXT':
       default:
         return Text(message.content ?? '');
@@ -1070,6 +1137,21 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
           reservation.url,
           style: const TextStyle(color: Colors.indigo, decoration: TextDecoration.underline),
         ),
+      ],
+    );
+  }
+
+  Widget _buildGiftContent(ChatMessage message) {
+    final gift = message.gift;
+    if (gift == null) {
+      return const Text('Gift');
+    }
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(gift.emoji, style: const TextStyle(fontSize: 28)),
+        const SizedBox(width: 8),
+        Text(gift.name, style: const TextStyle(fontWeight: FontWeight.bold)),
       ],
     );
   }

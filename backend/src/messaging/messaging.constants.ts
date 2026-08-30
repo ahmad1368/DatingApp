@@ -67,6 +67,12 @@ export const RESERVATION_CONTENT_TYPE = 'RESERVATION';
 export const RESERVATION_PROVIDERS = ['OPENTABLE', 'EVENTBRITE'] as const;
 export type ReservationProvider = (typeof RESERVATION_PROVIDERS)[number];
 
+// A virtual gift sent directly into the chat as its own message (see
+// MessagingService.sendGiftMessage), as opposed to GiftingService.sendGift's
+// direct profile-to-profile send - the gift id lives in `content`, mirroring
+// how a RESERVATION message stores its query there.
+export const GIFT_CONTENT_TYPE = 'GIFT';
+
 const RESERVATION_SEARCH_URLS: Record<ReservationProvider, string> = {
   OPENTABLE: 'https://www.opentable.com/s',
   EVENTBRITE: 'https://www.eventbrite.com/d/search',

@@ -17,12 +17,14 @@ class VirtualGift {
     required this.name,
     required this.emoji,
     required this.tokenCost,
+    required this.animated,
   });
 
   final String id;
   final String name;
   final String emoji;
   final int tokenCost;
+  final bool animated;
 }
 
 class GiftTransaction {
@@ -146,6 +148,7 @@ class GiftingApi {
       name: json['name'] as String,
       emoji: json['emoji'] as String,
       tokenCost: json['tokenCost'] as int,
+      animated: json['animated'] as bool? ?? false,
     );
   }
 

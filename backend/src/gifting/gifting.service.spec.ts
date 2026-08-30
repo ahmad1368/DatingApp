@@ -121,7 +121,7 @@ describe('GiftingService', () => {
         tokenBalance: 90,
         transaction: {
           id: 'gift-1',
-          gift: { id: 'rose', name: 'Rose', emoji: '🌹', tokenCost: 10 },
+          gift: { id: 'rose', name: 'Rose', emoji: '🌹', tokenCost: 10, animated: false },
           message: 'For you!',
           createdAt: '2026-01-01T00:00:00.000Z',
           otherUserId: RECIPIENT_ID,
@@ -166,7 +166,7 @@ describe('GiftingService', () => {
       expect(result).toEqual([
         {
           id: 'gift-1',
-          gift: { id: 'rose', name: 'Rose', emoji: '🌹', tokenCost: 10 },
+          gift: { id: 'rose', name: 'Rose', emoji: '🌹', tokenCost: 10, animated: false },
           message: null,
           createdAt: '2026-01-01T00:00:00.000Z',
           otherUserId: SENDER_ID,
