@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from '../auth/auth.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { RelationshipCoachModule } from '../relationship-coach/relationship-coach.module';
+import { GiftingModule } from '../gifting/gifting.module';
 import { MessagingController } from './messaging.controller';
 import { MessagingService } from './messaging.service';
 import { GifSearchService } from './gif-search.service';
@@ -17,7 +18,7 @@ import { TRANSCRIPTION_PROVIDER } from './interfaces/transcription-provider.inte
 import { OpenAiTranscriptionClient } from './providers/openai-transcription.client';
 
 @Module({
-  imports: [AuthModule, ConfigModule, NotificationsModule, RelationshipCoachModule],
+  imports: [AuthModule, ConfigModule, NotificationsModule, RelationshipCoachModule, GiftingModule],
   controllers: [MessagingController],
   providers: [
     MessagingService,

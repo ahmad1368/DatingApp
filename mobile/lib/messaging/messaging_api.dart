@@ -168,6 +168,7 @@ class ChatMessage {
     this.icebreaker,
     this.poll,
     this.reservation,
+    this.gift,
     this.expiryMode,
     this.viewTimerSeconds,
     this.isEphemeralExpired = false,
@@ -194,6 +195,7 @@ class ChatMessage {
   final Icebreaker? icebreaker;
   final Poll? poll;
   final Reservation? reservation;
+  final GiftCard? gift;
 
   /// 'VIEW_ONCE' or 'TIMER' for an auto-expiring photo/GIF; null for a
   /// normal, permanent message.
@@ -234,6 +236,17 @@ class Reservation {
   final String provider;
   final String query;
   final String url;
+}
+
+/// A virtual gift sent directly into the chat as its own message - see
+/// MessagingService.sendGiftMessage on the backend.
+class GiftCard {
+  GiftCard({required this.giftId, required this.name, required this.emoji, required this.tokenCost});
+
+  final String giftId;
+  final String name;
+  final String emoji;
+  final int tokenCost;
 }
 
 class VoiceNoteEffect {
@@ -966,6 +979,28 @@ class MessagingApi {
     return _toChatMessage(body);
   }
 
+  /// Sends a virtual gift directly into the chat (spending gift tokens the
+  /// same way GiftingApi.sendGift does) so it shows up as its own message
+  /// bubble instead of only on the recipient's received-gifts list.
+  Future<ChatMessage> sendGiftMessage({
+    required String matchId,
+    required String giftId,
+    String? message,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/matches/$matchId/gift'),
+      headers: _headers,
+      body: jsonEncode({'giftId': giftId, 'message': ?message}),
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 201) {
+      throw MessagingApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return _toChatMessage(body);
+  }
+
   Future<void> reportMessage({
     required String matchId,
     required String messageId,
@@ -986,6 +1021,7 @@ class MessagingApi {
     final icebreakerJson = json['icebreaker'] as Map<String, dynamic>?;
     final pollJson = json['poll'] as Map<String, dynamic>?;
     final reservationJson = json['reservation'] as Map<String, dynamic>?;
+    final giftJson = json['gift'] as Map<String, dynamic>?;
     return ChatMessage(
       id: json['id'] as String,
       senderId: json['senderId'] as String,
@@ -1024,6 +1060,14 @@ class MessagingApi {
               provider: reservationJson['provider'] as String,
               query: reservationJson['query'] as String,
               url: reservationJson['url'] as String,
+            )
+          : null,
+      gift: giftJson != null
+          ? GiftCard(
+              giftId: giftJson['giftId'] as String,
+              name: giftJson['name'] as String,
+              emoji: giftJson['emoji'] as String,
+              tokenCost: giftJson['tokenCost'] as int,
             )
           : null,
       expiryMode: json['expiryMode'] as String?,

@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { GiftingService } from '../gifting/gifting.service';
 import { ImageModerator } from './interfaces/image-moderator.interface';
 import { TranscriptionProvider } from './interfaces/transcription-provider.interface';
 import { MessagingService } from './messaging.service';
@@ -45,11 +46,13 @@ describe('MessagingService', () => {
   let imageModerator: { moderate: jest.Mock };
   let notificationsService: { notify: jest.Mock };
   let transcriptionProvider: { transcribe: jest.Mock };
+  let giftingService: { sendGift: jest.Mock };
 
   beforeEach(() => {
     imageModerator = { moderate: jest.fn().mockResolvedValue({ flagged: false, categories: [] }) };
     notificationsService = { notify: jest.fn() };
     transcriptionProvider = { transcribe: jest.fn().mockResolvedValue('a transcript') };
+    giftingService = { sendGift: jest.fn().mockResolvedValue({ tokenBalance: 90, transaction: {} }) };
     prisma = {
       match: {
         findUnique: jest.fn(),
@@ -87,6 +90,7 @@ describe('MessagingService', () => {
       imageModerator as unknown as ImageModerator,
       notificationsService as unknown as NotificationsService,
       transcriptionProvider as unknown as TranscriptionProvider,
+      giftingService as unknown as GiftingService,
     );
   });
 
@@ -532,6 +536,7 @@ describe('MessagingService', () => {
         icebreaker: null,
         poll: null,
         reservation: null,
+        gift: null,
         expiryMode: null,
         viewTimerSeconds: null,
         isEphemeralExpired: false,
@@ -1284,6 +1289,7 @@ describe('MessagingService', () => {
           icebreaker: null,
           poll: null,
           reservation: null,
+          gift: null,
           expiryMode: null,
           viewTimerSeconds: null,
           isEphemeralExpired: false,
@@ -1737,6 +1743,60 @@ describe('MessagingService', () => {
         query: 'Jazz Night',
         url: 'https://www.eventbrite.com/d/search?q=Jazz%20Night',
       });
+    });
+  });
+
+  describe('sendGiftMessage', () => {
+    it('rejects an unknown gift', async () => {
+      await expect(service.sendGiftMessage(WOMAN_ID, MATCH_ID, 'not-a-real-gift')).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(giftingService.sendGift).not.toHaveBeenCalled();
+      expect(prisma.message.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects the man sending the first gift to a woman match', async () => {
+      mockMatch();
+      mockUsers({ [WOMAN_ID]: ['Woman'], [MAN_ID]: ['Man'] });
+
+      await expect(service.sendGiftMessage(MAN_ID, MATCH_ID, 'rose')).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+      expect(giftingService.sendGift).not.toHaveBeenCalled();
+    });
+
+    it('spends the gift via GiftingService and creates a GIFT message', async () => {
+      mockMatch();
+      mockUsers({ [WOMAN_ID]: ['Woman'], [MAN_ID]: ['Man'] });
+      prisma.message.create.mockResolvedValue({
+        id: 'message-1',
+        senderId: WOMAN_ID,
+        contentType: 'GIFT',
+        content: 'rose',
+        mediaUrl: null,
+        isBlurred: false,
+        readAt: null,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const result = await service.sendGiftMessage(WOMAN_ID, MATCH_ID, 'rose', 'For you!');
+
+      expect(giftingService.sendGift).toHaveBeenCalledWith(WOMAN_ID, MAN_ID, 'rose', 'For you!');
+      expect(prisma.message.create).toHaveBeenCalledWith({
+        data: { matchId: MATCH_ID, senderId: WOMAN_ID, contentType: 'GIFT', content: 'rose' },
+      });
+      expect(result.gift).toEqual({ giftId: 'rose', name: 'Rose', emoji: '🌹', tokenCost: 10 });
+    });
+
+    it('propagates an insufficient-balance error from GiftingService without creating a message', async () => {
+      mockMatch();
+      mockUsers({ [WOMAN_ID]: ['Woman'], [MAN_ID]: ['Man'] });
+      giftingService.sendGift.mockRejectedValue(new BadRequestException('Not enough gift tokens for this gift.'));
+
+      await expect(service.sendGiftMessage(WOMAN_ID, MATCH_ID, 'rose')).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(prisma.message.create).not.toHaveBeenCalled();
     });
   });
 
