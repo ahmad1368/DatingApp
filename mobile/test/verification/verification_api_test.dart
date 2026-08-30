@@ -43,6 +43,68 @@ void main() {
     });
   });
 
+  group('VerificationApi.fetchStatus', () {
+    test('sends the bearer token and parses the status', () async {
+      final api = VerificationApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'GET');
+          expect(request.url.path, '/verification/selfie/status');
+          expect(request.headers['Authorization'], 'Bearer a-jwt');
+          return http.Response(
+            '{"isVerified":true,"verifiedAt":"2026-01-01T00:00:00.000Z",'
+            '"reverificationDue":true,"reverificationReason":"PHOTO_CHANGED"}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final status = await api.fetchStatus();
+
+      expect(status.isVerified, isTrue);
+      expect(status.verifiedAt, DateTime.parse('2026-01-01T00:00:00.000Z'));
+      expect(status.reverificationDue, isTrue);
+      expect(status.reverificationReason, 'PHOTO_CHANGED');
+    });
+
+    test('parses a not-due status with null verifiedAt and reason', () async {
+      final api = VerificationApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '{"isVerified":false,"verifiedAt":null,'
+            '"reverificationDue":false,"reverificationReason":null}',
+            200,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      final status = await api.fetchStatus();
+
+      expect(status.isVerified, isFalse);
+      expect(status.verifiedAt, isNull);
+      expect(status.reverificationDue, isFalse);
+      expect(status.reverificationReason, isNull);
+    });
+
+    test('throws VerificationApiException on a non-200 response', () async {
+      final api = VerificationApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '{"message":"Missing authentication token."}',
+            401,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      expect(() => api.fetchStatus(), throwsA(isA<VerificationApiException>()));
+    });
+  });
+
   group('VerificationApi.submitSelfie', () {
     test('sends the challenge id and selfie, and parses the result', () async {
       final api = VerificationApi(

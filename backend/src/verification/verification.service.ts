@@ -5,6 +5,8 @@ import { FACE_MATCH_PROVIDER, FaceMatchProvider } from './interfaces/face-match-
 import {
   DEFAULT_CHALLENGE_TTL_SECONDS,
   DEFAULT_MIN_MATCH_CONFIDENCE,
+  DEFAULT_REVERIFICATION_INTERVAL_DAYS,
+  ReverificationReason,
   SELFIE_GESTURES,
   SelfieGesture,
 } from './verification.constants';
@@ -18,6 +20,13 @@ export interface RequestChallengeResult {
 export interface SubmitSelfieResult {
   isVerified: boolean;
   confidence: number;
+}
+
+export interface VerificationStatusResult {
+  isVerified: boolean;
+  verifiedAt: string | null;
+  reverificationDue: boolean;
+  reverificationReason: ReverificationReason | null;
 }
 
 @Injectable()
@@ -37,6 +46,12 @@ export class VerificationService {
   private get minMatchConfidence(): number {
     return Number(
       this.configService.get('SELFIE_MIN_MATCH_CONFIDENCE') ?? DEFAULT_MIN_MATCH_CONFIDENCE,
+    );
+  }
+
+  private get reverificationIntervalDays(): number {
+    return Number(
+      this.configService.get('REVERIFICATION_INTERVAL_DAYS') ?? DEFAULT_REVERIFICATION_INTERVAL_DAYS,
     );
   }
 
@@ -93,10 +108,51 @@ export class VerificationService {
     if (isVerified) {
       await this.prisma.user.update({
         where: { id: userId },
-        data: { isVerified: true, verifiedAt: new Date() },
+        data: { isVerified: true, verifiedAt: new Date(), verifiedPhotoUrl: user.profilePhotoUrl },
       });
     }
 
     return { isVerified, confidence: matchResult.confidence };
+  }
+
+  /**
+   * Whether this user needs to redo selfie verification: either their
+   * profile photo has changed since the photo their last successful
+   * verification was matched against (the "major profile photo change"
+   * trigger, guarding against a takeover/impersonation swapping in a
+   * different face), or enough time has simply passed since that
+   * verification (the periodic re-check). Unverified users are never due -
+   * there's nothing to re-check yet.
+   */
+  async getVerificationStatus(userId: string): Promise<VerificationStatusResult> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { isVerified: true, verifiedAt: true, profilePhotoUrl: true, verifiedPhotoUrl: true },
+    });
+    if (!user) {
+      throw new NotFoundException('User not found.');
+    }
+
+    if (!user.isVerified) {
+      return { isVerified: false, verifiedAt: null, reverificationDue: false, reverificationReason: null };
+    }
+
+    let reverificationReason: ReverificationReason | null = null;
+    if (user.profilePhotoUrl !== user.verifiedPhotoUrl) {
+      reverificationReason = 'PHOTO_CHANGED';
+    } else if (user.verifiedAt) {
+      const dueAt = new Date(user.verifiedAt);
+      dueAt.setUTCDate(dueAt.getUTCDate() + this.reverificationIntervalDays);
+      if (dueAt.getTime() <= Date.now()) {
+        reverificationReason = 'PERIODIC';
+      }
+    }
+
+    return {
+      isVerified: true,
+      verifiedAt: user.verifiedAt?.toISOString() ?? null,
+      reverificationDue: reverificationReason !== null,
+      reverificationReason,
+    };
   }
 }

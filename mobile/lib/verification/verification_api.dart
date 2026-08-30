@@ -30,6 +30,24 @@ class VerificationResult {
   final double confidence;
 }
 
+/// Whether this user needs to redo selfie verification - either their
+/// profile photo changed since it was last verified against, or enough time
+/// has passed since the last successful check (see the backend's
+/// VerificationService.getVerificationStatus).
+class VerificationStatus {
+  VerificationStatus({
+    required this.isVerified,
+    required this.verifiedAt,
+    required this.reverificationDue,
+    required this.reverificationReason,
+  });
+
+  final bool isVerified;
+  final DateTime? verifiedAt;
+  final bool reverificationDue;
+  final String? reverificationReason;
+}
+
 /// Talks to the backend's live selfie verification endpoints. Requires a
 /// signed-in user's access token.
 class VerificationApi {
@@ -45,6 +63,25 @@ class VerificationApi {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $accessToken',
       };
+
+  Future<VerificationStatus> fetchStatus() async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/verification/selfie/status'),
+      headers: _headers,
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 200) {
+      throw VerificationApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return VerificationStatus(
+      isVerified: body['isVerified'] as bool,
+      verifiedAt: body['verifiedAt'] == null ? null : DateTime.parse(body['verifiedAt'] as String),
+      reverificationDue: body['reverificationDue'] as bool,
+      reverificationReason: body['reverificationReason'] as String?,
+    );
+  }
 
   Future<VerificationChallenge> requestChallenge() async {
     final response = await _client.post(

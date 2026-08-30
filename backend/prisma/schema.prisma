@@ -18,6 +18,11 @@ model User {
   profilePhotoUrl                       String?
   isVerified                            Boolean   @default(false)
   verifiedAt                            DateTime?
+  // Snapshot of profilePhotoUrl at the moment verification last succeeded -
+  // see VerificationService.getVerificationStatus, which compares this
+  // against the current profilePhotoUrl to detect a "major profile photo
+  // change" that should trigger re-verification.
+  verifiedPhotoUrl                      String?
   dateOfBirth                           DateTime?
   genderIdentities                      String[]  @default([])
   customGenderDescription               String?
