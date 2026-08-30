@@ -14,6 +14,7 @@ import 'date_suggestions_api.dart';
 import 'messaging_api.dart';
 import 'post_match_survey_api.dart';
 import 'post_match_survey_screen.dart';
+import 'video_reaction_picker_controller.dart';
 
 const int _maxVoiceNoteSeconds = 60;
 
@@ -35,6 +36,7 @@ class MatchChatScreen extends StatefulWidget {
     ScreenSecurityApi? screenSecurityApi,
     PostMatchSurveyApi? postMatchSurveyApi,
     GiftingApi? giftingApi,
+    VideoReactionPickerController? videoReactionPicker,
   })  : recorder = recorder ?? DeviceVoiceRecorderController(),
         player = player ?? DeviceVoicePlayerController(),
         dateSuggestionsApi =
@@ -45,7 +47,8 @@ class MatchChatScreen extends StatefulWidget {
             screenSecurityApi ?? ScreenSecurityApi(accessToken: messagingApi.accessToken),
         postMatchSurveyApi =
             postMatchSurveyApi ?? PostMatchSurveyApi(accessToken: messagingApi.accessToken),
-        giftingApi = giftingApi ?? GiftingApi(accessToken: messagingApi.accessToken);
+        giftingApi = giftingApi ?? GiftingApi(accessToken: messagingApi.accessToken),
+        videoReactionPicker = videoReactionPicker ?? DeviceVideoReactionPickerController();
 
   final MessagingApi messagingApi;
   final String matchId;
@@ -58,6 +61,7 @@ class MatchChatScreen extends StatefulWidget {
   final ScreenSecurityApi screenSecurityApi;
   final PostMatchSurveyApi postMatchSurveyApi;
   final GiftingApi giftingApi;
+  final VideoReactionPickerController videoReactionPicker;
 
   @override
   State<MatchChatScreen> createState() => _MatchChatScreenState();
@@ -349,6 +353,31 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
         matchId: widget.matchId,
         contentType: 'GIF',
         mediaUrl: gif.url,
+      );
+      _onMessageSent(message);
+    } on MessagingApiException catch (e) {
+      setState(() => _errorText = e.message);
+    }
+  }
+
+  /// Records a short front-camera reaction clip and sends it as its own
+  /// message - see VideoReactionPickerController. The picker's own
+  /// maxDuration already caps the recording at maxVideoReactionSeconds, and
+  /// there's no way to read back the actual clip length from image_picker,
+  /// so that cap is reported as the duration.
+  Future<void> _recordAndSendVideoReaction() async {
+    final path = await widget.videoReactionPicker.recordVideoReaction();
+    if (path == null) {
+      return;
+    }
+
+    setState(() => _errorText = null);
+    try {
+      final message = await widget.messagingApi.sendMediaMessage(
+        matchId: widget.matchId,
+        contentType: 'VIDEO_REACTION',
+        mediaUrl: path,
+        durationSeconds: maxVideoReactionSeconds,
       );
       _onMessageSent(message);
     } on MessagingApiException catch (e) {
@@ -1080,6 +1109,11 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
                           onPressed: _openIcebreakerPicker,
                         ),
                         IconButton(
+                          icon: const Icon(Icons.videocam_outlined),
+                          tooltip: 'Send a video reaction',
+                          onPressed: _recordAndSendVideoReaction,
+                        ),
+                        IconButton(
                           icon: Icon(_isRecording ? Icons.stop_circle : Icons.mic_none),
                           color: _isRecording ? Colors.red : null,
                           tooltip: _isRecording ? 'Stop and send voice note' : 'Record a voice note',
@@ -1183,6 +1217,15 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
         return _buildReservationContent(message);
       case 'GIFT':
         return _buildGiftContent(message);
+      case 'VIDEO_REACTION':
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.videocam),
+            const SizedBox(width: 4),
+            Text('${message.durationSeconds ?? maxVideoReactionSeconds}s video reaction'),
+          ],
+        );
       case 'TEXT':
       default:
         return Text(message.content ?? '');

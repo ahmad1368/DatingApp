@@ -246,6 +246,7 @@ export class MessagingController {
       dto.mediaUrl,
       dto.expiryMode,
       dto.viewTimerSeconds,
+      dto.durationSeconds,
     );
   }
 

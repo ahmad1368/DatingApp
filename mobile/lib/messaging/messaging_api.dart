@@ -596,13 +596,16 @@ class MessagingApi {
 
   /// [expiryMode] ('VIEW_ONCE' or 'TIMER') makes this an auto-expiring
   /// attachment; [viewTimerSeconds] is required for 'TIMER' and must be
-  /// omitted otherwise.
+  /// omitted otherwise. [durationSeconds] is required when [contentType] is
+  /// 'VIDEO_REACTION' (max MAX_VIDEO_REACTION_SECONDS on the backend) and
+  /// must be omitted otherwise.
   Future<ChatMessage> sendMediaMessage({
     required String matchId,
     required String contentType,
     required String mediaUrl,
     String? expiryMode,
     int? viewTimerSeconds,
+    int? durationSeconds,
   }) async {
     final response = await _client.post(
       Uri.parse('$_baseUrl/matches/$matchId/media'),
@@ -612,6 +615,7 @@ class MessagingApi {
         'mediaUrl': mediaUrl,
         'expiryMode': ?expiryMode,
         'viewTimerSeconds': ?viewTimerSeconds,
+        'durationSeconds': ?durationSeconds,
       }),
     );
 
