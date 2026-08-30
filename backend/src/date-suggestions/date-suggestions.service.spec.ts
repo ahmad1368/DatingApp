@@ -8,12 +8,17 @@ const MATCH_ID = 'match-1';
 
 describe('DateSuggestionsService', () => {
   let service: DateSuggestionsService;
-  let prisma: { match: { findUnique: jest.Mock }; user: { findUnique: jest.Mock } };
+  let prisma: {
+    match: { findUnique: jest.Mock };
+    user: { findUnique: jest.Mock };
+    meetupSpotPick: { findUnique: jest.Mock; upsert: jest.Mock };
+  };
 
   beforeEach(() => {
     prisma = {
       match: { findUnique: jest.fn() },
       user: { findUnique: jest.fn() },
+      meetupSpotPick: { findUnique: jest.fn().mockResolvedValue(null), upsert: jest.fn() },
     };
     service = new DateSuggestionsService(prisma as unknown as PrismaService);
   });
@@ -90,6 +95,37 @@ describe('DateSuggestionsService', () => {
       }),
     );
     expect(result.suggestions[0].mapsSearchUrl).toContain('@41,-73,15z');
+    expect(result.suggestions.every((s) => s.isMyPick === false && s.isPartnerPick === false)).toBe(true);
+    expect(result.mutualPickCategoryId).toBeNull();
+  });
+
+  it('sorts a picked category to the top and reports a mutual pick', async () => {
+    prisma.match.findUnique.mockResolvedValue({ userAId: USER_ID, userBId: OTHER_USER_ID });
+    prisma.user.findUnique
+      .mockResolvedValueOnce({
+        latitude: 40.0,
+        longitude: -74.0,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+      })
+      .mockResolvedValueOnce({
+        latitude: 42.0,
+        longitude: -72.0,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+      });
+    prisma.meetupSpotPick.findUnique
+      .mockResolvedValueOnce({ categoryId: 'museum' })
+      .mockResolvedValueOnce({ categoryId: 'museum' });
+
+    const result = await service.suggestMeetupSpots(USER_ID, MATCH_ID);
+
+    expect(result.mutualPickCategoryId).toBe('museum');
+    expect(result.suggestions[0].id).toBe('museum');
+    expect(result.suggestions[0].isMyPick).toBe(true);
+    expect(result.suggestions[0].isPartnerPick).toBe(true);
   });
 
   it('uses passport coordinates instead of real ones when passport mode is enabled', async () => {
@@ -114,5 +150,46 @@ describe('DateSuggestionsService', () => {
 
     expect(result.midpoint.latitude).toBeCloseTo(48.8566, 4);
     expect(result.midpoint.longitude).toBeCloseTo(2.3522, 4);
+  });
+
+  describe('pickVenueCategory', () => {
+    it('throws when the user is not part of the match', async () => {
+      prisma.match.findUnique.mockResolvedValue({ userAId: 'someone', userBId: 'else' });
+
+      await expect(service.pickVenueCategory(USER_ID, MATCH_ID, 'cafe')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+
+    it('rejects an unknown category id', async () => {
+      prisma.match.findUnique.mockResolvedValue({ userAId: USER_ID, userBId: OTHER_USER_ID });
+
+      await expect(
+        service.pickVenueCategory(USER_ID, MATCH_ID, 'not-a-real-category'),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.meetupSpotPick.upsert).not.toHaveBeenCalled();
+    });
+
+    it('upserts the pick and reports no mutual pick when the partner has not picked', async () => {
+      prisma.match.findUnique.mockResolvedValue({ userAId: USER_ID, userBId: OTHER_USER_ID });
+
+      const result = await service.pickVenueCategory(USER_ID, MATCH_ID, 'cafe');
+
+      expect(prisma.meetupSpotPick.upsert).toHaveBeenCalledWith({
+        where: { matchId_userId: { matchId: MATCH_ID, userId: USER_ID } },
+        create: { matchId: MATCH_ID, userId: USER_ID, categoryId: 'cafe' },
+        update: { categoryId: 'cafe' },
+      });
+      expect(result).toEqual({ categoryId: 'cafe', isMutualPick: false });
+    });
+
+    it('reports a mutual pick when the partner already picked the same category', async () => {
+      prisma.match.findUnique.mockResolvedValue({ userAId: USER_ID, userBId: OTHER_USER_ID });
+      prisma.meetupSpotPick.findUnique.mockResolvedValue({ categoryId: 'cafe' });
+
+      const result = await service.pickVenueCategory(USER_ID, MATCH_ID, 'cafe');
+
+      expect(result).toEqual({ categoryId: 'cafe', isMutualPick: true });
+    });
   });
 });

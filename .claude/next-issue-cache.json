@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-30T18:34:54.398Z",
+  "generated_at": "2026-08-30T18:56:47.721Z",
   "snapshot": [
     {
       "number": 454,
@@ -1442,11 +1442,6 @@
       "updatedAt": "2026-08-10T20:42:39Z"
     },
     {
-      "number": 166,
-      "title": "Selective Photo Privacy Controls (Private Album Permissions)",
-      "updatedAt": "2026-08-10T20:42:37Z"
-    },
-    {
       "number": 162,
       "title": "24-Hour Rematch Extension Unlock",
       "updatedAt": "2026-08-10T20:42:29Z"
@@ -1493,10 +1488,6 @@
     }
   ],
   "queue": [
-    {
-      "number": 167,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 168,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
