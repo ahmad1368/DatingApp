@@ -25,6 +25,24 @@ class PostMatchSurvey {
   final DateTime createdAt;
 }
 
+/// A discreet "how did it go?" prompt due for a match - see the backend's
+/// PostMatchSurveyService.listDuePrompts for why it fired (a phone-number
+/// exchange or a long chat thread, a couple of days back with no survey
+/// answered yet).
+class DueSurveyPrompt {
+  DueSurveyPrompt({
+    required this.matchId,
+    required this.reason,
+    required this.otherUserId,
+    this.otherUserName,
+  });
+
+  final String matchId;
+  final String reason;
+  final String otherUserId;
+  final String? otherUserName;
+}
+
 /// Talks to the backend's private post-match "did you meet up" survey.
 class PostMatchSurveyApi {
   PostMatchSurveyApi({required this.accessToken, http.Client? client, String? baseUrl})
@@ -73,6 +91,30 @@ class PostMatchSurveyApi {
     }
 
     return _toSurvey(body);
+  }
+
+  /// All of the current user's matches with a survey prompt due right now -
+  /// poll this (e.g. on app open) and surface a local prompt for whichever
+  /// come back, since there's no backend push/notification job.
+  Future<List<DueSurveyPrompt>> fetchDuePrompts() async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/post-match-survey'),
+      headers: _headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw PostMatchSurveyApiException(_errorMessage(_decode(response), response.statusCode));
+    }
+
+    final list = jsonDecode(response.body) as List;
+    return list.cast<Map<String, dynamic>>().map((json) {
+      return DueSurveyPrompt(
+        matchId: json['matchId'] as String,
+        reason: json['reason'] as String,
+        otherUserId: json['otherUserId'] as String,
+        otherUserName: json['otherUserName'] as String?,
+      );
+    }).toList();
   }
 
   PostMatchSurvey _toSurvey(Map<String, dynamic> json) {

@@ -23,4 +23,9 @@ export class PostMatchSurveyController {
   getMySurvey(@CurrentUser() user: AuthenticatedUser, @Param('matchId') matchId: string) {
     return this.postMatchSurveyService.getMySurvey(user.id, matchId);
   }
+
+  @Get()
+  listDuePrompts(@CurrentUser() user: AuthenticatedUser) {
+    return this.postMatchSurveyService.listDuePrompts(user.id);
+  }
 }

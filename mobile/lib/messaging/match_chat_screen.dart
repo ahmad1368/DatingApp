@@ -78,6 +78,7 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
   Timer? _recordTimer;
   String? _errorText;
   IcebreakerPrompt? _suggestedIcebreaker;
+  bool _surveyPromptDue = false;
 
   @override
   void initState() {
@@ -153,6 +154,22 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
     }
     unawaited(_pingActivity());
     unawaited(_loadSuggestedIcebreaker());
+    unawaited(_checkSurveyPromptDue());
+  }
+
+  /// Best-effort discreet check for whether this match has a "how did it
+  /// go?" survey prompt due (see PostMatchSurveyApi.fetchDuePrompts).
+  /// Failure here shouldn't surface to the user; the badge just won't show.
+  Future<void> _checkSurveyPromptDue() async {
+    try {
+      final prompts = await widget.postMatchSurveyApi.fetchDuePrompts();
+      final isDue = prompts.any((prompt) => prompt.matchId == widget.matchId);
+      if (mounted) {
+        setState(() => _surveyPromptDue = isDue);
+      }
+    } catch (_) {
+      // Ignored - see doc comment above.
+    }
   }
 
   /// Best-effort activity heartbeat - opening a chat counts as being active.
@@ -838,16 +855,25 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
             onPressed: _toggleMediaBlurPreference,
           ),
           IconButton(
-            icon: const Icon(Icons.rate_review_outlined),
-            tooltip: 'Did you meet up?',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => PostMatchSurveyScreen(
-                  postMatchSurveyApi: widget.postMatchSurveyApi,
-                  matchId: widget.matchId,
-                ),
-              ),
+            icon: Badge(
+              isLabelVisible: _surveyPromptDue,
+              smallSize: 8,
+              child: const Icon(Icons.rate_review_outlined),
             ),
+            tooltip: _surveyPromptDue ? 'How did your date go?' : 'Did you meet up?',
+            onPressed: () async {
+              await Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => PostMatchSurveyScreen(
+                    postMatchSurveyApi: widget.postMatchSurveyApi,
+                    matchId: widget.matchId,
+                  ),
+                ),
+              );
+              if (mounted) {
+                setState(() => _surveyPromptDue = false);
+              }
+            },
           ),
           IconButton(
             icon: const Icon(Icons.sticky_note_2_outlined),

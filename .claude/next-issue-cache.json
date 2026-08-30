@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-30T19:15:26.307Z",
+  "generated_at": "2026-08-30T19:31:19.481Z",
   "snapshot": [
     {
       "number": 454,
@@ -1427,11 +1427,6 @@
       "updatedAt": "2026-08-10T20:42:45Z"
     },
     {
-      "number": 169,
-      "title": "In-App Microtransaction Gift Shop",
-      "updatedAt": "2026-08-10T20:42:43Z"
-    },
-    {
       "number": 162,
       "title": "24-Hour Rematch Extension Unlock",
       "updatedAt": "2026-08-10T20:42:29Z"
@@ -1478,10 +1473,6 @@
     }
   ],
   "queue": [
-    {
-      "number": 170,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 171,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
