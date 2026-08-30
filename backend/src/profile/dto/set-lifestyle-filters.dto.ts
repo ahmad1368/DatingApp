@@ -1,7 +1,7 @@
 import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsInt, IsOptional, Max, Min } from 'class-validator';
 import { RELATIONSHIP_GOALS } from '../../onboarding/onboarding.constants';
 import { COMMUNITY_GROUP_IDS } from '../../community-groups/community-groups.constants';
-import { KINK_TAGS, RELATIONSHIP_DESIRES } from '../relationship-profile.constants';
+import { BOUNDARY_TAGS, KINK_TAGS, RELATIONSHIP_DESIRES } from '../relationship-profile.constants';
 import {
   CHILDREN_PREFERENCES,
   CIVIC_ACTIVITY_LEVELS,
@@ -117,6 +117,11 @@ export class SetLifestyleFiltersDto {
   @ArrayMaxSize(MAX_FILTER_SELECTIONS)
   @IsIn(RELATIONSHIP_DESIRES, { each: true })
   filterRelationshipDesires!: string[];
+
+  @IsArray()
+  @ArrayMaxSize(MAX_FILTER_SELECTIONS)
+  @IsIn(BOUNDARY_TAGS, { each: true })
+  filterBoundaryTags!: string[];
 
   @IsArray()
   @ArrayMaxSize(MAX_FILTER_SELECTIONS)

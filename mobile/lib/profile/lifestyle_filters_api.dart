@@ -40,6 +40,7 @@ class LifestyleFilters {
     required this.filterRelationshipGoals,
     required this.filterKinkTags,
     required this.filterRelationshipDesires,
+    required this.filterBoundaryTags,
     required this.filterPetOwnership,
     required this.filterPetAllergyStatus,
     required this.filterPoliticalOrientations,
@@ -70,6 +71,7 @@ class LifestyleFilters {
   final List<String> filterRelationshipGoals;
   final List<String> filterKinkTags;
   final List<String> filterRelationshipDesires;
+  final List<String> filterBoundaryTags;
   final List<String> filterPetOwnership;
   final List<String> filterPetAllergyStatus;
   final List<String> filterPoliticalOrientations;
@@ -109,6 +111,7 @@ class LifestyleFilters {
       filterRelationshipGoals: filterRelationshipGoals ?? this.filterRelationshipGoals,
       filterKinkTags: filterKinkTags,
       filterRelationshipDesires: filterRelationshipDesires ?? this.filterRelationshipDesires,
+      filterBoundaryTags: filterBoundaryTags,
       filterPetOwnership: filterPetOwnership ?? this.filterPetOwnership,
       filterPetAllergyStatus: filterPetAllergyStatus ?? this.filterPetAllergyStatus,
       filterPoliticalOrientations: filterPoliticalOrientations ?? this.filterPoliticalOrientations,
@@ -229,6 +232,7 @@ class LifestyleFiltersApi {
         'filterRelationshipGoals': filters.filterRelationshipGoals,
         'filterKinkTags': filters.filterKinkTags,
         'filterRelationshipDesires': filters.filterRelationshipDesires,
+        'filterBoundaryTags': filters.filterBoundaryTags,
         'filterPetOwnership': filters.filterPetOwnership,
         'filterPetAllergyStatus': filters.filterPetAllergyStatus,
         'filterPoliticalOrientations': filters.filterPoliticalOrientations,
@@ -270,6 +274,7 @@ class LifestyleFiltersApi {
       filterRelationshipGoals: (json['filterRelationshipGoals'] as List).cast<String>(),
       filterKinkTags: (json['filterKinkTags'] as List).cast<String>(),
       filterRelationshipDesires: (json['filterRelationshipDesires'] as List).cast<String>(),
+      filterBoundaryTags: (json['filterBoundaryTags'] as List).cast<String>(),
       filterPetOwnership: (json['filterPetOwnership'] as List).cast<String>(),
       filterPetAllergyStatus: (json['filterPetAllergyStatus'] as List).cast<String>(),
       filterPoliticalOrientations: (json['filterPoliticalOrientations'] as List).cast<String>(),

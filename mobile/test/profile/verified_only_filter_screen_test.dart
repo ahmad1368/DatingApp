@@ -35,6 +35,7 @@ String _fullFiltersJson({bool verifiedOnly = false}) => '''
   "filterRelationshipDesires": [],
   "filterPetOwnership": [],
   "filterPetAllergyStatus": [],
+  "filterBoundaryTags": [],
   "filterPoliticalOrientations": [],
   "filterSharedInterestsOnly": false,
   "filterVerifiedOnly": $verifiedOnly,

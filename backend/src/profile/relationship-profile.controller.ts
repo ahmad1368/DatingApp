@@ -1,7 +1,12 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Put, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AuthenticatedUser, JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { KINK_TAGS, RELATIONSHIP_DESIRES, RELATIONSHIP_STRUCTURES } from './relationship-profile.constants';
+import {
+  BOUNDARY_TAGS,
+  KINK_TAGS,
+  RELATIONSHIP_DESIRES,
+  RELATIONSHIP_STRUCTURES,
+} from './relationship-profile.constants';
 import { SetRelationshipProfileDto } from './dto/set-relationship-profile.dto';
 import { RelationshipProfileService } from './relationship-profile.service';
 
@@ -15,6 +20,7 @@ export class RelationshipProfileController {
       relationshipStructures: RELATIONSHIP_STRUCTURES,
       kinkTags: KINK_TAGS,
       relationshipDesires: RELATIONSHIP_DESIRES,
+      boundaryTags: BOUNDARY_TAGS,
     };
   }
 

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-30T22:55:02.682Z",
+  "generated_at": "2026-08-30T23:57:45.829Z",
   "snapshot": [
     {
       "number": 454,
@@ -1397,11 +1397,6 @@
       "updatedAt": "2026-08-10T20:42:57Z"
     },
     {
-      "number": 175,
-      "title": "In-Chat Video Clip Reactions",
-      "updatedAt": "2026-08-10T20:42:55Z"
-    },
-    {
       "number": 162,
       "title": "24-Hour Rematch Extension Unlock",
       "updatedAt": "2026-08-10T20:42:29Z"
@@ -1448,10 +1443,6 @@
     }
   ],
   "queue": [
-    {
-      "number": 176,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
     {
       "number": 177,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"

@@ -16,11 +16,13 @@ class RelationshipProfileCatalog {
     required this.relationshipStructures,
     required this.kinkTags,
     required this.relationshipDesires,
+    required this.boundaryTags,
   });
 
   final List<String> relationshipStructures;
   final List<String> kinkTags;
   final List<String> relationshipDesires;
+  final List<String> boundaryTags;
 }
 
 class RelationshipProfileResult {
@@ -35,6 +37,8 @@ class RelationshipProfileResult {
     required this.showCustomRelationshipIntentOnProfile,
     this.communicationBoundaries,
     required this.showCommunicationBoundariesOnProfile,
+    required this.boundaryTags,
+    required this.showBoundaryTagsOnProfile,
   });
 
   final String? relationshipStructure;
@@ -47,6 +51,11 @@ class RelationshipProfileResult {
   final bool showCustomRelationshipIntentOnProfile;
   final String? communicationBoundaries;
   final bool showCommunicationBoundariesOnProfile;
+
+  /// Structured, upfront-honesty tags (e.g. "Sober / Substance-Free", "No
+  /// Kids") - distinct from communicationBoundaries' freeform text.
+  final List<String> boundaryTags;
+  final bool showBoundaryTagsOnProfile;
 }
 
 /// Talks to the backend's relationship-profile endpoints ("relationship
@@ -78,6 +87,7 @@ class RelationshipProfileApi {
       relationshipStructures: (body['relationshipStructures'] as List).cast<String>(),
       kinkTags: (body['kinkTags'] as List).cast<String>(),
       relationshipDesires: (body['relationshipDesires'] as List).cast<String>(),
+      boundaryTags: (body['boundaryTags'] as List?)?.cast<String>() ?? const [],
     );
   }
 
@@ -101,6 +111,8 @@ class RelationshipProfileApi {
     required bool showCustomRelationshipIntentOnProfile,
     String? communicationBoundaries,
     required bool showCommunicationBoundariesOnProfile,
+    required List<String> boundaryTags,
+    required bool showBoundaryTagsOnProfile,
   }) async {
     final response = await _client.put(
       Uri.parse('$_baseUrl/profile/relationship'),
@@ -116,6 +128,8 @@ class RelationshipProfileApi {
         'showCustomRelationshipIntentOnProfile': showCustomRelationshipIntentOnProfile,
         'communicationBoundaries': ?communicationBoundaries,
         'showCommunicationBoundariesOnProfile': showCommunicationBoundariesOnProfile,
+        'boundaryTags': boundaryTags,
+        'showBoundaryTagsOnProfile': showBoundaryTagsOnProfile,
       }),
     );
 
@@ -139,6 +153,8 @@ class RelationshipProfileApi {
       showCustomRelationshipIntentOnProfile: body['showCustomRelationshipIntentOnProfile'] as bool,
       communicationBoundaries: body['communicationBoundaries'] as String?,
       showCommunicationBoundariesOnProfile: body['showCommunicationBoundariesOnProfile'] as bool,
+      boundaryTags: (body['boundaryTags'] as List?)?.cast<String>() ?? const [],
+      showBoundaryTagsOnProfile: body['showBoundaryTagsOnProfile'] as bool? ?? true,
     );
   }
 

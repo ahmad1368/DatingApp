@@ -39,6 +39,7 @@ String _fullFiltersJson({String communityGroups = '[]'}) => '''
   "filterRelationshipDesires": [],
   "filterPetOwnership": [],
   "filterPetAllergyStatus": [],
+  "filterBoundaryTags": [],
   "filterPoliticalOrientations": [],
   "filterSharedInterestsOnly": false,
   "filterVerifiedOnly": false,

@@ -25,6 +25,7 @@ export interface LifestyleFiltersResult {
   filterRelationshipGoals: string[];
   filterKinkTags: string[];
   filterRelationshipDesires: string[];
+  filterBoundaryTags: string[];
   filterPetOwnership: string[];
   filterPetAllergyStatus: string[];
   filterPoliticalOrientations: string[];
@@ -56,6 +57,7 @@ interface LifestyleFiltersRecord {
   filterRelationshipGoals: string[];
   filterKinkTags: string[];
   filterRelationshipDesires: string[];
+  filterBoundaryTags: string[];
   filterPetOwnership: string[];
   filterPetAllergyStatus: string[];
   filterPoliticalOrientations: string[];
@@ -87,6 +89,7 @@ const SELECT = {
   filterRelationshipGoals: true,
   filterKinkTags: true,
   filterRelationshipDesires: true,
+  filterBoundaryTags: true,
   filterPetOwnership: true,
   filterPetAllergyStatus: true,
   filterPoliticalOrientations: true,
@@ -133,6 +136,7 @@ export class LifestyleFiltersService {
         filterRelationshipGoals: dto.filterRelationshipGoals,
         filterKinkTags: dto.filterKinkTags,
         filterRelationshipDesires: dto.filterRelationshipDesires,
+        filterBoundaryTags: dto.filterBoundaryTags,
         filterPetOwnership: dto.filterPetOwnership,
         filterPetAllergyStatus: dto.filterPetAllergyStatus,
         filterPoliticalOrientations: dto.filterPoliticalOrientations,
@@ -170,6 +174,7 @@ export class LifestyleFiltersService {
       filterRelationshipGoals: user?.filterRelationshipGoals ?? [],
       filterKinkTags: user?.filterKinkTags ?? [],
       filterRelationshipDesires: user?.filterRelationshipDesires ?? [],
+      filterBoundaryTags: user?.filterBoundaryTags ?? [],
       filterPetOwnership: user?.filterPetOwnership ?? [],
       filterPetAllergyStatus: user?.filterPetAllergyStatus ?? [],
       filterPoliticalOrientations: user?.filterPoliticalOrientations ?? [],

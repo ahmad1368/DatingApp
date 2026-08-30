@@ -34,8 +34,27 @@ export const RELATIONSHIP_DESIRES = [
   'Not Sure Yet',
 ] as const;
 
+// Structured "upfront honesty" boundary tags - dealbreaker-adjacent
+// expectations distinct from kinkTags (sexual preferences) and
+// relationshipDesires (dating-goal type).
+export const BOUNDARY_TAGS = [
+  'Sober / Substance-Free',
+  'No Kids',
+  'Child-Free by Choice',
+  'Non-Smoker Only',
+  'Vaccinated Only',
+  'STI-Tested & Disclosed',
+  'No Casual Hookups',
+  'Slow Burn Only',
+  'Financially Independent',
+  'Long-Distance OK',
+  'Must Love Pets',
+  'Poly-Aware Only',
+] as const;
+
 export const MAX_KINK_TAG_SELECTIONS = 8;
 export const MAX_RELATIONSHIP_DESIRE_SELECTIONS = 5;
+export const MAX_BOUNDARY_TAG_SELECTIONS = 8;
 export const MAX_CUSTOM_RELATIONSHIP_INTENT_LENGTH = 60;
 
 /**

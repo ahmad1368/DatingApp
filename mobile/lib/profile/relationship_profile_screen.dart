@@ -4,6 +4,7 @@ import 'relationship_profile_api.dart';
 
 const int _maxKinkTagSelections = 8;
 const int _maxRelationshipDesireSelections = 5;
+const int _maxBoundaryTagSelections = 8;
 
 /// Lets a user set the explicit "relationship intent" badges shown on
 /// their profile: curated desire tags (long-term, casual, marriage, etc.),
@@ -23,6 +24,7 @@ class _RelationshipProfileScreenState extends State<RelationshipProfileScreen> {
   final _communicationBoundariesController = TextEditingController();
   final Set<String> _selectedKinkTags = {};
   final Set<String> _selectedDesires = {};
+  final Set<String> _selectedBoundaryTags = {};
 
   RelationshipProfileCatalog? _catalog;
   String? _relationshipStructure;
@@ -31,6 +33,7 @@ class _RelationshipProfileScreenState extends State<RelationshipProfileScreen> {
   bool _showRelationshipDesiresOnProfile = true;
   bool _showCustomRelationshipIntentOnProfile = true;
   bool _showCommunicationBoundariesOnProfile = true;
+  bool _showBoundaryTagsOnProfile = true;
   bool _isLoading = true;
   bool _isSaving = false;
   String? _errorText;
@@ -69,6 +72,8 @@ class _RelationshipProfileScreenState extends State<RelationshipProfileScreen> {
         _showCustomRelationshipIntentOnProfile = profile.showCustomRelationshipIntentOnProfile;
         _communicationBoundariesController.text = profile.communicationBoundaries ?? '';
         _showCommunicationBoundariesOnProfile = profile.showCommunicationBoundariesOnProfile;
+        _selectedBoundaryTags.addAll(profile.boundaryTags);
+        _showBoundaryTagsOnProfile = profile.showBoundaryTagsOnProfile;
       });
     } on RelationshipProfileApiException catch (e) {
       setState(() => _errorText = e.message);
@@ -103,6 +108,18 @@ class _RelationshipProfileScreenState extends State<RelationshipProfileScreen> {
     });
   }
 
+  void _toggleBoundaryTag(String value, bool selected) {
+    setState(() {
+      if (selected) {
+        if (_selectedBoundaryTags.length < _maxBoundaryTagSelections) {
+          _selectedBoundaryTags.add(value);
+        }
+      } else {
+        _selectedBoundaryTags.remove(value);
+      }
+    });
+  }
+
   Future<void> _save() async {
     setState(() {
       _isSaving = true;
@@ -123,6 +140,8 @@ class _RelationshipProfileScreenState extends State<RelationshipProfileScreen> {
         showCustomRelationshipIntentOnProfile: _showCustomRelationshipIntentOnProfile,
         communicationBoundaries: communicationBoundaries.isEmpty ? null : communicationBoundaries,
         showCommunicationBoundariesOnProfile: _showCommunicationBoundariesOnProfile,
+        boundaryTags: _selectedBoundaryTags.toList(),
+        showBoundaryTagsOnProfile: _showBoundaryTagsOnProfile,
       );
       setState(() => _statusText = 'Saved.');
     } on RelationshipProfileApiException catch (e) {
@@ -241,6 +260,27 @@ class _RelationshipProfileScreenState extends State<RelationshipProfileScreen> {
                       value: _showCommunicationBoundariesOnProfile,
                       onChanged: (value) =>
                           setState(() => _showCommunicationBoundariesOnProfile = value),
+                    ),
+                    const Divider(height: 32),
+                    Text('Boundary tags (up to $_maxBoundaryTagSelections)'),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final tag in catalog.boundaryTags)
+                          FilterChip(
+                            label: Text(tag),
+                            selected: _selectedBoundaryTags.contains(tag),
+                            onSelected: (selected) => _toggleBoundaryTag(tag, selected),
+                          ),
+                      ],
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Show boundary tags on my public profile'),
+                      value: _showBoundaryTagsOnProfile,
+                      onChanged: (value) => setState(() => _showBoundaryTagsOnProfile = value),
                     ),
                     const SizedBox(height: 16),
                     if (_errorText != null) ...[

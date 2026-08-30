@@ -13,7 +13,8 @@ void main() {
           expect(request.headers.containsKey('Authorization'), isFalse);
           return http.Response(
             '{"relationshipStructures":["Monogamous","Open"],"kinkTags":["BDSM"],'
-            '"relationshipDesires":["Marriage","Casual Dating"]}',
+            '"relationshipDesires":["Marriage","Casual Dating"],'
+            '"boundaryTags":["Sober / Substance-Free"]}',
             200,
             headers: {'content-type': 'application/json'},
           );
@@ -25,6 +26,7 @@ void main() {
       expect(catalog.relationshipStructures, ['Monogamous', 'Open']);
       expect(catalog.kinkTags, ['BDSM']);
       expect(catalog.relationshipDesires, ['Marriage', 'Casual Dating']);
+      expect(catalog.boundaryTags, ['Sober / Substance-Free']);
     });
   });
 
@@ -40,7 +42,8 @@ void main() {
             '"kinkTags":[],"showKinkTagsOnProfile":true,"relationshipDesires":["Marriage"],'
             '"showRelationshipDesiresOnProfile":true,"customRelationshipIntent":null,'
             '"showCustomRelationshipIntentOnProfile":true,"communicationBoundaries":null,'
-            '"showCommunicationBoundariesOnProfile":true}',
+            '"showCommunicationBoundariesOnProfile":true,"boundaryTags":["No Kids"],'
+            '"showBoundaryTagsOnProfile":true}',
             200,
             headers: {'content-type': 'application/json'},
           );
@@ -52,6 +55,7 @@ void main() {
       expect(result.relationshipStructure, 'Monogamous');
       expect(result.relationshipDesires, ['Marriage']);
       expect(result.customRelationshipIntent, isNull);
+      expect(result.boundaryTags, ['No Kids']);
     });
   });
 
@@ -71,7 +75,8 @@ void main() {
             '"customRelationshipIntent":"Open to relocating",'
             '"showCustomRelationshipIntentOnProfile":false,'
             '"communicationBoundaries":"Texting only until we meet",'
-            '"showCommunicationBoundariesOnProfile":false}',
+            '"showCommunicationBoundariesOnProfile":false,'
+            '"boundaryTags":["No Kids"],"showBoundaryTagsOnProfile":true}',
           );
           return http.Response(
             '{"relationshipStructure":"Polyamorous","showRelationshipStructureOnProfile":false,'
@@ -81,7 +86,8 @@ void main() {
             '"customRelationshipIntent":"Open to relocating",'
             '"showCustomRelationshipIntentOnProfile":false,'
             '"communicationBoundaries":"Texting only until we meet",'
-            '"showCommunicationBoundariesOnProfile":false}',
+            '"showCommunicationBoundariesOnProfile":false,'
+            '"boundaryTags":["No Kids"],"showBoundaryTagsOnProfile":true}',
             200,
             headers: {'content-type': 'application/json'},
           );
@@ -99,12 +105,15 @@ void main() {
         showCustomRelationshipIntentOnProfile: false,
         communicationBoundaries: 'Texting only until we meet',
         showCommunicationBoundariesOnProfile: false,
+        boundaryTags: const ['No Kids'],
+        showBoundaryTagsOnProfile: true,
       );
 
       expect(result.relationshipStructure, 'Polyamorous');
       expect(result.customRelationshipIntent, 'Open to relocating');
       expect(result.showCustomRelationshipIntentOnProfile, isFalse);
       expect(result.communicationBoundaries, 'Texting only until we meet');
+      expect(result.boundaryTags, ['No Kids']);
     });
 
     test('omits null optional fields from the request body', () async {
@@ -117,14 +126,16 @@ void main() {
             '"showKinkTagsOnProfile":true,"relationshipDesires":[],'
             '"showRelationshipDesiresOnProfile":true,'
             '"showCustomRelationshipIntentOnProfile":true,'
-            '"showCommunicationBoundariesOnProfile":true}',
+            '"showCommunicationBoundariesOnProfile":true,'
+            '"boundaryTags":[],"showBoundaryTagsOnProfile":true}',
           );
           return http.Response(
             '{"relationshipStructure":null,"showRelationshipStructureOnProfile":true,'
             '"kinkTags":[],"showKinkTagsOnProfile":true,"relationshipDesires":[],'
             '"showRelationshipDesiresOnProfile":true,"customRelationshipIntent":null,'
             '"showCustomRelationshipIntentOnProfile":true,"communicationBoundaries":null,'
-            '"showCommunicationBoundariesOnProfile":true}',
+            '"showCommunicationBoundariesOnProfile":true,"boundaryTags":[],'
+            '"showBoundaryTagsOnProfile":true}',
             200,
             headers: {'content-type': 'application/json'},
           );
@@ -139,6 +150,8 @@ void main() {
         showRelationshipDesiresOnProfile: true,
         showCustomRelationshipIntentOnProfile: true,
         showCommunicationBoundariesOnProfile: true,
+        boundaryTags: const [],
+        showBoundaryTagsOnProfile: true,
       );
     });
 
@@ -163,6 +176,8 @@ void main() {
           showRelationshipDesiresOnProfile: true,
           showCustomRelationshipIntentOnProfile: true,
           showCommunicationBoundariesOnProfile: true,
+          boundaryTags: const [],
+          showBoundaryTagsOnProfile: true,
         ),
         throwsA(isA<RelationshipProfileApiException>()),
       );
