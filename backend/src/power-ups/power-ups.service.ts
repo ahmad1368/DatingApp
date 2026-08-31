@@ -58,6 +58,9 @@ export class PowerUpsService {
       case 'priority-like-pack-5':
       case 'priority-like-pack-10':
         return this.purchasePriorityLike(userId, powerUp);
+      case 'see-who-liked-you-unlock':
+      case 'see-who-liked-you-unlock-pack-5':
+        return this.purchaseSeeWhoLikedYouUnlock(userId, powerUp);
       default:
         return this.purchaseSuperLike(userId, powerUp);
     }
@@ -172,6 +175,19 @@ export class PowerUpsService {
       data: {
         giftTokenBalance: { decrement: powerUp.coinCost },
         bonusPriorityLikes: { increment: powerUp.quantity ?? 1 },
+      },
+    });
+
+    return { coinBalance: updatedUser.giftTokenBalance, powerUpId: powerUp.id };
+  }
+
+  /** Handles both the single "see who liked you" unlock and its bulk pack - see POWER_UPS.quantity. */
+  private async purchaseSeeWhoLikedYouUnlock(userId: string, powerUp: PowerUp): Promise<PurchasePowerUpResult> {
+    const updatedUser = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        giftTokenBalance: { decrement: powerUp.coinCost },
+        bonusSeeWhoLikedYouUnlocks: { increment: powerUp.quantity ?? 1 },
       },
     });
 

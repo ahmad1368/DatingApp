@@ -387,7 +387,9 @@ export class DiscoveryService {
    * instead of waiting to see them in the main deck. Defaults to most
    * recently liked first; pass PROXIMITY or COMPATIBILITY to re-sort the
    * same backlog by distance or compatibility score instead, so a large
-   * backlog of likes stays manageable.
+   * backlog of likes stays manageable. A non-premium user with a stockpiled
+   * a la carte unlock (see PowerUpsService.purchaseSeeWhoLikedYouUnlock)
+   * spends one credit per call instead of being blocked outright.
    */
   async getLikedByGrid(userId: string, sortBy: LikedBySort = 'RECENT'): Promise<DeckCard[]> {
     if (!LIKED_BY_SORT_OPTIONS.includes(sortBy)) {
@@ -399,7 +401,13 @@ export class DiscoveryService {
       throw new NotFoundException('User not found.');
     }
     if (!currentUser.isPremium) {
-      throw new ForbiddenException('Seeing who liked you is a premium feature.');
+      if ((currentUser.bonusSeeWhoLikedYouUnlocks ?? 0) <= 0) {
+        throw new ForbiddenException('Seeing who liked you is a premium feature.');
+      }
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { bonusSeeWhoLikedYouUnlocks: { decrement: 1 } },
+      });
     }
 
     const swiped = await this.prisma.swipe.findMany({
