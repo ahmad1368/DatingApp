@@ -44,7 +44,7 @@ export class VaultController {
     @Param('photoId') photoId: string,
     @Body() dto: GrantVaultAccessDto,
   ) {
-    return this.vaultService.grantAccess(user.id, photoId, dto.matchId);
+    return this.vaultService.grantAccess(user.id, photoId, dto.matchId, dto.expiresInHours);
   }
 
   @Post('photos/:photoId/revoke')

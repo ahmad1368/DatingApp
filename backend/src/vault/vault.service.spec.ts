@@ -128,6 +128,22 @@ describe('VaultService', () => {
         },
       ]);
     });
+
+    it('excludes a match whose time-limited grant has expired', async () => {
+      prisma.vaultPhoto.findMany.mockResolvedValue([
+        {
+          id: PHOTO_ID,
+          mediaUrl: 'https://example.com/a.jpg',
+          albumId: null,
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+          grants: [{ matchId: MATCH_ID, expiresAt: new Date('2020-01-01T00:00:00.000Z') }],
+        },
+      ]);
+
+      const result = await service.listMyPhotos(OWNER_ID);
+
+      expect(result[0].grantedMatchIds).toEqual([]);
+    });
   });
 
   describe('deletePhoto', () => {
@@ -184,10 +200,33 @@ describe('VaultService', () => {
 
       expect(prisma.vaultPhotoGrant.upsert).toHaveBeenCalledWith({
         where: { vaultPhotoId_matchId: { vaultPhotoId: PHOTO_ID, matchId: MATCH_ID } },
-        create: { vaultPhotoId: PHOTO_ID, matchId: MATCH_ID },
-        update: {},
+        create: { vaultPhotoId: PHOTO_ID, matchId: MATCH_ID, expiresAt: null },
+        update: { expiresAt: null },
       });
       expect(result).toEqual({ granted: true });
+    });
+
+    it('rejects an out-of-range expiry', async () => {
+      prisma.vaultPhoto.findUnique.mockResolvedValue({ id: PHOTO_ID, ownerId: OWNER_ID });
+      prisma.match.findUnique.mockResolvedValue({ userAId: OWNER_ID, userBId: OTHER_ID });
+
+      await expect(service.grantAccess(OWNER_ID, PHOTO_ID, MATCH_ID, 0)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(prisma.vaultPhotoGrant.upsert).not.toHaveBeenCalled();
+    });
+
+    it('stores a time-limited key when expiresInHours is given', async () => {
+      prisma.vaultPhoto.findUnique.mockResolvedValue({ id: PHOTO_ID, ownerId: OWNER_ID });
+      prisma.match.findUnique.mockResolvedValue({ userAId: OWNER_ID, userBId: OTHER_ID });
+
+      await service.grantAccess(OWNER_ID, PHOTO_ID, MATCH_ID, 24);
+
+      expect(prisma.vaultPhotoGrant.upsert).toHaveBeenCalledWith({
+        where: { vaultPhotoId_matchId: { vaultPhotoId: PHOTO_ID, matchId: MATCH_ID } },
+        create: { vaultPhotoId: PHOTO_ID, matchId: MATCH_ID, expiresAt: expect.any(Date) },
+        update: { expiresAt: expect.any(Date) },
+      });
     });
   });
 
@@ -238,8 +277,28 @@ describe('VaultService', () => {
         orderBy: { grantedAt: 'desc' },
       });
       expect(result).toEqual([
-        { id: PHOTO_ID, mediaUrl: 'https://example.com/a.jpg', grantedAt: '2026-01-02T00:00:00.000Z' },
+        {
+          id: PHOTO_ID,
+          mediaUrl: 'https://example.com/a.jpg',
+          grantedAt: '2026-01-02T00:00:00.000Z',
+          expiresAt: null,
+        },
       ]);
+    });
+
+    it('excludes a grant whose time-limited key has expired', async () => {
+      prisma.match.findUnique.mockResolvedValue({ userAId: OWNER_ID, userBId: OTHER_ID });
+      prisma.vaultPhotoGrant.findMany.mockResolvedValue([
+        {
+          vaultPhoto: { id: PHOTO_ID, mediaUrl: 'https://example.com/a.jpg' },
+          grantedAt: new Date('2026-01-02T00:00:00.000Z'),
+          expiresAt: new Date('2020-01-01T00:00:00.000Z'),
+        },
+      ]);
+
+      const result = await service.listGrantedPhotos(OWNER_ID, MATCH_ID);
+
+      expect(result).toEqual([]);
     });
   });
 });

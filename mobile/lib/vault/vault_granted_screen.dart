@@ -70,13 +70,31 @@ class _VaultGrantedScreenState extends State<VaultGrantedScreen> {
                         final photo = _photos[index];
                         return ClipRRect(
                           borderRadius: BorderRadius.circular(8),
-                          child: Image.network(
-                            photo.mediaUrl,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) => Container(
-                              color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                              child: const Icon(Icons.broken_image_outlined),
-                            ),
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              Image.network(
+                                photo.mediaUrl,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) => Container(
+                                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                                  child: const Icon(Icons.broken_image_outlined),
+                                ),
+                              ),
+                              if (photo.expiresAt != null)
+                                Positioned(
+                                  right: 4,
+                                  top: 4,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black54,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: const Icon(Icons.timer_outlined, size: 14, color: Colors.white),
+                                  ),
+                                ),
+                            ],
                           ),
                         );
                       },

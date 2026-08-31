@@ -244,6 +244,17 @@ class _AccessSheetState extends State<_AccessSheet> {
     }
   }
 
+  /// Re-grants with a time-limited expiry (or null for a permanent key) -
+  /// the backend upsert replaces whatever expiry the match's key had before.
+  Future<void> _setExpiry(String matchId, int? expiresInHours) async {
+    try {
+      await widget.vaultApi.grantAccess(widget.photo.id, matchId, expiresInHours: expiresInHours);
+      widget.onChanged();
+    } on VaultApiException {
+      // Non-critical: the key keeps its previous expiry on failure.
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -263,6 +274,19 @@ class _AccessSheetState extends State<_AccessSheet> {
               title: Text(match.otherUserName ?? 'Someone new'),
               value: _grantedMatchIds.contains(match.matchId),
               onChanged: (value) => _toggle(match.matchId, value),
+              secondary: _grantedMatchIds.contains(match.matchId)
+                  ? PopupMenuButton<int?>(
+                      icon: const Icon(Icons.timer_outlined),
+                      tooltip: 'Set key expiry',
+                      onSelected: (expiresInHours) => _setExpiry(match.matchId, expiresInHours),
+                      itemBuilder: (context) => const [
+                        PopupMenuItem(value: null, child: Text('Permanent')),
+                        PopupMenuItem(value: 1, child: Text('Expires in 1 hour')),
+                        PopupMenuItem(value: 24, child: Text('Expires in 24 hours')),
+                        PopupMenuItem(value: 168, child: Text('Expires in 7 days')),
+                      ],
+                    )
+                  : null,
             ),
         ],
       ),

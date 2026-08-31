@@ -1052,10 +1052,14 @@ model VaultPhoto {
 }
 
 model VaultPhotoGrant {
-  id           String   @id @default(uuid())
+  id           String    @id @default(uuid())
   vaultPhotoId String
   matchId      String
-  grantedAt    DateTime @default(now())
+  grantedAt    DateTime  @default(now())
+  // Optional key expiry - see VaultService.grantAccess/isGrantExpired. Null
+  // means the grant lasts until explicitly revoked, same as before this
+  // field existed.
+  expiresAt    DateTime?
 
   vaultPhoto VaultPhoto @relation(fields: [vaultPhotoId], references: [id])
 

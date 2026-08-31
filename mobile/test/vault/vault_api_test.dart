@@ -111,6 +111,21 @@ void main() {
       expect(capturedRequest!.body, '{"matchId":"match-1"}');
     });
 
+    test('grantAccess sends expiresInHours for a time-limited key', () async {
+      http.Request? capturedRequest;
+      final api = VaultApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          capturedRequest = request;
+          return http.Response('', 200);
+        }),
+      );
+
+      await api.grantAccess('photo-1', 'match-1', expiresInHours: 24);
+
+      expect(capturedRequest!.body, '{"matchId":"match-1","expiresInHours":24}');
+    });
+
     test('revokeAccess sends the matchId', () async {
       http.Request? capturedRequest;
       final api = VaultApi(
@@ -147,6 +162,25 @@ void main() {
 
       expect(photos, hasLength(1));
       expect(photos.first.mediaUrl, 'https://example.com/a.jpg');
+      expect(photos.first.expiresAt, isNull);
+    });
+
+    test('parses expiresAt when the key is time-limited', () async {
+      final api = VaultApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '[{"id":"photo-1","mediaUrl":"https://example.com/a.jpg",'
+            '"grantedAt":"2026-01-02T00:00:00.000Z","expiresAt":"2026-01-03T00:00:00.000Z"}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      final photos = await api.fetchGrantedPhotos('match-1');
+
+      expect(photos.first.expiresAt, DateTime.parse('2026-01-03T00:00:00.000Z'));
     });
   });
 }
