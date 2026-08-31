@@ -374,6 +374,12 @@ model Message {
   // MessagingService.toGameCardView.
   gameType             String?
   gameCorrectIndex     Int?
+  // A VOICE_PREVIEW_REQUEST message: a low-commitment invite to a brief
+  // voice call before either side commits to a full video call or
+  // in-person meetup - see MessagingService.sendVoicePreviewRequest/
+  // respondToVoicePreviewRequest. PENDING until the recipient accepts or
+  // declines; null for every other content type.
+  voicePreviewStatus   String?
   // Set when a report against this message was confirmed by the AI content
   // moderator - see MessageModerationService.reportMessage. Once set,
   // MessagingService.toMessageView withholds content/mediaUrl from

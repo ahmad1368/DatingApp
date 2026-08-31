@@ -632,6 +632,7 @@ describe('MessagingService', () => {
         gift: null,
         gameCard: null,
         locationPin: null,
+        voicePreviewRequest: null,
         expiryMode: null,
         viewTimerSeconds: null,
         isEphemeralExpired: false,
@@ -1619,6 +1620,7 @@ describe('MessagingService', () => {
           gift: null,
           gameCard: null,
           locationPin: null,
+          voicePreviewRequest: null,
           expiryMode: null,
           viewTimerSeconds: null,
           isEphemeralExpired: false,
@@ -2370,6 +2372,150 @@ describe('MessagingService', () => {
         },
       });
       expect(result.locationPin?.address).toBeNull();
+    });
+  });
+
+  describe('sendVoicePreviewRequest', () => {
+    it('rejects the man sending the first voice preview request to a woman match', async () => {
+      mockMatch();
+      mockUsers({ [WOMAN_ID]: ['Woman'], [MAN_ID]: ['Man'] });
+
+      await expect(service.sendVoicePreviewRequest(MAN_ID, MATCH_ID)).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+      expect(prisma.message.create).not.toHaveBeenCalled();
+    });
+
+    it('creates a PENDING VOICE_PREVIEW_REQUEST message', async () => {
+      mockMatch();
+      mockUsers({ [WOMAN_ID]: ['Woman'], [MAN_ID]: ['Man'] });
+      prisma.message.create.mockResolvedValue({
+        id: 'message-1',
+        senderId: WOMAN_ID,
+        contentType: 'VOICE_PREVIEW_REQUEST',
+        content: null,
+        voicePreviewStatus: 'PENDING',
+        mediaUrl: null,
+        isBlurred: false,
+        readAt: null,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const result = await service.sendVoicePreviewRequest(WOMAN_ID, MATCH_ID);
+
+      expect(prisma.message.create).toHaveBeenCalledWith({
+        data: {
+          matchId: MATCH_ID,
+          senderId: WOMAN_ID,
+          contentType: 'VOICE_PREVIEW_REQUEST',
+          voicePreviewStatus: 'PENDING',
+        },
+      });
+      expect(result.voicePreviewRequest).toEqual({ status: 'PENDING', durationSeconds: 60 });
+    });
+  });
+
+  describe('respondToVoicePreviewRequest', () => {
+    it('throws when the message is not a voice preview request in this match', async () => {
+      mockMatch();
+      prisma.message.findUnique.mockResolvedValue({ id: 'message-1', matchId: MATCH_ID, contentType: 'TEXT' });
+
+      await expect(
+        service.respondToVoicePreviewRequest(MAN_ID, MATCH_ID, 'message-1', true),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(prisma.message.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects the sender responding to their own request', async () => {
+      mockMatch();
+      prisma.message.findUnique.mockResolvedValue({
+        id: 'message-1',
+        matchId: MATCH_ID,
+        senderId: WOMAN_ID,
+        contentType: 'VOICE_PREVIEW_REQUEST',
+        voicePreviewStatus: 'PENDING',
+      });
+
+      await expect(
+        service.respondToVoicePreviewRequest(WOMAN_ID, MATCH_ID, 'message-1', true),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.message.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects responding to a request that already has a response', async () => {
+      mockMatch();
+      prisma.message.findUnique.mockResolvedValue({
+        id: 'message-1',
+        matchId: MATCH_ID,
+        senderId: WOMAN_ID,
+        contentType: 'VOICE_PREVIEW_REQUEST',
+        voicePreviewStatus: 'ACCEPTED',
+      });
+
+      await expect(
+        service.respondToVoicePreviewRequest(MAN_ID, MATCH_ID, 'message-1', false),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.message.update).not.toHaveBeenCalled();
+    });
+
+    it('accepts a pending request', async () => {
+      mockMatch();
+      prisma.message.findUnique.mockResolvedValue({
+        id: 'message-1',
+        matchId: MATCH_ID,
+        senderId: WOMAN_ID,
+        contentType: 'VOICE_PREVIEW_REQUEST',
+        voicePreviewStatus: 'PENDING',
+      });
+      prisma.message.update.mockResolvedValue({
+        id: 'message-1',
+        senderId: WOMAN_ID,
+        contentType: 'VOICE_PREVIEW_REQUEST',
+        content: null,
+        voicePreviewStatus: 'ACCEPTED',
+        mediaUrl: null,
+        isBlurred: false,
+        readAt: null,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const result = await service.respondToVoicePreviewRequest(MAN_ID, MATCH_ID, 'message-1', true);
+
+      expect(prisma.message.update).toHaveBeenCalledWith({
+        where: { id: 'message-1' },
+        data: { voicePreviewStatus: 'ACCEPTED' },
+      });
+      expect(result.voicePreviewRequest).toEqual({ status: 'ACCEPTED', durationSeconds: 60 });
+    });
+
+    it('declines a pending request', async () => {
+      mockMatch();
+      prisma.message.findUnique.mockResolvedValue({
+        id: 'message-1',
+        matchId: MATCH_ID,
+        senderId: WOMAN_ID,
+        contentType: 'VOICE_PREVIEW_REQUEST',
+        voicePreviewStatus: 'PENDING',
+      });
+      prisma.message.update.mockResolvedValue({
+        id: 'message-1',
+        senderId: WOMAN_ID,
+        contentType: 'VOICE_PREVIEW_REQUEST',
+        content: null,
+        voicePreviewStatus: 'DECLINED',
+        mediaUrl: null,
+        isBlurred: false,
+        readAt: null,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const result = await service.respondToVoicePreviewRequest(MAN_ID, MATCH_ID, 'message-1', false);
+
+      expect(prisma.message.update).toHaveBeenCalledWith({
+        where: { id: 'message-1' },
+        data: { voicePreviewStatus: 'DECLINED' },
+      });
+      expect(result.voicePreviewRequest).toEqual({ status: 'DECLINED', durationSeconds: 60 });
     });
   });
 

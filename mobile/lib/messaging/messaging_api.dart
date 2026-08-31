@@ -183,6 +183,7 @@ class ChatMessage {
     this.gift,
     this.gameCard,
     this.locationPin,
+    this.voicePreviewRequest,
     this.expiryMode,
     this.viewTimerSeconds,
     this.isEphemeralExpired = false,
@@ -221,6 +222,7 @@ class ChatMessage {
   final GiftCard? gift;
   final GameCard? gameCard;
   final LocationPin? locationPin;
+  final VoicePreviewRequest? voicePreviewRequest;
 
   /// 'VIEW_ONCE' or 'TIMER' for an auto-expiring photo/GIF; null for a
   /// normal, permanent message.
@@ -272,6 +274,19 @@ class LocationPin {
   final double latitude;
   final double longitude;
   final String? address;
+}
+
+/// A low-commitment invite to a brief voice call before either side commits
+/// to a full video call or in-person meetup - see
+/// MessagingApi.sendVoicePreviewRequest/respondToVoicePreviewRequest.
+class VoicePreviewRequest {
+  VoicePreviewRequest({required this.status, required this.durationSeconds});
+
+  /// 'PENDING', 'ACCEPTED', or 'DECLINED'.
+  final String status;
+  final int durationSeconds;
+
+  bool get isPending => status == 'PENDING';
 }
 
 /// A virtual gift sent directly into the chat as its own message - see
@@ -1295,6 +1310,42 @@ class MessagingApi {
     return _toChatMessage(body);
   }
 
+  /// Invites the match to a brief voice call before committing to a full
+  /// video call or in-person meetup.
+  Future<ChatMessage> sendVoicePreviewRequest(String matchId) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/matches/$matchId/voice-preview-request'),
+      headers: _headers,
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 201) {
+      throw MessagingApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return _toChatMessage(body);
+  }
+
+  /// Only the recipient may respond, and only once.
+  Future<ChatMessage> respondToVoicePreviewRequest({
+    required String matchId,
+    required String messageId,
+    required bool accept,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/matches/$matchId/voice-preview-request/$messageId/respond'),
+      headers: _headers,
+      body: jsonEncode({'accept': accept}),
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 200) {
+      throw MessagingApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return _toChatMessage(body);
+  }
+
   /// Sends a virtual gift directly into the chat (spending gift tokens the
   /// same way GiftingApi.sendGift does) so it shows up as its own message
   /// bubble instead of only on the recipient's received-gifts list.
@@ -1340,6 +1391,7 @@ class MessagingApi {
     final giftJson = json['gift'] as Map<String, dynamic>?;
     final gameCardJson = json['gameCard'] as Map<String, dynamic>?;
     final locationPinJson = json['locationPin'] as Map<String, dynamic>?;
+    final voicePreviewRequestJson = json['voicePreviewRequest'] as Map<String, dynamic>?;
     return ChatMessage(
       id: json['id'] as String,
       senderId: json['senderId'] as String,
@@ -1407,6 +1459,12 @@ class MessagingApi {
               latitude: (locationPinJson['latitude'] as num).toDouble(),
               longitude: (locationPinJson['longitude'] as num).toDouble(),
               address: locationPinJson['address'] as String?,
+            )
+          : null,
+      voicePreviewRequest: voicePreviewRequestJson != null
+          ? VoicePreviewRequest(
+              status: voicePreviewRequestJson['status'] as String,
+              durationSeconds: voicePreviewRequestJson['durationSeconds'] as int,
             )
           : null,
       expiryMode: json['expiryMode'] as String?,
