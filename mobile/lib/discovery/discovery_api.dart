@@ -247,6 +247,7 @@ class DiscoveryApi {
     String? icebreakerPromptId,
     int? icebreakerOptionIndex,
     String? passReason,
+    bool? usePriorityLike,
   }) async {
     final response = await _client.post(
       Uri.parse('$_baseUrl/discovery/swipe'),
@@ -259,6 +260,7 @@ class DiscoveryApi {
         'icebreakerPromptId': ?icebreakerPromptId,
         'icebreakerOptionIndex': ?icebreakerOptionIndex,
         'passReason': ?passReason,
+        'usePriorityLike': ?usePriorityLike,
       }),
     );
 

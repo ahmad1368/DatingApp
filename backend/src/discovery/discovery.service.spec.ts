@@ -1703,6 +1703,39 @@ describe('DiscoveryService', () => {
       expect(deck[2].isPriorityLike).toBe(false);
     });
 
+    it("places a non-premium user's purchased priority like between super likers and the remaining pool", async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+      });
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([
+        { swiperId: 'super-liker-1', action: 'SUPER_LIKE', isPriorityLike: false },
+        { swiperId: 'paid-liker-1', action: 'LIKE', isPriorityLike: true },
+        { swiperId: 'free-liker-1', action: 'LIKE', isPriorityLike: false },
+      ]);
+      prisma.user.findMany
+        .mockResolvedValueOnce([]) // no one is premium - paid-liker-1's placement comes from the credit, not isPremium
+        .mockResolvedValueOnce([
+          { id: 'super-liker-1', name: 'Sam', dateOfBirth: null, profilePhotoUrl: null, interests: [], relationshipGoal: null },
+          { id: 'paid-liker-1', name: 'Pat', dateOfBirth: null, profilePhotoUrl: null, interests: [], relationshipGoal: null },
+        ]) // priority candidates
+        .mockResolvedValueOnce([
+          { id: 'free-liker-1', name: 'Fran', dateOfBirth: null, profilePhotoUrl: null, interests: [], relationshipGoal: null },
+        ]); // remaining candidates
+
+      const deck = await service.getDeck(USER_ID);
+
+      expect(deck.map((card) => card.id)).toEqual(['super-liker-1', 'paid-liker-1', 'free-liker-1']);
+      expect(deck[1].isPriorityLike).toBe(true);
+      expect(deck[2].isPriorityLike).toBe(false);
+    });
+
     it('only surfaces candidates who share the current active mode', async () => {
       prisma.user.findUnique.mockResolvedValue({
         id: USER_ID,
@@ -1966,6 +1999,7 @@ describe('DiscoveryService', () => {
           icebreakerPromptId: null,
           icebreakerOptionIndex: null,
           passReason: 'Too far away',
+          isPriorityLike: false,
         },
       });
       expect(result).toEqual({ matched: false });
@@ -2004,6 +2038,7 @@ describe('DiscoveryService', () => {
           icebreakerPromptId: null,
           icebreakerOptionIndex: null,
           passReason: null,
+          isPriorityLike: false,
         },
       });
     });
@@ -2194,9 +2229,78 @@ describe('DiscoveryService', () => {
           icebreakerPromptId: null,
           icebreakerOptionIndex: null,
           passReason: null,
+          isPriorityLike: false,
         },
       });
       expect(result).toEqual({ matched: true, matchId: 'match-1' });
+    });
+
+    it('rejects usePriorityLike on a non-LIKE action', async () => {
+      await expect(
+        service.recordSwipe(
+          USER_ID,
+          TARGET_ID,
+          'SUPER_LIKE',
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          true,
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.swipe.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects usePriorityLike when no priority like credits remain', async () => {
+      prisma.user.findUnique
+        .mockResolvedValueOnce({ id: TARGET_ID }) // target lookup
+        .mockResolvedValueOnce({ bonusPriorityLikes: 0 }); // swiper's bonus balance
+      prisma.swipe.findUnique.mockResolvedValueOnce(null);
+
+      await expect(
+        service.recordSwipe(
+          USER_ID,
+          TARGET_ID,
+          'LIKE',
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          true,
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.swipe.create).not.toHaveBeenCalled();
+    });
+
+    it('spends a priority like credit and flags the swipe', async () => {
+      prisma.user.findUnique
+        .mockResolvedValueOnce({ id: TARGET_ID }) // target lookup
+        .mockResolvedValueOnce({ bonusPriorityLikes: 2 }); // swiper's bonus balance
+      prisma.swipe.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+      prisma.swipe.create.mockResolvedValue({});
+      prisma.user.update.mockResolvedValue({});
+
+      await service.recordSwipe(
+        USER_ID,
+        TARGET_ID,
+        'LIKE',
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        true,
+      );
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: USER_ID },
+        data: { bonusPriorityLikes: { decrement: 1 } },
+      });
+      expect(prisma.swipe.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ isPriorityLike: true }),
+      });
     });
 
     it('does nothing to photos when the target has no gallery', async () => {

@@ -400,6 +400,21 @@ void main() {
       );
     });
 
+    test('sends usePriorityLike when spending a priority like credit', () async {
+      final api = DiscoveryApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(
+            request.body,
+            '{"targetUserId":"user-2","action":"LIKE","usePriorityLike":true}',
+          );
+          return http.Response('{"matched":false}', 200, headers: {'content-type': 'application/json'});
+        }),
+      );
+
+      await api.recordSwipe(targetUserId: 'user-2', action: 'LIKE', usePriorityLike: true);
+    });
+
     test('throws DiscoveryApiException when the backend rejects the request', () async {
       final api = DiscoveryApi(
         accessToken: 'a-jwt',

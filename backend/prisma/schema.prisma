@@ -137,6 +137,12 @@ model User {
   readReceiptsEnabled                   Boolean   @default(true)
   autoBlurIncomingMedia                 Boolean   @default(true)
   bonusSuperLikes                       Int       @default(0)
+  // A la carte "Priority Like" credits (see the priority-like-pack-*
+  // POWER_UPS entries) - spent one at a time via
+  // DiscoveryService.recordSwipe/PowerUpsService.purchasePriorityLike to
+  // give a single non-premium regular like the same top-of-queue placement
+  // a premium subscriber's regular likes get automatically.
+  bonusPriorityLikes                    Int       @default(0)
   // A la carte "Extra Profile Views" power-up: widens the very next
   // getDeck() fetch by this many extra candidates, then resets to 0 - see
   // DiscoveryService.getDeck and PowerUpsService.purchaseExtraProfileViews.
@@ -237,6 +243,11 @@ model Swipe {
   icebreakerPromptId    String?
   icebreakerOptionIndex Int?
   passReason            String?
+  // A la carte "Priority Like": a regular like paid for with a
+  // User.bonusPriorityLikes credit (see PowerUpsService.purchasePriorityLike)
+  // gets the same top-of-queue placement a premium subscriber's regular
+  // likes already get automatically - see DiscoveryService.getDeck.
+  isPriorityLike        Boolean  @default(false)
   createdAt             DateTime @default(now())
 
   @@unique([swiperId, targetUserId])
