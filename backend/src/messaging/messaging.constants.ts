@@ -107,6 +107,14 @@ export const GIFT_CONTENT_TYPE = 'GIFT';
 // `content`, mirroring how a RESERVATION message stores its query there.
 export const LOCATION_PIN_CONTENT_TYPE = 'LOCATION_PIN';
 
+// A low-commitment invite to a brief voice call before either side commits
+// to a full video call or in-person meetup - see MessagingService.
+// sendVoicePreviewRequest/respondToVoicePreviewRequest.
+export const VOICE_PREVIEW_REQUEST_CONTENT_TYPE = 'VOICE_PREVIEW_REQUEST';
+export const VOICE_PREVIEW_REQUEST_STATUSES = ['PENDING', 'ACCEPTED', 'DECLINED'] as const;
+export type VoicePreviewRequestStatus = (typeof VOICE_PREVIEW_REQUEST_STATUSES)[number];
+export const VOICE_PREVIEW_CALL_DURATION_SECONDS = 60;
+
 const RESERVATION_SEARCH_URLS: Record<ReservationProvider, string> = {
   OPENTABLE: 'https://www.opentable.com/s',
   EVENTBRITE: 'https://www.eventbrite.com/d/search',

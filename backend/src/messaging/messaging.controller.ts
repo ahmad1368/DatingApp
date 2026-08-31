@@ -28,6 +28,7 @@ import { SendGameCardDto } from './dto/send-game-card.dto';
 import { RespondGameCardDto } from './dto/respond-game-card.dto';
 import { SendReservationDto } from './dto/send-reservation.dto';
 import { SendLocationPinDto } from './dto/send-location-pin.dto';
+import { RespondVoicePreviewRequestDto } from './dto/respond-voice-preview-request.dto';
 import { SendGiftMessageDto } from './dto/send-gift-message.dto';
 import { SendVoiceNoteDto } from './dto/send-voice-note.dto';
 import { SetMatchNoteDto } from './dto/set-match-note.dto';
@@ -389,6 +390,23 @@ export class MessagingController {
       dto.longitude,
       dto.address,
     );
+  }
+
+  @Post(':matchId/voice-preview-request')
+  @HttpCode(HttpStatus.CREATED)
+  sendVoicePreviewRequest(@CurrentUser() user: AuthenticatedUser, @Param('matchId') matchId: string) {
+    return this.messagingService.sendVoicePreviewRequest(user.id, matchId);
+  }
+
+  @Post(':matchId/voice-preview-request/:messageId/respond')
+  @HttpCode(HttpStatus.OK)
+  respondToVoicePreviewRequest(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('matchId') matchId: string,
+    @Param('messageId') messageId: string,
+    @Body() dto: RespondVoicePreviewRequestDto,
+  ) {
+    return this.messagingService.respondToVoicePreviewRequest(user.id, matchId, messageId, dto.accept);
   }
 
   @Post(':matchId/gift')

@@ -1842,6 +1842,84 @@ void main() {
     });
   });
 
+  group('MessagingApi.sendVoicePreviewRequest', () {
+    test('posts to the voice-preview-request endpoint and parses the created message', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'POST');
+          expect(request.url.path, '/matches/match-1/voice-preview-request');
+          return http.Response(
+            '{"id":"m1","senderId":"user-1","contentType":"VOICE_PREVIEW_REQUEST","content":null,'
+            '"mediaUrl":null,"isBlurred":false,"voicePreviewRequest":{"status":"PENDING",'
+            '"durationSeconds":60},"createdAt":"2026-01-01T00:00:00.000Z"}',
+            201,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final message = await api.sendVoicePreviewRequest('match-1');
+
+      expect(message.contentType, 'VOICE_PREVIEW_REQUEST');
+      expect(message.voicePreviewRequest, isNotNull);
+      expect(message.voicePreviewRequest!.status, 'PENDING');
+      expect(message.voicePreviewRequest!.isPending, isTrue);
+      expect(message.voicePreviewRequest!.durationSeconds, 60);
+    });
+
+    test('throws MessagingApiException on a non-201 response', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => http.Response('', 400)),
+      );
+
+      expect(() => api.sendVoicePreviewRequest('match-1'), throwsA(isA<MessagingApiException>()));
+    });
+  });
+
+  group('MessagingApi.respondToVoicePreviewRequest', () {
+    test('sends the accept flag and parses the updated status', () async {
+      http.Request? capturedRequest;
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          capturedRequest = request;
+          return http.Response(
+            '{"id":"m1","senderId":"user-1","contentType":"VOICE_PREVIEW_REQUEST","content":null,'
+            '"mediaUrl":null,"isBlurred":false,"voicePreviewRequest":{"status":"ACCEPTED",'
+            '"durationSeconds":60},"createdAt":"2026-01-01T00:00:00.000Z"}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final message = await api.respondToVoicePreviewRequest(
+        matchId: 'match-1',
+        messageId: 'm1',
+        accept: true,
+      );
+
+      expect(capturedRequest!.url.path, '/matches/match-1/voice-preview-request/m1/respond');
+      expect(capturedRequest!.body, '{"accept":true}');
+      expect(message.voicePreviewRequest!.status, 'ACCEPTED');
+      expect(message.voicePreviewRequest!.isPending, isFalse);
+    });
+
+    test('throws MessagingApiException on a non-200 response', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => http.Response('', 400)),
+      );
+
+      expect(
+        () => api.respondToVoicePreviewRequest(matchId: 'match-1', messageId: 'm1', accept: false),
+        throwsA(isA<MessagingApiException>()),
+      );
+    });
+  });
+
   group('MessagingApi.sendGiftMessage', () {
     test('sends the gift id and optional message, parsing the created message', () async {
       final api = MessagingApi(

@@ -37,6 +37,9 @@ import {
   needsFirstMoveReminder,
   GIFT_CONTENT_TYPE,
   LOCATION_PIN_CONTENT_TYPE,
+  VOICE_PREVIEW_REQUEST_CONTENT_TYPE,
+  VOICE_PREVIEW_CALL_DURATION_SECONDS,
+  VoicePreviewRequestStatus,
   POLL_CONTENT_TYPE,
   READ_RECEIPT_UNLOCK_TOKEN_COST,
   RESERVATION_CONTENT_TYPE,
@@ -107,6 +110,11 @@ export interface LocationPinView {
   address: string | null;
 }
 
+export interface VoicePreviewRequestView {
+  status: VoicePreviewRequestStatus;
+  durationSeconds: number;
+}
+
 export interface GameCardView {
   gameType: GameType;
   question: string;
@@ -150,6 +158,7 @@ export interface MessageView {
   gift: GiftView | null;
   gameCard: GameCardView | null;
   locationPin: LocationPinView | null;
+  voicePreviewRequest: VoicePreviewRequestView | null;
   expiryMode: ExpiryMode | null;
   viewTimerSeconds: number | null;
   isEphemeralExpired: boolean;
@@ -1014,6 +1023,57 @@ export class MessagingService {
     await this.notifyNewMessage(match, userId, `Shared a location: ${label}`);
 
     return this.toMessageView(message, userId);
+  }
+
+  /**
+   * Low-commitment invite to a brief voice call before either side commits
+   * to a full video call or in-person meetup - see
+   * respondToVoicePreviewRequest for accepting/declining it.
+   */
+  async sendVoicePreviewRequest(userId: string, matchId: string): Promise<MessageView> {
+    const { match, firstMessageSent } = await this.assertCanSend(userId, matchId);
+
+    const message = await this.prisma.message.create({
+      data: {
+        matchId,
+        senderId: userId,
+        contentType: VOICE_PREVIEW_REQUEST_CONTENT_TYPE,
+        voicePreviewStatus: 'PENDING',
+      },
+    });
+
+    await this.markFirstMessageIfNeeded(matchId, firstMessageSent);
+    await this.notifyNewMessage(match, userId, 'Invited you to a quick voice preview call');
+
+    return this.toMessageView(message, userId);
+  }
+
+  /** Accepts or declines a voice preview request; only the recipient may respond, and only once. */
+  async respondToVoicePreviewRequest(
+    userId: string,
+    matchId: string,
+    messageId: string,
+    accept: boolean,
+  ): Promise<MessageView> {
+    await this.getMatchForUser(userId, matchId);
+
+    const message = await this.prisma.message.findUnique({ where: { id: messageId } });
+    if (!message || message.matchId !== matchId || message.contentType !== VOICE_PREVIEW_REQUEST_CONTENT_TYPE) {
+      throw new NotFoundException('Voice preview request not found.');
+    }
+    if (message.senderId === userId) {
+      throw new BadRequestException('You cannot respond to your own voice preview request.');
+    }
+    if (message.voicePreviewStatus !== 'PENDING') {
+      throw new BadRequestException('This voice preview request has already been responded to.');
+    }
+
+    const updated = await this.prisma.message.update({
+      where: { id: messageId },
+      data: { voicePreviewStatus: accept ? 'ACCEPTED' : 'DECLINED' },
+    });
+
+    return this.toMessageView(updated, userId);
   }
 
   /**
@@ -1906,6 +1966,7 @@ export class MessagingService {
       locationLatitude?: number | null;
       locationLongitude?: number | null;
       locationAddress?: string | null;
+      voicePreviewStatus?: string | null;
       gameType?: string | null;
       gameCorrectIndex?: number | null;
       readAt: Date | null;
@@ -1986,6 +2047,7 @@ export class MessagingService {
         message.locationLongitude,
         message.locationAddress,
       ),
+      voicePreviewRequest: this.toVoicePreviewRequestView(message.contentType, message.voicePreviewStatus),
       createdAt: message.createdAt.toISOString(),
     };
   }
@@ -2024,6 +2086,16 @@ export class MessagingService {
       return null;
     }
     return { label, latitude, longitude, address: address ?? null };
+  }
+
+  private toVoicePreviewRequestView(
+    contentType: string,
+    status: string | null | undefined,
+  ): VoicePreviewRequestView | null {
+    if (contentType !== VOICE_PREVIEW_REQUEST_CONTENT_TYPE || !status) {
+      return null;
+    }
+    return { status: status as VoicePreviewRequestStatus, durationSeconds: VOICE_PREVIEW_CALL_DURATION_SECONDS };
   }
 
   private toIcebreakerView(
