@@ -6,6 +6,14 @@ export const MATCH_EXTENSION_HOURS = 24;
 
 export const WOMAN_GENDER_IDENTITIES = ['Woman', 'Transgender Woman'];
 
+// A la carte cost (from User.giftTokenBalance, the same currency spent on
+// virtual gifts/boosts elsewhere) to reveal that one specific sent message
+// was actually read - see MessagingService.unlockReadReceipt. Any paid
+// subscription tier gets every read receipt for free instead of paying per
+// message, same "subscription beats a one-off spend" shape as
+// PowerUpsService's boost packs.
+export const READ_RECEIPT_UNLOCK_TOKEN_COST = 10;
+
 // A conversation that's gone this many days without a reply from whoever's
 // turn it is to answer gets a "reply or unmatch" nudge on their match list.
 export const GHOSTING_PROMPT_THRESHOLD_DAYS = 3;

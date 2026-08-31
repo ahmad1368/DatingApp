@@ -950,6 +950,24 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
     }
   }
 
+  Future<void> _unlockReadReceipt(ChatMessage message) async {
+    setState(() => _errorText = null);
+    try {
+      final updated = await widget.messagingApi.unlockReadReceipt(
+        matchId: widget.matchId,
+        messageId: message.id,
+      );
+      setState(() {
+        _messages = [
+          for (final existing in _messages)
+            if (existing.id == updated.id) updated else existing,
+        ];
+      });
+    } on MessagingApiException catch (e) {
+      setState(() => _errorText = e.message);
+    }
+  }
+
   Future<void> _extendMatchTimeLimit() async {
     setState(() => _errorText = null);
     try {
@@ -1181,7 +1199,19 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
                                   if (!isMine && message.moderationFlagged)
                                     _buildFlaggedMessageWarning(message),
                                   _buildMessageContent(message, isMine),
-                                  if (isMine && message.isRead)
+                                  if (isMine && message.readReceiptLocked)
+                                    GestureDetector(
+                                      onTap: () => _unlockReadReceipt(message),
+                                      child: const Text(
+                                        'Unlock read receipt',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: Colors.indigo,
+                                          decoration: TextDecoration.underline,
+                                        ),
+                                      ),
+                                    )
+                                  else if (isMine && message.isRead)
                                     const Text(
                                       'Read',
                                       style: TextStyle(fontSize: 11, color: Colors.grey),

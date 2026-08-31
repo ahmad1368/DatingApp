@@ -741,6 +741,48 @@ void main() {
     });
   });
 
+  group('MessagingApi.unlockReadReceipt', () {
+    test('sends a POST to the unlock endpoint and parses the revealed read time', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'POST');
+          expect(request.url.path, '/matches/match-1/messages/m1/unlock-read-receipt');
+          return http.Response(
+            '{"id":"m1","senderId":"user-1","contentType":"TEXT","content":"hi",'
+            '"mediaUrl":null,"isBlurred":false,"readAt":"2026-01-01T00:05:00.000Z",'
+            '"readReceiptLocked":false,"createdAt":"2026-01-01T00:00:00.000Z"}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final message = await api.unlockReadReceipt(matchId: 'match-1', messageId: 'm1');
+
+      expect(message.isRead, isTrue);
+      expect(message.readReceiptLocked, isFalse);
+    });
+
+    test('throws MessagingApiException when there are not enough tokens', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '{"message":"Not enough tokens to unlock this read receipt."}',
+            400,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      expect(
+        () => api.unlockReadReceipt(matchId: 'match-1', messageId: 'm1'),
+        throwsA(isA<MessagingApiException>()),
+      );
+    });
+  });
+
   group('MessagingApi.sendVoiceNote', () {
     test('sends the media URL and duration, parsing the created message', () async {
       final api = MessagingApi(

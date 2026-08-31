@@ -377,6 +377,16 @@ export class MessagingController {
     return this.messagingService.viewEphemeralMedia(user.id, matchId, messageId);
   }
 
+  @Post(':matchId/messages/:messageId/unlock-read-receipt')
+  @HttpCode(HttpStatus.OK)
+  unlockReadReceipt(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('matchId') matchId: string,
+    @Param('messageId') messageId: string,
+  ) {
+    return this.messagingService.unlockReadReceipt(user.id, matchId, messageId);
+  }
+
   @Post(':matchId/messages/:messageId/report')
   @HttpCode(HttpStatus.CREATED)
   reportMessage(

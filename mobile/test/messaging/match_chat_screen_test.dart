@@ -769,6 +769,57 @@ void main() {
     expect(find.text('Read'), findsOneWidget);
   });
 
+  testWidgets('unlocking a read receipt reveals the Read label', (tester) async {
+    http.Request? unlockRequest;
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.method == 'POST' && request.url.path.endsWith('/unlock-read-receipt')) {
+          unlockRequest = request;
+          return http.Response(
+            '{"id":"m1","senderId":"user-woman","contentType":"TEXT","content":"hi!",'
+            '"mediaUrl":null,"isBlurred":false,"readAt":"2026-01-01T00:05:00.000Z",'
+            '"readReceiptLocked":false,"createdAt":"2026-01-01T00:00:00.000Z"}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(
+            '[{"id":"m1","senderId":"user-woman","contentType":"TEXT","content":"hi!",'
+            '"mediaUrl":null,"isBlurred":false,"readAt":null,"readReceiptLocked":true,'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":null,"isExpired":false,'
+          '"firstMessageSent":true,"canSendFirstMessage":true}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchChatScreen(messagingApi: api, matchId: 'match-1', currentUserId: 'user-woman'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Unlock read receipt'), findsOneWidget);
+    expect(find.text('Read'), findsNothing);
+
+    await tester.tap(find.text('Unlock read receipt'));
+    await tester.pumpAndSettle();
+
+    expect(unlockRequest, isNotNull);
+    expect(find.text('Read'), findsOneWidget);
+    expect(find.text('Unlock read receipt'), findsNothing);
+  });
+
   testWidgets('does not show a Read label for an unread message from the other person', (
     tester,
   ) async {
