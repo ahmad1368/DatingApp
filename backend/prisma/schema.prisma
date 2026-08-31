@@ -869,6 +869,10 @@ model CallSession {
   offerSdp                 String
   answerSdp                String?
   virtualBackgroundId      String?
+  // "Video Date Mode" subtle appearance filter (skin smoothing, warm/cool
+  // tone, brightening) - a separate, purely cosmetic overlay from
+  // virtualBackgroundId's backdrop swap. See CallingService.setAppearanceFilter.
+  appearanceFilterId       String?
   activeIcebreakerPromptId String?
   callerMuted              Boolean   @default(false)
   calleeMuted              Boolean   @default(false)

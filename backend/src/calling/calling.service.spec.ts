@@ -335,6 +335,55 @@ describe('CallingService', () => {
     });
   });
 
+  describe('setAppearanceFilter', () => {
+    it('rejects an unknown filter', async () => {
+      mockCall({ status: 'ACCEPTED' });
+
+      await expect(
+        service.setAppearanceFilter(CALLER_ID, CALL_ID, 'not-a-real-filter'),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.callSession.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects setting a filter on a call that has ended', async () => {
+      mockCall({ status: 'ENDED' });
+
+      await expect(
+        service.setAppearanceFilter(CALLER_ID, CALL_ID, 'soft-focus'),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('stores the chosen filter for an active call', async () => {
+      mockCall({ status: 'ACCEPTED' });
+      prisma.callSession.update.mockResolvedValue({
+        id: CALL_ID,
+        matchId: MATCH_ID,
+        callerId: CALLER_ID,
+        calleeId: CALLEE_ID,
+        type: 'VIDEO',
+        status: 'ACCEPTED',
+        offerSdp: 'offer',
+        answerSdp: 'answer',
+        appearanceFilterId: 'soft-focus',
+        activeIcebreakerPromptId: null,
+        callerMuted: false,
+        calleeMuted: false,
+        callerVideoEnabled: true,
+        calleeVideoEnabled: true,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        endedAt: null,
+      });
+
+      const result = await service.setAppearanceFilter(CALLER_ID, CALL_ID, 'soft-focus');
+
+      expect(prisma.callSession.update).toHaveBeenCalledWith({
+        where: { id: CALL_ID },
+        data: { appearanceFilterId: 'soft-focus' },
+      });
+      expect(result.appearanceFilterId).toBe('soft-focus');
+    });
+  });
+
   describe('setIcebreakerOverlay', () => {
     it('rejects an unknown icebreaker prompt', async () => {
       mockCall({ status: 'ACCEPTED' });
