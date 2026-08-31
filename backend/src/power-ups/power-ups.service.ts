@@ -54,6 +54,10 @@ export class PowerUpsService {
         return this.purchaseMatchExtension(userId, powerUp, matchId);
       case 'unmatch-protection':
         return this.purchaseUnmatchProtection(userId, powerUp, user.unmatchProtectionEnabled);
+      case 'priority-like':
+      case 'priority-like-pack-5':
+      case 'priority-like-pack-10':
+        return this.purchasePriorityLike(userId, powerUp);
       default:
         return this.purchaseSuperLike(userId, powerUp);
     }
@@ -155,6 +159,19 @@ export class PowerUpsService {
       data: {
         giftTokenBalance: { decrement: powerUp.coinCost },
         bonusSuperLikes: { increment: powerUp.quantity ?? 1 },
+      },
+    });
+
+    return { coinBalance: updatedUser.giftTokenBalance, powerUpId: powerUp.id };
+  }
+
+  /** Handles both the single priority like and its bulk packs - see POWER_UPS.quantity. */
+  private async purchasePriorityLike(userId: string, powerUp: PowerUp): Promise<PurchasePowerUpResult> {
+    const updatedUser = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        giftTokenBalance: { decrement: powerUp.coinCost },
+        bonusPriorityLikes: { increment: powerUp.quantity ?? 1 },
       },
     });
 

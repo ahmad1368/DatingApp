@@ -1,4 +1,4 @@
-import { IsIn, IsInt, IsOptional, IsString, IsUUID, Length, Max, Min } from 'class-validator';
+import { IsBoolean, IsIn, IsInt, IsOptional, IsString, IsUUID, Length, Max, Min } from 'class-validator';
 import { PASS_REASONS, SWIPE_ACTIONS } from '../discovery.constants';
 
 export class RecordSwipeDto {
@@ -43,4 +43,14 @@ export class RecordSwipeDto {
   @IsOptional()
   @IsIn(PASS_REASONS)
   passReason?: string;
+
+  /**
+   * Spends one purchased priority-like credit (see the priority-like-pack-*
+   * power-ups) to give this regular like the same top-of-queue placement a
+   * premium subscriber's regular likes get automatically. Only valid on a
+   * LIKE action.
+   */
+  @IsOptional()
+  @IsBoolean()
+  usePriorityLike?: boolean;
 }

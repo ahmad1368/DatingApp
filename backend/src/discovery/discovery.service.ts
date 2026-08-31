@@ -191,7 +191,7 @@ export class DiscoveryService {
         action: { in: LIKE_ACTIONS },
         swiperId: { notIn: excludedIds },
       },
-      select: { swiperId: true, action: true },
+      select: { swiperId: true, action: true, isPriorityLike: true },
     });
     const likedMeIds = likersOfMe.map((s) => s.swiperId);
     const superLikerIdSet = new Set(
@@ -211,8 +211,14 @@ export class DiscoveryService {
     const viewMultiplierByUserId = new Map(activeBoosts.map((boost) => [boost.userId, boost.viewMultiplier]));
 
     // "Priority likes": a premium user's regular (non-super) like also
-    // earns a spot near the top, one tier below an outright super like.
+    // earns a spot near the top, one tier below an outright super like -
+    // the same placement a purchased priority-like credit grants a
+    // non-premium user's regular like (Swipe.isPriorityLike, spent via
+    // recordSwipe/PowerUpsService.purchasePriorityLike).
     const regularLikerIds = likedMeIds.filter((id) => !superLikerIdSet.has(id));
+    const paidPriorityLikerIds = likersOfMe
+      .filter((s) => s.isPriorityLike && !superLikerIdSet.has(s.swiperId))
+      .map((s) => s.swiperId);
     const premiumRegularLikers =
       regularLikerIds.length > 0
         ? await this.prisma.user.findMany({
@@ -220,7 +226,10 @@ export class DiscoveryService {
             select: { id: true },
           })
         : [];
-    const priorityLikerIdSet = new Set(premiumRegularLikers.map((user) => user.id));
+    const priorityLikerIdSet = new Set([
+      ...premiumRegularLikers.map((user) => user.id),
+      ...paidPriorityLikerIds,
+    ]);
 
     // Boosted profiles get top priority ("pushed to the top"), then anyone
     // who has super-liked the viewer, then premium priority likes -
@@ -684,12 +693,17 @@ export class DiscoveryService {
     icebreakerPromptId?: string,
     icebreakerOptionIndex?: number,
     passReason?: string,
+    usePriorityLike?: boolean,
   ): Promise<SwipeResult> {
     if (targetUserId === userId) {
       throw new BadRequestException('You cannot swipe on yourself.');
     }
 
     const isLike = LIKE_ACTIONS.includes(action as (typeof LIKE_ACTIONS)[number]);
+
+    if (usePriorityLike && action !== 'LIKE') {
+      throw new BadRequestException('A priority like can only be attached to a regular like.');
+    }
 
     if (complimentText && !isLike) {
       throw new BadRequestException('Compliments can only be attached to a like.');
@@ -749,6 +763,22 @@ export class DiscoveryService {
       }
     }
 
+    let isPriorityLike = false;
+    if (usePriorityLike) {
+      const swiper = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { bonusPriorityLikes: true },
+      });
+      if (!swiper || swiper.bonusPriorityLikes <= 0) {
+        throw new BadRequestException('No priority like credits available. Purchase a priority like pack first.');
+      }
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { bonusPriorityLikes: { decrement: 1 } },
+      });
+      isPriorityLike = true;
+    }
+
     await this.prisma.swipe.create({
       data: {
         swiperId: userId,
@@ -759,6 +789,7 @@ export class DiscoveryService {
         icebreakerPromptId: icebreakerPromptId ?? null,
         icebreakerOptionIndex: icebreakerOptionIndex ?? null,
         passReason: passReason ?? null,
+        isPriorityLike,
       },
     });
 

@@ -41,6 +41,7 @@ export class DiscoveryController {
       dto.icebreakerPromptId,
       dto.icebreakerOptionIndex,
       dto.passReason,
+      dto.usePriorityLike,
     );
   }
 

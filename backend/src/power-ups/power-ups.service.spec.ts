@@ -195,6 +195,60 @@ describe('PowerUpsService', () => {
       });
     });
 
+    describe('priority-like', () => {
+      it('deducts coins and grants a bonus priority like', async () => {
+        prisma.user.findUnique.mockResolvedValue({ giftTokenBalance: 50 });
+        prisma.user.update.mockResolvedValue({ giftTokenBalance: 35 });
+
+        const result = await service.purchasePowerUp(USER_ID, 'priority-like');
+
+        expect(prisma.user.update).toHaveBeenCalledWith({
+          where: { id: USER_ID },
+          data: { giftTokenBalance: { decrement: 15 }, bonusPriorityLikes: { increment: 1 } },
+        });
+        expect(result).toEqual({ coinBalance: 35, powerUpId: 'priority-like' });
+      });
+    });
+
+    describe('priority-like-pack-5', () => {
+      it('deducts the discounted bulk price and grants 5 bonus priority likes', async () => {
+        prisma.user.findUnique.mockResolvedValue({ giftTokenBalance: 100 });
+        prisma.user.update.mockResolvedValue({ giftTokenBalance: 35 });
+
+        const result = await service.purchasePowerUp(USER_ID, 'priority-like-pack-5');
+
+        expect(prisma.user.update).toHaveBeenCalledWith({
+          where: { id: USER_ID },
+          data: { giftTokenBalance: { decrement: 65 }, bonusPriorityLikes: { increment: 5 } },
+        });
+        expect(result).toEqual({ coinBalance: 35, powerUpId: 'priority-like-pack-5' });
+      });
+
+      it('rejects when the coin balance is too low for the pack', async () => {
+        prisma.user.findUnique.mockResolvedValue({ giftTokenBalance: 10 });
+
+        await expect(
+          service.purchasePowerUp(USER_ID, 'priority-like-pack-5'),
+        ).rejects.toBeInstanceOf(BadRequestException);
+        expect(prisma.user.update).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('priority-like-pack-10', () => {
+      it('deducts the discounted bulk price and grants 10 bonus priority likes', async () => {
+        prisma.user.findUnique.mockResolvedValue({ giftTokenBalance: 200 });
+        prisma.user.update.mockResolvedValue({ giftTokenBalance: 80 });
+
+        const result = await service.purchasePowerUp(USER_ID, 'priority-like-pack-10');
+
+        expect(prisma.user.update).toHaveBeenCalledWith({
+          where: { id: USER_ID },
+          data: { giftTokenBalance: { decrement: 120 }, bonusPriorityLikes: { increment: 10 } },
+        });
+        expect(result).toEqual({ coinBalance: 80, powerUpId: 'priority-like-pack-10' });
+      });
+    });
+
     describe('unmatch-protection', () => {
       it('deducts coins and enables the protection flag', async () => {
         prisma.user.findUnique.mockResolvedValue({ giftTokenBalance: 100, unmatchProtectionEnabled: false });

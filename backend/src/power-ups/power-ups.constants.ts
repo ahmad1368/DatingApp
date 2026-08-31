@@ -26,6 +26,14 @@ export const POWER_UPS: PowerUp[] = [
   { id: 'super-like-pack-5', label: 'Super Like Pack (5)', coinCost: 90, quantity: 5 },
   { id: 'super-like-pack-10', label: 'Super Like Pack (10)', coinCost: 160, quantity: 10 },
   { id: 'super-like-pack-25', label: 'Super Like Pack (25)', coinCost: 350, quantity: 25 },
+  // A la carte "Priority Like": puts one regular like at the top of the
+  // recipient's queue, the same placement a premium subscriber's regular
+  // likes already get automatically - see
+  // DiscoveryService.recordSwipe/getDeck. Bulk packs mirror the super-like
+  // packs above.
+  { id: 'priority-like', label: 'Priority Like', coinCost: 15, quantity: 1 },
+  { id: 'priority-like-pack-5', label: 'Priority Like Pack (5)', coinCost: 65, quantity: 5 },
+  { id: 'priority-like-pack-10', label: 'Priority Like Pack (10)', coinCost: 120, quantity: 10 },
   { id: 'extra-profile-views', label: 'Extra Profile Views (+20)', coinCost: 30 },
   { id: 'extend-match-timer', label: 'Extend Match Timer', coinCost: 40 },
   // Standalone, permanent toggle (not a subscription perk): once purchased,
