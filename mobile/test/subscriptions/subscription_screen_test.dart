@@ -10,6 +10,11 @@ const _catalogResponse = '[{"tier":"FREE","label":"Free","priceUsdPerMonth":0,'
     '"features":["Standard swiping"]},'
     '{"tier":"PLUS","label":"Plus","priceUsdPerMonth":9.99,"features":["Unlimited likes"]}]';
 
+const _catalogWithPlatinumResponse = '[{"tier":"FREE","label":"Free","priceUsdPerMonth":0,'
+    '"features":["Standard swiping"]},'
+    '{"tier":"PLUS","label":"Plus","priceUsdPerMonth":9.99,"features":["Unlimited likes"]},'
+    '{"tier":"PLATINUM","label":"Platinum","priceUsdPerMonth":29.99,"features":["Priority likes"]}]';
+
 void main() {
   testWidgets('shows the current plan and catalog', (tester) async {
     final api = SubscriptionsApi(
@@ -77,6 +82,37 @@ void main() {
     expect(subscribeRequest!.body, '{"tier":"PLUS"}');
     expect(find.text('Current plan: PLUS'), findsOneWidget);
     expect(find.text('Cancel subscription'), findsOneWidget);
+  });
+
+  testWidgets('labels a higher paid tier "Upgrade" when already on a lower active paid tier',
+      (tester) async {
+    final api = SubscriptionsApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/subscriptions/catalog') {
+          return http.Response(
+            _catalogWithPlatinumResponse,
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (request.url.path == '/subscriptions/gifts/received') {
+          return http.Response('[]', 200, headers: {'content-type': 'application/json'});
+        }
+        return http.Response(
+          '{"tier":"PLUS","isActive":true,"expiresAt":"2026-02-01T00:00:00.000Z","canceledAt":null}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: SubscriptionScreen(subscriptionsApi: api)));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.widgetWithText(ElevatedButton, 'Upgrade'), findsOneWidget);
+    expect(find.widgetWithText(ElevatedButton, 'Current plan'), findsOneWidget);
   });
 
   testWidgets('canceling reverts to the free plan', (tester) async {
