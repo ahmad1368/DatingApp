@@ -3,7 +3,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AuthenticatedUser, JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RELATIONSHIP_GOALS } from '../onboarding/onboarding.constants';
 import { COMMUNITY_GROUPS } from '../community-groups/community-groups.constants';
-import { KINK_TAGS, RELATIONSHIP_DESIRES } from './relationship-profile.constants';
+import { BOUNDARY_TAGS, KINK_TAGS, RELATIONSHIP_DESIRES } from './relationship-profile.constants';
 import { SetLifestyleFiltersDto } from './dto/set-lifestyle-filters.dto';
 import {
   CHILDREN_PREFERENCES,
@@ -38,6 +38,7 @@ export class LifestyleFiltersController {
       relationshipGoals: RELATIONSHIP_GOALS,
       kinkTags: KINK_TAGS,
       relationshipDesires: RELATIONSHIP_DESIRES,
+      boundaryTags: BOUNDARY_TAGS,
       communityGroups: COMMUNITY_GROUPS,
       workoutHabits: WORKOUT_HABITS,
       petOwnershipOptions: PET_OWNERSHIP_OPTIONS,

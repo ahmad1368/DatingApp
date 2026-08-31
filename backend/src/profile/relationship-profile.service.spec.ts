@@ -26,6 +26,8 @@ describe('RelationshipProfileService', () => {
         showCustomRelationshipIntentOnProfile: true,
         communicationBoundaries: null,
         showCommunicationBoundariesOnProfile: true,
+        boundaryTags: [],
+        showBoundaryTagsOnProfile: true,
       });
 
       const result = await service.getRelationshipProfile(USER_ID);
@@ -41,6 +43,8 @@ describe('RelationshipProfileService', () => {
         showCustomRelationshipIntentOnProfile: true,
         communicationBoundaries: null,
         showCommunicationBoundariesOnProfile: true,
+        boundaryTags: [],
+        showBoundaryTagsOnProfile: true,
       });
     });
   });
@@ -58,6 +62,8 @@ describe('RelationshipProfileService', () => {
         showCustomRelationshipIntentOnProfile: true,
         communicationBoundaries: 'Texting only until we meet',
         showCommunicationBoundariesOnProfile: true,
+        boundaryTags: ['Sober / Substance-Free', 'No Kids'],
+        showBoundaryTagsOnProfile: true,
       };
       prisma.user.update.mockResolvedValue({
         relationshipStructure: dto.relationshipStructure,
@@ -70,6 +76,8 @@ describe('RelationshipProfileService', () => {
         showCustomRelationshipIntentOnProfile: dto.showCustomRelationshipIntentOnProfile,
         communicationBoundaries: dto.communicationBoundaries,
         showCommunicationBoundariesOnProfile: dto.showCommunicationBoundariesOnProfile,
+        boundaryTags: dto.boundaryTags,
+        showBoundaryTagsOnProfile: dto.showBoundaryTagsOnProfile,
       });
 
       const result = await service.setRelationshipProfile(USER_ID, dto);
@@ -87,12 +95,15 @@ describe('RelationshipProfileService', () => {
           showCustomRelationshipIntentOnProfile: true,
           communicationBoundaries: 'Texting only until we meet',
           showCommunicationBoundariesOnProfile: true,
+          boundaryTags: ['Sober / Substance-Free', 'No Kids'],
+          showBoundaryTagsOnProfile: true,
         },
       });
       expect(result.relationshipStructure).toBe('Polyamorous');
       expect(result.showRelationshipStructureOnProfile).toBe(false);
       expect(result.customRelationshipIntent).toBe('Long distance okay');
       expect(result.communicationBoundaries).toBe('Texting only until we meet');
+      expect(result.boundaryTags).toEqual(['Sober / Substance-Free', 'No Kids']);
     });
 
     it('clears the relationship structure, custom intent, and communication boundaries when omitted', async () => {
@@ -104,6 +115,8 @@ describe('RelationshipProfileService', () => {
         showRelationshipDesiresOnProfile: true,
         showCustomRelationshipIntentOnProfile: true,
         showCommunicationBoundariesOnProfile: true,
+        boundaryTags: [],
+        showBoundaryTagsOnProfile: true,
       };
       prisma.user.update.mockResolvedValue({
         relationshipStructure: null,
@@ -116,6 +129,8 @@ describe('RelationshipProfileService', () => {
         showCustomRelationshipIntentOnProfile: true,
         communicationBoundaries: null,
         showCommunicationBoundariesOnProfile: true,
+        boundaryTags: [],
+        showBoundaryTagsOnProfile: true,
       });
 
       await service.setRelationshipProfile(USER_ID, dto);

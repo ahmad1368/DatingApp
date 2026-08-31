@@ -62,6 +62,12 @@ model User {
   showCustomRelationshipIntentOnProfile Boolean   @default(true)
   communicationBoundaries               String?
   showCommunicationBoundariesOnProfile  Boolean   @default(true)
+  // Structured, upfront-honesty tags (e.g. "Sober/Substance-Free", "No
+  // Kids") - distinct from communicationBoundaries' freeform text and from
+  // kinkTags' sexual-preference scope. See BOUNDARY_TAGS in
+  // relationship-profile.constants.ts.
+  boundaryTags                          String[]  @default([])
+  showBoundaryTagsOnProfile             Boolean   @default(true)
   smokingHabit                          String?
   drinkingHabit                         String?
   education                             String?
@@ -105,6 +111,7 @@ model User {
   filterRelationshipGoals               String[]  @default([])
   filterKinkTags                        String[]  @default([])
   filterRelationshipDesires             String[]  @default([])
+  filterBoundaryTags                    String[]  @default([])
   filterPetOwnership                    String[]  @default([])
   filterPetAllergyStatus                String[]  @default([])
   filterSharedInterestsOnly             Boolean   @default(false)

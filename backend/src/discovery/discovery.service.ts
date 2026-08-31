@@ -1406,6 +1406,7 @@ export class DiscoveryService {
     filterRelationshipGoals: string[];
     filterKinkTags?: string[];
     filterRelationshipDesires?: string[];
+    filterBoundaryTags?: string[];
     filterPetOwnership?: string[];
     filterPetAllergyStatus?: string[];
     filterPoliticalOrientations?: string[];
@@ -1442,6 +1443,9 @@ export class DiscoveryService {
     }
     if ((currentUser.filterRelationshipDesires ?? []).length > 0) {
       where.relationshipDesires = { hasSome: currentUser.filterRelationshipDesires };
+    }
+    if ((currentUser.filterBoundaryTags ?? []).length > 0) {
+      where.boundaryTags = { hasSome: currentUser.filterBoundaryTags };
     }
     if ((currentUser.filterPetOwnership ?? []).length > 0) {
       where.petOwnership = { in: currentUser.filterPetOwnership };

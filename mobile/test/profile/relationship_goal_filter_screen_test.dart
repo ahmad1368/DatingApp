@@ -35,6 +35,7 @@ String _fullFiltersJson({String relationshipGoals = '[]'}) => '''
   "filterRelationshipDesires": [],
   "filterPetOwnership": [],
   "filterPetAllergyStatus": [],
+  "filterBoundaryTags": [],
   "filterPoliticalOrientations": [],
   "filterSharedInterestsOnly": false,
   "filterVerifiedOnly": false,

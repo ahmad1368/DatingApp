@@ -924,6 +924,38 @@ describe('DiscoveryService', () => {
       });
     });
 
+    it('applies the boundary tag filter to the candidate query', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+        filterBoundaryTags: ['Sober / Substance-Free', 'No Kids'],
+      });
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      prisma.user.findMany.mockResolvedValue([]);
+
+      await service.getDeck(USER_ID);
+
+      expect(prisma.user.findMany).toHaveBeenCalledWith({
+        where: {
+          id: { notIn: [USER_ID] },
+          onboardingCompletedAt: { not: null },
+          activeMode: 'DATING',
+          AND: [
+            { OR: [{ incognitoEnabled: false }, { id: { in: [] } }] },
+            { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
+          ],
+          boundaryTags: { hasSome: ['Sober / Substance-Free', 'No Kids'] },
+        },
+        take: 60,
+      });
+    });
+
     it('applies pet ownership and pet allergy filters to the candidate query', async () => {
       prisma.user.findUnique.mockResolvedValue({
         id: USER_ID,

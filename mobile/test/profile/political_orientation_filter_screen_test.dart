@@ -35,6 +35,7 @@ String _fullFiltersJson({String politicalOrientations = '[]'}) => '''
   "filterRelationshipDesires": [],
   "filterPetOwnership": [],
   "filterPetAllergyStatus": [],
+  "filterBoundaryTags": [],
   "filterPoliticalOrientations": $politicalOrientations,
   "filterSharedInterestsOnly": false,
   "filterVerifiedOnly": false,

@@ -8,13 +8,15 @@ import 'package:mobile/profile/relationship_profile_screen.dart';
 
 const _catalogResponse =
     '{"relationshipStructures":["Monogamous","Polyamorous"],"kinkTags":["BDSM"],'
-    '"relationshipDesires":["Marriage","Casual Dating"]}';
+    '"relationshipDesires":["Marriage","Casual Dating"],'
+    '"boundaryTags":["Sober / Substance-Free","No Kids"]}';
 const _emptyProfileResponse =
     '{"relationshipStructure":null,"showRelationshipStructureOnProfile":true,'
     '"kinkTags":[],"showKinkTagsOnProfile":true,"relationshipDesires":[],'
     '"showRelationshipDesiresOnProfile":true,"customRelationshipIntent":null,'
     '"showCustomRelationshipIntentOnProfile":true,"communicationBoundaries":null,'
-    '"showCommunicationBoundariesOnProfile":true}';
+    '"showCommunicationBoundariesOnProfile":true,"boundaryTags":[],'
+    '"showBoundaryTagsOnProfile":true}';
 
 void main() {
   testWidgets('selecting a desire badge and saving submits the payload', (tester) async {
@@ -53,6 +55,8 @@ void main() {
     await tester.pump();
     await tester.tap(find.widgetWithText(ChoiceChip, 'Monogamous'));
     await tester.pump();
+    await tester.tap(find.widgetWithText(FilterChip, 'No Kids'));
+    await tester.pump();
     await tester.enterText(find.byType(TextField).first, 'Open to relocating');
     await tester.enterText(find.byType(TextField).last, 'No calls before 9am');
 
@@ -65,6 +69,7 @@ void main() {
     expect(putRequest!.body, contains('"relationshipStructure":"Monogamous"'));
     expect(putRequest!.body, contains('"customRelationshipIntent":"Open to relocating"'));
     expect(putRequest!.body, contains('"communicationBoundaries":"No calls before 9am"'));
+    expect(putRequest!.body, contains('"boundaryTags":["No Kids"]'));
     expect(find.text('Saved.'), findsOneWidget);
   });
 
@@ -86,7 +91,8 @@ void main() {
           '"showRelationshipDesiresOnProfile":true,"customRelationshipIntent":"Long distance ok",'
           '"showCustomRelationshipIntentOnProfile":true,'
           '"communicationBoundaries":"No calls before 9am",'
-          '"showCommunicationBoundariesOnProfile":true}',
+          '"showCommunicationBoundariesOnProfile":true,'
+          '"boundaryTags":["No Kids"],"showBoundaryTagsOnProfile":true}',
           200,
           headers: {'content-type': 'application/json'},
         );
@@ -106,5 +112,9 @@ void main() {
     );
     expect(find.text('Long distance ok'), findsOneWidget);
     expect(find.text('No calls before 9am'), findsOneWidget);
+    expect(
+      tester.widget<FilterChip>(find.widgetWithText(FilterChip, 'No Kids')).selected,
+      isTrue,
+    );
   });
 }

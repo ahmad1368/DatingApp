@@ -13,6 +13,8 @@ export interface RelationshipProfileResult {
   showCustomRelationshipIntentOnProfile: boolean;
   communicationBoundaries: string | null;
   showCommunicationBoundariesOnProfile: boolean;
+  boundaryTags: string[];
+  showBoundaryTagsOnProfile: boolean;
 }
 
 @Injectable()
@@ -33,6 +35,8 @@ export class RelationshipProfileService {
         showCustomRelationshipIntentOnProfile: true,
         communicationBoundaries: true,
         showCommunicationBoundariesOnProfile: true,
+        boundaryTags: true,
+        showBoundaryTagsOnProfile: true,
       },
     });
 
@@ -47,6 +51,8 @@ export class RelationshipProfileService {
       showCustomRelationshipIntentOnProfile: user?.showCustomRelationshipIntentOnProfile ?? true,
       communicationBoundaries: user?.communicationBoundaries ?? null,
       showCommunicationBoundariesOnProfile: user?.showCommunicationBoundariesOnProfile ?? true,
+      boundaryTags: user?.boundaryTags ?? [],
+      showBoundaryTagsOnProfile: user?.showBoundaryTagsOnProfile ?? true,
     };
   }
 
@@ -67,6 +73,8 @@ export class RelationshipProfileService {
         showCustomRelationshipIntentOnProfile: dto.showCustomRelationshipIntentOnProfile,
         communicationBoundaries: dto.communicationBoundaries ?? null,
         showCommunicationBoundariesOnProfile: dto.showCommunicationBoundariesOnProfile,
+        boundaryTags: dto.boundaryTags,
+        showBoundaryTagsOnProfile: dto.showBoundaryTagsOnProfile,
       },
     });
 
@@ -81,6 +89,8 @@ export class RelationshipProfileService {
       showCustomRelationshipIntentOnProfile: user.showCustomRelationshipIntentOnProfile,
       communicationBoundaries: user.communicationBoundaries,
       showCommunicationBoundariesOnProfile: user.showCommunicationBoundariesOnProfile,
+      boundaryTags: user.boundaryTags,
+      showBoundaryTagsOnProfile: user.showBoundaryTagsOnProfile,
     };
   }
 }

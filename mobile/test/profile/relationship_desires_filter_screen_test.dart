@@ -35,6 +35,7 @@ String _fullFiltersJson({String relationshipDesires = '[]'}) => '''
   "filterRelationshipDesires": $relationshipDesires,
   "filterPetOwnership": [],
   "filterPetAllergyStatus": [],
+  "filterBoundaryTags": [],
   "filterPoliticalOrientations": [],
   "filterSharedInterestsOnly": false,
   "filterVerifiedOnly": false,

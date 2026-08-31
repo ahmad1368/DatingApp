@@ -35,6 +35,7 @@ String _fullFiltersJson({String petOwnership = '[]', String petAllergyStatus = '
   "filterRelationshipDesires": [],
   "filterPetOwnership": $petOwnership,
   "filterPetAllergyStatus": $petAllergyStatus,
+  "filterBoundaryTags": [],
   "filterPoliticalOrientations": [],
   "filterSharedInterestsOnly": false,
   "filterVerifiedOnly": false,
