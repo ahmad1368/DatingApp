@@ -10,6 +10,13 @@ import 'discovery_api.dart';
 const double _swipeThreshold = 100.0;
 const double _maxRotationRadians = 0.4;
 
+const Map<String, String> _relationshipGoalLabels = {
+  'LONG_TERM': 'Long-term relationship',
+  'CASUAL': 'Something casual',
+  'FRIENDSHIP': 'New friends',
+  'NOT_SURE': 'Still figuring it out',
+};
+
 /// A single draggable profile card: drag right to like, left to pass.
 /// Flings off-screen and calls [onSwiped] with 'LIKE' or 'PASS' once past
 /// the threshold; otherwise springs back to center.
@@ -207,6 +214,15 @@ class _CardContent extends StatelessWidget {
                 [card.name ?? 'Someone', if (card.age != null) card.age.toString()].join(', '),
                 style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
+              if (card.relationshipGoal != null) ...[
+                const SizedBox(height: 4),
+                Chip(
+                  avatar: const Icon(Icons.flag, size: 16),
+                  label: Text(_relationshipGoalLabels[card.relationshipGoal] ?? card.relationshipGoal!),
+                  backgroundColor: Colors.indigo.shade100,
+                  visualDensity: VisualDensity.compact,
+                ),
+              ],
               if (card.distanceKm != null)
                 Text('${card.distanceKm!.toStringAsFixed(1)} km away'),
               if (card.mutualConnectionCount > 0)
