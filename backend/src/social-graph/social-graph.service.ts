@@ -16,6 +16,10 @@ export interface MutualConnectionsResult {
   mutualFriends: MutualFriendView[];
 }
 
+export interface HideFromMutualConnectionsResult {
+  hideFromMutualConnectionsEnabled: boolean;
+}
+
 /**
  * A user's own address book (phone numbers/emails), synced separately from
  * BlockedContact (which tracks people to exclude). Overlap between two
@@ -92,5 +96,23 @@ export class SocialGraphService {
         photoUrl: user.profilePhotoUrl,
       })),
     };
+  }
+
+  /**
+   * Privacy toggle: excludes this user from the discovery deck of anyone
+   * who shares a synced contact with them - see getMutualConnectionHiddenIds.
+   * Someone who already liked this user still sees them either way, same
+   * exemption incognito mode gives.
+   */
+  async setHideFromMutualConnections(
+    userId: string,
+    enabled: boolean,
+  ): Promise<HideFromMutualConnectionsResult> {
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: { hideFromMutualConnectionsEnabled: enabled },
+    });
+
+    return { hideFromMutualConnectionsEnabled: updated.hideFromMutualConnectionsEnabled };
   }
 }

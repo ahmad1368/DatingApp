@@ -8,14 +8,14 @@ const OTHER_ID = 'user-2';
 describe('SocialGraphService', () => {
   let service: SocialGraphService;
   let prisma: {
-    user: { findUnique: jest.Mock; findMany: jest.Mock };
+    user: { findUnique: jest.Mock; findMany: jest.Mock; update: jest.Mock };
     socialContact: { deleteMany: jest.Mock; createMany: jest.Mock; findMany: jest.Mock };
     $transaction: jest.Mock;
   };
 
   beforeEach(() => {
     prisma = {
-      user: { findUnique: jest.fn(), findMany: jest.fn() },
+      user: { findUnique: jest.fn(), findMany: jest.fn(), update: jest.fn() },
       socialContact: {
         deleteMany: jest.fn(),
         createMany: jest.fn(),
@@ -112,6 +112,28 @@ describe('SocialGraphService', () => {
         mutualContactCount: 2,
         mutualFriends: [{ userId: 'user-3', name: 'Sam', photoUrl: 'sam.jpg' }],
       });
+    });
+  });
+
+  describe('setHideFromMutualConnections', () => {
+    it('enables the privacy toggle', async () => {
+      prisma.user.update.mockResolvedValue({ hideFromMutualConnectionsEnabled: true });
+
+      const result = await service.setHideFromMutualConnections(USER_ID, true);
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: USER_ID },
+        data: { hideFromMutualConnectionsEnabled: true },
+      });
+      expect(result).toEqual({ hideFromMutualConnectionsEnabled: true });
+    });
+
+    it('disables the privacy toggle', async () => {
+      prisma.user.update.mockResolvedValue({ hideFromMutualConnectionsEnabled: false });
+
+      const result = await service.setHideFromMutualConnections(USER_ID, false);
+
+      expect(result).toEqual({ hideFromMutualConnectionsEnabled: false });
     });
   });
 });

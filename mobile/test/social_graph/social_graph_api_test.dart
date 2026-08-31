@@ -36,4 +36,36 @@ void main() {
       expect(() => api.syncContacts(['x']), throwsA(isA<SocialGraphApiException>()));
     });
   });
+
+  group('SocialGraphApi.setHideFromMutualConnections', () {
+    test('sends the toggle and returns the resulting state', () async {
+      final api = SocialGraphApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'PUT');
+          expect(request.url.path, '/social-graph/hide-from-mutual-connections');
+          expect(request.body, '{"enabled":true}');
+          return http.Response(
+            '{"hideFromMutualConnectionsEnabled":true}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      expect(await api.setHideFromMutualConnections(true), isTrue);
+    });
+
+    test('throws SocialGraphApiException on a non-200 response', () async {
+      final api = SocialGraphApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => http.Response('', 500)),
+      );
+
+      expect(
+        () => api.setHideFromMutualConnections(true),
+        throwsA(isA<SocialGraphApiException>()),
+      );
+    });
+  });
 }

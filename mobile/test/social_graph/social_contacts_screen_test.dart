@@ -55,4 +55,31 @@ void main() {
 
     expect(find.text('Something went wrong.'), findsOneWidget);
   });
+
+  testWidgets('toggling hide-from-mutual-connections sends the update and reflects the result',
+      (tester) async {
+    http.Request? toggleRequest;
+    final api = SocialGraphApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        toggleRequest = request;
+        return http.Response(
+          '{"hideFromMutualConnectionsEnabled":true}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: SocialContactsScreen(socialGraphApi: api)));
+
+    await tester.tap(find.byType(SwitchListTile));
+    await tester.pumpAndSettle();
+
+    expect(toggleRequest, isNotNull);
+    expect(toggleRequest!.url.path, '/social-graph/hide-from-mutual-connections');
+    expect(toggleRequest!.body, '{"enabled":true}');
+    final switchTile = tester.widget<SwitchListTile>(find.byType(SwitchListTile));
+    expect(switchTile.value, isTrue);
+  });
 }

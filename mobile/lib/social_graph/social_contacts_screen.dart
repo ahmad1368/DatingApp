@@ -16,6 +16,7 @@ class SocialContactsScreen extends StatefulWidget {
 class _SocialContactsScreenState extends State<SocialContactsScreen> {
   final _contactController = TextEditingController();
   bool _isSyncing = false;
+  bool _hideFromMutualConnections = false;
   String? _errorText;
   String? _statusText;
 
@@ -49,6 +50,16 @@ class _SocialContactsScreenState extends State<SocialContactsScreen> {
       if (mounted) {
         setState(() => _isSyncing = false);
       }
+    }
+  }
+
+  Future<void> _toggleHideFromMutualConnections(bool enabled) async {
+    setState(() => _errorText = null);
+    try {
+      final result = await widget.socialGraphApi.setHideFromMutualConnections(enabled);
+      setState(() => _hideFromMutualConnections = result);
+    } on SocialGraphApiException catch (e) {
+      setState(() => _errorText = e.message);
     }
   }
 
@@ -91,6 +102,17 @@ class _SocialContactsScreenState extends State<SocialContactsScreen> {
             const SizedBox(height: 8),
             Text(_statusText!),
           ],
+          const Divider(height: 32),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Hide from mutual connections'),
+            subtitle: const Text(
+              "Don't show my profile to direct contacts, mutual friends, or phonebook "
+              "entries connected to me. Doesn't affect anyone who already liked me.",
+            ),
+            value: _hideFromMutualConnections,
+            onChanged: _toggleHideFromMutualConnections,
+          ),
         ],
       ),
     );
