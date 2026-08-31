@@ -2,7 +2,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SmsProvider } from '../auth/interfaces/sms-provider.interface';
 import { SafetyService } from './safety.service';
-import { SAFETY_RESOURCES } from './safety.constants';
+import { EMERGENCY_HOTLINES, SAFETY_RESOURCES, SCAM_AWARENESS_QUIZ } from './safety.constants';
 
 const USER_ID = 'user-1';
 const OTHER_ID = 'user-2';
@@ -55,6 +55,58 @@ describe('SafetyService', () => {
   describe('getResources', () => {
     it('returns the static list of safety resources', () => {
       expect(service.getResources()).toEqual(SAFETY_RESOURCES);
+    });
+  });
+
+  describe('getEmergencyHotlines', () => {
+    it('returns the static list of emergency hotlines', () => {
+      expect(service.getEmergencyHotlines()).toEqual(EMERGENCY_HOTLINES);
+    });
+  });
+
+  describe('getScamQuizQuestions', () => {
+    it('withholds isScam and explanation from the question list', () => {
+      const questions = service.getScamQuizQuestions();
+
+      expect(questions).toHaveLength(SCAM_AWARENESS_QUIZ.length);
+      for (const question of questions) {
+        expect(question).toEqual({ id: expect.any(String), scenario: expect.any(String) });
+      }
+    });
+  });
+
+  describe('submitScamQuiz', () => {
+    it('scores a fully correct submission', () => {
+      const answers = SCAM_AWARENESS_QUIZ.map((question) => ({
+        questionId: question.id,
+        guessIsScam: question.isScam,
+      }));
+
+      const result = service.submitScamQuiz(answers);
+
+      expect(result.score).toBe(SCAM_AWARENESS_QUIZ.length);
+      expect(result.total).toBe(SCAM_AWARENESS_QUIZ.length);
+      expect(result.results.every((r) => r.correct)).toBe(true);
+    });
+
+    it('marks a wrong guess as incorrect and still returns the explanation', () => {
+      const question = SCAM_AWARENESS_QUIZ[0];
+
+      const result = service.submitScamQuiz([{ questionId: question.id, guessIsScam: !question.isScam }]);
+
+      expect(result.score).toBe(0);
+      expect(result.results[0]).toEqual({
+        questionId: question.id,
+        correct: false,
+        isScam: question.isScam,
+        explanation: question.explanation,
+      });
+    });
+
+    it('rejects an unknown question id', () => {
+      expect(() => service.submitScamQuiz([{ questionId: 'not-a-real-question', guessIsScam: true }])).toThrow(
+        BadRequestException,
+      );
     });
   });
 

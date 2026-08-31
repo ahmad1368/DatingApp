@@ -6,6 +6,7 @@ import { CreateCheckInDto } from './dto/create-check-in.dto';
 import { AddEmergencyContactDto } from './dto/add-emergency-contact.dto';
 import { TriggerSosDto } from './dto/trigger-sos.dto';
 import { ShareDateLocationDto } from './dto/share-date-location.dto';
+import { SubmitScamQuizDto } from './dto/submit-scam-quiz.dto';
 import { SafetyService } from './safety.service';
 
 @Controller('safety')
@@ -16,6 +17,22 @@ export class SafetyController {
   @Get('resources')
   getResources() {
     return this.safetyService.getResources();
+  }
+
+  @Get('hotlines')
+  getEmergencyHotlines() {
+    return this.safetyService.getEmergencyHotlines();
+  }
+
+  @Get('scam-quiz')
+  getScamQuizQuestions() {
+    return this.safetyService.getScamQuizQuestions();
+  }
+
+  @Post('scam-quiz/submit')
+  @HttpCode(HttpStatus.OK)
+  submitScamQuiz(@Body() dto: SubmitScamQuizDto) {
+    return this.safetyService.submitScamQuiz(dto.answers);
   }
 
   @Post('reports')
