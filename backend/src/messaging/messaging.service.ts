@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { GiftingService } from '../gifting/gifting.service';
 import { findVirtualGift } from '../gifting/gifting.constants';
+import { CONTENT_MODERATOR, ContentModerator } from './interfaces/content-moderator.interface';
 import { IMAGE_MODERATOR, ImageModerator } from './interfaces/image-moderator.interface';
 import { TRANSCRIPTION_PROVIDER, TranscriptionProvider } from './interfaces/transcription-provider.interface';
 import {
@@ -190,6 +191,7 @@ export class MessagingService {
     private readonly notificationsService: NotificationsService,
     @Inject(TRANSCRIPTION_PROVIDER) private readonly transcriptionProvider: TranscriptionProvider,
     private readonly giftingService: GiftingService,
+    @Inject(CONTENT_MODERATOR) private readonly contentModerator: ContentModerator,
   ) {}
 
   async getMatchStatus(userId: string, matchId: string): Promise<MatchStatus> {
@@ -275,11 +277,27 @@ export class MessagingService {
     return this.toMatchStatus(userId, updated);
   }
 
+  /**
+   * Real-time scan on every incoming text message (in addition to the
+   * client's own optional pre-send checkText call) so the recipient sees a
+   * warning even if the sender skips or bypasses that prompt. A moderation
+   * failure never blocks sending, it just leaves the message unflagged -
+   * same fail-open behavior as moderateImageSafely.
+   */
   async sendMessage(userId: string, matchId: string, content: string): Promise<MessageView> {
     const { match, firstMessageSent } = await this.assertCanSend(userId, matchId);
 
+    const moderation = await this.moderateTextSafely(content);
+
     const message = await this.prisma.message.create({
-      data: { matchId, senderId: userId, contentType: 'TEXT', content },
+      data: {
+        matchId,
+        senderId: userId,
+        contentType: 'TEXT',
+        content,
+        moderationFlagged: moderation?.flagged ?? false,
+        moderationCategories: moderation?.categories ?? [],
+      },
     });
 
     await this.markFirstMessageIfNeeded(matchId, firstMessageSent);
@@ -425,6 +443,14 @@ export class MessagingService {
   private async transcribeSafely(audioUrl: string): Promise<string | null> {
     try {
       return await this.transcriptionProvider.transcribe(audioUrl);
+    } catch {
+      return null;
+    }
+  }
+
+  private async moderateTextSafely(text: string): Promise<{ flagged: boolean; categories: string[] } | null> {
+    try {
+      return await this.contentModerator.moderate(text);
     } catch {
       return null;
     }

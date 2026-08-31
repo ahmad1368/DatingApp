@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, NotFoundException } from '@nes
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { GiftingService } from '../gifting/gifting.service';
+import { ContentModerator } from './interfaces/content-moderator.interface';
 import { ImageModerator } from './interfaces/image-moderator.interface';
 import { TranscriptionProvider } from './interfaces/transcription-provider.interface';
 import { MessagingService } from './messaging.service';
@@ -44,12 +45,14 @@ describe('MessagingService', () => {
     $transaction: jest.Mock;
   };
   let imageModerator: { moderate: jest.Mock };
+  let contentModerator: { moderate: jest.Mock };
   let notificationsService: { notify: jest.Mock };
   let transcriptionProvider: { transcribe: jest.Mock };
   let giftingService: { sendGift: jest.Mock };
 
   beforeEach(() => {
     imageModerator = { moderate: jest.fn().mockResolvedValue({ flagged: false, categories: [] }) };
+    contentModerator = { moderate: jest.fn().mockResolvedValue({ flagged: false, categories: [] }) };
     notificationsService = { notify: jest.fn() };
     transcriptionProvider = { transcribe: jest.fn().mockResolvedValue('a transcript') };
     giftingService = { sendGift: jest.fn().mockResolvedValue({ tokenBalance: 90, transaction: {} }) };
@@ -91,6 +94,7 @@ describe('MessagingService', () => {
       notificationsService as unknown as NotificationsService,
       transcriptionProvider as unknown as TranscriptionProvider,
       giftingService as unknown as GiftingService,
+      contentModerator as unknown as ContentModerator,
     );
   });
 
@@ -511,7 +515,14 @@ describe('MessagingService', () => {
       const result = await service.sendMessage(WOMAN_ID, MATCH_ID, 'hi');
 
       expect(prisma.message.create).toHaveBeenCalledWith({
-        data: { matchId: MATCH_ID, senderId: WOMAN_ID, contentType: 'TEXT', content: 'hi' },
+        data: {
+          matchId: MATCH_ID,
+          senderId: WOMAN_ID,
+          contentType: 'TEXT',
+          content: 'hi',
+          moderationFlagged: false,
+          moderationCategories: [],
+        },
       });
       expect(prisma.match.update).toHaveBeenCalledWith({
         where: { id: MATCH_ID },
@@ -560,6 +571,58 @@ describe('MessagingService', () => {
 
       expect(prisma.match.update).not.toHaveBeenCalled();
       expect(result.senderId).toBe(MAN_ID);
+    });
+
+    it('scans the text and flags the message when the content moderator flags it', async () => {
+      mockMatch({ firstMessageSentAt: new Date() });
+      contentModerator.moderate.mockResolvedValue({ flagged: true, categories: ['harassment'] });
+      prisma.message.create.mockResolvedValue({
+        id: 'message-4',
+        senderId: MAN_ID,
+        contentType: 'TEXT',
+        content: 'you are worthless',
+        mediaUrl: null,
+        isBlurred: false,
+        moderationFlagged: true,
+        moderationCategories: ['harassment'],
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const result = await service.sendMessage(MAN_ID, MATCH_ID, 'you are worthless');
+
+      expect(contentModerator.moderate).toHaveBeenCalledWith('you are worthless');
+      expect(prisma.message.create).toHaveBeenCalledWith({
+        data: {
+          matchId: MATCH_ID,
+          senderId: MAN_ID,
+          contentType: 'TEXT',
+          content: 'you are worthless',
+          moderationFlagged: true,
+          moderationCategories: ['harassment'],
+        },
+      });
+      expect(result.moderationFlagged).toBe(true);
+      expect(result.moderationCategories).toEqual(['harassment']);
+    });
+
+    it('does not block sending when the text moderator fails', async () => {
+      mockMatch({ firstMessageSentAt: new Date() });
+      contentModerator.moderate.mockRejectedValue(new Error('service unavailable'));
+      prisma.message.create.mockResolvedValue({
+        id: 'message-5',
+        senderId: MAN_ID,
+        contentType: 'TEXT',
+        content: 'hi',
+        mediaUrl: null,
+        isBlurred: false,
+        moderationFlagged: false,
+        moderationCategories: [],
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const result = await service.sendMessage(MAN_ID, MATCH_ID, 'hi');
+
+      expect(result.moderationFlagged).toBe(false);
     });
   });
 
