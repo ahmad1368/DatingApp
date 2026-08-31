@@ -49,6 +49,11 @@ export class MessagingController {
     return this.messagingService.listMyMatches(user.id);
   }
 
+  @Get('search')
+  searchMatches(@CurrentUser() user: AuthenticatedUser, @Query('q') q: string) {
+    return this.messagingService.searchMatches(user.id, q ?? '');
+  }
+
   @Get('gifs/search')
   searchGifs(@Query('q') q: string, @Query('limit') limit?: string) {
     return this.gifSearchService.search(q, limit ? Number(limit) : undefined);

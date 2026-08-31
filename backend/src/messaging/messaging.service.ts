@@ -1075,6 +1075,51 @@ export class MessagingService {
   }
 
   /**
+   * "Direct Match Search": filters the active match queue by the other
+   * user's name, one of their stated interests, or a keyword found anywhere
+   * in that match's chat history - whichever hits first. An empty/
+   * whitespace-only query returns nothing rather than the full list, since
+   * this is a search box, not an alternate listMyMatches.
+   */
+  async searchMatches(userId: string, query: string): Promise<MatchSummaryView[]> {
+    const trimmedQuery = query.trim().toLowerCase();
+    if (trimmedQuery.length === 0) {
+      return [];
+    }
+
+    const { active } = await this.buildMatchSummaries(userId);
+    if (active.length === 0) {
+      return [];
+    }
+
+    const [otherUsers, messages] = await Promise.all([
+      this.prisma.user.findMany({
+        where: { id: { in: active.map((match) => match.otherUserId) } },
+        select: { id: true, interests: true },
+      }),
+      this.prisma.message.findMany({
+        where: { matchId: { in: active.map((match) => match.matchId) }, content: { not: null } },
+        select: { matchId: true, content: true },
+      }),
+    ]);
+
+    const interestsByUserId = new Map(otherUsers.map((user) => [user.id, user.interests]));
+    const matchIdsWithContentHit = new Set(
+      messages
+        .filter((message) => message.content!.toLowerCase().includes(trimmedQuery))
+        .map((message) => message.matchId),
+    );
+
+    return active.filter((match) => {
+      const nameHit = match.otherUserName?.toLowerCase().includes(trimmedQuery) ?? false;
+      const interestHit = (interestsByUserId.get(match.otherUserId) ?? []).some((interest) =>
+        interest.toLowerCase().includes(trimmedQuery),
+      );
+      return nameHit || interestHit || matchIdsWithContentHit.has(match.matchId);
+    });
+  }
+
+  /**
    * Threads that have had a real conversation but have gone silent for
    * INACTIVITY_AUTO_ARCHIVE_DAYS+ - auto-moved out of [listMyMatches] into
    * this separate folder to declutter the main inbox. Nothing is deleted

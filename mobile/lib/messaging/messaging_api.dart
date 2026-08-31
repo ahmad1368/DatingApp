@@ -421,6 +421,34 @@ class MessagingApi {
     }).toList();
   }
 
+  /// Filters the active match queue by the other user's name, one of their
+  /// stated interests, or a keyword found in that match's chat history.
+  Future<List<MatchSummary>> searchMatches(String query) async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/matches/search?q=${Uri.encodeQueryComponent(query)}'),
+      headers: _headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw MessagingApiException(_errorMessage(_decode(response), response.statusCode));
+    }
+
+    final list = jsonDecode(response.body) as List;
+    return list.cast<Map<String, dynamic>>().map((json) {
+      return MatchSummary(
+        matchId: json['matchId'] as String,
+        otherUserId: json['otherUserId'] as String,
+        otherUserName: json['otherUserName'] as String?,
+        otherUserPhotoUrl: json['otherUserPhotoUrl'] as String?,
+        expiresAt: json['expiresAt'] != null ? DateTime.parse(json['expiresAt'] as String) : null,
+        firstMessageSent: json['firstMessageSent'] as bool,
+        canExtend: json['canExtend'] as bool? ?? false,
+        createdAt: DateTime.parse(json['createdAt'] as String),
+        needsGhostingPrompt: json['needsGhostingPrompt'] as bool? ?? false,
+      );
+    }).toList();
+  }
+
   Future<List<InactiveThread>> fetchInactiveThreads() async {
     final response = await _client.get(
       Uri.parse('$_baseUrl/matches/inactive'),
