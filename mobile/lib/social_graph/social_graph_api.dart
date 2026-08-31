@@ -51,6 +51,24 @@ class SocialGraphApi {
     return SyncSocialContactsResult(totalSynced: body['totalSynced'] as int);
   }
 
+  /// Privacy toggle: when enabled, this user is excluded from the deck of
+  /// anyone who shares a synced contact with them, i.e. hidden from direct
+  /// contacts, mutual friends, and phonebook entries connected to them.
+  Future<bool> setHideFromMutualConnections(bool enabled) async {
+    final response = await _client.put(
+      Uri.parse('$_baseUrl/social-graph/hide-from-mutual-connections'),
+      headers: _headers,
+      body: jsonEncode({'enabled': enabled}),
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 200) {
+      throw SocialGraphApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return body['hideFromMutualConnectionsEnabled'] as bool;
+  }
+
   Map<String, dynamic> _decode(http.Response response) {
     if (response.body.isEmpty) {
       return const {};

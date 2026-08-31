@@ -2,7 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { getBlockedUserIds } from '../blocking/blocking.utils';
-import { getMutualConnectionCounts } from '../social-graph/social-graph.utils';
+import { getMutualConnectionCounts, getMutualConnectionHiddenIds } from '../social-graph/social-graph.utils';
 import { haversineDistanceKm } from '../location/utils/haversine';
 import { computeFirstMessageExpiresAt, findIcebreakerPrompt } from '../messaging/messaging.constants';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -251,6 +251,8 @@ export class DiscoveryService {
       .slice(0, effectiveDeckSize);
     const priorityIds = priorityCandidates.map((candidate) => candidate.id);
 
+    const mutualConnectionHiddenIds = await getMutualConnectionHiddenIds(this.prisma, userId);
+
     const remainingCandidatePool = await this.prisma.user.findMany({
       where: {
         id: { notIn: [...excludedIds, ...priorityIds] },
@@ -258,6 +260,7 @@ export class DiscoveryService {
         activeMode: currentUser.activeMode,
         AND: [
           { OR: [{ incognitoEnabled: false }, { id: { in: likedMeIds } }] },
+          { OR: [{ id: { notIn: mutualConnectionHiddenIds } }, { id: { in: likedMeIds } }] },
           notSnoozedWhere,
         ],
         ...lifestyleWhere,

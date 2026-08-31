@@ -119,6 +119,12 @@ model User {
   communityGroupIds                     String[]  @default([])
   filterCommunityGroups                 String[]  @default([])
   incognitoEnabled                      Boolean   @default(false)
+  // Opt-in privacy toggle: excludes this user from the discovery deck of
+  // anyone who shares a synced contact with them (a "mutual friend" or
+  // phonebook connection) - see getMutualConnectionHiddenIds in
+  // social-graph.utils.ts. Narrower than incognitoEnabled, which hides from
+  // everyone; someone who already liked this user is unaffected either way.
+  hideFromMutualConnectionsEnabled      Boolean   @default(false)
   activeMode                            String    @default("DATING")
   // "Couple & Group Profile Browsing Switch": which linked partner (if any)
   // the deck is currently being browsed jointly with - see

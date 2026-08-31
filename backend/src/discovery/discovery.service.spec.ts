@@ -136,6 +136,7 @@ describe('DiscoveryService', () => {
           activeMode: 'DATING',
           AND: [
             { OR: [{ incognitoEnabled: false }, { id: { in: [] } }] },
+            { OR: [{ id: { notIn: [] } }, { id: { in: [] } }] },
             { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
           ],
         },
@@ -193,6 +194,7 @@ describe('DiscoveryService', () => {
           activeMode: 'DATING',
           AND: [
             { OR: [{ incognitoEnabled: false }, { id: { in: [] } }] },
+            { OR: [{ id: { notIn: [] } }, { id: { in: [] } }] },
             { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
           ],
         },
@@ -228,6 +230,7 @@ describe('DiscoveryService', () => {
           activeMode: 'DATING',
           AND: [
             { OR: [{ incognitoEnabled: false }, { id: { in: [] } }] },
+            { OR: [{ id: { notIn: [] } }, { id: { in: [] } }] },
             { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
           ],
         },
@@ -259,11 +262,46 @@ describe('DiscoveryService', () => {
       ]);
       prisma.socialContact.findMany
         .mockResolvedValueOnce([{ contactValue: 'shared@example.com' }])
+        .mockResolvedValueOnce([{ userId: TARGET_ID }, { userId: TARGET_ID }])
+        .mockResolvedValueOnce([{ contactValue: 'shared@example.com' }])
         .mockResolvedValueOnce([{ userId: TARGET_ID }, { userId: TARGET_ID }]);
 
       const deck = await service.getDeck(USER_ID);
 
       expect(deck[0].mutualConnectionCount).toBe(2);
+    });
+
+    it('excludes a mutual-connection candidate who opted into hiding, from the candidate pool query', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+      });
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      prisma.socialContact.findMany
+        .mockResolvedValueOnce([{ contactValue: 'shared@example.com' }])
+        .mockResolvedValueOnce([{ userId: TARGET_ID }]);
+      prisma.user.findMany
+        .mockResolvedValueOnce([{ id: TARGET_ID }])
+        .mockResolvedValueOnce([]);
+
+      await service.getDeck(USER_ID);
+
+      expect(prisma.user.findMany).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          where: expect.objectContaining({
+            AND: expect.arrayContaining([
+              { OR: [{ id: { notIn: [TARGET_ID] } }, { id: { in: [] } }] },
+            ]),
+          }),
+        }),
+      );
     });
 
     it('defaults mutual connection count to zero when the viewer has no synced contacts', async () => {
@@ -880,6 +918,7 @@ describe('DiscoveryService', () => {
           activeMode: 'DATING',
           AND: [
             { OR: [{ incognitoEnabled: false }, { id: { in: [] } }] },
+            { OR: [{ id: { notIn: [] } }, { id: { in: [] } }] },
             { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
           ],
           smokingHabit: { in: ['Never'] },
@@ -915,6 +954,7 @@ describe('DiscoveryService', () => {
           activeMode: 'DATING',
           AND: [
             { OR: [{ incognitoEnabled: false }, { id: { in: [] } }] },
+            { OR: [{ id: { notIn: [] } }, { id: { in: [] } }] },
             { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
           ],
           kinkTags: { hasSome: ['BDSM', 'Roleplay'] },
@@ -948,6 +988,7 @@ describe('DiscoveryService', () => {
           activeMode: 'DATING',
           AND: [
             { OR: [{ incognitoEnabled: false }, { id: { in: [] } }] },
+            { OR: [{ id: { notIn: [] } }, { id: { in: [] } }] },
             { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
           ],
           boundaryTags: { hasSome: ['Sober / Substance-Free', 'No Kids'] },
@@ -981,6 +1022,7 @@ describe('DiscoveryService', () => {
           activeMode: 'DATING',
           AND: [
             { OR: [{ incognitoEnabled: false }, { id: { in: [] } }] },
+            { OR: [{ id: { notIn: [] } }, { id: { in: [] } }] },
             { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
           ],
           petOwnership: { in: ['Dog', 'Cat'] },
@@ -1073,6 +1115,7 @@ describe('DiscoveryService', () => {
           activeMode: 'DATING',
           AND: [
             { OR: [{ incognitoEnabled: false }, { id: { in: [] } }] },
+            { OR: [{ id: { notIn: [] } }, { id: { in: [] } }] },
             { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
           ],
           politicalOrientation: { in: ['Moderate', 'Liberal'] },
@@ -1502,6 +1545,7 @@ describe('DiscoveryService', () => {
           activeMode: 'DATING',
           AND: [
             { OR: [{ incognitoEnabled: false }, { id: { in: ['super-liker-1'] } }] },
+            { OR: [{ id: { notIn: [] } }, { id: { in: ['super-liker-1'] } }] },
             { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
           ],
         },
@@ -1539,6 +1583,7 @@ describe('DiscoveryService', () => {
           activeMode: 'DATING',
           AND: [
             { OR: [{ incognitoEnabled: false }, { id: { in: ['liker-1'] } }] },
+            { OR: [{ id: { notIn: [] } }, { id: { in: ['liker-1'] } }] },
             { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
           ],
         },
@@ -1648,6 +1693,7 @@ describe('DiscoveryService', () => {
           activeMode: 'BFF',
           AND: [
             { OR: [{ incognitoEnabled: false }, { id: { in: [] } }] },
+            { OR: [{ id: { notIn: [] } }, { id: { in: [] } }] },
             { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
           ],
         },
@@ -1708,6 +1754,7 @@ describe('DiscoveryService', () => {
           activeMode: 'DATING',
           AND: [
             { OR: [{ incognitoEnabled: false }, { id: { in: [] } }] },
+            { OR: [{ id: { notIn: [] } }, { id: { in: [] } }] },
             { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
           ],
         },
