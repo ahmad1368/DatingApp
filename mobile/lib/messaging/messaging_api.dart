@@ -160,6 +160,7 @@ class ChatMessage {
     required this.isBlurred,
     this.moderationFlagged = false,
     this.moderationCategories = const [],
+    this.moderationRemoved = false,
     this.durationSeconds,
     this.voiceEffectId,
     this.backgroundSoundId,
@@ -185,6 +186,10 @@ class ChatMessage {
   final bool isBlurred;
   final bool moderationFlagged;
   final List<String> moderationCategories;
+
+  /// True once a report against this message was confirmed by the AI
+  /// moderator - content/mediaUrl are withheld from everyone at that point.
+  final bool moderationRemoved;
   final int? durationSeconds;
   final String? voiceEffectId;
   final String? backgroundSoundId;
@@ -1208,6 +1213,7 @@ class MessagingApi {
       mediaUrl: json['mediaUrl'] as String?,
       isBlurred: json['isBlurred'] as bool,
       moderationFlagged: json['moderationFlagged'] as bool? ?? false,
+      moderationRemoved: json['moderationRemoved'] as bool? ?? false,
       moderationCategories: (json['moderationCategories'] as List?)?.cast<String>() ?? const [],
       durationSeconds: json['durationSeconds'] as int?,
       voiceEffectId: json['voiceEffectId'] as String?,

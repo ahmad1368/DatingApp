@@ -1314,6 +1314,21 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
   }
 
   Widget _buildMessageContent(ChatMessage message, bool isMine) {
+    if (message.moderationRemoved) {
+      return const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.remove_circle_outline, size: 16, color: Colors.grey),
+          SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              'This message was removed for violating our guidelines.',
+              style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey),
+            ),
+          ),
+        ],
+      );
+    }
     switch (message.contentType) {
       case 'GIF':
         return _networkImage(message.mediaUrl!);

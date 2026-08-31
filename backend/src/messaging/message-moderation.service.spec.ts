@@ -1,5 +1,6 @@
 import { NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { ContentModerator } from './interfaces/content-moderator.interface';
 import { MessagingService } from './messaging.service';
 import { MessageModerationService } from './message-moderation.service';
@@ -14,26 +15,29 @@ describe('MessageModerationService', () => {
   let service: MessageModerationService;
   let prisma: {
     match: { findUnique: jest.Mock };
-    message: { findUnique: jest.Mock; findMany: jest.Mock };
+    message: { findUnique: jest.Mock; findMany: jest.Mock; update: jest.Mock };
     messageReport: { create: jest.Mock };
     matchReport: { create: jest.Mock };
   };
   let contentModerator: { moderate: jest.Mock };
   let messagingService: { unmatch: jest.Mock };
+  let notificationsService: { notify: jest.Mock };
 
   beforeEach(() => {
     prisma = {
       match: { findUnique: jest.fn() },
-      message: { findUnique: jest.fn(), findMany: jest.fn() },
+      message: { findUnique: jest.fn(), findMany: jest.fn(), update: jest.fn() },
       messageReport: { create: jest.fn() },
       matchReport: { create: jest.fn() },
     };
     contentModerator = { moderate: jest.fn() };
     messagingService = { unmatch: jest.fn() };
+    notificationsService = { notify: jest.fn() };
     service = new MessageModerationService(
       prisma as unknown as PrismaService,
       contentModerator as unknown as ContentModerator,
       messagingService as unknown as MessagingService,
+      notificationsService as unknown as NotificationsService,
     );
   });
 
@@ -113,6 +117,17 @@ describe('MessageModerationService', () => {
           moderationCategories: ['harassment'],
         },
       });
+      expect(prisma.message.update).toHaveBeenCalledWith({
+        where: { id: MESSAGE_ID },
+        data: { moderationRemovedAt: expect.any(Date) },
+      });
+      expect(notificationsService.notify).toHaveBeenCalledWith(
+        REPORTER_ID,
+        'REPORT_RESOLVED',
+        'Report resolved',
+        'The message you reported was removed for violating our guidelines.',
+        { matchId: MATCH_ID, messageId: MESSAGE_ID, outcome: 'CONTENT_REMOVED' },
+      );
       expect(result).toEqual({
         id: 'report-1',
         messageId: MESSAGE_ID,
@@ -120,8 +135,38 @@ describe('MessageModerationService', () => {
         reason: 'harassing me',
         moderationFlagged: true,
         moderationCategories: ['harassment'],
+        outcome: 'CONTENT_REMOVED',
         createdAt: '2026-01-01T00:00:00.000Z',
       });
+    });
+
+    it('does not remove content or notify when no violation is found', async () => {
+      prisma.match.findUnique.mockResolvedValue({
+        id: MATCH_ID,
+        userAId: REPORTER_ID,
+        userBId: OTHER_ID,
+      });
+      prisma.message.findUnique.mockResolvedValue({
+        id: MESSAGE_ID,
+        matchId: MATCH_ID,
+        content: 'hey, how are you?',
+      });
+      contentModerator.moderate.mockResolvedValue({ flagged: false, categories: [] });
+      prisma.messageReport.create.mockResolvedValue({
+        id: 'report-3',
+        messageId: MESSAGE_ID,
+        reporterId: REPORTER_ID,
+        reason: 'just being annoying',
+        moderationFlagged: false,
+        moderationCategories: [],
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const result = await service.reportMessage(REPORTER_ID, MATCH_ID, MESSAGE_ID, 'just being annoying');
+
+      expect(prisma.message.update).not.toHaveBeenCalled();
+      expect(notificationsService.notify).not.toHaveBeenCalled();
+      expect(result.outcome).toBe('NO_VIOLATION_FOUND');
     });
 
     it('skips moderation for a media message with no text content', async () => {
@@ -225,6 +270,13 @@ describe('MessageModerationService', () => {
         },
       });
       expect(messagingService.unmatch).toHaveBeenCalledWith(REPORTER_ID, MATCH_ID);
+      expect(notificationsService.notify).toHaveBeenCalledWith(
+        REPORTER_ID,
+        'REPORT_RESOLVED',
+        'Report resolved',
+        'Your report was confirmed and the conversation was removed for violating our guidelines.',
+        { matchId: MATCH_ID, outcome: 'CONTENT_REMOVED' },
+      );
       expect(result).toEqual({
         id: 'report-1',
         matchId: MATCH_ID,
@@ -233,6 +285,7 @@ describe('MessageModerationService', () => {
         details: 'kept insulting me',
         moderationFlagged: true,
         moderationCategories: ['harassment'],
+        outcome: 'CONTENT_REMOVED',
         createdAt: '2026-01-01T00:02:00.000Z',
       });
     });
@@ -256,7 +309,9 @@ describe('MessageModerationService', () => {
       const result = await service.reportAndUnmatch(REPORTER_ID, MATCH_ID, 'OTHER');
 
       expect(contentModerator.moderate).not.toHaveBeenCalled();
+      expect(notificationsService.notify).not.toHaveBeenCalled();
       expect(result.moderationFlagged).toBe(false);
+      expect(result.outcome).toBe('NO_VIOLATION_FOUND');
     });
   });
 });

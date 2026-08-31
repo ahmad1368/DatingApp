@@ -690,6 +690,40 @@ void main() {
     expect(find.text('Possibly harmful message'), findsNothing);
   });
 
+  testWidgets('shows a removed placeholder for a message a confirmed report took down', (
+    tester,
+  ) async {
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(
+            '[{"id":"m1","senderId":"user-man","contentType":"TEXT","content":null,'
+            '"mediaUrl":null,"isBlurred":false,"moderationRemoved":true,'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":null,"isExpired":false,'
+          '"firstMessageSent":true,"canSendFirstMessage":true}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchChatScreen(messagingApi: api, matchId: 'match-1', currentUserId: 'user-woman'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('This message was removed for violating our guidelines.'), findsOneWidget);
+  });
+
   testWidgets('tapping Block on a flagged message unmatches and closes the chat', (tester) async {
     http.Request? unmatchRequest;
     final api = MessagingApi(
