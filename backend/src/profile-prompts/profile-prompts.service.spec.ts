@@ -21,6 +21,12 @@ describe('ProfilePromptsService', () => {
       findUnique: jest.Mock;
       delete: jest.Mock;
     };
+    profilePromptTextAnswer: {
+      upsert: jest.Mock;
+      findMany: jest.Mock;
+      findUnique: jest.Mock;
+      delete: jest.Mock;
+    };
     voicePromptReaction: {
       create: jest.Mock;
       findMany: jest.Mock;
@@ -37,6 +43,12 @@ describe('ProfilePromptsService', () => {
         delete: jest.fn(),
       },
       profilePromptVideoAnswer: {
+        upsert: jest.fn(),
+        findMany: jest.fn(),
+        findUnique: jest.fn(),
+        delete: jest.fn(),
+      },
+      profilePromptTextAnswer: {
         upsert: jest.fn(),
         findMany: jest.fn(),
         findUnique: jest.fn(),
@@ -404,6 +416,89 @@ describe('ProfilePromptsService', () => {
       await service.deleteVideoAnswer(USER_ID, promptId);
 
       expect(prisma.profilePromptVideoAnswer.delete).toHaveBeenCalledWith({
+        where: { userId_promptId: { userId: USER_ID, promptId } },
+      });
+    });
+  });
+
+  describe('recordTextAnswer', () => {
+    it('rejects an unknown prompt', async () => {
+      await expect(
+        service.recordTextAnswer(USER_ID, 'not-a-real-prompt', 'Sunset walks and tacos.'),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.profilePromptTextAnswer.upsert).not.toHaveBeenCalled();
+    });
+
+    it('upserts the written answer', async () => {
+      const promptId = PROFILE_PROMPTS[0].id;
+      prisma.profilePromptTextAnswer.upsert.mockResolvedValue({
+        promptId,
+        answer: 'Sunset walks and tacos.',
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const result = await service.recordTextAnswer(USER_ID, promptId, 'Sunset walks and tacos.');
+
+      expect(prisma.profilePromptTextAnswer.upsert).toHaveBeenCalledWith({
+        where: { userId_promptId: { userId: USER_ID, promptId } },
+        create: { userId: USER_ID, promptId, answer: 'Sunset walks and tacos.' },
+        update: { answer: 'Sunset walks and tacos.' },
+      });
+      expect(result).toEqual({
+        promptId,
+        question: PROFILE_PROMPTS[0].question,
+        answer: 'Sunset walks and tacos.',
+        createdAt: '2026-01-01T00:00:00.000Z',
+      });
+    });
+  });
+
+  describe('getTextAnswers', () => {
+    it('hydrates stored answers with their prompt question, skipping unknown prompts', async () => {
+      const promptId = PROFILE_PROMPTS[0].id;
+      prisma.profilePromptTextAnswer.findMany.mockResolvedValue([
+        {
+          promptId,
+          answer: 'Sunset walks and tacos.',
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+        {
+          promptId: 'stale-removed-prompt',
+          answer: 'Something else.',
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ]);
+
+      const result = await service.getTextAnswers(USER_ID);
+
+      expect(result).toEqual([
+        {
+          promptId,
+          question: PROFILE_PROMPTS[0].question,
+          answer: 'Sunset walks and tacos.',
+          createdAt: '2026-01-01T00:00:00.000Z',
+        },
+      ]);
+    });
+  });
+
+  describe('deleteTextAnswer', () => {
+    it('throws when no answer exists for that prompt', async () => {
+      prisma.profilePromptTextAnswer.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.deleteTextAnswer(USER_ID, PROFILE_PROMPTS[0].id),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(prisma.profilePromptTextAnswer.delete).not.toHaveBeenCalled();
+    });
+
+    it('deletes an existing answer', async () => {
+      const promptId = PROFILE_PROMPTS[0].id;
+      prisma.profilePromptTextAnswer.findUnique.mockResolvedValue({ userId: USER_ID, promptId });
+
+      await service.deleteTextAnswer(USER_ID, promptId);
+
+      expect(prisma.profilePromptTextAnswer.delete).toHaveBeenCalledWith({
         where: { userId_promptId: { userId: USER_ID, promptId } },
       });
     });

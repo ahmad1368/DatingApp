@@ -356,4 +356,102 @@ void main() {
       expect(() => api.deleteVideoAnswer('nope'), throwsA(isA<ProfilePromptsApiException>()));
     });
   });
+
+  group('ProfilePromptsApi.fetchMyTextAnswers', () {
+    test('parses stored text answers', () async {
+      final api = ProfilePromptsApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.url.path, '/profile-prompts/text/me');
+          return _jsonResponse(
+            '[{"promptId":"perfect-first-date","question":"My idea of a perfect first date is...",'
+            '"answer":"Sunset walks and tacos.","createdAt":"2026-01-01T00:00:00.000Z"}]',
+            200,
+          );
+        }),
+      );
+
+      final answers = await api.fetchMyTextAnswers();
+
+      expect(answers, hasLength(1));
+      expect(answers.first.answer, 'Sunset walks and tacos.');
+    });
+
+    test('throws ProfilePromptsApiException on a non-200 response', () async {
+      final api = ProfilePromptsApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => http.Response('', 500)),
+      );
+
+      expect(() => api.fetchMyTextAnswers(), throwsA(isA<ProfilePromptsApiException>()));
+    });
+  });
+
+  group('ProfilePromptsApi.recordTextAnswer', () {
+    test('sends the prompt id and answer', () async {
+      final api = ProfilePromptsApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'POST');
+          expect(request.url.path, '/profile-prompts/text-answers');
+          expect(
+            request.body,
+            '{"promptId":"perfect-first-date","answer":"Sunset walks and tacos."}',
+          );
+          return _jsonResponse(
+            '{"promptId":"perfect-first-date","question":"My idea of a perfect first date is...",'
+            '"answer":"Sunset walks and tacos.","createdAt":"2026-01-01T00:00:00.000Z"}',
+            200,
+          );
+        }),
+      );
+
+      final answer = await api.recordTextAnswer(
+        promptId: 'perfect-first-date',
+        answer: 'Sunset walks and tacos.',
+      );
+
+      expect(answer.promptId, 'perfect-first-date');
+    });
+
+    test('throws ProfilePromptsApiException for an unknown prompt', () async {
+      final api = ProfilePromptsApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => _jsonResponse('{"message":"Unknown profile prompt."}', 400),
+        ),
+      );
+
+      expect(
+        () => api.recordTextAnswer(promptId: 'nope', answer: 'x'),
+        throwsA(isA<ProfilePromptsApiException>()),
+      );
+    });
+  });
+
+  group('ProfilePromptsApi.deleteTextAnswer', () {
+    test('sends a DELETE to the prompt-specific path', () async {
+      final api = ProfilePromptsApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'DELETE');
+          expect(request.url.path, '/profile-prompts/text-answers/perfect-first-date');
+          return http.Response('', 200);
+        }),
+      );
+
+      await api.deleteTextAnswer('perfect-first-date');
+    });
+
+    test('throws ProfilePromptsApiException when the answer does not exist', () async {
+      final api = ProfilePromptsApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => _jsonResponse('{"message":"Text answer not found."}', 404),
+        ),
+      );
+
+      expect(() => api.deleteTextAnswer('nope'), throwsA(isA<ProfilePromptsApiException>()));
+    });
+  });
 }

@@ -26,6 +26,7 @@ describe('ProfileCompletionService', () => {
     user: { findUnique: jest.Mock; update: jest.Mock };
     profilePhoto: { count: jest.Mock };
     profilePromptVoiceAnswer: { count: jest.Mock };
+    profilePromptTextAnswer: { count: jest.Mock };
     boost: { create: jest.Mock };
     $transaction: jest.Mock;
   };
@@ -35,6 +36,7 @@ describe('ProfileCompletionService', () => {
       user: { findUnique: jest.fn(), update: jest.fn() },
       profilePhoto: { count: jest.fn() },
       profilePromptVoiceAnswer: { count: jest.fn() },
+      profilePromptTextAnswer: { count: jest.fn().mockResolvedValue(0) },
       boost: { create: jest.fn() },
       $transaction: jest.fn(async (ops: unknown[]) => ops),
     };
@@ -69,6 +71,17 @@ describe('ProfileCompletionService', () => {
 
     expect(result.checklist.find((i) => i.id === 'interests')?.completed).toBe(false);
     expect(result.checklist.find((i) => i.id === 'photos')?.completed).toBe(false);
+  });
+
+  it('credits the prompt-answer checklist item from a text answer alone', async () => {
+    prisma.user.findUnique.mockResolvedValue(baseUser());
+    prisma.profilePhoto.count.mockResolvedValue(0);
+    prisma.profilePromptVoiceAnswer.count.mockResolvedValue(0);
+    prisma.profilePromptTextAnswer.count.mockResolvedValue(1);
+
+    const result = await service.getCompletion(USER_ID);
+
+    expect(result.checklist.find((i) => i.id === 'promptAnswer')?.completed).toBe(true);
   });
 
   it('grants a one-time boost the first time the profile reaches 100%', async () => {

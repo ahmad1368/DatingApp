@@ -1,6 +1,7 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AuthenticatedUser, JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RecordTextAnswerDto } from './dto/record-text-answer.dto';
 import { RecordVideoAnswerDto } from './dto/record-video-answer.dto';
 import { RecordVoiceAnswerDto } from './dto/record-voice-answer.dto';
 import { ReactToVoicePromptDto } from './dto/react-to-voice-prompt.dto';
@@ -90,5 +91,27 @@ export class ProfilePromptsController {
   @HttpCode(HttpStatus.OK)
   deleteVideoAnswer(@CurrentUser() user: AuthenticatedUser, @Param('promptId') promptId: string) {
     return this.profilePromptsService.deleteVideoAnswer(user.id, promptId);
+  }
+
+  @Get('text/me')
+  getMyTextAnswers(@CurrentUser() user: AuthenticatedUser) {
+    return this.profilePromptsService.getTextAnswers(user.id);
+  }
+
+  @Get('text/:userId')
+  getUserTextAnswers(@Param('userId') userId: string) {
+    return this.profilePromptsService.getTextAnswers(userId);
+  }
+
+  @Post('text-answers')
+  @HttpCode(HttpStatus.OK)
+  recordTextAnswer(@CurrentUser() user: AuthenticatedUser, @Body() dto: RecordTextAnswerDto) {
+    return this.profilePromptsService.recordTextAnswer(user.id, dto.promptId, dto.answer);
+  }
+
+  @Delete('text-answers/:promptId')
+  @HttpCode(HttpStatus.OK)
+  deleteTextAnswer(@CurrentUser() user: AuthenticatedUser, @Param('promptId') promptId: string) {
+    return this.profilePromptsService.deleteTextAnswer(user.id, promptId);
   }
 }
