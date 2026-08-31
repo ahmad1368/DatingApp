@@ -85,6 +85,11 @@ export class SetLifestyleFiltersDto {
 
   @IsArray()
   @ArrayMaxSize(MAX_FILTER_SELECTIONS)
+  @IsIn(WORKOUT_HABITS, { each: true })
+  filterWorkoutHabits!: string[];
+
+  @IsArray()
+  @ArrayMaxSize(MAX_FILTER_SELECTIONS)
   @IsIn(EDUCATION_LEVELS, { each: true })
   filterEducationLevels!: string[];
 

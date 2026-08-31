@@ -104,6 +104,7 @@ model User {
   filterPoliticalOrientations           String[]  @default([])
   filterSmokingHabits                   String[]  @default([])
   filterDrinkingHabits                  String[]  @default([])
+  filterWorkoutHabits                   String[]  @default([])
   filterEducationLevels                 String[]  @default([])
   filterReligions                       String[]  @default([])
   filterDietaryPreferences              String[]  @default([])
