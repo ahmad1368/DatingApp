@@ -85,6 +85,12 @@ model User {
   school                                String?
   isWorkVerified                        Boolean   @default(false)
   isEducationVerified                   Boolean   @default(false)
+  // "Interactive Poll Cards on Profiles": a custom multi-choice question
+  // shown as a profile grid item - see ProfilePollService. Options are
+  // wiped (and any existing votes deleted) whenever the question changes,
+  // same "editing invalidates old answers" shape as Message.pollOptions.
+  profilePollQuestion                   String?
+  profilePollOptions                    String[]  @default([])
   religion                              String?
   dietaryPreference                     String?
   wantsChildren                         String?
@@ -438,6 +444,21 @@ model PollVote {
 
   @@unique([messageId, userId])
   @@map("poll_votes")
+}
+
+// A vote on someone's profilePollQuestion (see ProfilePollService) - same
+// one-vote-per-viewer, mutable-vote shape as PollVote above, just scoped to
+// a profile instead of a single chat message.
+model ProfilePollVote {
+  id          String   @id @default(uuid())
+  pollOwnerId String
+  voterId     String
+  optionIndex Int
+  createdAt   DateTime @default(now())
+
+  @@unique([pollOwnerId, voterId])
+  @@index([pollOwnerId])
+  @@map("profile_poll_votes")
 }
 
 // An answer to an in-chat GAME_CARD message (TRIVIA guess or

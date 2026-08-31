@@ -31,6 +31,8 @@ import { BioWriterController } from './bio-writer.controller';
 import { BioWriterService } from './bio-writer.service';
 import { BIO_WRITER_PROVIDER } from './interfaces/bio-writer-provider.interface';
 import { OpenAiBioWriterClient } from './providers/openai-bio-writer.client';
+import { ProfilePollController } from './profile-poll.controller';
+import { ProfilePollService } from './profile-poll.service';
 
 @Module({
   imports: [AuthModule, ConfigModule],
@@ -47,6 +49,7 @@ import { OpenAiBioWriterClient } from './providers/openai-bio-writer.client';
     LoveStyleController,
     AvatarController,
     BioWriterController,
+    ProfilePollController,
   ],
   providers: [
     VoiceIntroService,
@@ -73,6 +76,7 @@ import { OpenAiBioWriterClient } from './providers/openai-bio-writer.client';
       provide: BIO_WRITER_PROVIDER,
       useClass: OpenAiBioWriterClient,
     },
+    ProfilePollService,
   ],
 })
 export class ProfileModule {}
