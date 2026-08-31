@@ -31,6 +31,7 @@ import {
   isWoman,
   MAX_POLL_OPTIONS,
   MIN_POLL_OPTIONS,
+  needsFirstMoveReminder,
   GIFT_CONTENT_TYPE,
   POLL_CONTENT_TYPE,
   READ_RECEIPT_UNLOCK_TOKEN_COST,
@@ -217,6 +218,7 @@ interface MatchRecord {
   firstMessageExtendedAt: Date | null;
   verificationRequestedAt: Date | null;
   verificationRequestedById: string | null;
+  firstMoveReminderSentAt: Date | null;
 }
 
 interface MatchListRecord extends MatchRecord {
@@ -1104,6 +1106,8 @@ export class MessagingService {
       alive.push(match);
     }
 
+    await Promise.all(alive.map((match) => this.sendFirstMoveReminderIfNeeded(match, now)));
+
     if (alive.length === 0) {
       return { active: [], inactive: [] };
     }
@@ -1499,6 +1503,43 @@ export class MessagingService {
     }
 
     return { match, firstMessageSent };
+  }
+
+  /**
+   * "First Move Prompt Reminder": as a match's 24-hour firstMessageExpiresAt
+   * deadline gets close, nudges whichever side is still allowed to send the
+   * first message (see senderMaySendFirstMessage) - both sides if neither
+   * counts as the designated first-mover. Fires at most once per match,
+   * since this codebase has no background scheduler - listMyMatches is
+   * client-polled, so that's where this check piggybacks (see the doc
+   * comment on NotificationsService).
+   */
+  private async sendFirstMoveReminderIfNeeded(match: MatchListRecord, now: Date): Promise<void> {
+    if (!needsFirstMoveReminder(match, now)) {
+      return;
+    }
+
+    const [userAMaySend, userBMaySend] = await Promise.all([
+      this.senderMaySendFirstMessage(match.userAId, match),
+      this.senderMaySendFirstMessage(match.userBId, match),
+    ]);
+    const recipientIds = [
+      ...(userAMaySend ? [match.userAId] : []),
+      ...(userBMaySend ? [match.userBId] : []),
+    ];
+
+    await Promise.all([
+      ...recipientIds.map((recipientId) =>
+        this.notificationsService.notify(
+          recipientId,
+          'MATCH_EXPIRING_SOON',
+          'Your match is about to expire',
+          'Send the first message before this match disappears!',
+          { matchId: match.id },
+        ),
+      ),
+      this.prisma.match.update({ where: { id: match.id }, data: { firstMoveReminderSentAt: now } }),
+    ]);
   }
 
   private async markFirstMessageIfNeeded(matchId: string, firstMessageSent: boolean): Promise<void> {

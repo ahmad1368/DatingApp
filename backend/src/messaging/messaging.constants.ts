@@ -36,6 +36,23 @@ export function daysSince(date: Date, now: Date): number {
   return (now.getTime() - date.getTime()) / (24 * 60 * 60 * 1000);
 }
 
+// "First move" reminder: once a match's 24-hour firstMessageExpiresAt
+// deadline is this close, whichever side is allowed to send the first
+// message gets a one-time push reminder - see
+// MessagingService.sendFirstMoveRemindersIfNeeded.
+export const FIRST_MOVE_REMINDER_WINDOW_HOURS = 4;
+
+export function needsFirstMoveReminder(
+  match: { firstMessageSentAt: Date | null; firstMessageExpiresAt: Date; firstMoveReminderSentAt: Date | null },
+  now: Date,
+): boolean {
+  if (match.firstMessageSentAt != null || match.firstMoveReminderSentAt != null) {
+    return false;
+  }
+  const hoursRemaining = (match.firstMessageExpiresAt.getTime() - now.getTime()) / (60 * 60 * 1000);
+  return hoursRemaining > 0 && hoursRemaining <= FIRST_MOVE_REMINDER_WINDOW_HOURS;
+}
+
 export const MEDIA_CONTENT_TYPES = ['IMAGE', 'GIF', 'VIDEO_REACTION'] as const;
 
 // A quick, looping video reaction clip - kept short so it stays a fast
