@@ -76,6 +76,7 @@ export interface DeckCard {
   relationshipStructure: string | null;
   kinkTagBadges: string[];
   responseRateBadge: string | null;
+  isTraveling: boolean;
 }
 
 /**
@@ -549,6 +550,7 @@ export class DiscoveryService {
       school: string | null;
       messagesReceivedCount: number;
       messagesRepliedCount: number;
+      passportEnabled: boolean;
     },
     now: Date,
     origin: { latitude: number | null; longitude: number | null },
@@ -606,6 +608,7 @@ export class DiscoveryService {
         : null,
       kinkTagBadges: candidate.showKinkTagsOnProfile ? candidate.kinkTags : [],
       responseRateBadge: this.buildResponseRateBadge(candidate),
+      isTraveling: candidate.passportEnabled,
     };
   }
 

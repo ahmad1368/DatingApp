@@ -157,6 +157,43 @@ void main() {
       expect(deck.first.responseRateBadge, isNull);
     });
 
+    test('parses isTraveling when the backend includes it', () async {
+      final api = DiscoveryApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '[{"id":"user-2","name":"Jane","age":25,"profilePhotoUrl":null,'
+            '"distanceKm":3.4,"interests":["Hiking"],"relationshipGoal":"CASUAL",'
+            '"isTraveling":true}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      final deck = await api.fetchDeck();
+
+      expect(deck.first.isTraveling, isTrue);
+    });
+
+    test('defaults isTraveling to false when the backend omits it', () async {
+      final api = DiscoveryApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '[{"id":"user-2","name":"Jane","age":25,"profilePhotoUrl":null,'
+            '"distanceKm":3.4,"interests":["Hiking"],"relationshipGoal":"CASUAL"}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      final deck = await api.fetchDeck();
+
+      expect(deck.first.isTraveling, isFalse);
+    });
+
     test('parses videoSnippetUrl when the backend includes it', () async {
       final api = DiscoveryApi(
         accessToken: 'a-jwt',

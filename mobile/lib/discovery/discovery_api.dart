@@ -40,6 +40,7 @@ class DeckCard {
     this.voiceIntroUrl,
     this.voiceIntroDurationSeconds,
     this.responseRateBadge,
+    this.isTraveling = false,
   });
 
   final String id;
@@ -69,6 +70,11 @@ class DeckCard {
   final String? relationshipStructure;
   final List<String> kinkTagBadges;
   final String? responseRateBadge;
+
+  /// True when this candidate is currently browsing from a Passport
+  /// location rather than their real one - shown as a "Traveler" badge so
+  /// local matches know they're just visiting.
+  final bool isTraveling;
 }
 
 /// A card in the "vertical video feed" - only candidates with an actual
@@ -242,6 +248,7 @@ class DiscoveryApi {
       voiceIntroUrl: json['voiceIntroUrl'] as String?,
       voiceIntroDurationSeconds: json['voiceIntroDurationSeconds'] as int?,
       responseRateBadge: json['responseRateBadge'] as String?,
+      isTraveling: json['isTraveling'] as bool? ?? false,
     );
   }
 

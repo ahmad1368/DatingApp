@@ -800,6 +800,64 @@ describe('DiscoveryService', () => {
       expect(deck[0].responseRateBadge).toBeNull();
     });
 
+    it('shows a Traveler badge when the candidate is browsing via passport', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+      });
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      prisma.user.findMany.mockResolvedValue([
+        {
+          id: TARGET_ID,
+          name: 'Jane',
+          dateOfBirth: null,
+          profilePhotoUrl: null,
+          interests: [],
+          relationshipGoal: 'CASUAL',
+          passportEnabled: true,
+        },
+      ]);
+
+      const deck = await service.getDeck(USER_ID);
+
+      expect(deck[0].isTraveling).toBe(true);
+    });
+
+    it('does not show a Traveler badge for a candidate browsing normally', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+      });
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      prisma.user.findMany.mockResolvedValue([
+        {
+          id: TARGET_ID,
+          name: 'Jane',
+          dateOfBirth: null,
+          profilePhotoUrl: null,
+          interests: [],
+          relationshipGoal: 'CASUAL',
+          passportEnabled: false,
+        },
+      ]);
+
+      const deck = await service.getDeck(USER_ID);
+
+      expect(deck[0].isTraveling).toBe(false);
+    });
+
     it('includes the candidate voice intro url and duration when they have one', async () => {
       prisma.user.findUnique.mockResolvedValue({
         id: USER_ID,
