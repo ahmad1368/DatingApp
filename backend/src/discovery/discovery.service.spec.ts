@@ -1052,6 +1052,64 @@ describe('DiscoveryService', () => {
       });
     });
 
+    it('applies the same-campus filter (school + isEducationVerified) when enabled and school is set', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+        filterSameCampusOnly: true,
+        school: 'State University',
+      });
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      prisma.user.findMany.mockResolvedValue([]);
+
+      await service.getDeck(USER_ID);
+
+      expect(prisma.user.findMany).toHaveBeenCalledWith({
+        where: {
+          id: { notIn: [USER_ID] },
+          onboardingCompletedAt: { not: null },
+          activeMode: 'DATING',
+          AND: [
+            { OR: [{ incognitoEnabled: false }, { id: { in: [] } }] },
+            { OR: [{ id: { notIn: [] } }, { id: { in: [] } }] },
+            { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
+          ],
+          school: 'State University',
+          isEducationVerified: true,
+        },
+        take: 60,
+      });
+    });
+
+    it('does not apply the same-campus filter when no school is set', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+        filterSameCampusOnly: true,
+        school: null,
+      });
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      prisma.user.findMany.mockResolvedValue([]);
+
+      await service.getDeck(USER_ID);
+
+      const whereArg = prisma.user.findMany.mock.calls[0][0].where;
+      expect(whereArg.school).toBeUndefined();
+      expect(whereArg.isEducationVerified).toBeUndefined();
+    });
+
     it('applies a min/max height range filter to the candidate query', async () => {
       prisma.user.findUnique.mockResolvedValue({
         id: USER_ID,

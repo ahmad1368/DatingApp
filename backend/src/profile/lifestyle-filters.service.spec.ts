@@ -53,6 +53,7 @@ describe('LifestyleFiltersService', () => {
         filterSharedInterestsOnly: false,
         filterVerifiedOnly: false,
         filterCommunityGroups: [],
+        filterSameCampusOnly: false,
       });
     });
   });
@@ -92,6 +93,7 @@ describe('LifestyleFiltersService', () => {
         filterSharedInterestsOnly: true,
         filterVerifiedOnly: true,
         filterCommunityGroups: ['book-lovers'],
+        filterSameCampusOnly: false,
       };
       prisma.user.update.mockResolvedValue({ ...dto });
 
@@ -132,6 +134,7 @@ describe('LifestyleFiltersService', () => {
           filterSharedInterestsOnly: true,
           filterVerifiedOnly: true,
           filterCommunityGroups: ['book-lovers'],
+          filterSameCampusOnly: false,
         },
         select: expect.any(Object),
       });
@@ -160,6 +163,7 @@ describe('LifestyleFiltersService', () => {
         filterSharedInterestsOnly: false,
         filterVerifiedOnly: false,
         filterCommunityGroups: [],
+        filterSameCampusOnly: false,
       };
       prisma.user.update.mockResolvedValue({
         smokingHabit: null,
@@ -220,6 +224,7 @@ describe('LifestyleFiltersService', () => {
         filterSharedInterestsOnly: false,
         filterVerifiedOnly: false,
         filterCommunityGroups: [],
+        filterSameCampusOnly: false,
       };
 
       await expect(service.setLifestyleFilters(USER_ID, dto)).rejects.toBeInstanceOf(BadRequestException);

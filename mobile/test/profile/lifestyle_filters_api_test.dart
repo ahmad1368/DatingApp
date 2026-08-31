@@ -16,6 +16,7 @@ String _fullFiltersJson({
   String petAllergyStatus = '[]',
   String minHeightCm = 'null',
   String maxHeightCm = 'null',
+  bool sameCampusOnly = false,
 }) =>
     '''
 {
@@ -50,7 +51,8 @@ String _fullFiltersJson({
   "filterPoliticalOrientations": [],
   "filterSharedInterestsOnly": false,
   "filterVerifiedOnly": $verifiedOnly,
-  "filterCommunityGroups": $communityGroups
+  "filterCommunityGroups": $communityGroups,
+  "filterSameCampusOnly": $sameCampusOnly
 }
 ''';
 
@@ -290,6 +292,7 @@ void main() {
         filterSharedInterestsOnly: false,
         filterVerifiedOnly: false,
         filterCommunityGroups: const [],
+        filterSameCampusOnly: false,
       );
 
       expect(() => api.setFilters(filters), throwsA(isA<LifestyleFiltersApiException>()));
@@ -313,6 +316,26 @@ void main() {
 
       expect(putRequest!.body, contains('"filterVerifiedOnly":true'));
       expect(updated.filterVerifiedOnly, isTrue);
+    });
+
+    test('sends the updated filterSameCampusOnly flag', () async {
+      http.Request? putRequest;
+      final api = LifestyleFiltersApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          putRequest = request;
+          return _jsonResponse(_fullFiltersJson(sameCampusOnly: true), 200);
+        }),
+      );
+      final current = await LifestyleFiltersApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => _jsonResponse(_fullFiltersJson(), 200)),
+      ).fetchFilters();
+
+      final updated = await api.setFilters(current.copyWith(filterSameCampusOnly: true));
+
+      expect(putRequest!.body, contains('"filterSameCampusOnly":true'));
+      expect(updated.filterSameCampusOnly, isTrue);
     });
 
     test('sends the updated filterCommunityGroups list', () async {
