@@ -278,6 +278,10 @@ model Match {
   firstMessageExtendedAt    DateTime?
   verificationRequestedAt   DateTime?
   verificationRequestedById String?
+  // Set once the "first move" reminder push (see
+  // MessagingService.sendFirstMoveRemindersIfNeeded) has fired for this
+  // match, so it's only sent once as the 24-hour deadline approaches.
+  firstMoveReminderSentAt   DateTime?
 
   messages Message[]
 

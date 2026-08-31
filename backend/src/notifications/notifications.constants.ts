@@ -12,6 +12,7 @@ export const NOTIFICATION_TYPES = [
   'PROFILE_ACTIVITY',
   'TOP_PICK',
   'REPORT_RESOLVED',
+  'MATCH_EXPIRING_SOON',
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 

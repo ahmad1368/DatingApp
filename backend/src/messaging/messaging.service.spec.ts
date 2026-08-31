@@ -2863,6 +2863,85 @@ describe('MessagingService', () => {
 
       expect(matches).toHaveLength(1);
     });
+
+    it('sends a first-move reminder to the designated first-mover as the deadline nears', async () => {
+      mockUsers({ [WOMAN_ID]: ['Woman'], [MAN_ID]: ['Man'] });
+      prisma.match.findMany.mockResolvedValue([
+        {
+          id: MATCH_ID,
+          userAId: WOMAN_ID,
+          userBId: MAN_ID,
+          firstMessageExpiresAt: hoursFromNow(2),
+          firstMessageSentAt: null,
+          firstMoveReminderSentAt: null,
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ]);
+      prisma.user.findMany.mockResolvedValue([{ id: MAN_ID, name: 'Sam', profilePhotoUrl: null }]);
+
+      await service.listMyMatches(WOMAN_ID);
+
+      expect(notificationsService.notify).toHaveBeenCalledWith(
+        WOMAN_ID,
+        'MATCH_EXPIRING_SOON',
+        'Your match is about to expire',
+        'Send the first message before this match disappears!',
+        { matchId: MATCH_ID },
+      );
+      expect(notificationsService.notify).not.toHaveBeenCalledWith(
+        MAN_ID,
+        'MATCH_EXPIRING_SOON',
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+      );
+      expect(prisma.match.update).toHaveBeenCalledWith({
+        where: { id: MATCH_ID },
+        data: { firstMoveReminderSentAt: expect.any(Date) },
+      });
+    });
+
+    it('does not send a first-move reminder outside the deadline window', async () => {
+      mockUsers({ [WOMAN_ID]: ['Woman'], [MAN_ID]: ['Man'] });
+      prisma.match.findMany.mockResolvedValue([
+        {
+          id: MATCH_ID,
+          userAId: WOMAN_ID,
+          userBId: MAN_ID,
+          firstMessageExpiresAt: hoursFromNow(24),
+          firstMessageSentAt: null,
+          firstMoveReminderSentAt: null,
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ]);
+      prisma.user.findMany.mockResolvedValue([{ id: MAN_ID, name: 'Sam', profilePhotoUrl: null }]);
+
+      await service.listMyMatches(WOMAN_ID);
+
+      expect(notificationsService.notify).not.toHaveBeenCalled();
+      expect(prisma.match.update).not.toHaveBeenCalled();
+    });
+
+    it('does not re-send a first-move reminder once already sent', async () => {
+      mockUsers({ [WOMAN_ID]: ['Woman'], [MAN_ID]: ['Man'] });
+      prisma.match.findMany.mockResolvedValue([
+        {
+          id: MATCH_ID,
+          userAId: WOMAN_ID,
+          userBId: MAN_ID,
+          firstMessageExpiresAt: hoursFromNow(2),
+          firstMessageSentAt: null,
+          firstMoveReminderSentAt: new Date('2026-01-01T00:00:00.000Z'),
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ]);
+      prisma.user.findMany.mockResolvedValue([{ id: MAN_ID, name: 'Sam', profilePhotoUrl: null }]);
+
+      await service.listMyMatches(WOMAN_ID);
+
+      expect(notificationsService.notify).not.toHaveBeenCalled();
+      expect(prisma.match.update).not.toHaveBeenCalled();
+    });
   });
 
   describe('listInactiveThreads', () => {
