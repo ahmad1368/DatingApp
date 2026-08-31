@@ -8,4 +8,8 @@ export class SetMediaControlsDto {
   @IsOptional()
   @IsBoolean()
   videoEnabled?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  noiseSuppressionEnabled?: boolean;
 }

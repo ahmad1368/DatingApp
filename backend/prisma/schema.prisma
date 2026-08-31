@@ -946,6 +946,12 @@ model CallSession {
   calleeMuted              Boolean   @default(false)
   callerVideoEnabled       Boolean   @default(true)
   calleeVideoEnabled       Boolean   @default(true)
+  // Client-side WebRTC audio constraint toggle - see CallingService.
+  // setMediaControls. No server-side audio pipeline exists in this
+  // codebase (see checkTranscript's doc comment), so this only syncs each
+  // side's own on-device noise suppression setting for "crisp voice dates".
+  callerNoiseSuppressionEnabled Boolean @default(true)
+  calleeNoiseSuppressionEnabled Boolean @default(true)
   createdAt                DateTime  @default(now())
   endedAt                  DateTime?
 
