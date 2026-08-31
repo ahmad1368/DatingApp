@@ -346,6 +346,21 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
     }
   }
 
+  /// Ends the match, this app's stand-in for "blocking" someone from a
+  /// flagged message's warning - there's no separate block relationship
+  /// anywhere else in this codebase, matches_screen's "Unmatch" does the
+  /// same thing.
+  Future<void> _blockSender() async {
+    try {
+      await widget.messagingApi.unmatch(widget.matchId);
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+    } on MessagingApiException catch (e) {
+      setState(() => _errorText = e.message);
+    }
+  }
+
   Future<void> _sendGif(GifResult gif) async {
     setState(() => _errorText = null);
     try {
@@ -1072,6 +1087,8 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
                                 crossAxisAlignment:
                                     isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                                 children: [
+                                  if (!isMine && message.moderationFlagged)
+                                    _buildFlaggedMessageWarning(message),
                                   _buildMessageContent(message, isMine),
                                   if (isMine && message.isRead)
                                     const Text(
@@ -1137,6 +1154,36 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
                   ),
               ],
             ),
+    );
+  }
+
+  /// Shown above a flagged incoming message so the recipient sees the
+  /// warning up front, with a quick path to report or block - not just the
+  /// pre-existing long-press-to-report gesture.
+  Widget _buildFlaggedMessageWarning(ChatMessage message) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.warning_amber, size: 16, color: Colors.red),
+          const SizedBox(width: 4),
+          const Text(
+            'Possibly harmful message',
+            style: TextStyle(fontSize: 12, color: Colors.red, fontWeight: FontWeight.bold),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(minimumSize: Size.zero, padding: const EdgeInsets.symmetric(horizontal: 8)),
+            onPressed: () => _reportMessage(message),
+            child: const Text('Report'),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(minimumSize: Size.zero, padding: const EdgeInsets.symmetric(horizontal: 8)),
+            onPressed: _blockSender,
+            child: const Text('Block'),
+          ),
+        ],
+      ),
     );
   }
 

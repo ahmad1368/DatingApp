@@ -622,6 +622,121 @@ void main() {
     expect(reportRequest!.body, '{"reason":"harassing me"}');
   });
 
+  testWidgets('shows a warning banner with report/block actions on a flagged incoming message',
+      (tester) async {
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(
+            '[{"id":"m1","senderId":"user-man","contentType":"TEXT","content":"you are worthless",'
+            '"mediaUrl":null,"isBlurred":false,"moderationFlagged":true,'
+            '"moderationCategories":["harassment"],"createdAt":"2026-01-01T00:00:00.000Z"}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":null,"isExpired":false,'
+          '"firstMessageSent":true,"canSendFirstMessage":true}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchChatScreen(messagingApi: api, matchId: 'match-1', currentUserId: 'user-woman'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Possibly harmful message'), findsOneWidget);
+    expect(find.widgetWithText(TextButton, 'Report'), findsOneWidget);
+    expect(find.widgetWithText(TextButton, 'Block'), findsOneWidget);
+  });
+
+  testWidgets('does not show a warning banner for a flagged message the current user sent',
+      (tester) async {
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(
+            '[{"id":"m1","senderId":"user-woman","contentType":"TEXT","content":"hey there",'
+            '"mediaUrl":null,"isBlurred":false,"moderationFlagged":true,'
+            '"moderationCategories":["harassment"],"createdAt":"2026-01-01T00:00:00.000Z"}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":null,"isExpired":false,'
+          '"firstMessageSent":true,"canSendFirstMessage":true}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchChatScreen(messagingApi: api, matchId: 'match-1', currentUserId: 'user-woman'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Possibly harmful message'), findsNothing);
+  });
+
+  testWidgets('tapping Block on a flagged message unmatches and closes the chat', (tester) async {
+    http.Request? unmatchRequest;
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path.endsWith('/unmatch')) {
+          unmatchRequest = request;
+          return http.Response('{}', 200, headers: {'content-type': 'application/json'});
+        }
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(
+            '[{"id":"m1","senderId":"user-man","contentType":"TEXT","content":"you are worthless",'
+            '"mediaUrl":null,"isBlurred":false,"moderationFlagged":true,'
+            '"moderationCategories":["harassment"],"createdAt":"2026-01-01T00:00:00.000Z"}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":null,"isExpired":false,'
+          '"firstMessageSent":true,"canSendFirstMessage":true}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Navigator(
+          onGenerateRoute: (settings) => MaterialPageRoute(
+            builder: (context) =>
+                MatchChatScreen(messagingApi: api, matchId: 'match-1', currentUserId: 'user-woman'),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(TextButton, 'Block'));
+    await tester.pumpAndSettle();
+
+    expect(unmatchRequest, isNotNull);
+    expect(unmatchRequest!.url.path, '/matches/match-1/unmatch');
+    expect(find.byType(MatchChatScreen), findsNothing);
+  });
+
   testWidgets('shows a Read label under my own message once it has been read', (tester) async {
     final api = MessagingApi(
       accessToken: 'a-jwt',
