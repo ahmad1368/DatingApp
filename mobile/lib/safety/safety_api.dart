@@ -25,6 +25,49 @@ class SafetyResource {
   final String category;
 }
 
+class EmergencyHotline {
+  EmergencyHotline({
+    required this.id,
+    required this.name,
+    required this.phoneNumber,
+    required this.description,
+  });
+
+  final String id;
+  final String name;
+  final String phoneNumber;
+  final String description;
+}
+
+class ScamQuizQuestion {
+  ScamQuizQuestion({required this.id, required this.scenario});
+
+  final String id;
+  final String scenario;
+}
+
+class ScamQuizAnswerResult {
+  ScamQuizAnswerResult({
+    required this.questionId,
+    required this.correct,
+    required this.isScam,
+    required this.explanation,
+  });
+
+  final String questionId;
+  final bool correct;
+  final bool isScam;
+  final String explanation;
+}
+
+class ScamQuizResult {
+  ScamQuizResult({required this.score, required this.total, required this.results});
+
+  final int score;
+  final int total;
+  final List<ScamQuizAnswerResult> results;
+}
+
 class CheckIn {
   CheckIn({
     required this.id,
@@ -124,6 +167,81 @@ class SafetyApi {
           ),
         )
         .toList();
+  }
+
+  Future<List<EmergencyHotline>> fetchEmergencyHotlines() async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/safety/hotlines'),
+      headers: _headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw SafetyApiException(_errorMessage(_decode(response), response.statusCode));
+    }
+
+    final list = jsonDecode(response.body) as List;
+    return list
+        .cast<Map<String, dynamic>>()
+        .map(
+          (json) => EmergencyHotline(
+            id: json['id'] as String,
+            name: json['name'] as String,
+            phoneNumber: json['phoneNumber'] as String,
+            description: json['description'] as String,
+          ),
+        )
+        .toList();
+  }
+
+  Future<List<ScamQuizQuestion>> fetchScamQuizQuestions() async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/safety/scam-quiz'),
+      headers: _headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw SafetyApiException(_errorMessage(_decode(response), response.statusCode));
+    }
+
+    final list = jsonDecode(response.body) as List;
+    return list
+        .cast<Map<String, dynamic>>()
+        .map((json) => ScamQuizQuestion(id: json['id'] as String, scenario: json['scenario'] as String))
+        .toList();
+  }
+
+  /// [answers] maps each question id to the user's true/false "is this a scam?" guess.
+  Future<ScamQuizResult> submitScamQuiz(Map<String, bool> answers) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/safety/scam-quiz/submit'),
+      headers: _headers,
+      body: jsonEncode({
+        'answers': answers.entries
+            .map((entry) => {'questionId': entry.key, 'guessIsScam': entry.value})
+            .toList(),
+      }),
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 200) {
+      throw SafetyApiException(_errorMessage(body, response.statusCode));
+    }
+
+    final results = (body['results'] as List).cast<Map<String, dynamic>>();
+    return ScamQuizResult(
+      score: body['score'] as int,
+      total: body['total'] as int,
+      results: results
+          .map(
+            (json) => ScamQuizAnswerResult(
+              questionId: json['questionId'] as String,
+              correct: json['correct'] as bool,
+              isScam: json['isScam'] as bool,
+              explanation: json['explanation'] as String,
+            ),
+          )
+          .toList(),
+    );
   }
 
   Future<void> reportUser({

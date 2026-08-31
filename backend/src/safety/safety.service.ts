@@ -1,7 +1,15 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SMS_PROVIDER, SmsProvider } from '../auth/interfaces/sms-provider.interface';
-import { SAFETY_RESOURCES, SafetyResource, isCheckInOverdue } from './safety.constants';
+import {
+  EMERGENCY_HOTLINES,
+  EmergencyHotline,
+  isCheckInOverdue,
+  SAFETY_RESOURCES,
+  SCAM_AWARENESS_QUIZ,
+  SafetyResource,
+} from './safety.constants';
+import { ScamQuizAnswerDto } from './dto/submit-scam-quiz.dto';
 
 export interface UserReportView {
   id: string;
@@ -44,6 +52,24 @@ export interface DateLocationShareResult {
   createdAt: string;
 }
 
+export interface ScamQuizQuestionView {
+  id: string;
+  scenario: string;
+}
+
+export interface ScamQuizAnswerResult {
+  questionId: string;
+  correct: boolean;
+  isScam: boolean;
+  explanation: string;
+}
+
+export interface ScamQuizResult {
+  score: number;
+  total: number;
+  results: ScamQuizAnswerResult[];
+}
+
 @Injectable()
 export class SafetyService {
   constructor(
@@ -53,6 +79,34 @@ export class SafetyService {
 
   getResources(): SafetyResource[] {
     return SAFETY_RESOURCES;
+  }
+
+  getEmergencyHotlines(): EmergencyHotline[] {
+    return EMERGENCY_HOTLINES;
+  }
+
+  /** Withholds isScam/explanation so the answer can't just be read off the question list - see submitScamQuiz. */
+  getScamQuizQuestions(): ScamQuizQuestionView[] {
+    return SCAM_AWARENESS_QUIZ.map(({ id, scenario }) => ({ id, scenario }));
+  }
+
+  submitScamQuiz(answers: ScamQuizAnswerDto[]): ScamQuizResult {
+    const questionById = new Map(SCAM_AWARENESS_QUIZ.map((question) => [question.id, question]));
+
+    let score = 0;
+    const results: ScamQuizAnswerResult[] = answers.map((answer) => {
+      const question = questionById.get(answer.questionId);
+      if (!question) {
+        throw new BadRequestException(`Unknown scam quiz question: ${answer.questionId}`);
+      }
+      const correct = question.isScam === answer.guessIsScam;
+      if (correct) {
+        score += 1;
+      }
+      return { questionId: question.id, correct, isScam: question.isScam, explanation: question.explanation };
+    });
+
+    return { score, total: answers.length, results };
   }
 
   async reportUser(

@@ -39,6 +39,97 @@ void main() {
     });
   });
 
+  group('SafetyApi.fetchEmergencyHotlines', () {
+    test('sends the bearer token and parses hotlines', () async {
+      final api = SafetyApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'GET');
+          expect(request.url.path, '/safety/hotlines');
+          return http.Response(
+            '[{"id":"us-emergency","name":"Emergency Services (US)",'
+            '"phoneNumber":"911","description":"For any immediate emergency."}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final hotlines = await api.fetchEmergencyHotlines();
+
+      expect(hotlines, hasLength(1));
+      expect(hotlines.first.phoneNumber, '911');
+    });
+
+    test('throws SafetyApiException on a non-200 response', () async {
+      final api = SafetyApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => http.Response('', 500)),
+      );
+
+      expect(() => api.fetchEmergencyHotlines(), throwsA(isA<SafetyApiException>()));
+    });
+  });
+
+  group('SafetyApi.fetchScamQuizQuestions', () {
+    test('sends the bearer token and parses questions without the answer key', () async {
+      final api = SafetyApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.url.path, '/safety/scam-quiz');
+          return http.Response(
+            '[{"id":"ask-for-gift-cards","scenario":"A match asks for gift cards."}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final questions = await api.fetchScamQuizQuestions();
+
+      expect(questions, hasLength(1));
+      expect(questions.first.id, 'ask-for-gift-cards');
+    });
+  });
+
+  group('SafetyApi.submitScamQuiz', () {
+    test('sends the answers and parses the graded result', () async {
+      http.Request? capturedRequest;
+      final api = SafetyApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          capturedRequest = request;
+          return http.Response(
+            '{"score":1,"total":1,"results":[{"questionId":"ask-for-gift-cards","correct":true,'
+            '"isScam":true,"explanation":"Gift card requests are a red flag."}]}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final result = await api.submitScamQuiz({'ask-for-gift-cards': true});
+
+      expect(capturedRequest!.url.path, '/safety/scam-quiz/submit');
+      expect(
+        capturedRequest!.body,
+        '{"answers":[{"questionId":"ask-for-gift-cards","guessIsScam":true}]}',
+      );
+      expect(result.score, 1);
+      expect(result.total, 1);
+      expect(result.results.first.correct, isTrue);
+    });
+
+    test('throws SafetyApiException on a non-200 response', () async {
+      final api = SafetyApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => http.Response('', 400)),
+      );
+
+      expect(() => api.submitScamQuiz({'ask-for-gift-cards': true}), throwsA(isA<SafetyApiException>()));
+    });
+  });
+
   group('SafetyApi.reportUser', () {
     test('sends a POST with the reason and optional details', () async {
       final api = SafetyApi(
