@@ -102,6 +102,11 @@ export type ReservationProvider = (typeof RESERVATION_PROVIDERS)[number];
 // how a RESERVATION message stores its query there.
 export const GIFT_CONTENT_TYPE = 'GIFT';
 
+// A dropped map pin for a public venue/coffee shop, to coordinate a date
+// meetup - see MessagingService.sendLocationPin. The venue name lives in
+// `content`, mirroring how a RESERVATION message stores its query there.
+export const LOCATION_PIN_CONTENT_TYPE = 'LOCATION_PIN';
+
 const RESERVATION_SEARCH_URLS: Record<ReservationProvider, string> = {
   OPENTABLE: 'https://www.opentable.com/s',
   EVENTBRITE: 'https://www.eventbrite.com/d/search',

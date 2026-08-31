@@ -1758,6 +1758,90 @@ void main() {
     });
   });
 
+  group('MessagingApi.sendLocationPin', () {
+    test('sends the label, coordinates, and address, parsing the created message', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'POST');
+          expect(request.url.path, '/matches/match-1/location-pin');
+          expect(
+            request.body,
+            '{"label":"Blue Bottle Coffee","latitude":37.7749,"longitude":-122.4194,'
+            '"address":"66 Mint St"}',
+          );
+          return http.Response(
+            '{"id":"m1","senderId":"user-1","contentType":"LOCATION_PIN","content":"Blue Bottle Coffee",'
+            '"mediaUrl":null,"isBlurred":false,"locationPin":{"label":"Blue Bottle Coffee",'
+            '"latitude":37.7749,"longitude":-122.4194,"address":"66 Mint St"},'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}',
+            201,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final message = await api.sendLocationPin(
+        matchId: 'match-1',
+        label: 'Blue Bottle Coffee',
+        latitude: 37.7749,
+        longitude: -122.4194,
+        address: '66 Mint St',
+      );
+
+      expect(message.contentType, 'LOCATION_PIN');
+      expect(message.locationPin, isNotNull);
+      expect(message.locationPin!.label, 'Blue Bottle Coffee');
+      expect(message.locationPin!.latitude, 37.7749);
+      expect(message.locationPin!.address, '66 Mint St');
+    });
+
+    test('omits address when not provided', () async {
+      http.Request? capturedRequest;
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          capturedRequest = request;
+          return http.Response(
+            '{"id":"m2","senderId":"user-1","contentType":"LOCATION_PIN","content":"Dolores Park",'
+            '"mediaUrl":null,"isBlurred":false,"locationPin":{"label":"Dolores Park",'
+            '"latitude":37.7596,"longitude":-122.4269,"address":null},'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}',
+            201,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final message = await api.sendLocationPin(
+        matchId: 'match-1',
+        label: 'Dolores Park',
+        latitude: 37.7596,
+        longitude: -122.4269,
+      );
+
+      expect(
+        capturedRequest!.body,
+        '{"label":"Dolores Park","latitude":37.7596,"longitude":-122.4269}',
+      );
+      expect(message.locationPin!.address, isNull);
+    });
+
+    test('throws MessagingApiException on a non-201 response', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response('{"message":"Invalid latitude."}', 400),
+        ),
+      );
+
+      expect(
+        () => api.sendLocationPin(matchId: 'match-1', label: 'X', latitude: 999, longitude: 0),
+        throwsA(isA<MessagingApiException>()),
+      );
+    });
+  });
+
   group('MessagingApi.sendGiftMessage', () {
     test('sends the gift id and optional message, parsing the created message', () async {
       final api = MessagingApi(

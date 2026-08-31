@@ -360,6 +360,12 @@ model Message {
   // mirroring how a POLL's question is stored there too.
   reservationProvider  String?
   reservationUrl       String?
+  // A LOCATION_PIN message: a venue/coffee-shop pin for coordinating a date
+  // meetup - see MessagingService.sendLocationPin. The venue name lives in
+  // `content`, mirroring RESERVATION's query and POLL's question above.
+  locationLatitude     Float?
+  locationLongitude    Float?
+  locationAddress      String?
   // A GAME_CARD message: TRIVIA/TWO_TRUTHS_AND_A_LIE options reuse
   // `pollOptions` (trivia's 4 choices, or the 3 statements), and `content`
   // holds the curated promptId for TRIVIA/TWENTY_ONE_QUESTIONS - see
