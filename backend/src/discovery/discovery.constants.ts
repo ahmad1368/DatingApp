@@ -196,3 +196,20 @@ export function applyDeckFeedback(currentWeight: number, rating: DeckFeedbackRat
   const adjusted = currentWeight + DECK_FEEDBACK_WEIGHT_DELTA[rating];
   return Math.min(MAX_PROXIMITY_WEIGHT, Math.max(MIN_PROXIMITY_WEIGHT, adjusted));
 }
+
+/**
+ * "Profile Pass Reason Fine-Tuning": the per-pass counterpart to
+ * applyDeckFeedback above - PASS_REASONS was captured but never fed back
+ * into ranking (see its doc comment). Only 'Too far away' maps to an
+ * existing tunable signal (discoveryProximityWeight); the smaller delta
+ * reflects that a single pass carries far less signal than an aggregated
+ * DECK_FEEDBACK_SWIPE_INTERVAL-swipe review.
+ */
+export const PASS_REASON_PROXIMITY_WEIGHT_DELTA = 0.05;
+
+export function applyPassReasonFeedback(currentWeight: number, passReason: string | null | undefined): number {
+  if (passReason !== 'Too far away') {
+    return currentWeight;
+  }
+  return Math.min(MAX_PROXIMITY_WEIGHT, currentWeight + PASS_REASON_PROXIMITY_WEIGHT_DELTA);
+}

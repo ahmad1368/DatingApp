@@ -1,4 +1,9 @@
-import { applyDeckFeedback, MAX_PROXIMITY_WEIGHT, MIN_PROXIMITY_WEIGHT } from './discovery.constants';
+import {
+  applyDeckFeedback,
+  applyPassReasonFeedback,
+  MAX_PROXIMITY_WEIGHT,
+  MIN_PROXIMITY_WEIGHT,
+} from './discovery.constants';
 
 describe('applyDeckFeedback', () => {
   it('nudges the weight up for a BAD rating', () => {
@@ -19,5 +24,24 @@ describe('applyDeckFeedback', () => {
 
   it('never drops below the minimum weight', () => {
     expect(applyDeckFeedback(MIN_PROXIMITY_WEIGHT, 'GOOD')).toBe(MIN_PROXIMITY_WEIGHT);
+  });
+});
+
+describe('applyPassReasonFeedback', () => {
+  it('nudges the weight up a little for "Too far away"', () => {
+    expect(applyPassReasonFeedback(1, 'Too far away')).toBeCloseTo(1.05, 5);
+  });
+
+  it('leaves the weight unchanged for any other pass reason', () => {
+    expect(applyPassReasonFeedback(1, 'Not my type')).toBe(1);
+  });
+
+  it('leaves the weight unchanged when no reason was given', () => {
+    expect(applyPassReasonFeedback(1, null)).toBe(1);
+    expect(applyPassReasonFeedback(1, undefined)).toBe(1);
+  });
+
+  it('never exceeds the maximum weight', () => {
+    expect(applyPassReasonFeedback(MAX_PROXIMITY_WEIGHT, 'Too far away')).toBe(MAX_PROXIMITY_WEIGHT);
   });
 });
