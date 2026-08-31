@@ -436,7 +436,12 @@ export class MessagingService {
    * Sends a short recorded voice note in-chat, subject to the same
    * match-expiry and women-first-message rules as a text message. The
    * optional voice effect / background sound are just tags for the
-   * recipient's client to apply at playback time.
+   * recipient's client to apply at playback time. The auto-generated
+   * transcript is scanned by the same AI content moderator as a text
+   * message, so a voice note carrying explicit threats or harassment gets
+   * flagged with a warning banner (see MessageModerationService) before the
+   * recipient hears it, the same anti-harassment coverage
+   * CallingService.checkTranscript gives live calls.
    */
   async sendVoiceNote(
     userId: string,
@@ -455,6 +460,7 @@ export class MessagingService {
 
     const { match, firstMessageSent } = await this.assertCanSend(userId, matchId);
     const transcript = await this.transcribeSafely(mediaUrl);
+    const moderation = transcript ? await this.moderateTextSafely(transcript) : null;
 
     const message = await this.prisma.message.create({
       data: {
@@ -466,6 +472,8 @@ export class MessagingService {
         voiceEffectId,
         backgroundSoundId,
         transcript,
+        moderationFlagged: moderation?.flagged ?? false,
+        moderationCategories: moderation?.categories ?? [],
       },
     });
 

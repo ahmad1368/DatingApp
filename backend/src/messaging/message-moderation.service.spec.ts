@@ -140,6 +140,35 @@ describe('MessageModerationService', () => {
       });
     });
 
+    it('falls back to the transcript when reporting a VOICE_NOTE with no content', async () => {
+      prisma.match.findUnique.mockResolvedValue({
+        id: MATCH_ID,
+        userAId: REPORTER_ID,
+        userBId: OTHER_ID,
+      });
+      prisma.message.findUnique.mockResolvedValue({
+        id: MESSAGE_ID,
+        matchId: MATCH_ID,
+        content: null,
+        transcript: 'you are worthless',
+      });
+      contentModerator.moderate.mockResolvedValue({ flagged: true, categories: ['harassment'] });
+      prisma.messageReport.create.mockResolvedValue({
+        id: 'report-4',
+        messageId: MESSAGE_ID,
+        reporterId: REPORTER_ID,
+        reason: 'harassing voice note',
+        moderationFlagged: true,
+        moderationCategories: ['harassment'],
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const result = await service.reportMessage(REPORTER_ID, MATCH_ID, MESSAGE_ID, 'harassing voice note');
+
+      expect(contentModerator.moderate).toHaveBeenCalledWith('you are worthless');
+      expect(result.outcome).toBe('CONTENT_REMOVED');
+    });
+
     it('does not remove content or notify when no violation is found', async () => {
       prisma.match.findUnique.mockResolvedValue({
         id: MATCH_ID,
