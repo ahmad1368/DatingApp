@@ -687,6 +687,24 @@ model SosAlert {
   @@map("sos_alerts")
 }
 
+// A proactive, non-emergency location share sent to trusted contacts when a
+// date starts - distinct from SosAlert's urgent "help now" trigger and
+// DateCheckIn's lazy missed-check-in alert. Delivers the destination address
+// and a live-location link immediately, the same SMS mechanism as SosAlert.
+model DateLocationShare {
+  id                 String   @id @default(uuid())
+  userId             String
+  matchId            String?
+  destinationAddress String?
+  latitude           Float
+  longitude          Float
+  contactIds         String[] @default([])
+  createdAt          DateTime @default(now())
+
+  @@index([userId])
+  @@map("date_location_shares")
+}
+
 model PathCrossing {
   id         String   @id @default(uuid())
   userAId    String

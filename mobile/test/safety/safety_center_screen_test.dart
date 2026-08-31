@@ -374,4 +374,87 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('sharing live location sends the destination and current position', (tester) async {
+    http.Request? shareRequest;
+    final api = SafetyApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/safety/resources') {
+          return _jsonResponse('[]', 200);
+        }
+        if (request.method == 'POST' && request.url.path == '/safety/date-location-share') {
+          shareRequest = request;
+          return _jsonResponse(
+            '{"id":"share-1","notifiedContactIds":["contact-1"],'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}',
+            201,
+          );
+        }
+        return _jsonResponse('[]', 200);
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SafetyCenterScreen(
+          safetyApi: api,
+          currentPositionProvider: () async => const Coordinates(latitude: 37.7749, longitude: -122.4194),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Share my live location'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).first, '123 Main St');
+    await tester.tap(find.text('Share'));
+    await tester.pumpAndSettle();
+
+    expect(shareRequest, isNotNull);
+    expect(
+      shareRequest!.body,
+      '{"latitude":37.7749,"longitude":-122.4194,"destinationAddress":"123 Main St"}',
+    );
+    expect(find.text('Live location shared with 1 contact(s).'), findsOneWidget);
+  });
+
+  testWidgets('shows an error when sharing live location fails', (tester) async {
+    final api = SafetyApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/safety/resources') {
+          return _jsonResponse('[]', 200);
+        }
+        if (request.method == 'POST' && request.url.path == '/safety/date-location-share') {
+          return _jsonResponse(
+            '{"message":"Add at least one emergency contact before sharing your location."}',
+            400,
+          );
+        }
+        return _jsonResponse('[]', 200);
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SafetyCenterScreen(
+          safetyApi: api,
+          currentPositionProvider: () async => const Coordinates(latitude: 37.7749, longitude: -122.4194),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Share my live location'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Share'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Add at least one emergency contact before sharing your location.'),
+      findsOneWidget,
+    );
+  });
 }

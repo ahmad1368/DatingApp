@@ -60,6 +60,7 @@ class _SafetyCenterScreenState extends State<SafetyCenterScreen> {
   List<EmergencyContact> _contacts = [];
   bool _isLoading = true;
   bool _isSendingSos = false;
+  bool _isSharingLocation = false;
   String? _errorText;
   String? _statusText;
 
@@ -135,6 +136,56 @@ class _SafetyCenterScreenState extends State<SafetyCenterScreen> {
       if (mounted) {
         setState(() => _isSendingSos = false);
       }
+    }
+  }
+
+  Future<void> _shareDateLocation(String? destinationAddress) async {
+    setState(() {
+      _isSharingLocation = true;
+      _errorText = null;
+      _statusText = null;
+    });
+    try {
+      final coordinates = await widget.currentPositionProvider();
+      final result = await widget.safetyApi.shareDateLocation(
+        latitude: coordinates.latitude,
+        longitude: coordinates.longitude,
+        destinationAddress: destinationAddress,
+      );
+      setState(() {
+        _statusText = 'Live location shared with ${result.notifiedContactIds.length} contact(s).';
+      });
+    } on SafetyApiException catch (e) {
+      setState(() => _errorText = e.message);
+    } finally {
+      if (mounted) {
+        setState(() => _isSharingLocation = false);
+      }
+    }
+  }
+
+  Future<void> _openShareLocationDialog() async {
+    final destinationController = TextEditingController();
+
+    final shared = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Share your live location'),
+        content: TextField(
+          controller: destinationController,
+          decoration: const InputDecoration(labelText: 'Destination address (optional)'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Share')),
+        ],
+      ),
+    );
+
+    if (shared == true) {
+      await _shareDateLocation(
+        destinationController.text.trim().isEmpty ? null : destinationController.text.trim(),
+      );
     }
   }
 
@@ -372,6 +423,18 @@ class _SafetyCenterScreenState extends State<SafetyCenterScreen> {
                     padding: const EdgeInsets.only(bottom: 12),
                     child: Text(_statusText!, style: const TextStyle(fontWeight: FontWeight.bold)),
                   ),
+                OutlinedButton.icon(
+                  onPressed: _isSharingLocation ? null : _openShareLocationDialog,
+                  icon: _isSharingLocation
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.share_location_outlined),
+                  label: const Text('Share my live location'),
+                ),
+                const SizedBox(height: 24),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [

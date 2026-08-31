@@ -22,6 +22,7 @@ describe('SafetyService', () => {
       delete: jest.Mock;
     };
     sosAlert: { create: jest.Mock };
+    dateLocationShare: { create: jest.Mock };
   };
   let smsProvider: SmsProvider;
 
@@ -42,6 +43,7 @@ describe('SafetyService', () => {
         delete: jest.fn(),
       },
       sosAlert: { create: jest.fn() },
+      dateLocationShare: { create: jest.fn() },
     };
     smsProvider = {
       sendOtp: jest.fn().mockResolvedValue(undefined),
@@ -466,6 +468,92 @@ describe('SafetyService', () => {
       });
 
       await service.triggerSos(USER_ID, 37.7749, -122.4194, undefined, ['contact-2']);
+
+      expect(smsProvider.sendMessage).toHaveBeenCalledTimes(1);
+      expect(smsProvider.sendMessage).toHaveBeenCalledWith('+15557654321', expect.any(String));
+    });
+  });
+
+  describe('shareDateLocation', () => {
+    it('rejects when the user has no emergency contacts', async () => {
+      prisma.user.findUnique.mockResolvedValue({ name: 'Ahmad' });
+      prisma.emergencyContact.findMany.mockResolvedValue([]);
+
+      await expect(service.shareDateLocation(USER_ID, 37.7749, -122.4194)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(smsProvider.sendMessage).not.toHaveBeenCalled();
+    });
+
+    it('throws when a requested contact id does not belong to the user', async () => {
+      prisma.user.findUnique.mockResolvedValue({ name: 'Ahmad' });
+      prisma.emergencyContact.findMany.mockResolvedValue([
+        { id: 'contact-1', name: 'Sam', phone: '+15551234567' },
+      ]);
+
+      await expect(
+        service.shareDateLocation(USER_ID, 37.7749, -122.4194, undefined, undefined, ['not-mine']),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('texts every contact when none are specified, including the destination, and records the share', async () => {
+      prisma.user.findUnique.mockResolvedValue({ name: 'Ahmad' });
+      prisma.emergencyContact.findMany.mockResolvedValue([
+        { id: 'contact-1', name: 'Sam', phone: '+15551234567' },
+        { id: 'contact-2', name: 'Jo', phone: '+15557654321' },
+      ]);
+      prisma.dateLocationShare.create.mockResolvedValue({
+        id: 'share-1',
+        contactIds: ['contact-1', 'contact-2'],
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const result = await service.shareDateLocation(
+        USER_ID,
+        37.7749,
+        -122.4194,
+        'match-1',
+        '123 Main St',
+      );
+
+      expect(smsProvider.sendMessage).toHaveBeenCalledWith(
+        '+15551234567',
+        expect.stringContaining('123 Main St'),
+      );
+      expect(smsProvider.sendMessage).toHaveBeenCalledWith(
+        '+15557654321',
+        expect.stringContaining('37.7749,-122.4194'),
+      );
+      expect(prisma.dateLocationShare.create).toHaveBeenCalledWith({
+        data: {
+          userId: USER_ID,
+          matchId: 'match-1',
+          destinationAddress: '123 Main St',
+          latitude: 37.7749,
+          longitude: -122.4194,
+          contactIds: ['contact-1', 'contact-2'],
+        },
+      });
+      expect(result).toEqual({
+        id: 'share-1',
+        notifiedContactIds: ['contact-1', 'contact-2'],
+        createdAt: '2026-01-01T00:00:00.000Z',
+      });
+    });
+
+    it('only texts the selected contacts when contactIds is given', async () => {
+      prisma.user.findUnique.mockResolvedValue({ name: 'Ahmad' });
+      prisma.emergencyContact.findMany.mockResolvedValue([
+        { id: 'contact-1', name: 'Sam', phone: '+15551234567' },
+        { id: 'contact-2', name: 'Jo', phone: '+15557654321' },
+      ]);
+      prisma.dateLocationShare.create.mockResolvedValue({
+        id: 'share-1',
+        contactIds: ['contact-2'],
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      await service.shareDateLocation(USER_ID, 37.7749, -122.4194, undefined, undefined, ['contact-2']);
 
       expect(smsProvider.sendMessage).toHaveBeenCalledTimes(1);
       expect(smsProvider.sendMessage).toHaveBeenCalledWith('+15557654321', expect.any(String));
