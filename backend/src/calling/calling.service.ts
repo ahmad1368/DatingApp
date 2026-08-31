@@ -25,6 +25,8 @@ export interface CallSessionView {
   calleeMuted: boolean;
   callerVideoEnabled: boolean;
   calleeVideoEnabled: boolean;
+  callerNoiseSuppressionEnabled: boolean;
+  calleeNoiseSuppressionEnabled: boolean;
   createdAt: string;
   endedAt: string | null;
 }
@@ -52,6 +54,8 @@ interface CallSessionRecord {
   calleeMuted: boolean;
   callerVideoEnabled: boolean;
   calleeVideoEnabled: boolean;
+  callerNoiseSuppressionEnabled: boolean;
+  calleeNoiseSuppressionEnabled: boolean;
   createdAt: Date;
   endedAt: Date | null;
 }
@@ -261,11 +265,17 @@ export class CallingService {
     return this.toView(updated);
   }
 
-  /** "Video Date Mode" call controls: mute/unmute and enable/disable your own video feed. */
+  /**
+   * "Video Date Mode" call controls: mute/unmute, enable/disable your own
+   * video feed, and toggle your own on-device background noise suppression
+   * for crisp voice dates - see the schema comment on
+   * callerNoiseSuppressionEnabled for why this is a client-side toggle with
+   * no server-side audio pipeline behind it.
+   */
   async setMediaControls(
     userId: string,
     callId: string,
-    controls: { muted?: boolean; videoEnabled?: boolean },
+    controls: { muted?: boolean; videoEnabled?: boolean; noiseSuppressionEnabled?: boolean },
   ): Promise<CallSessionView> {
     const call = await this.getActiveCallForParticipant(userId, callId);
     const isCaller = call.callerId === userId;
@@ -279,6 +289,10 @@ export class CallingService {
           (isCaller
             ? { callerVideoEnabled: controls.videoEnabled }
             : { calleeVideoEnabled: controls.videoEnabled })),
+        ...(controls.noiseSuppressionEnabled != null &&
+          (isCaller
+            ? { callerNoiseSuppressionEnabled: controls.noiseSuppressionEnabled }
+            : { calleeNoiseSuppressionEnabled: controls.noiseSuppressionEnabled })),
       },
     });
 
@@ -360,6 +374,8 @@ export class CallingService {
       calleeMuted: call.calleeMuted,
       callerVideoEnabled: call.callerVideoEnabled,
       calleeVideoEnabled: call.calleeVideoEnabled,
+      callerNoiseSuppressionEnabled: call.callerNoiseSuppressionEnabled,
+      calleeNoiseSuppressionEnabled: call.calleeNoiseSuppressionEnabled,
       createdAt: call.createdAt.toISOString(),
       endedAt: call.endedAt ? call.endedAt.toISOString() : null,
     };

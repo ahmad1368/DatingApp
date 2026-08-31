@@ -517,6 +517,69 @@ describe('CallingService', () => {
       });
     });
 
+    it('toggles the caller-specific noise suppression field', async () => {
+      mockCall({ status: 'ACCEPTED' });
+      prisma.callSession.update.mockResolvedValue({
+        id: CALL_ID,
+        matchId: MATCH_ID,
+        callerId: CALLER_ID,
+        calleeId: CALLEE_ID,
+        type: 'AUDIO',
+        status: 'ACCEPTED',
+        offerSdp: 'offer',
+        answerSdp: 'answer',
+        virtualBackgroundId: null,
+        activeIcebreakerPromptId: null,
+        callerMuted: false,
+        calleeMuted: false,
+        callerVideoEnabled: true,
+        calleeVideoEnabled: true,
+        callerNoiseSuppressionEnabled: false,
+        calleeNoiseSuppressionEnabled: true,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        endedAt: null,
+      });
+
+      const result = await service.setMediaControls(CALLER_ID, CALL_ID, { noiseSuppressionEnabled: false });
+
+      expect(prisma.callSession.update).toHaveBeenCalledWith({
+        where: { id: CALL_ID },
+        data: { callerNoiseSuppressionEnabled: false },
+      });
+      expect(result.callerNoiseSuppressionEnabled).toBe(false);
+    });
+
+    it('toggles the callee-specific noise suppression field', async () => {
+      mockCall({ status: 'ACCEPTED' });
+      prisma.callSession.update.mockResolvedValue({
+        id: CALL_ID,
+        matchId: MATCH_ID,
+        callerId: CALLER_ID,
+        calleeId: CALLEE_ID,
+        type: 'AUDIO',
+        status: 'ACCEPTED',
+        offerSdp: 'offer',
+        answerSdp: 'answer',
+        virtualBackgroundId: null,
+        activeIcebreakerPromptId: null,
+        callerMuted: false,
+        calleeMuted: false,
+        callerVideoEnabled: true,
+        calleeVideoEnabled: true,
+        callerNoiseSuppressionEnabled: true,
+        calleeNoiseSuppressionEnabled: false,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        endedAt: null,
+      });
+
+      await service.setMediaControls(CALLEE_ID, CALL_ID, { noiseSuppressionEnabled: false });
+
+      expect(prisma.callSession.update).toHaveBeenCalledWith({
+        where: { id: CALL_ID },
+        data: { calleeNoiseSuppressionEnabled: false },
+      });
+    });
+
     it('rejects changing controls on a call that has ended', async () => {
       mockCall({ status: 'ENDED' });
 
