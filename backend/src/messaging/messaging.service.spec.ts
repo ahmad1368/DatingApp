@@ -584,6 +584,74 @@ describe('MessagingService', () => {
       expect(result.senderId).toBe(MAN_ID);
     });
 
+    it('tallies the recipient as having received a message', async () => {
+      mockMatch({ firstMessageSentAt: new Date() });
+      prisma.message.create.mockResolvedValue({
+        id: 'message-2',
+        senderId: MAN_ID,
+        contentType: 'TEXT',
+        content: 'hey there',
+        mediaUrl: null,
+        isBlurred: false,
+        createdAt: new Date('2026-01-01T01:00:00.000Z'),
+      });
+
+      await service.sendMessage(MAN_ID, MATCH_ID, 'hey there');
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: WOMAN_ID },
+        data: { messagesReceivedCount: { increment: 1 } },
+      });
+    });
+
+    it('tallies the sender as having replied when the prior message was from the other side', async () => {
+      mockMatch({ firstMessageSentAt: new Date() });
+      prisma.message.findMany.mockResolvedValue([
+        { senderId: MAN_ID },
+        { senderId: WOMAN_ID },
+      ]);
+      prisma.message.create.mockResolvedValue({
+        id: 'message-2',
+        senderId: MAN_ID,
+        contentType: 'TEXT',
+        content: 'hey there',
+        mediaUrl: null,
+        isBlurred: false,
+        createdAt: new Date('2026-01-01T01:00:00.000Z'),
+      });
+
+      await service.sendMessage(MAN_ID, MATCH_ID, 'hey there');
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: MAN_ID },
+        data: { messagesRepliedCount: { increment: 1 } },
+      });
+    });
+
+    it('does not tally a reply when the sender sent the previous message too', async () => {
+      mockMatch({ firstMessageSentAt: new Date() });
+      prisma.message.findMany.mockResolvedValue([
+        { senderId: MAN_ID },
+        { senderId: MAN_ID },
+      ]);
+      prisma.message.create.mockResolvedValue({
+        id: 'message-3',
+        senderId: MAN_ID,
+        contentType: 'TEXT',
+        content: 'still me',
+        mediaUrl: null,
+        isBlurred: false,
+        createdAt: new Date('2026-01-01T02:00:00.000Z'),
+      });
+
+      await service.sendMessage(MAN_ID, MATCH_ID, 'still me');
+
+      expect(prisma.user.update).not.toHaveBeenCalledWith({
+        where: { id: MAN_ID },
+        data: { messagesRepliedCount: { increment: 1 } },
+      });
+    });
+
     it('scans the text and flags the message when the content moderator flags it', async () => {
       mockMatch({ firstMessageSentAt: new Date() });
       contentModerator.moderate.mockResolvedValue({ flagged: true, categories: ['harassment'] });
