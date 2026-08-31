@@ -548,6 +548,7 @@ describe('MessagingService', () => {
         isBlurred: false,
         moderationFlagged: false,
         moderationCategories: [],
+        moderationRemoved: false,
         voiceEffectId: null,
         backgroundSoundId: null,
         transcript: null,
@@ -1431,6 +1432,7 @@ describe('MessagingService', () => {
           isBlurred: false,
           moderationFlagged: false,
           moderationCategories: [],
+          moderationRemoved: false,
           voiceEffectId: null,
           backgroundSoundId: null,
           transcript: null,
@@ -2483,6 +2485,51 @@ describe('MessagingService', () => {
       const messages = await service.listMessages(WOMAN_ID, MATCH_ID);
 
       expect(messages[0].gameCard?.correctOptionIndex).toBe(1);
+    });
+  });
+
+  describe('listMessages moderation removal', () => {
+    it('withholds content and mediaUrl once a report confirmed a violation', async () => {
+      mockMatch();
+      prisma.message.findMany.mockResolvedValue([
+        {
+          id: 'm1',
+          senderId: MAN_ID,
+          contentType: 'IMAGE',
+          content: null,
+          mediaUrl: 'https://example.com/photo.jpg',
+          isBlurred: false,
+          moderationRemovedAt: new Date('2026-01-01T00:10:00.000Z'),
+          readAt: new Date('2026-01-01T00:05:00.000Z'),
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ]);
+
+      const messages = await service.listMessages(WOMAN_ID, MATCH_ID);
+
+      expect(messages[0].mediaUrl).toBeNull();
+      expect(messages[0].moderationRemoved).toBe(true);
+    });
+
+    it('leaves content untouched when no removal has happened', async () => {
+      mockMatch();
+      prisma.message.findMany.mockResolvedValue([
+        {
+          id: 'm1',
+          senderId: MAN_ID,
+          contentType: 'TEXT',
+          content: 'hey there',
+          mediaUrl: null,
+          isBlurred: false,
+          readAt: null,
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ]);
+
+      const messages = await service.listMessages(WOMAN_ID, MATCH_ID);
+
+      expect(messages[0].content).toBe('hey there');
+      expect(messages[0].moderationRemoved).toBe(false);
     });
   });
 

@@ -307,6 +307,11 @@ model Message {
   // MessagingService.toGameCardView.
   gameType             String?
   gameCorrectIndex     Int?
+  // Set when a report against this message was confirmed by the AI content
+  // moderator - see MessageModerationService.reportMessage. Once set,
+  // MessagingService.toMessageView withholds content/mediaUrl from
+  // everyone, closing the moderation feedback loop for the reporter.
+  moderationRemovedAt  DateTime?
   readAt               DateTime?
   // Auto-expiring media: null expiryMode means a normal, permanent message.
   // See isEphemeralExpired in messaging.constants.ts for how these three

@@ -534,6 +534,26 @@ void main() {
       expect(messages.first.isRead, isTrue);
       expect(messages.first.readAt, DateTime.parse('2026-01-01T00:05:00.000Z'));
     });
+
+    test('parses moderationRemoved when a confirmed report took the message down', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '[{"id":"m1","senderId":"user-1","contentType":"TEXT","content":null,'
+            '"mediaUrl":null,"isBlurred":false,"moderationRemoved":true,'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      final messages = await api.fetchMessages('match-1');
+
+      expect(messages.first.moderationRemoved, isTrue);
+      expect(messages.first.content, isNull);
+    });
   });
 
   group('MessagingApi.sendMessage', () {

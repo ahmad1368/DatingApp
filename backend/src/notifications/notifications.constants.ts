@@ -11,6 +11,7 @@ export const NOTIFICATION_TYPES = [
   'NEW_LIKE',
   'PROFILE_ACTIVITY',
   'TOP_PICK',
+  'REPORT_RESOLVED',
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 

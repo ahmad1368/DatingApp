@@ -119,6 +119,10 @@ export interface MessageView {
   isBlurred: boolean;
   moderationFlagged: boolean;
   moderationCategories: string[];
+  // True once a report against this message was confirmed by the AI
+  // moderator, at which point content/mediaUrl are withheld from everyone -
+  // see MessageModerationService.reportMessage.
+  moderationRemoved: boolean;
   durationSeconds: number | null;
   voiceEffectId: string | null;
   backgroundSoundId: string | null;
@@ -1688,6 +1692,7 @@ export class MessagingService {
       isBlurred: boolean;
       moderationFlagged?: boolean;
       moderationCategories?: string[];
+      moderationRemovedAt?: Date | null;
       durationSeconds: number | null;
       voiceEffectId?: string | null;
       backgroundSoundId?: string | null;
@@ -1716,8 +1721,13 @@ export class MessagingService {
       new Date(),
     );
     const hasBeenViewed = message.viewedAt != null;
-    const mediaUrl =
+    const mediaUrlBeforeRemoval =
       expiryMode && !revealMediaUrl ? (expired || !hasBeenViewed ? null : message.mediaUrl) : message.mediaUrl;
+
+    const moderationRemoved = message.moderationRemovedAt != null;
+    const content = moderationRemoved ? null : message.content;
+    const mediaUrl = moderationRemoved ? null : mediaUrlBeforeRemoval;
+    const pollOptions = moderationRemoved ? [] : message.pollOptions;
 
     const isMine = message.senderId === userId;
     const readReceiptUnlocked =
@@ -1728,11 +1738,12 @@ export class MessagingService {
       id: message.id,
       senderId: message.senderId,
       contentType: message.contentType,
-      content: message.content,
+      content,
       mediaUrl,
       isBlurred: message.isBlurred,
       moderationFlagged: message.moderationFlagged ?? false,
       moderationCategories: message.moderationCategories ?? [],
+      moderationRemoved,
       durationSeconds: message.durationSeconds,
       voiceEffectId: message.voiceEffectId ?? null,
       backgroundSoundId: message.backgroundSoundId ?? null,
@@ -1742,21 +1753,21 @@ export class MessagingService {
       expiryMode,
       viewTimerSeconds: message.viewTimerSeconds ?? null,
       isEphemeralExpired: expired,
-      icebreaker: this.toIcebreakerView(message.contentType, message.content, userId, icebreakerResponses),
-      poll: this.toPollView(message.contentType, message.content, message.pollOptions, userId, pollVotes),
+      icebreaker: this.toIcebreakerView(message.contentType, content, userId, icebreakerResponses),
+      poll: this.toPollView(message.contentType, content, pollOptions, userId, pollVotes),
       reservation: this.toReservationView(
         message.contentType,
-        message.content,
+        content,
         message.reservationProvider,
         message.reservationUrl,
       ),
-      gift: this.toGiftView(message.contentType, message.content),
+      gift: this.toGiftView(message.contentType, content),
       gameCard: this.toGameCardView(
         message.contentType,
         message.gameType ?? null,
         message.senderId,
-        message.content,
-        message.pollOptions,
+        content,
+        pollOptions,
         message.gameCorrectIndex ?? null,
         userId,
         gameResponses,

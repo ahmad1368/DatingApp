@@ -1,12 +1,15 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import {
   CONTENT_MODERATOR,
   ContentModerator,
   ModerationResult,
 } from './interfaces/content-moderator.interface';
 import { MessagingService } from './messaging.service';
+
+export type ReportOutcome = 'CONTENT_REMOVED' | 'NO_VIOLATION_FOUND';
 
 export interface MessageReportView {
   id: string;
@@ -15,6 +18,7 @@ export interface MessageReportView {
   reason: string;
   moderationFlagged: boolean;
   moderationCategories: string[];
+  outcome: ReportOutcome;
   createdAt: string;
 }
 
@@ -26,6 +30,7 @@ export interface MatchReportView {
   details: string | null;
   moderationFlagged: boolean;
   moderationCategories: string[];
+  outcome: ReportOutcome;
   createdAt: string;
 }
 
@@ -35,6 +40,7 @@ export class MessageModerationService {
     private readonly prisma: PrismaService,
     @Inject(CONTENT_MODERATOR) private readonly contentModerator: ContentModerator,
     private readonly messagingService: MessagingService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   /**
@@ -46,6 +52,13 @@ export class MessageModerationService {
     return this.contentModerator.moderate(text);
   }
 
+  /**
+   * Reports a message and, if the AI moderator confirms it violates
+   * guidelines, immediately removes its content and notifies the reporter -
+   * closing the feedback loop instead of the report just sitting logged
+   * with no visible outcome. See MessagingService.toMessageView for how
+   * moderationRemovedAt withholds content/mediaUrl from everyone once set.
+   */
   async reportMessage(
     reporterId: string,
     matchId: string,
@@ -76,6 +89,21 @@ export class MessageModerationService {
       },
     });
 
+    const outcome: ReportOutcome = moderation.flagged ? 'CONTENT_REMOVED' : 'NO_VIOLATION_FOUND';
+    if (moderation.flagged && message.moderationRemovedAt == null) {
+      await this.prisma.message.update({
+        where: { id: messageId },
+        data: { moderationRemovedAt: new Date() },
+      });
+      await this.notificationsService.notify(
+        reporterId,
+        'REPORT_RESOLVED',
+        'Report resolved',
+        'The message you reported was removed for violating our guidelines.',
+        { matchId, messageId, outcome },
+      );
+    }
+
     return {
       id: report.id,
       messageId: report.messageId,
@@ -83,6 +111,7 @@ export class MessageModerationService {
       reason: report.reason,
       moderationFlagged: report.moderationFlagged,
       moderationCategories: report.moderationCategories,
+      outcome,
       createdAt: report.createdAt.toISOString(),
     };
   }
@@ -141,11 +170,23 @@ export class MessageModerationService {
 
     await this.messagingService.unmatch(reporterId, matchId);
 
+    const outcome: ReportOutcome = moderation.flagged ? 'CONTENT_REMOVED' : 'NO_VIOLATION_FOUND';
+    if (moderation.flagged) {
+      await this.notificationsService.notify(
+        reporterId,
+        'REPORT_RESOLVED',
+        'Report resolved',
+        'Your report was confirmed and the conversation was removed for violating our guidelines.',
+        { matchId, outcome },
+      );
+    }
+
     return {
       id: report.id,
       matchId: report.matchId,
       reportedUserId: report.reportedUserId,
       reason: report.reason,
+      outcome,
       details: report.details,
       moderationFlagged: report.moderationFlagged,
       moderationCategories: report.moderationCategories,
