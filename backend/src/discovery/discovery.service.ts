@@ -1571,7 +1571,9 @@ export class DiscoveryService {
     filterSharedInterestsOnly: boolean;
     filterVerifiedOnly?: boolean;
     filterCommunityGroups?: string[];
+    filterSameCampusOnly?: boolean;
     interests: string[];
+    school: string | null;
   }): Prisma.UserWhereInput {
     const where: Prisma.UserWhereInput = {};
 
@@ -1631,6 +1633,10 @@ export class DiscoveryService {
     }
     if ((currentUser.filterCommunityGroups ?? []).length > 0) {
       where.communityGroupIds = { hasSome: currentUser.filterCommunityGroups };
+    }
+    if (currentUser.filterSameCampusOnly && currentUser.school) {
+      where.school = currentUser.school;
+      where.isEducationVerified = true;
     }
 
     return where;

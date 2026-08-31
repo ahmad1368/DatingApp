@@ -169,4 +169,12 @@ export class SetLifestyleFiltersDto {
   @ArrayMaxSize(MAX_FILTER_SELECTIONS)
   @IsIn(COMMUNITY_GROUP_IDS, { each: true })
   filterCommunityGroups!: string[];
+
+  /**
+   * When true, the deck only shows student-verified candidates who share
+   * this user's own `school` value - see CampusVerificationService and
+   * DiscoveryService.buildLifestyleFilterWhere.
+   */
+  @IsBoolean()
+  filterSameCampusOnly!: boolean;
 }
