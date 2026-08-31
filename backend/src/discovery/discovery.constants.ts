@@ -84,6 +84,12 @@ export const SNOOZE_DEFAULT_DURATION_DAYS = 7;
  * rotated into the lead position based on its conversion rate. */
 export const MIN_SWIPES_FOR_PHOTO_ROTATION = 5;
 
+/** Minimum messages received before a response-rate badge is shown at all -
+ * avoids labeling someone off just one or two early replies. */
+export const MIN_MESSAGES_FOR_RESPONSE_RATE_BADGE = 5;
+export const VERY_RESPONSIVE_RATE_THRESHOLD = 0.8;
+export const RESPONSIVE_RATE_THRESHOLD = 0.5;
+
 /**
  * Dynamic deck reordering: the non-priority ("remaining") candidate pool is
  * fetched larger than the deck actually needs, ranked by proximity plus

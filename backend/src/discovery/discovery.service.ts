@@ -38,6 +38,9 @@ import {
   TRENDING_BONUS_CAP,
   PROXIMITY_SCORE_DECAY_KM,
   VIDEO_FEED_SIZE,
+  MIN_MESSAGES_FOR_RESPONSE_RATE_BADGE,
+  VERY_RESPONSIVE_RATE_THRESHOLD,
+  RESPONSIVE_RATE_THRESHOLD,
 } from './discovery.constants';
 import { getZodiacSign } from '../matching/zodiac.utils';
 import { calculateAge } from './utils/age';
@@ -71,6 +74,7 @@ export interface DeckCard {
   communicationBoundaries: string | null;
   relationshipStructure: string | null;
   kinkTagBadges: string[];
+  responseRateBadge: string | null;
 }
 
 /**
@@ -526,6 +530,8 @@ export class DiscoveryService {
       attachmentStyle: string | null;
       showAttachmentStyleOnProfile: boolean;
       school: string | null;
+      messagesReceivedCount: number;
+      messagesRepliedCount: number;
     },
     now: Date,
     origin: { latitude: number | null; longitude: number | null },
@@ -582,7 +588,31 @@ export class DiscoveryService {
         ? candidate.relationshipStructure
         : null,
       kinkTagBadges: candidate.showKinkTagsOnProfile ? candidate.kinkTags : [],
+      responseRateBadge: this.buildResponseRateBadge(candidate),
     };
+  }
+
+  /**
+   * "Very Responsive" / "Responsive" activity badge, based on the share of
+   * received messages this candidate has replied to (see
+   * MessagingService.trackResponseRate). Requires a minimum message volume
+   * so one or two early replies don't produce a misleading label.
+   */
+  private buildResponseRateBadge(candidate: {
+    messagesReceivedCount: number;
+    messagesRepliedCount: number;
+  }): string | null {
+    if (candidate.messagesReceivedCount < MIN_MESSAGES_FOR_RESPONSE_RATE_BADGE) {
+      return null;
+    }
+    const rate = candidate.messagesRepliedCount / candidate.messagesReceivedCount;
+    if (rate >= VERY_RESPONSIVE_RATE_THRESHOLD) {
+      return 'Very Responsive';
+    }
+    if (rate >= RESPONSIVE_RATE_THRESHOLD) {
+      return 'Responsive';
+    }
+    return null;
   }
 
   /**

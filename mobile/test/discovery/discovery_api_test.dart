@@ -120,6 +120,43 @@ void main() {
       expect(deck.first.kinkTagBadges, ['Dominant']);
     });
 
+    test('parses responseRateBadge when the backend includes it', () async {
+      final api = DiscoveryApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '[{"id":"user-2","name":"Jane","age":25,"profilePhotoUrl":null,'
+            '"distanceKm":3.4,"interests":["Hiking"],"relationshipGoal":"CASUAL",'
+            '"responseRateBadge":"Very Responsive"}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      final deck = await api.fetchDeck();
+
+      expect(deck.first.responseRateBadge, 'Very Responsive');
+    });
+
+    test('defaults responseRateBadge to null when the backend omits it', () async {
+      final api = DiscoveryApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '[{"id":"user-2","name":"Jane","age":25,"profilePhotoUrl":null,'
+            '"distanceKm":3.4,"interests":["Hiking"],"relationshipGoal":"CASUAL"}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      final deck = await api.fetchDeck();
+
+      expect(deck.first.responseRateBadge, isNull);
+    });
+
     test('parses videoSnippetUrl when the backend includes it', () async {
       final api = DiscoveryApi(
         accessToken: 'a-jwt',

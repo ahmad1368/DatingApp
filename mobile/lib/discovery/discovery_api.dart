@@ -39,6 +39,7 @@ class DeckCard {
     this.kinkTagBadges = const [],
     this.voiceIntroUrl,
     this.voiceIntroDurationSeconds,
+    this.responseRateBadge,
   });
 
   final String id;
@@ -67,6 +68,7 @@ class DeckCard {
   final String? communicationBoundaries;
   final String? relationshipStructure;
   final List<String> kinkTagBadges;
+  final String? responseRateBadge;
 }
 
 /// A card in the "vertical video feed" - only candidates with an actual
@@ -231,6 +233,7 @@ class DiscoveryApi {
       kinkTagBadges: (json['kinkTagBadges'] as List?)?.cast<String>() ?? const [],
       voiceIntroUrl: json['voiceIntroUrl'] as String?,
       voiceIntroDurationSeconds: json['voiceIntroDurationSeconds'] as int?,
+      responseRateBadge: json['responseRateBadge'] as String?,
     );
   }
 

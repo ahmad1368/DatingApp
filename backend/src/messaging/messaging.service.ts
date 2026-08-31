@@ -1514,8 +1514,39 @@ export class MessagingService {
   /** Notifies whichever side of the match didn't just send this message. */
   private async notifyNewMessage(match: MatchRecord, senderId: string, preview: string): Promise<void> {
     const recipientId = match.userAId === senderId ? match.userBId : match.userAId;
+    await this.trackResponseRate(match.id, senderId, recipientId);
     const body = preview.length > 140 ? `${preview.slice(0, 137)}...` : preview;
     await this.notificationsService.notify(recipientId, 'NEW_MESSAGE', 'New message', body, { matchId: match.id });
+  }
+
+  /**
+   * Feeds the "Match Response Rate Indicator Badge" (see
+   * DiscoveryService.buildResponseRateBadge): the recipient's received tally
+   * grows on every message sent to them, and the sender's replied tally only
+   * grows when this message directly follows one from the other side - two
+   * messages in a row from the same person aren't a reply.
+   */
+  private async trackResponseRate(matchId: string, senderId: string, recipientId: string): Promise<void> {
+    const [, priorMessages] = await Promise.all([
+      this.prisma.user.update({
+        where: { id: recipientId },
+        data: { messagesReceivedCount: { increment: 1 } },
+      }),
+      this.prisma.message.findMany({
+        where: { matchId },
+        orderBy: { createdAt: 'desc' },
+        take: 2,
+        select: { senderId: true },
+      }),
+    ]);
+
+    const previousSenderId = priorMessages[1]?.senderId;
+    if (previousSenderId === recipientId) {
+      await this.prisma.user.update({
+        where: { id: senderId },
+        data: { messagesRepliedCount: { increment: 1 } },
+      });
+    }
   }
 
   private async getMatchForUser(userId: string, matchId: string): Promise<MatchRecord> {

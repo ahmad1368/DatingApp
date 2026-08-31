@@ -175,6 +175,11 @@ model User {
   anthemAlbumArtUrl                     String?
   screenCaptureViolationCount           Int       @default(0)
   screenCaptureFrozenUntil              DateTime?
+  // Feed the "Match Response Rate Indicator Badge" (see
+  // DiscoveryService.buildResponseRateBadge) - tallied in
+  // MessagingService.trackResponseRate on every message sent/received.
+  messagesReceivedCount                 Int       @default(0)
+  messagesRepliedCount                  Int       @default(0)
   blurPhotosUntilMatch                  Boolean   @default(false)
   // Per-category multiplier (0-2, default 1) applied to how much each
   // PERSONALITY_CATEGORIES group contributes to this user's own view of
