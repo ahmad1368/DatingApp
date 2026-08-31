@@ -23,6 +23,8 @@ import { SendIcebreakerDto } from './dto/send-icebreaker.dto';
 import { RespondIcebreakerDto } from './dto/respond-icebreaker.dto';
 import { SendPollDto } from './dto/send-poll.dto';
 import { RespondPollDto } from './dto/respond-poll.dto';
+import { SendGameCardDto } from './dto/send-game-card.dto';
+import { RespondGameCardDto } from './dto/respond-game-card.dto';
 import { SendReservationDto } from './dto/send-reservation.dto';
 import { SendGiftMessageDto } from './dto/send-gift-message.dto';
 import { SendVoiceNoteDto } from './dto/send-voice-note.dto';
@@ -55,6 +57,12 @@ export class MessagingController {
   @Get('icebreaker-prompts')
   getIcebreakerPrompts() {
     return this.messagingService.getIcebreakerPrompts();
+  }
+
+  /** Curated card bank for a "Game Night" TRIVIA or TWENTY_ONE_QUESTIONS round. */
+  @Get('game-card-prompts')
+  getGameCardPrompts(@Query('gameType') gameType: string) {
+    return this.messagingService.getGameCardPrompts(gameType);
   }
 
   /**
@@ -303,6 +311,30 @@ export class MessagingController {
     @Body() dto: RespondPollDto,
   ) {
     return this.messagingService.respondToPoll(user.id, matchId, messageId, dto.optionIndex);
+  }
+
+  @Post(':matchId/game-card')
+  @HttpCode(HttpStatus.CREATED)
+  sendGameCard(@CurrentUser() user: AuthenticatedUser, @Param('matchId') matchId: string, @Body() dto: SendGameCardDto) {
+    return this.messagingService.sendGameCard(
+      user.id,
+      matchId,
+      dto.gameType,
+      dto.promptId,
+      dto.statements,
+      dto.lieIndex,
+    );
+  }
+
+  @Post(':matchId/messages/:messageId/game-card-response')
+  @HttpCode(HttpStatus.OK)
+  respondToGameCard(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('matchId') matchId: string,
+    @Param('messageId') messageId: string,
+    @Body() dto: RespondGameCardDto,
+  ) {
+    return this.messagingService.respondToGameCard(user.id, matchId, messageId, dto.answerIndex);
   }
 
   @Post(':matchId/reservation')

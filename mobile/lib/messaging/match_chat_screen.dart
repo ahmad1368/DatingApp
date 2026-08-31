@@ -859,6 +859,97 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
     }
   }
 
+  /// Lets the user pick one of the 3 "Game Night" card types, then either
+  /// choose a curated prompt (TRIVIA/TWENTY_ONE_QUESTIONS) or compose a
+  /// Two Truths and a Lie round, and sends it.
+  Future<void> _openGameNightPicker() async {
+    setState(() => _errorText = null);
+    final gameType = await showDialog<String>(
+      context: context,
+      builder: (context) => const _GameNightTypePickerDialog(),
+    );
+    if (gameType == null || !mounted) {
+      return;
+    }
+
+    if (gameType == 'TWO_TRUTHS_AND_A_LIE') {
+      final round = await showDialog<_TwoTruthsRound>(
+        context: context,
+        builder: (context) => const _TwoTruthsComposerDialog(),
+      );
+      if (round != null) {
+        await _sendGameCard(gameType, statements: round.statements, lieIndex: round.lieIndex);
+      }
+      return;
+    }
+
+    List<String> questions;
+    List<String> ids;
+    try {
+      if (gameType == 'TRIVIA') {
+        final trivia = await widget.messagingApi.fetchTriviaQuestions();
+        questions = trivia.map((q) => q.question).toList();
+        ids = trivia.map((q) => q.id).toList();
+      } else {
+        final prompts = await widget.messagingApi.fetchTwentyOneQuestionsPrompts();
+        questions = prompts.map((p) => p.question).toList();
+        ids = prompts.map((p) => p.id).toList();
+      }
+    } on MessagingApiException catch (e) {
+      setState(() => _errorText = e.message);
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    final promptId = await showDialog<String>(
+      context: context,
+      builder: (context) => _GameCardPromptPickerDialog(
+        title: gameType == 'TRIVIA' ? 'Send a trivia card' : 'Send a 21 Questions card',
+        questions: questions,
+        ids: ids,
+      ),
+    );
+    if (promptId != null) {
+      await _sendGameCard(gameType, promptId: promptId);
+    }
+  }
+
+  Future<void> _sendGameCard(String gameType, {String? promptId, List<String>? statements, int? lieIndex}) async {
+    setState(() => _errorText = null);
+    try {
+      final message = await widget.messagingApi.sendGameCard(
+        matchId: widget.matchId,
+        gameType: gameType,
+        promptId: promptId,
+        statements: statements,
+        lieIndex: lieIndex,
+      );
+      _onMessageSent(message);
+    } on MessagingApiException catch (e) {
+      setState(() => _errorText = e.message);
+    }
+  }
+
+  Future<void> _respondToGameCard(ChatMessage message, int answerIndex) async {
+    setState(() => _errorText = null);
+    try {
+      final updated = await widget.messagingApi.respondToGameCard(
+        matchId: widget.matchId,
+        messageId: message.id,
+        answerIndex: answerIndex,
+      );
+      setState(() {
+        _messages = [
+          for (final existing in _messages)
+            if (existing.id == updated.id) updated else existing,
+        ];
+      });
+    } on MessagingApiException catch (e) {
+      setState(() => _errorText = e.message);
+    }
+  }
+
   Future<void> _extendMatchTimeLimit() async {
     setState(() => _errorText = null);
     try {
@@ -1126,6 +1217,11 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
                           onPressed: _openIcebreakerPicker,
                         ),
                         IconButton(
+                          icon: const Icon(Icons.casino_outlined),
+                          tooltip: 'Play a game',
+                          onPressed: _openGameNightPicker,
+                        ),
+                        IconButton(
                           icon: const Icon(Icons.videocam_outlined),
                           tooltip: 'Send a video reaction',
                           onPressed: _recordAndSendVideoReaction,
@@ -1231,6 +1327,8 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
         );
       case 'ICEBREAKER':
         return _buildIcebreakerContent(message);
+      case 'GAME_CARD':
+        return _buildGameCardContent(message);
       case 'VOICE_NOTE':
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1424,6 +1522,76 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
     );
   }
 
+  Widget _buildGameCardContent(ChatMessage message) {
+    final gameCard = message.gameCard;
+    if (gameCard == null) {
+      return const SizedBox.shrink();
+    }
+
+    Widget body;
+    if (gameCard.isTwentyOneQuestions) {
+      body = const Text('Reply in chat!', style: TextStyle(color: Colors.grey));
+    } else if (!gameCard.haveIAnswered) {
+      body = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var i = 0; i < gameCard.options.length; i++)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: OutlinedButton(
+                onPressed: () => _respondToGameCard(message, i),
+                child: Text(gameCard.options[i]),
+              ),
+            ),
+        ],
+      );
+    } else {
+      final correct = gameCard.correctOptionIndex;
+      body = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var i = 0; i < gameCard.options.length; i++)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                gameCard.options[i],
+                style: TextStyle(
+                  fontWeight: i == gameCard.myAnswerIndex ? FontWeight.bold : FontWeight.normal,
+                  color: correct == null
+                      ? null
+                      : (i == correct ? Colors.green : (i == gameCard.myAnswerIndex ? Colors.red : null)),
+                ),
+              ),
+            ),
+          const SizedBox(height: 4),
+          Text(
+            gameCard.isMyAnswerCorrect == null
+                ? 'Waiting to reveal...'
+                : (gameCard.isMyAnswerCorrect! ? 'Correct!' : 'Not quite!'),
+            style: const TextStyle(fontStyle: FontStyle.italic),
+          ),
+        ],
+      );
+    }
+
+    return Container(
+      width: 240,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(gameCard.question, style: const TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          body,
+        ],
+      ),
+    );
+  }
+
   Widget _networkImage(String url) {
     return Image.network(
       url,
@@ -1574,6 +1742,145 @@ class _IcebreakerPickerDialog extends StatelessWidget {
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancel'),
+        ),
+      ],
+    );
+  }
+}
+
+class _GameNightTypePickerDialog extends StatelessWidget {
+  const _GameNightTypePickerDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    return SimpleDialog(
+      title: const Text('Play a game'),
+      children: [
+        SimpleDialogOption(
+          onPressed: () => Navigator.of(context).pop('TRIVIA'),
+          child: const Text('Trivia'),
+        ),
+        SimpleDialogOption(
+          onPressed: () => Navigator.of(context).pop('TWENTY_ONE_QUESTIONS'),
+          child: const Text('21 Questions'),
+        ),
+        SimpleDialogOption(
+          onPressed: () => Navigator.of(context).pop('TWO_TRUTHS_AND_A_LIE'),
+          child: const Text('Two Truths and a Lie'),
+        ),
+      ],
+    );
+  }
+}
+
+class _GameCardPromptPickerDialog extends StatelessWidget {
+  const _GameCardPromptPickerDialog({required this.title, required this.questions, required this.ids});
+
+  final String title;
+  final List<String> questions;
+  final List<String> ids;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(title),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: questions.isEmpty
+            ? const Text('No cards available right now.')
+            : ListView.builder(
+                shrinkWrap: true,
+                itemCount: questions.length,
+                itemBuilder: (context, index) {
+                  return ListTile(
+                    title: Text(questions[index]),
+                    onTap: () => Navigator.of(context).pop(ids[index]),
+                  );
+                },
+              ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+      ],
+    );
+  }
+}
+
+class _TwoTruthsRound {
+  _TwoTruthsRound({required this.statements, required this.lieIndex});
+
+  final List<String> statements;
+  final int lieIndex;
+}
+
+class _TwoTruthsComposerDialog extends StatefulWidget {
+  const _TwoTruthsComposerDialog();
+
+  @override
+  State<_TwoTruthsComposerDialog> createState() => _TwoTruthsComposerDialogState();
+}
+
+class _TwoTruthsComposerDialogState extends State<_TwoTruthsComposerDialog> {
+  final _controllers = [TextEditingController(), TextEditingController(), TextEditingController()];
+  int _lieIndex = 0;
+
+  @override
+  void dispose() {
+    for (final controller in _controllers) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Two Truths and a Lie'),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: RadioGroup<int>(
+          groupValue: _lieIndex,
+          onChanged: (value) => setState(() => _lieIndex = value!),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (var i = 0; i < 3; i++)
+                Row(
+                  children: [
+                    Radio<int>(value: i),
+                    Expanded(
+                      child: TextField(
+                        controller: _controllers[i],
+                        decoration: InputDecoration(hintText: 'Statement ${i + 1}'),
+                      ),
+                    ),
+                  ],
+                ),
+              const Text(
+                'Select the radio button next to your lie.',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () {
+            final statements = _controllers.map((c) => c.text.trim()).toList();
+            if (statements.any((s) => s.isEmpty)) {
+              return;
+            }
+            Navigator.of(context).pop(_TwoTruthsRound(statements: statements, lieIndex: _lieIndex));
+          },
+          child: const Text('Send'),
         ),
       ],
     );

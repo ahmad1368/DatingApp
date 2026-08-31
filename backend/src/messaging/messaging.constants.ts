@@ -167,6 +167,106 @@ export function findIcebreakerPrompt(promptId: string): IcebreakerPrompt | undef
   return ICEBREAKER_PROMPTS.find((prompt) => prompt.id === promptId);
 }
 
+export const GAME_CARD_CONTENT_TYPE = 'GAME_CARD';
+
+export const GAME_TYPES = ['TRIVIA', 'TWENTY_ONE_QUESTIONS', 'TWO_TRUTHS_AND_A_LIE'] as const;
+export type GameType = (typeof GAME_TYPES)[number];
+
+export interface TriviaQuestion {
+  id: string;
+  question: string;
+  options: string[];
+  correctOptionIndex: number;
+}
+
+// Curated multiple-choice trivia cards for the in-chat "Game Night" feature -
+// no admin tooling exists to manage this content yet, so it lives in code
+// like ICEBREAKER_PROMPTS.
+export const TRIVIA_QUESTIONS: TriviaQuestion[] = [
+  {
+    id: 'planet-largest',
+    question: 'Which is the largest planet in our solar system?',
+    options: ['Earth', 'Jupiter', 'Saturn', 'Mars'],
+    correctOptionIndex: 1,
+  },
+  {
+    id: 'eiffel-tower-city',
+    question: 'Which city is the Eiffel Tower in?',
+    options: ['Rome', 'London', 'Paris', 'Berlin'],
+    correctOptionIndex: 2,
+  },
+  {
+    id: 'ocean-largest',
+    question: 'What is the largest ocean on Earth?',
+    options: ['Atlantic', 'Indian', 'Arctic', 'Pacific'],
+    correctOptionIndex: 3,
+  },
+  {
+    id: 'mona-lisa-artist',
+    question: 'Who painted the Mona Lisa?',
+    options: ['Van Gogh', 'Da Vinci', 'Picasso', 'Monet'],
+    correctOptionIndex: 1,
+  },
+  {
+    id: 'human-bones',
+    question: 'How many bones are in the adult human body?',
+    options: ['186', '206', '226', '246'],
+    correctOptionIndex: 1,
+  },
+  {
+    id: 'smallest-country',
+    question: 'What is the smallest country in the world?',
+    options: ['Monaco', 'San Marino', 'Vatican City', 'Liechtenstein'],
+    correctOptionIndex: 2,
+  },
+  {
+    id: 'fastest-land-animal',
+    question: 'What is the fastest land animal?',
+    options: ['Lion', 'Cheetah', 'Gazelle', 'Horse'],
+    correctOptionIndex: 1,
+  },
+  {
+    id: 'water-boiling-point',
+    question: 'At sea level, at what temperature (Celsius) does water boil?',
+    options: ['90', '100', '110', '120'],
+    correctOptionIndex: 1,
+  },
+];
+
+export function findTriviaQuestion(id: string): TriviaQuestion | undefined {
+  return TRIVIA_QUESTIONS.find((question) => question.id === id);
+}
+
+export interface TwentyOneQuestionsPrompt {
+  id: string;
+  question: string;
+}
+
+// Curated conversation-deepening questions for a lightweight in-chat "21
+// Questions" game - each card is just a question to send; the reply is a
+// normal chat message, mirroring how a RESERVATION card hands off to a
+// third party rather than modeling the whole interaction server-side.
+export const TWENTY_ONE_QUESTIONS_PROMPTS: TwentyOneQuestionsPrompt[] = [
+  { id: 'q-perfect-first-date', question: 'What is your idea of a perfect first date?' },
+  { id: 'q-skill-wish', question: "What's a skill you wish you had?" },
+  { id: 'q-love-language', question: 'What is your love language?' },
+  { id: 'q-best-trip', question: "What's the best trip you've ever taken?" },
+  { id: 'q-introvert-extrovert', question: 'Are you more of an introvert or an extrovert?' },
+  { id: 'q-biggest-goal', question: 'What is your biggest goal for this year?' },
+  { id: 'q-comfort-food', question: "What's your go-to comfort food?" },
+  { id: 'q-rewatch-movie', question: 'What movie can you watch over and over?' },
+  { id: 'q-controversial-opinion', question: 'What is your most controversial (harmless) opinion?' },
+  { id: 'q-new-hobby', question: "What's a hobby you'd love to pick up?" },
+];
+
+export function findTwentyOneQuestionsPrompt(id: string): TwentyOneQuestionsPrompt | undefined {
+  return TWENTY_ONE_QUESTIONS_PROMPTS.find((prompt) => prompt.id === id);
+}
+
+// "Two Truths and a Lie" is player-authored rather than curated: the sender
+// writes exactly this many statements and flags which one is the lie.
+export const TWO_TRUTHS_STATEMENT_COUNT = 3;
+
 export function computeFirstMessageExpiresAt(from: Date): Date {
   return new Date(from.getTime() + FIRST_MESSAGE_WINDOW_HOURS * 60 * 60 * 1000);
 }

@@ -16,7 +16,12 @@ import {
   ExpiryMode,
   findBackgroundSound,
   findIcebreakerPrompt,
+  findTriviaQuestion,
+  findTwentyOneQuestionsPrompt,
   findVoiceEffect,
+  GAME_CARD_CONTENT_TYPE,
+  GAME_TYPES,
+  GameType,
   GHOSTING_PROMPT_THRESHOLD_DAYS,
   GHOSTING_PROTECTION_INACTIVITY_DAYS,
   ICEBREAKER_PROMPTS,
@@ -31,6 +36,11 @@ import {
   RESERVATION_CONTENT_TYPE,
   RESERVATION_PROVIDERS,
   ReservationProvider,
+  TRIVIA_QUESTIONS,
+  TriviaQuestion,
+  TWENTY_ONE_QUESTIONS_PROMPTS,
+  TwentyOneQuestionsPrompt,
+  TWO_TRUTHS_STATEMENT_COUNT,
   VOICE_EFFECTS,
   VOICE_NOTE_CONTENT_TYPE,
   VoiceEffect,
@@ -84,6 +94,21 @@ export interface GiftView {
   tokenCost: number;
 }
 
+export interface GameCardView {
+  gameType: GameType;
+  question: string;
+  // TRIVIA's 4 options, or TWO_TRUTHS_AND_A_LIE's 3 statements. Empty for
+  // TWENTY_ONE_QUESTIONS, which has no structured answer.
+  options: string[];
+  myAnswerIndex: number | null;
+  otherAnswerIndex: number | null;
+  // The correct trivia answer, or the index of the lie - withheld until the
+  // viewer has answered (or they're the sender, who already knows it), so
+  // guessing stays meaningful. See MessagingService.toGameCardView.
+  correctOptionIndex: number | null;
+  isMyAnswerCorrect: boolean | null;
+}
+
 export interface MessageView {
   id: string;
   senderId: string;
@@ -102,6 +127,7 @@ export interface MessageView {
   poll: PollView | null;
   reservation: ReservationView | null;
   gift: GiftView | null;
+  gameCard: GameCardView | null;
   expiryMode: ExpiryMode | null;
   viewTimerSeconds: number | null;
   isEphemeralExpired: boolean;
@@ -529,7 +555,7 @@ export class MessagingService {
           data: { viewedAt: new Date() },
         });
 
-    return this.toMessageView(updated, userId, [], [], true);
+    return this.toMessageView(updated, userId, [], [], [], true);
   }
 
   /**
@@ -552,6 +578,9 @@ export class MessagingService {
     );
     const votesByMessageId = await this.getPollVotesByMessage(
       messages.filter((message) => message.contentType === POLL_CONTENT_TYPE).map((message) => message.id),
+    );
+    const gameResponsesByMessageId = await this.getGameCardResponsesByMessage(
+      messages.filter((message) => message.contentType === GAME_CARD_CONTENT_TYPE).map((message) => message.id),
     );
 
     const unreadIncomingIds = messages
@@ -580,6 +609,7 @@ export class MessagingService {
         userId,
         responsesByMessageId.get(message.id) ?? [],
         votesByMessageId.get(message.id) ?? [],
+        gameResponsesByMessageId.get(message.id) ?? [],
       ),
     );
   }
@@ -716,6 +746,128 @@ export class MessagingService {
     const votes = await this.prisma.pollVote.findMany({ where: { messageId } });
 
     return this.toMessageView(message, userId, [], votes);
+  }
+
+  /**
+   * Curated prompt catalog for a "Game Night" card. TRIVIA and
+   * TWENTY_ONE_QUESTIONS are picked from a fixed bank (see
+   * TRIVIA_QUESTIONS/TWENTY_ONE_QUESTIONS_PROMPTS); TWO_TRUTHS_AND_A_LIE is
+   * player-authored, so there's no catalog to fetch for it.
+   */
+  getGameCardPrompts(gameType: string): TriviaQuestion[] | TwentyOneQuestionsPrompt[] {
+    if (gameType === 'TRIVIA') {
+      return TRIVIA_QUESTIONS;
+    }
+    if (gameType === 'TWENTY_ONE_QUESTIONS') {
+      return TWENTY_ONE_QUESTIONS_PROMPTS;
+    }
+    throw new BadRequestException('Unknown game type.');
+  }
+
+  /**
+   * Sends an in-chat "Game Night" card: a curated TRIVIA/TWENTY_ONE_QUESTIONS
+   * prompt, or a player-authored TWO_TRUTHS_AND_A_LIE round. The trivia
+   * answer/lie index is stored server-side (gameCorrectIndex) and only
+   * revealed to the other player once they've answered - see
+   * [toGameCardView].
+   */
+  async sendGameCard(
+    userId: string,
+    matchId: string,
+    gameType: string,
+    promptId: string | undefined,
+    statements: string[] | undefined,
+    lieIndex: number | undefined,
+  ): Promise<MessageView> {
+    if (!GAME_TYPES.includes(gameType as GameType)) {
+      throw new BadRequestException('Unknown game type.');
+    }
+
+    let content: string | null = null;
+    let pollOptions: string[] = [];
+    let gameCorrectIndex: number | null = null;
+    let notificationText: string;
+
+    if (gameType === 'TRIVIA') {
+      const question = promptId ? findTriviaQuestion(promptId) : undefined;
+      if (!question) {
+        throw new BadRequestException('Unknown trivia question.');
+      }
+      content = question.id;
+      pollOptions = question.options;
+      gameCorrectIndex = question.correctOptionIndex;
+      notificationText = 'Sent a trivia card';
+    } else if (gameType === 'TWENTY_ONE_QUESTIONS') {
+      const prompt = promptId ? findTwentyOneQuestionsPrompt(promptId) : undefined;
+      if (!prompt) {
+        throw new BadRequestException('Unknown 21 Questions prompt.');
+      }
+      content = prompt.id;
+      notificationText = 'Sent a 21 Questions card';
+    } else {
+      if (!statements || statements.length !== TWO_TRUTHS_STATEMENT_COUNT) {
+        throw new BadRequestException(`Two Truths and a Lie needs exactly ${TWO_TRUTHS_STATEMENT_COUNT} statements.`);
+      }
+      if (lieIndex == null || lieIndex < 0 || lieIndex >= statements.length) {
+        throw new BadRequestException('Invalid lie index.');
+      }
+      pollOptions = statements;
+      gameCorrectIndex = lieIndex;
+      notificationText = 'Sent a Two Truths and a Lie card';
+    }
+
+    const { match, firstMessageSent } = await this.assertCanSend(userId, matchId);
+
+    const message = await this.prisma.message.create({
+      data: {
+        matchId,
+        senderId: userId,
+        contentType: GAME_CARD_CONTENT_TYPE,
+        content,
+        pollOptions,
+        gameType,
+        gameCorrectIndex,
+      },
+    });
+
+    await this.markFirstMessageIfNeeded(matchId, firstMessageSent);
+    await this.notifyNewMessage(match, userId, notificationText);
+
+    return this.toMessageView(message, userId);
+  }
+
+  /**
+   * Answers a TRIVIA or TWO_TRUTHS_AND_A_LIE card. TWENTY_ONE_QUESTIONS has
+   * no structured response - it's answered with a normal chat message.
+   */
+  async respondToGameCard(
+    userId: string,
+    matchId: string,
+    messageId: string,
+    answerIndex: number,
+  ): Promise<MessageView> {
+    await this.getMatchForUser(userId, matchId);
+
+    const message = await this.prisma.message.findUnique({ where: { id: messageId } });
+    if (!message || message.matchId !== matchId || message.contentType !== GAME_CARD_CONTENT_TYPE) {
+      throw new NotFoundException('Game card not found.');
+    }
+    if (message.gameType === 'TWENTY_ONE_QUESTIONS') {
+      throw new BadRequestException('This game card has no structured answer - just reply in chat.');
+    }
+    if (answerIndex < 0 || answerIndex >= message.pollOptions.length) {
+      throw new BadRequestException('Invalid answer.');
+    }
+
+    await this.prisma.gameCardResponse.upsert({
+      where: { messageId_userId: { messageId, userId } },
+      create: { messageId, userId, answerIndex },
+      update: { answerIndex },
+    });
+
+    const responses = await this.prisma.gameCardResponse.findMany({ where: { messageId } });
+
+    return this.toMessageView(message, userId, [], [], responses);
   }
 
   /**
@@ -967,6 +1119,9 @@ export class MessagingService {
     const votesByMessageId = await this.getPollVotesByMessage(
       messages.filter((message) => message.contentType === POLL_CONTENT_TYPE).map((message) => message.id),
     );
+    const gameResponsesByMessageId = await this.getGameCardResponsesByMessage(
+      messages.filter((message) => message.contentType === GAME_CARD_CONTENT_TYPE).map((message) => message.id),
+    );
 
     return messages.map((message) =>
       this.toMessageView(
@@ -974,6 +1129,7 @@ export class MessagingService {
         partnerId,
         responsesByMessageId.get(message.id) ?? [],
         votesByMessageId.get(message.id) ?? [],
+        gameResponsesByMessageId.get(message.id) ?? [],
       ),
     );
   }
@@ -1406,6 +1562,25 @@ export class MessagingService {
     return votesByMessageId;
   }
 
+  private async getGameCardResponsesByMessage(
+    messageIds: string[],
+  ): Promise<Map<string, { userId: string; answerIndex: number }[]>> {
+    const responsesByMessageId = new Map<string, { userId: string; answerIndex: number }[]>();
+    if (messageIds.length === 0) {
+      return responsesByMessageId;
+    }
+
+    const responses = await this.prisma.gameCardResponse.findMany({
+      where: { messageId: { in: messageIds } },
+    });
+    for (const response of responses) {
+      const list = responsesByMessageId.get(response.messageId) ?? [];
+      list.push({ userId: response.userId, answerIndex: response.answerIndex });
+      responsesByMessageId.set(response.messageId, list);
+    }
+    return responsesByMessageId;
+  }
+
   private toMessageView(
     message: {
       id: string;
@@ -1422,6 +1597,8 @@ export class MessagingService {
       pollOptions?: string[];
       reservationProvider?: string | null;
       reservationUrl?: string | null;
+      gameType?: string | null;
+      gameCorrectIndex?: number | null;
       readAt: Date | null;
       transcript?: string | null;
       expiryMode?: string | null;
@@ -1432,6 +1609,7 @@ export class MessagingService {
     userId: string,
     icebreakerResponses: { userId: string; optionIndex: number }[] = [],
     pollVotes: { userId: string; optionIndex: number }[] = [],
+    gameResponses: { userId: string; answerIndex: number }[] = [],
     revealMediaUrl = false,
   ): MessageView {
     const expiryMode = (message.expiryMode as ExpiryMode | undefined) ?? null;
@@ -1469,6 +1647,16 @@ export class MessagingService {
         message.reservationUrl,
       ),
       gift: this.toGiftView(message.contentType, message.content),
+      gameCard: this.toGameCardView(
+        message.contentType,
+        message.gameType ?? null,
+        message.senderId,
+        message.content,
+        message.pollOptions,
+        message.gameCorrectIndex ?? null,
+        userId,
+        gameResponses,
+      ),
       createdAt: message.createdAt.toISOString(),
     };
   }
@@ -1543,6 +1731,59 @@ export class MessagingService {
       myOptionIndex: myVote?.optionIndex ?? null,
       voteCounts,
       totalVotes: votes.length,
+    };
+  }
+
+  /**
+   * The correct trivia answer / lie index is withheld from a viewer who
+   * hasn't answered yet (unless they're the sender, who authored it) so
+   * guessing stays meaningful - it's revealed the moment they submit their
+   * own answer, same "reveal on interaction" shape as ephemeral media.
+   */
+  private toGameCardView(
+    contentType: string,
+    gameType: string | null,
+    senderId: string,
+    promptId: string | null,
+    options: string[] | undefined,
+    correctIndex: number | null,
+    userId: string,
+    responses: { userId: string; answerIndex: number }[],
+  ): GameCardView | null {
+    if (contentType !== GAME_CARD_CONTENT_TYPE || !gameType) {
+      return null;
+    }
+
+    let question: string;
+    if (gameType === 'TRIVIA') {
+      const trivia = promptId ? findTriviaQuestion(promptId) : undefined;
+      if (!trivia) {
+        return null;
+      }
+      question = trivia.question;
+    } else if (gameType === 'TWENTY_ONE_QUESTIONS') {
+      const prompt = promptId ? findTwentyOneQuestionsPrompt(promptId) : undefined;
+      if (!prompt) {
+        return null;
+      }
+      question = prompt.question;
+    } else {
+      question = 'Which one is the lie?';
+    }
+
+    const myResponse = responses.find((response) => response.userId === userId);
+    const otherResponse = responses.find((response) => response.userId !== userId);
+    const myAnswerIndex = myResponse?.answerIndex ?? null;
+    const canSeeCorrectIndex = userId === senderId || myAnswerIndex != null;
+
+    return {
+      gameType: gameType as GameType,
+      question,
+      options: options ?? [],
+      myAnswerIndex,
+      otherAnswerIndex: otherResponse?.answerIndex ?? null,
+      correctOptionIndex: canSeeCorrectIndex ? correctIndex : null,
+      isMyAnswerCorrect: myAnswerIndex != null && correctIndex != null ? myAnswerIndex === correctIndex : null,
     };
   }
 }

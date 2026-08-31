@@ -299,6 +299,14 @@ model Message {
   // mirroring how a POLL's question is stored there too.
   reservationProvider  String?
   reservationUrl       String?
+  // A GAME_CARD message: TRIVIA/TWO_TRUTHS_AND_A_LIE options reuse
+  // `pollOptions` (trivia's 4 choices, or the 3 statements), and `content`
+  // holds the curated promptId for TRIVIA/TWENTY_ONE_QUESTIONS - see
+  // messaging.constants.ts. gameCorrectIndex is the correct trivia answer or
+  // the index of the lie, masked from the guesser until they answer, see
+  // MessagingService.toGameCardView.
+  gameType             String?
+  gameCorrectIndex     Int?
   readAt               DateTime?
   // Auto-expiring media: null expiryMode means a normal, permanent message.
   // See isEphemeralExpired in messaging.constants.ts for how these three
@@ -370,6 +378,20 @@ model PollVote {
 
   @@unique([messageId, userId])
   @@map("poll_votes")
+}
+
+// An answer to an in-chat GAME_CARD message (TRIVIA guess or
+// TWO_TRUTHS_AND_A_LIE guess) - same one-response-per-user shape as
+// IcebreakerResponse/PollVote.
+model GameCardResponse {
+  id          String   @id @default(uuid())
+  messageId   String
+  userId      String
+  answerIndex Int
+  createdAt   DateTime @default(now())
+
+  @@unique([messageId, userId])
+  @@map("game_card_responses")
 }
 
 model ProfilePromptVoiceAnswer {
