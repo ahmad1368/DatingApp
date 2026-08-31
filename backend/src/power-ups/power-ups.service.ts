@@ -1,6 +1,11 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { computeBoostExpiresAt } from '../discovery/discovery.constants';
+import {
+  computeBoostExpiresAt,
+  isSuperBoostPeakHour,
+  SUPER_BOOST_OFF_PEAK_VIEW_MULTIPLIER,
+  SUPER_BOOST_PEAK_VIEW_MULTIPLIER,
+} from '../discovery/discovery.constants';
 import { computeExtendedExpiresAt } from '../messaging/messaging.constants';
 import { EXTRA_DECK_SLOTS_GRANTED, findPowerUp, POWER_UPS, PowerUp } from './power-ups.constants';
 
@@ -48,6 +53,8 @@ export class PowerUpsService {
       case 'boost-pack-3':
       case 'boost-pack-5':
         return this.purchaseBoostPack(userId, powerUp);
+      case 'super-boost':
+        return this.purchaseSuperBoost(userId, powerUp);
       case 'extra-profile-views':
         return this.purchaseExtraProfileViews(userId, powerUp);
       case 'extend-match-timer':
@@ -101,6 +108,37 @@ export class PowerUpsService {
       }),
       this.prisma.boost.create({
         data: { userId, expiresAt: computeBoostExpiresAt(new Date()) },
+      }),
+    ]);
+
+    return { coinBalance: updatedUser.giftTokenBalance, powerUpId: powerUp.id };
+  }
+
+  /**
+   * Standalone, single-use Super Boost: the same SUPER tier and peak/off-peak
+   * view multiplier DiscoveryService.activateSuperBoost grants Platinum
+   * subscribers for free, but purchasable a la carte without a subscription.
+   */
+  private async purchaseSuperBoost(userId: string, powerUp: PowerUp): Promise<PurchasePowerUpResult> {
+    const existingBoost = await this.prisma.boost.findFirst({
+      where: { userId, expiresAt: { gt: new Date() } },
+    });
+    if (existingBoost) {
+      throw new BadRequestException('You already have an active boost.');
+    }
+
+    const now = new Date();
+    const viewMultiplier = isSuperBoostPeakHour(now)
+      ? SUPER_BOOST_PEAK_VIEW_MULTIPLIER
+      : SUPER_BOOST_OFF_PEAK_VIEW_MULTIPLIER;
+
+    const [updatedUser] = await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: userId },
+        data: { giftTokenBalance: { decrement: powerUp.coinCost } },
+      }),
+      this.prisma.boost.create({
+        data: { userId, expiresAt: computeBoostExpiresAt(now), tier: 'SUPER', viewMultiplier },
       }),
     ]);
 

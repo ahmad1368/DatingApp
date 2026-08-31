@@ -18,6 +18,11 @@ export const POWER_UPS: PowerUp[] = [
   // a busy weekend instead of right away.
   { id: 'boost-pack-3', label: 'Boost Pack (3x 30 min)', coinCost: 250, quantity: 3 },
   { id: 'boost-pack-5', label: 'Boost Pack (5x 30 min)', coinCost: 375, quantity: 5 },
+  // Standalone, single-use Super Boost - the same SUPER tier/view multiplier
+  // DiscoveryService.activateSuperBoost grants Platinum subscribers for
+  // free, but purchasable a la carte without a subscription. See
+  // PowerUpsService.purchaseSuperBoost.
+  { id: 'super-boost', label: 'Super Boost (30 min)', coinCost: 400 },
   { id: 'super-like', label: 'Extra Super Like', coinCost: 20, quantity: 1 },
   // Bulk packs: a standalone microtransaction that grants several bonus
   // super likes at once, at a discount over buying that many one at a time

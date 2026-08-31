@@ -86,6 +86,53 @@ describe('PowerUpsService', () => {
       });
     });
 
+    describe('super-boost', () => {
+      it('rejects when the user already has an active boost', async () => {
+        prisma.user.findUnique.mockResolvedValue({ giftTokenBalance: 500 });
+        prisma.boost.findFirst.mockResolvedValue({ id: 'boost-1' });
+
+        await expect(service.purchasePowerUp(USER_ID, 'super-boost')).rejects.toBeInstanceOf(
+          BadRequestException,
+        );
+        expect(prisma.boost.create).not.toHaveBeenCalled();
+      });
+
+      it('deducts coins and creates a SUPER-tier boost without requiring a subscription', async () => {
+        jest.useFakeTimers().setSystemTime(new Date(Date.UTC(2026, 0, 1, 19, 0, 0)));
+        prisma.user.findUnique.mockResolvedValue({ giftTokenBalance: 500 });
+        prisma.boost.findFirst.mockResolvedValue(null);
+        prisma.user.update.mockResolvedValue({ giftTokenBalance: 100 });
+        prisma.boost.create.mockResolvedValue({ id: 'boost-1' });
+
+        const result = await service.purchasePowerUp(USER_ID, 'super-boost');
+
+        expect(prisma.user.update).toHaveBeenCalledWith({
+          where: { id: USER_ID },
+          data: { giftTokenBalance: { decrement: 400 } },
+        });
+        expect(prisma.boost.create).toHaveBeenCalledWith({
+          data: { userId: USER_ID, expiresAt: expect.any(Date), tier: 'SUPER', viewMultiplier: 100 },
+        });
+        expect(result).toEqual({ coinBalance: 100, powerUpId: 'super-boost' });
+        jest.useRealTimers();
+      });
+
+      it('uses the off-peak multiplier outside the peak UTC window', async () => {
+        jest.useFakeTimers().setSystemTime(new Date(Date.UTC(2026, 0, 1, 3, 0, 0)));
+        prisma.user.findUnique.mockResolvedValue({ giftTokenBalance: 500 });
+        prisma.boost.findFirst.mockResolvedValue(null);
+        prisma.user.update.mockResolvedValue({ giftTokenBalance: 100 });
+        prisma.boost.create.mockResolvedValue({ id: 'boost-1' });
+
+        await service.purchasePowerUp(USER_ID, 'super-boost');
+
+        expect(prisma.boost.create).toHaveBeenCalledWith({
+          data: { userId: USER_ID, expiresAt: expect.any(Date), tier: 'SUPER', viewMultiplier: 10 },
+        });
+        jest.useRealTimers();
+      });
+    });
+
     describe('boost-pack-3', () => {
       it('deducts the discounted bulk price and credits 3 bonus boosts without activating one', async () => {
         prisma.user.findUnique.mockResolvedValue({ giftTokenBalance: 300 });
