@@ -145,6 +145,49 @@ void main() {
     expect(find.textContaining('Voice intro'), findsNothing);
   });
 
+  testWidgets('shows a labeled relationship goal badge when present', (tester) async {
+    final card = DeckCard(
+      id: 'user-2',
+      name: 'Jane',
+      age: 25,
+      interests: const ['Hiking'],
+      relationshipGoal: 'LONG_TERM',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(home: Scaffold(body: Center(child: SwipeCard(card: card, onSwiped: (_) {})))),
+    );
+
+    expect(find.text('Long-term relationship'), findsOneWidget);
+    expect(find.byIcon(Icons.flag), findsOneWidget);
+  });
+
+  testWidgets('falls back to the raw value for an unrecognized relationship goal', (tester) async {
+    final card = DeckCard(
+      id: 'user-2',
+      name: 'Jane',
+      age: 25,
+      interests: const ['Hiking'],
+      relationshipGoal: 'SOMETHING_NEW',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(home: Scaffold(body: Center(child: SwipeCard(card: card, onSwiped: (_) {})))),
+    );
+
+    expect(find.text('SOMETHING_NEW'), findsOneWidget);
+  });
+
+  testWidgets('hides the relationship goal badge when absent', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: Center(child: SwipeCard(card: _sampleCard(), onSwiped: (_) {}))),
+      ),
+    );
+
+    expect(find.byIcon(Icons.flag), findsNothing);
+  });
+
   testWidgets('shows relationship structure and kink tag badges when present', (tester) async {
     final card = DeckCard(
       id: 'user-2',
