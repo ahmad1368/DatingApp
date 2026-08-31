@@ -1434,6 +1434,8 @@ export class DiscoveryService {
     filterSmokingHabits: string[];
     filterDrinkingHabits: string[];
     filterWorkoutHabits?: string[];
+    filterMinHeightCm?: number | null;
+    filterMaxHeightCm?: number | null;
     filterEducationLevels: string[];
     filterReligions: string[];
     filterDietaryPreferences: string[];
@@ -1460,6 +1462,12 @@ export class DiscoveryService {
     }
     if ((currentUser.filterWorkoutHabits ?? []).length > 0) {
       where.workoutHabit = { in: currentUser.filterWorkoutHabits };
+    }
+    if (currentUser.filterMinHeightCm != null || currentUser.filterMaxHeightCm != null) {
+      where.heightCm = {
+        ...(currentUser.filterMinHeightCm != null ? { gte: currentUser.filterMinHeightCm } : {}),
+        ...(currentUser.filterMaxHeightCm != null ? { lte: currentUser.filterMaxHeightCm } : {}),
+      };
     }
     if (currentUser.filterEducationLevels.length > 0) {
       where.education = { in: currentUser.filterEducationLevels };

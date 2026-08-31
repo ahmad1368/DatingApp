@@ -962,6 +962,73 @@ describe('DiscoveryService', () => {
       });
     });
 
+    it('applies a min/max height range filter to the candidate query', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+        filterMinHeightCm: 160,
+        filterMaxHeightCm: 190,
+      });
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      prisma.user.findMany.mockResolvedValue([]);
+
+      await service.getDeck(USER_ID);
+
+      expect(prisma.user.findMany).toHaveBeenCalledWith({
+        where: {
+          id: { notIn: [USER_ID] },
+          onboardingCompletedAt: { not: null },
+          activeMode: 'DATING',
+          AND: [
+            { OR: [{ incognitoEnabled: false }, { id: { in: [] } }] },
+            { OR: [{ id: { notIn: [] } }, { id: { in: [] } }] },
+            { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
+          ],
+          heightCm: { gte: 160, lte: 190 },
+        },
+        take: 60,
+      });
+    });
+
+    it('applies only a min height when no max is set', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+        filterMinHeightCm: 170,
+      });
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      prisma.user.findMany.mockResolvedValue([]);
+
+      await service.getDeck(USER_ID);
+
+      expect(prisma.user.findMany).toHaveBeenCalledWith({
+        where: {
+          id: { notIn: [USER_ID] },
+          onboardingCompletedAt: { not: null },
+          activeMode: 'DATING',
+          AND: [
+            { OR: [{ incognitoEnabled: false }, { id: { in: [] } }] },
+            { OR: [{ id: { notIn: [] } }, { id: { in: [] } }] },
+            { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
+          ],
+          heightCm: { gte: 170 },
+        },
+        take: 60,
+      });
+    });
+
     it('applies kink tag and relationship desire filters to the candidate query', async () => {
       prisma.user.findUnique.mockResolvedValue({
         id: USER_ID,
