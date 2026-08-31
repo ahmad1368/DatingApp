@@ -44,7 +44,7 @@ export class VaultAlbumController {
     @Param('albumId') albumId: string,
     @Body() dto: GrantVaultAccessDto,
   ) {
-    return this.vaultAlbumService.grantAccess(user.id, albumId, dto.matchId);
+    return this.vaultAlbumService.grantAccess(user.id, albumId, dto.matchId, dto.expiresInHours);
   }
 
   @Post(':albumId/revoke')

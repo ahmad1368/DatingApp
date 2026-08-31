@@ -39,12 +39,14 @@ class GrantedVaultAlbum {
     required this.id,
     required this.name,
     required this.grantedAt,
+    this.expiresAt,
     required this.photos,
   });
 
   final String id;
   final String name;
   final DateTime grantedAt;
+  final DateTime? expiresAt;
   final List<GrantedVaultAlbumPhoto> photos;
 }
 
@@ -103,11 +105,13 @@ class VaultAlbumApi {
     }
   }
 
-  Future<void> grantAccess(String albumId, String matchId) async {
+  /// Omit [expiresInHours] for a permanent grant; otherwise the key expires
+  /// after this many hours (see the backend's MIN/MAX_GRANT_EXPIRY_HOURS).
+  Future<void> grantAccess(String albumId, String matchId, {int? expiresInHours}) async {
     final response = await _client.post(
       Uri.parse('$_baseUrl/vault/albums/$albumId/grant'),
       headers: _headers,
-      body: jsonEncode({'matchId': matchId}),
+      body: jsonEncode({'matchId': matchId, 'expiresInHours': ?expiresInHours}),
     );
 
     if (response.statusCode != 200) {
@@ -145,6 +149,7 @@ class VaultAlbumApi {
         id: json['id'] as String,
         name: json['name'] as String,
         grantedAt: DateTime.parse(json['grantedAt'] as String),
+        expiresAt: json['expiresAt'] != null ? DateTime.parse(json['expiresAt'] as String) : null,
         photos: photos
             .map((photo) => GrantedVaultAlbumPhoto(
                   id: photo['id'] as String,

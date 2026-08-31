@@ -104,6 +104,22 @@ describe('VaultAlbumService', () => {
         },
       ]);
     });
+
+    it('excludes a match whose time-limited grant has expired', async () => {
+      prisma.vaultAlbum.findMany.mockResolvedValue([
+        {
+          id: ALBUM_ID,
+          name: 'Beach Trip',
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+          photos: [],
+          grants: [{ matchId: MATCH_ID, expiresAt: new Date('2020-01-01T00:00:00.000Z') }],
+        },
+      ]);
+
+      const result = await service.listMyAlbums(OWNER_ID);
+
+      expect(result[0].grantedMatchIds).toEqual([]);
+    });
   });
 
   describe('deleteAlbum', () => {
@@ -152,7 +168,7 @@ describe('VaultAlbumService', () => {
       );
     });
 
-    it('upserts the grant so re-granting is a no-op', async () => {
+    it('upserts a permanent grant when no expiry is given', async () => {
       prisma.vaultAlbum.findUnique.mockResolvedValue({ id: ALBUM_ID, ownerId: OWNER_ID });
       prisma.match.findUnique.mockResolvedValue({ userAId: OWNER_ID, userBId: OTHER_ID });
 
@@ -160,10 +176,33 @@ describe('VaultAlbumService', () => {
 
       expect(prisma.vaultAlbumGrant.upsert).toHaveBeenCalledWith({
         where: { vaultAlbumId_matchId: { vaultAlbumId: ALBUM_ID, matchId: MATCH_ID } },
-        create: { vaultAlbumId: ALBUM_ID, matchId: MATCH_ID },
-        update: {},
+        create: { vaultAlbumId: ALBUM_ID, matchId: MATCH_ID, expiresAt: null },
+        update: { expiresAt: null },
       });
       expect(result).toEqual({ granted: true });
+    });
+
+    it('upserts a time-limited grant with a computed expiresAt when expiresInHours is given', async () => {
+      prisma.vaultAlbum.findUnique.mockResolvedValue({ id: ALBUM_ID, ownerId: OWNER_ID });
+      prisma.match.findUnique.mockResolvedValue({ userAId: OWNER_ID, userBId: OTHER_ID });
+
+      await service.grantAccess(OWNER_ID, ALBUM_ID, MATCH_ID, 24);
+
+      expect(prisma.vaultAlbumGrant.upsert).toHaveBeenCalledWith({
+        where: { vaultAlbumId_matchId: { vaultAlbumId: ALBUM_ID, matchId: MATCH_ID } },
+        create: { vaultAlbumId: ALBUM_ID, matchId: MATCH_ID, expiresAt: expect.any(Date) },
+        update: { expiresAt: expect.any(Date) },
+      });
+    });
+
+    it('rejects an expiresInHours outside the allowed range', async () => {
+      prisma.vaultAlbum.findUnique.mockResolvedValue({ id: ALBUM_ID, ownerId: OWNER_ID });
+      prisma.match.findUnique.mockResolvedValue({ userAId: OWNER_ID, userBId: OTHER_ID });
+
+      await expect(service.grantAccess(OWNER_ID, ALBUM_ID, MATCH_ID, 0)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(prisma.vaultAlbumGrant.upsert).not.toHaveBeenCalled();
     });
   });
 
@@ -222,9 +261,25 @@ describe('VaultAlbumService', () => {
           id: ALBUM_ID,
           name: 'Beach Trip',
           grantedAt: '2026-01-02T00:00:00.000Z',
+          expiresAt: null,
           photos: [{ id: PHOTO_ID, mediaUrl: 'https://example.com/a.jpg' }],
         },
       ]);
+    });
+
+    it('excludes an album grant whose time-limited key has expired', async () => {
+      prisma.match.findUnique.mockResolvedValue({ userAId: OWNER_ID, userBId: OTHER_ID });
+      prisma.vaultAlbumGrant.findMany.mockResolvedValue([
+        {
+          vaultAlbum: { id: ALBUM_ID, name: 'Beach Trip', photos: [] },
+          grantedAt: new Date('2026-01-01T00:00:00.000Z'),
+          expiresAt: new Date('2020-01-01T00:00:00.000Z'),
+        },
+      ]);
+
+      const result = await service.listGrantedAlbums(OWNER_ID, MATCH_ID);
+
+      expect(result).toEqual([]);
     });
   });
 });
