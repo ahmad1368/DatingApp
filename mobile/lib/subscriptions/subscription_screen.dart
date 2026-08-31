@@ -13,6 +13,8 @@ class SubscriptionScreen extends StatefulWidget {
   State<SubscriptionScreen> createState() => _SubscriptionScreenState();
 }
 
+const _tierRank = {'FREE': 0, 'PLUS': 1, 'GOLD': 2, 'PLATINUM': 3};
+
 class _SubscriptionScreenState extends State<SubscriptionScreen> {
   List<SubscriptionPlan> _catalog = [];
   SubscriptionStatus? _status;
@@ -69,6 +71,18 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     } on SubscriptionsApiException catch (e) {
       setState(() => _errorText = e.message);
     }
+  }
+
+  /// Whether subscribing to [plan] would be a mid-cycle upgrade from the
+  /// current active paid tier - the backend carries the unused time on the
+  /// current tier forward as bonus time on the new one for this case (see
+  /// SubscriptionsService.subscribe/computeSubscribeExpiresAt).
+  bool _isUpgrade(SubscriptionPlan plan) {
+    final status = _status;
+    if (status == null || !status.isActive) {
+      return false;
+    }
+    return (_tierRank[plan.tier] ?? 0) > (_tierRank[status.tier] ?? 0);
   }
 
   Future<void> _giftPlan(SubscriptionPlan plan) async {
@@ -148,7 +162,13 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                                 ElevatedButton(
                                   onPressed:
                                       status?.tier == plan.tier ? null : () => _subscribe(plan),
-                                  child: Text(status?.tier == plan.tier ? 'Current plan' : 'Subscribe'),
+                                  child: Text(
+                                    status?.tier == plan.tier
+                                        ? 'Current plan'
+                                        : _isUpgrade(plan)
+                                            ? 'Upgrade'
+                                            : 'Subscribe',
+                                  ),
                                 ),
                                 const SizedBox(width: 8),
                                 OutlinedButton(

@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import {
+  computeSubscribeExpiresAt,
   PaidSubscriptionTier,
   SUBSCRIPTION_PERIOD_DAYS,
   SUBSCRIPTION_PLANS,
@@ -57,11 +58,23 @@ export class SubscriptionsService {
    * Activates a paid tier for one billing period. There's no store/payment
    * receipt to validate (see subscriptions.constants.ts) - this directly
    * grants entitlement, which is what a webhook confirming a real purchase
-   * would otherwise trigger.
+   * would otherwise trigger. A mid-cycle upgrade (e.g. Gold to Platinum)
+   * carries the unused time on the current tier forward as bonus time on
+   * the new one - see computeSubscribeExpiresAt.
    */
   async subscribe(userId: string, tier: PaidSubscriptionTier): Promise<SubscriptionStatus> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found.');
+    }
+
     const now = new Date();
-    const expiresAt = new Date(now.getTime() + SUBSCRIPTION_PERIOD_DAYS * 24 * 60 * 60 * 1000);
+    const expiresAt = computeSubscribeExpiresAt(
+      now,
+      user.subscriptionTier as SubscriptionTier,
+      user.subscriptionExpiresAt,
+      tier,
+    );
 
     const updated = await this.prisma.user.update({
       where: { id: userId },
