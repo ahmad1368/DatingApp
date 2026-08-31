@@ -15,6 +15,7 @@ class EventsScreen extends StatefulWidget {
 
 class _EventsScreenState extends State<EventsScreen> {
   List<LocalEvent> _events = [];
+  int? _coinBalance;
   bool _isLoading = true;
   String? _errorText;
 
@@ -44,11 +45,10 @@ class _EventsScreenState extends State<EventsScreen> {
   Future<void> _toggleRsvp(LocalEvent event) async {
     setState(() => _errorText = null);
     try {
-      if (event.isRsvped) {
-        await widget.eventsApi.cancelRsvp(event.id);
-      } else {
-        await widget.eventsApi.rsvp(event.id);
-      }
+      final newBalance = event.isRsvped
+          ? await widget.eventsApi.cancelRsvp(event.id)
+          : await widget.eventsApi.rsvp(event.id);
+      setState(() => _coinBalance = newBalance);
       await _load();
     } on EventsApiException catch (e) {
       setState(() => _errorText = e.message);
@@ -71,13 +71,23 @@ class _EventsScreenState extends State<EventsScreen> {
         '${date.day.toString().padLeft(2, '0')} ${date.hour.toString().padLeft(2, '0')}:'
         '${date.minute.toString().padLeft(2, '0')}';
     final distance = event.distanceKm != null ? ' · ${event.distanceKm!.toStringAsFixed(1)} km away' : '';
-    return '${event.location} · $dateLabel$distance';
+    final price = event.priceCoins > 0 ? ' · ${event.priceCoins} coins' : ' · Free';
+    return '${event.location} · $dateLabel$distance$price';
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Local Events')),
+      appBar: AppBar(
+        title: const Text('Local Events'),
+        actions: [
+          if (_coinBalance != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: Center(child: Text('$_coinBalance coins')),
+            ),
+        ],
+      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : Column(
@@ -115,7 +125,13 @@ class _EventsScreenState extends State<EventsScreen> {
                                           ),
                                         ElevatedButton(
                                           onPressed: () => _toggleRsvp(event),
-                                          child: Text(event.isRsvped ? 'Cancel RSVP' : 'RSVP'),
+                                          child: Text(
+                                            event.isRsvped
+                                                ? 'Cancel RSVP'
+                                                : event.priceCoins > 0
+                                                    ? 'RSVP (${event.priceCoins} coins)'
+                                                    : 'RSVP',
+                                          ),
                                         ),
                                       ],
                                     ),

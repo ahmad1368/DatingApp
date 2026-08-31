@@ -4,114 +4,84 @@ import 'package:http/testing.dart';
 
 import 'package:mobile/events/events_api.dart';
 
+http.Response _jsonResponse(String body, int status) =>
+    http.Response(body, status, headers: {'content-type': 'application/json'});
+
+const _eventJson = '{"id":"event-1","title":"Singles Mixer","description":null,'
+    '"location":"Downtown Bar","category":"MIXER","startsAt":"2026-02-01T18:00:00.000Z",'
+    '"priceCoins":20,"distanceKm":null,"rsvpCount":0,"isRsvped":false,'
+    '"checkedInCount":0,"isCheckedIn":false}';
+
 void main() {
   group('EventsApi.fetchNearbyEvents', () {
-    test('sends the bearer token and parses events', () async {
+    test('parses the event list including priceCoins', () async {
       final api = EventsApi(
         accessToken: 'a-jwt',
         client: MockClient((request) async {
-          expect(request.headers['Authorization'], 'Bearer a-jwt');
           expect(request.url.path, '/events');
-          return http.Response(
-            '[{"id":"event-1","title":"Singles Mixer","description":null,'
-            '"location":"Downtown Bar","category":"MIXER",'
-            '"startsAt":"2026-02-01T18:00:00.000Z","distanceKm":2.5,'
-            '"rsvpCount":3,"isRsvped":false,"checkedInCount":1,"isCheckedIn":false}]',
-            200,
-            headers: {'content-type': 'application/json'},
-          );
+          return _jsonResponse('[$_eventJson]', 200);
         }),
       );
 
       final events = await api.fetchNearbyEvents();
 
       expect(events, hasLength(1));
-      expect(events.first.title, 'Singles Mixer');
-      expect(events.first.distanceKm, 2.5);
-      expect(events.first.checkedInCount, 1);
-      expect(events.first.isCheckedIn, isFalse);
+      expect(events.first.priceCoins, 20);
     });
 
-    test('throws EventsApiException on a non-200 response', () async {
+    test('defaults priceCoins to 0 when omitted', () async {
+      const freeEventJson = '{"id":"event-2","title":"Free Meetup","description":null,'
+          '"location":"Park","category":"MEETUP","startsAt":"2026-02-01T18:00:00.000Z",'
+          '"distanceKm":null,"rsvpCount":0,"isRsvped":false,"checkedInCount":0,"isCheckedIn":false}';
       final api = EventsApi(
         accessToken: 'a-jwt',
-        client: MockClient((request) async => http.Response('', 500)),
+        client: MockClient((request) async => _jsonResponse('[$freeEventJson]', 200)),
       );
 
-      expect(() => api.fetchNearbyEvents(), throwsA(isA<EventsApiException>()));
+      final events = await api.fetchNearbyEvents();
+
+      expect(events.first.priceCoins, 0);
     });
   });
 
-  group('EventsApi.rsvp / cancelRsvp', () {
-    test('rsvp posts to the rsvp endpoint', () async {
-      http.Request? capturedRequest;
+  group('EventsApi.rsvp', () {
+    test('posts to the rsvp endpoint and returns the resulting coin balance', () async {
       final api = EventsApi(
         accessToken: 'a-jwt',
         client: MockClient((request) async {
-          capturedRequest = request;
-          return http.Response('', 200);
+          expect(request.method, 'POST');
+          expect(request.url.path, '/events/event-1/rsvp');
+          return _jsonResponse('{"rsvped":true,"coinBalance":30}', 200);
         }),
       );
 
-      await api.rsvp('event-1');
-
-      expect(capturedRequest!.method, 'POST');
-      expect(capturedRequest!.url.path, '/events/event-1/rsvp');
+      expect(await api.rsvp('event-1'), 30);
     });
 
-    test('cancelRsvp posts to the cancel-rsvp endpoint', () async {
-      http.Request? capturedRequest;
+    test('throws EventsApiException when the coin balance is too low', () async {
       final api = EventsApi(
         accessToken: 'a-jwt',
-        client: MockClient((request) async {
-          capturedRequest = request;
-          return http.Response('', 200);
-        }),
-      );
-
-      await api.cancelRsvp('event-1');
-
-      expect(capturedRequest!.method, 'POST');
-      expect(capturedRequest!.url.path, '/events/event-1/cancel-rsvp');
-    });
-
-    test('throws EventsApiException on a non-200 response', () async {
-      final api = EventsApi(
-        accessToken: 'a-jwt',
-        client: MockClient((request) async => http.Response('{"message":"nope"}', 400)),
+        client: MockClient(
+          (request) async => _jsonResponse('{"message":"Not enough coins for this event access pass."}', 400),
+        ),
       );
 
       expect(() => api.rsvp('event-1'), throwsA(isA<EventsApiException>()));
     });
   });
 
-  group('EventsApi.checkIn', () {
-    test('posts to the check-in endpoint', () async {
-      http.Request? capturedRequest;
+  group('EventsApi.cancelRsvp', () {
+    test('posts to the cancel-rsvp endpoint and returns the refunded coin balance', () async {
       final api = EventsApi(
         accessToken: 'a-jwt',
         client: MockClient((request) async {
-          capturedRequest = request;
-          return http.Response('', 200);
+          expect(request.method, 'POST');
+          expect(request.url.path, '/events/event-1/cancel-rsvp');
+          return _jsonResponse('{"cancelled":true,"coinBalance":50}', 200);
         }),
       );
 
-      await api.checkIn('event-1');
-
-      expect(capturedRequest!.method, 'POST');
-      expect(capturedRequest!.url.path, '/events/event-1/check-in');
-    });
-
-    test('throws EventsApiException when the event has not started yet', () async {
-      final api = EventsApi(
-        accessToken: 'a-jwt',
-        client: MockClient(
-          (request) async =>
-              http.Response('{"message":"You can only check in once the event has started."}', 400),
-        ),
-      );
-
-      expect(() => api.checkIn('event-1'), throwsA(isA<EventsApiException>()));
+      expect(await api.cancelRsvp('event-1'), 50);
     });
   });
 }

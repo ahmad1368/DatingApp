@@ -13,11 +13,22 @@ export interface LocalEventView {
   longitude: number | null;
   category: string;
   startsAt: string;
+  priceCoins: number;
   distanceKm: number | null;
   rsvpCount: number;
   isRsvped: boolean;
   checkedInCount: number;
   isCheckedIn: boolean;
+}
+
+export interface RsvpResult {
+  rsvped: boolean;
+  coinBalance: number;
+}
+
+export interface CancelRsvpResult {
+  cancelled: boolean;
+  coinBalance: number;
 }
 
 interface LocatableUser {
@@ -45,6 +56,7 @@ export class EventsService {
         longitude: dto.longitude ?? null,
         category: dto.category,
         startsAt: new Date(dto.startsAt),
+        priceCoins: dto.priceCoins ?? 0,
         createdById: userId,
       },
     });
@@ -108,20 +120,52 @@ export class EventsService {
     });
   }
 
-  /** Idempotent: RSVPing twice to the same event is a no-op. */
-  async rsvpToEvent(userId: string, eventId: string): Promise<{ rsvped: boolean }> {
-    await this.getEvent(eventId);
+  /**
+   * Idempotent: RSVPing twice to the same event is a no-op (never
+   * re-charges). For a paid event, this is the "access pass" purchase -
+   * deducted from the same in-app coin balance gifting/wallet already use,
+   * and snapshotted onto the RSVP so a later price change never affects an
+   * already-purchased pass or its refund.
+   */
+  async rsvpToEvent(userId: string, eventId: string): Promise<RsvpResult> {
+    const event = await this.getEvent(eventId);
 
-    await this.prisma.localEventRsvp.upsert({
+    const existingRsvp = await this.prisma.localEventRsvp.findUnique({
       where: { eventId_userId: { eventId, userId } },
-      create: { eventId, userId },
-      update: {},
     });
+    if (existingRsvp) {
+      const user = await this.prisma.user.findUnique({ where: { id: userId } });
+      return { rsvped: true, coinBalance: user?.giftTokenBalance ?? 0 };
+    }
 
-    return { rsvped: true };
+    if (event.priceCoins === 0) {
+      await this.prisma.localEventRsvp.create({ data: { eventId, userId } });
+      const user = await this.prisma.user.findUnique({ where: { id: userId } });
+      return { rsvped: true, coinBalance: user?.giftTokenBalance ?? 0 };
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found.');
+    }
+    if (user.giftTokenBalance < event.priceCoins) {
+      throw new BadRequestException('Not enough coins for this event access pass.');
+    }
+
+    const [updatedUser] = await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: userId },
+        data: { giftTokenBalance: { decrement: event.priceCoins } },
+      }),
+      this.prisma.localEventRsvp.create({
+        data: { eventId, userId, coinsSpent: event.priceCoins },
+      }),
+    ]);
+
+    return { rsvped: true, coinBalance: updatedUser.giftTokenBalance };
   }
 
-  async cancelRsvp(userId: string, eventId: string): Promise<{ cancelled: boolean }> {
+  async cancelRsvp(userId: string, eventId: string): Promise<CancelRsvpResult> {
     const rsvp = await this.prisma.localEventRsvp.findUnique({
       where: { eventId_userId: { eventId, userId } },
     });
@@ -129,8 +173,21 @@ export class EventsService {
       throw new BadRequestException('You have not RSVPed to this event.');
     }
 
-    await this.prisma.localEventRsvp.delete({ where: { id: rsvp.id } });
-    return { cancelled: true };
+    if (rsvp.coinsSpent === 0) {
+      await this.prisma.localEventRsvp.delete({ where: { id: rsvp.id } });
+      const user = await this.prisma.user.findUnique({ where: { id: userId } });
+      return { cancelled: true, coinBalance: user?.giftTokenBalance ?? 0 };
+    }
+
+    const [updatedUser] = await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: userId },
+        data: { giftTokenBalance: { increment: rsvp.coinsSpent } },
+      }),
+      this.prisma.localEventRsvp.delete({ where: { id: rsvp.id } }),
+    ]);
+
+    return { cancelled: true, coinBalance: updatedUser.giftTokenBalance };
   }
 
   /**
@@ -199,6 +256,7 @@ export class EventsService {
       longitude: number | null;
       category: string;
       startsAt: Date;
+      priceCoins: number;
     },
     extra: {
       rsvpCount: number;
@@ -217,6 +275,7 @@ export class EventsService {
       longitude: event.longitude,
       category: event.category,
       startsAt: event.startsAt.toISOString(),
+      priceCoins: event.priceCoins,
       distanceKm: extra.distanceKm,
       rsvpCount: extra.rsvpCount,
       isRsvped: extra.isRsvped,
