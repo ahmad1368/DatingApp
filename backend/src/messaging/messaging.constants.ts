@@ -167,6 +167,33 @@ export function findBackgroundSound(id: string): BackgroundSound | undefined {
   return BACKGROUND_SOUNDS.find((sound) => sound.id === id);
 }
 
+export const CHAT_WALLPAPER_TYPES = ['GRADIENT', 'PATTERN', 'PHOTO'] as const;
+export type ChatWallpaperType = (typeof CHAT_WALLPAPER_TYPES)[number];
+
+export interface ChatWallpaper {
+  id: string;
+  label: string;
+  type: ChatWallpaperType;
+}
+
+// Curated per-thread chat backgrounds - applied client-side, same as
+// VOICE_EFFECTS/BACKGROUND_SOUNDS. See ChatWallpaperPreference for how a
+// choice is stored per (user, match) pair.
+export const CHAT_WALLPAPERS: ChatWallpaper[] = [
+  { id: 'sunset-gradient', label: 'Sunset Gradient', type: 'GRADIENT' },
+  { id: 'ocean-gradient', label: 'Ocean Gradient', type: 'GRADIENT' },
+  { id: 'midnight-gradient', label: 'Midnight Gradient', type: 'GRADIENT' },
+  { id: 'polka-dot', label: 'Polka Dot', type: 'PATTERN' },
+  { id: 'geometric', label: 'Geometric', type: 'PATTERN' },
+  { id: 'confetti', label: 'Confetti', type: 'PATTERN' },
+  { id: 'city-skyline', label: 'City Skyline', type: 'PHOTO' },
+  { id: 'botanical', label: 'Botanical', type: 'PHOTO' },
+];
+
+export function findChatWallpaper(id: string): ChatWallpaper | undefined {
+  return CHAT_WALLPAPERS.find((wallpaper) => wallpaper.id === id);
+}
+
 export interface IcebreakerPrompt {
   id: string;
   question: string;

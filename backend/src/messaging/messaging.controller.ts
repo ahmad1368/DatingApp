@@ -19,6 +19,7 @@ import { ReportMessageDto } from './dto/report-message.dto';
 import { ReportAndUnmatchDto } from './dto/report-and-unmatch.dto';
 import { SetReadReceiptsDto } from './dto/set-read-receipts.dto';
 import { SetMediaBlurPreferenceDto } from './dto/set-media-blur-preference.dto';
+import { SetChatWallpaperDto } from './dto/set-chat-wallpaper.dto';
 import { SendIcebreakerDto } from './dto/send-icebreaker.dto';
 import { RespondIcebreakerDto } from './dto/respond-icebreaker.dto';
 import { SendPollDto } from './dto/send-poll.dto';
@@ -84,6 +85,11 @@ export class MessagingController {
   @Get('voice-note-effects')
   getVoiceNoteEffects() {
     return this.messagingService.getVoiceNoteEffectsCatalog();
+  }
+
+  @Get('wallpapers')
+  getChatWallpapers() {
+    return this.messagingService.getChatWallpaperCatalog();
   }
 
   @Get('partner/:partnerId')
@@ -185,6 +191,21 @@ export class MessagingController {
   @Get(':matchId/note')
   getMatchNote(@CurrentUser() user: AuthenticatedUser, @Param('matchId') matchId: string) {
     return this.messagingService.getMatchNote(user.id, matchId);
+  }
+
+  @Get(':matchId/wallpaper')
+  getChatWallpaper(@CurrentUser() user: AuthenticatedUser, @Param('matchId') matchId: string) {
+    return this.messagingService.getChatWallpaper(user.id, matchId);
+  }
+
+  @Put(':matchId/wallpaper')
+  @HttpCode(HttpStatus.OK)
+  setChatWallpaper(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('matchId') matchId: string,
+    @Body() dto: SetChatWallpaperDto,
+  ) {
+    return this.messagingService.setChatWallpaper(user.id, matchId, dto.wallpaperId);
   }
 
   /**

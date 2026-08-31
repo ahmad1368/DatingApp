@@ -303,6 +303,20 @@ model MatchNote {
   @@map("match_notes")
 }
 
+// Per-user, per-thread chat background (see messaging.constants.
+// CHAT_WALLPAPERS) - private to the viewer, same shape as MatchNote, since
+// each side of a match may want a different background for the same thread.
+model ChatWallpaperPreference {
+  id          String   @id @default(uuid())
+  userId      String
+  matchId     String
+  wallpaperId String
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, matchId])
+  @@map("chat_wallpaper_preferences")
+}
+
 model Message {
   id                   String    @id @default(uuid())
   matchId              String

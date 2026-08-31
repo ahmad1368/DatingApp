@@ -524,6 +524,89 @@ void main() {
     });
   });
 
+  group('MessagingApi.fetchChatWallpaperCatalog', () {
+    test('sends the bearer token and parses the catalog', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.url.path, '/matches/wallpapers');
+          return http.Response(
+            '[{"id":"sunset-gradient","label":"Sunset Gradient","type":"GRADIENT"}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final catalog = await api.fetchChatWallpaperCatalog();
+
+      expect(catalog, hasLength(1));
+      expect(catalog.first.id, 'sunset-gradient');
+      expect(catalog.first.type, 'GRADIENT');
+    });
+  });
+
+  group('MessagingApi.fetchChatWallpaper / setChatWallpaper', () {
+    test('fetchChatWallpaper parses the saved wallpaper id', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.url.path, '/matches/match-1/wallpaper');
+          return http.Response('{"wallpaperId":"sunset-gradient"}', 200,
+              headers: {'content-type': 'application/json'});
+        }),
+      );
+
+      final wallpaperId = await api.fetchChatWallpaper('match-1');
+
+      expect(wallpaperId, 'sunset-gradient');
+    });
+
+    test('fetchChatWallpaper parses null when nothing has been set yet', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response('{"wallpaperId":null}', 200, headers: {'content-type': 'application/json'}),
+        ),
+      );
+
+      final wallpaperId = await api.fetchChatWallpaper('match-1');
+
+      expect(wallpaperId, isNull);
+    });
+
+    test('setChatWallpaper sends the wallpaperId and parses the response', () async {
+      http.Request? putRequest;
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          putRequest = request;
+          return http.Response('{"wallpaperId":"sunset-gradient"}', 200,
+              headers: {'content-type': 'application/json'});
+        }),
+      );
+
+      final wallpaperId = await api.setChatWallpaper('match-1', 'sunset-gradient');
+
+      expect(putRequest!.method, 'PUT');
+      expect(putRequest!.url.path, '/matches/match-1/wallpaper');
+      expect(putRequest!.body, '{"wallpaperId":"sunset-gradient"}');
+      expect(wallpaperId, 'sunset-gradient');
+    });
+
+    test('setChatWallpaper throws MessagingApiException on a non-200 response', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => http.Response('', 400)),
+      );
+
+      expect(
+        () => api.setChatWallpaper('match-1', 'unknown'),
+        throwsA(isA<MessagingApiException>()),
+      );
+    });
+  });
+
   group('MessagingApi.fetchMessages', () {
     test('parses a list of messages', () async {
       final api = MessagingApi(

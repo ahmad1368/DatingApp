@@ -43,6 +43,7 @@ describe('MessagingService', () => {
     dissolvedMatch: { findMany: jest.Mock; findUnique: jest.Mock; create: jest.Mock; delete: jest.Mock };
     archivedMessage: { findMany: jest.Mock; createMany: jest.Mock };
     matchNote: { findUnique: jest.Mock; upsert: jest.Mock; deleteMany: jest.Mock };
+    chatWallpaperPreference: { findUnique: jest.Mock; upsert: jest.Mock };
     partnerLink: { findFirst: jest.Mock };
     $transaction: jest.Mock;
   };
@@ -93,6 +94,7 @@ describe('MessagingService', () => {
       },
       archivedMessage: { findMany: jest.fn().mockResolvedValue([]), createMany: jest.fn() },
       matchNote: { findUnique: jest.fn(), upsert: jest.fn(), deleteMany: jest.fn() },
+      chatWallpaperPreference: { findUnique: jest.fn(), upsert: jest.fn() },
       partnerLink: { findFirst: jest.fn() },
       $transaction: jest.fn((ops: unknown[]) => Promise.all(ops)),
     };
@@ -361,6 +363,76 @@ describe('MessagingService', () => {
       });
       expect(prisma.matchNote.upsert).not.toHaveBeenCalled();
       expect(note).toEqual({ content: null, updatedAt: null });
+    });
+  });
+
+  describe('getChatWallpaperCatalog', () => {
+    it('returns the static wallpaper catalog', () => {
+      const catalog = service.getChatWallpaperCatalog();
+
+      expect(catalog.length).toBeGreaterThan(0);
+      expect(catalog[0]).toEqual({ id: expect.any(String), label: expect.any(String), type: expect.any(String) });
+    });
+  });
+
+  describe('getChatWallpaper', () => {
+    it('throws when the user is not part of the match', async () => {
+      mockMatch();
+
+      await expect(service.getChatWallpaper('stranger', MATCH_ID)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+
+    it('returns null when no wallpaper has been set yet', async () => {
+      mockMatch();
+      prisma.chatWallpaperPreference.findUnique.mockResolvedValue(null);
+
+      const result = await service.getChatWallpaper(WOMAN_ID, MATCH_ID);
+
+      expect(result).toEqual({ wallpaperId: null });
+    });
+
+    it('returns the saved wallpaper', async () => {
+      mockMatch();
+      prisma.chatWallpaperPreference.findUnique.mockResolvedValue({ wallpaperId: 'sunset-gradient' });
+
+      const result = await service.getChatWallpaper(WOMAN_ID, MATCH_ID);
+
+      expect(result).toEqual({ wallpaperId: 'sunset-gradient' });
+    });
+  });
+
+  describe('setChatWallpaper', () => {
+    it('throws when the user is not part of the match', async () => {
+      mockMatch();
+
+      await expect(
+        service.setChatWallpaper('stranger', MATCH_ID, 'sunset-gradient'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('rejects an unknown wallpaper id', async () => {
+      mockMatch();
+
+      await expect(
+        service.setChatWallpaper(WOMAN_ID, MATCH_ID, 'not-a-real-wallpaper'),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.chatWallpaperPreference.upsert).not.toHaveBeenCalled();
+    });
+
+    it('upserts the wallpaper preference for this user and match only', async () => {
+      mockMatch();
+      prisma.chatWallpaperPreference.upsert.mockResolvedValue({ wallpaperId: 'sunset-gradient' });
+
+      const result = await service.setChatWallpaper(WOMAN_ID, MATCH_ID, 'sunset-gradient');
+
+      expect(prisma.chatWallpaperPreference.upsert).toHaveBeenCalledWith({
+        where: { userId_matchId: { userId: WOMAN_ID, matchId: MATCH_ID } },
+        create: { userId: WOMAN_ID, matchId: MATCH_ID, wallpaperId: 'sunset-gradient' },
+        update: { wallpaperId: 'sunset-gradient' },
+      });
+      expect(result).toEqual({ wallpaperId: 'sunset-gradient' });
     });
   });
 
