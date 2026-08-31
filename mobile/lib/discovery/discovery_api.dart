@@ -101,6 +101,14 @@ class SnoozeStatus {
   final String? statusMessage;
 }
 
+class VisibilitySchedule {
+  VisibilitySchedule({required this.enabled, this.hiddenStartHourUtc, this.hiddenEndHourUtc});
+
+  final bool enabled;
+  final int? hiddenStartHourUtc;
+  final int? hiddenEndHourUtc;
+}
+
 class BoostStatus {
   BoostStatus({
     required this.active,
@@ -464,6 +472,57 @@ class DiscoveryApi {
     }
 
     return _toSnoozeStatus(body);
+  }
+
+  /// Recurring daily UTC hour window during which this user's card is
+  /// hidden from other people's swipe decks (e.g. work hours or late
+  /// nights) - distinct from [setSnoozeMode]'s one-off, date-based pause.
+  /// Enabling requires both [hiddenStartHourUtc] and [hiddenEndHourUtc]
+  /// (0-23); an overnight window where the end is less than the start
+  /// wraps past midnight.
+  Future<VisibilitySchedule> setVisibilitySchedule(
+    bool enabled, {
+    int? hiddenStartHourUtc,
+    int? hiddenEndHourUtc,
+  }) async {
+    final response = await _client.put(
+      Uri.parse('$_baseUrl/discovery/visibility-schedule'),
+      headers: _headers,
+      body: jsonEncode({
+        'enabled': enabled,
+        'hiddenStartHourUtc': ?hiddenStartHourUtc,
+        'hiddenEndHourUtc': ?hiddenEndHourUtc,
+      }),
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 200) {
+      throw DiscoveryApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return _toVisibilitySchedule(body);
+  }
+
+  Future<VisibilitySchedule> fetchVisibilitySchedule() async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/discovery/visibility-schedule'),
+      headers: _headers,
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 200) {
+      throw DiscoveryApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return _toVisibilitySchedule(body);
+  }
+
+  VisibilitySchedule _toVisibilitySchedule(Map<String, dynamic> json) {
+    return VisibilitySchedule(
+      enabled: json['enabled'] as bool,
+      hiddenStartHourUtc: json['hiddenStartHourUtc'] as int?,
+      hiddenEndHourUtc: json['hiddenEndHourUtc'] as int?,
+    );
   }
 
   SnoozeStatus _toSnoozeStatus(Map<String, dynamic> json) {

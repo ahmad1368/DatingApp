@@ -2,7 +2,7 @@ import { BadRequestException, ForbiddenException, NotFoundException } from '@nes
 import { PrismaService } from '../prisma/prisma.service';
 import { MatchingService } from '../matching/matching.service';
 import { NotificationsService } from '../notifications/notifications.service';
-import { DEFAULT_DECK_SIZE } from './discovery.constants';
+import { DEFAULT_DECK_SIZE, isHiddenByVisibilitySchedule } from './discovery.constants';
 import { DiscoveryService } from './discovery.service';
 
 const USER_ID = 'user-1';
@@ -3346,6 +3346,148 @@ describe('DiscoveryService', () => {
       const result = await service.getSnoozeStatus(USER_ID);
 
       expect(result).toEqual({ snoozedUntil: null, statusMessage: null });
+    });
+  });
+
+  describe('isHiddenByVisibilitySchedule', () => {
+    it('is never hidden when the schedule is disabled', () => {
+      const hidden = isHiddenByVisibilitySchedule(
+        { visibilityScheduleEnabled: false, visibilityHiddenStartHourUtc: 9, visibilityHiddenEndHourUtc: 17 },
+        new Date(Date.UTC(2026, 0, 1, 12)),
+      );
+
+      expect(hidden).toBe(false);
+    });
+
+    it('hides during a same-day window', () => {
+      const user = { visibilityScheduleEnabled: true, visibilityHiddenStartHourUtc: 9, visibilityHiddenEndHourUtc: 17 };
+
+      expect(isHiddenByVisibilitySchedule(user, new Date(Date.UTC(2026, 0, 1, 12)))).toBe(true);
+      expect(isHiddenByVisibilitySchedule(user, new Date(Date.UTC(2026, 0, 1, 8)))).toBe(false);
+      expect(isHiddenByVisibilitySchedule(user, new Date(Date.UTC(2026, 0, 1, 17)))).toBe(false);
+    });
+
+    it('hides during an overnight window that wraps past midnight', () => {
+      const user = { visibilityScheduleEnabled: true, visibilityHiddenStartHourUtc: 22, visibilityHiddenEndHourUtc: 6 };
+
+      expect(isHiddenByVisibilitySchedule(user, new Date(Date.UTC(2026, 0, 1, 23)))).toBe(true);
+      expect(isHiddenByVisibilitySchedule(user, new Date(Date.UTC(2026, 0, 1, 3)))).toBe(true);
+      expect(isHiddenByVisibilitySchedule(user, new Date(Date.UTC(2026, 0, 1, 12)))).toBe(false);
+    });
+  });
+
+  describe('setVisibilitySchedule', () => {
+    it('throws when the current user does not exist', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(service.setVisibilitySchedule(USER_ID, true, 9, 17)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+
+    it('clears the schedule when disabling', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: USER_ID });
+
+      const result = await service.setVisibilitySchedule(USER_ID, false);
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: USER_ID },
+        data: {
+          visibilityScheduleEnabled: false,
+          visibilityHiddenStartHourUtc: null,
+          visibilityHiddenEndHourUtc: null,
+        },
+      });
+      expect(result).toEqual({ enabled: false, hiddenStartHourUtc: null, hiddenEndHourUtc: null });
+    });
+
+    it('rejects enabling without both hour bounds', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: USER_ID });
+
+      await expect(service.setVisibilitySchedule(USER_ID, true)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it('saves the hidden hour window when enabling', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: USER_ID });
+      prisma.user.update.mockResolvedValue({
+        visibilityScheduleEnabled: true,
+        visibilityHiddenStartHourUtc: 9,
+        visibilityHiddenEndHourUtc: 17,
+      });
+
+      const result = await service.setVisibilitySchedule(USER_ID, true, 9, 17);
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: USER_ID },
+        data: {
+          visibilityScheduleEnabled: true,
+          visibilityHiddenStartHourUtc: 9,
+          visibilityHiddenEndHourUtc: 17,
+        },
+      });
+      expect(result).toEqual({ enabled: true, hiddenStartHourUtc: 9, hiddenEndHourUtc: 17 });
+    });
+  });
+
+  describe('getVisibilitySchedule', () => {
+    it('throws when the current user does not exist', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(service.getVisibilitySchedule(USER_ID)).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('returns the stored schedule', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        visibilityScheduleEnabled: true,
+        visibilityHiddenStartHourUtc: 22,
+        visibilityHiddenEndHourUtc: 6,
+      });
+
+      const result = await service.getVisibilitySchedule(USER_ID);
+
+      expect(result).toEqual({ enabled: true, hiddenStartHourUtc: 22, hiddenEndHourUtc: 6 });
+    });
+  });
+
+  describe('getDeck visibility schedule filtering', () => {
+    it('excludes a candidate currently inside their own hidden window', async () => {
+      const fixedNow = new Date(Date.UTC(2026, 0, 1, 12));
+      jest.useFakeTimers().setSystemTime(fixedNow);
+
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+      });
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      prisma.user.findMany.mockResolvedValue([
+        {
+          id: TARGET_ID,
+          name: 'Jane',
+          dateOfBirth: null,
+          profilePhotoUrl: null,
+          interests: [],
+          relationshipGoal: 'CASUAL',
+          visibilityScheduleEnabled: true,
+          visibilityHiddenStartHourUtc: 9,
+          visibilityHiddenEndHourUtc: 17,
+        },
+      ]);
+
+      const deck = await service.getDeck(USER_ID);
+
+      expect(deck).toHaveLength(0);
+
+      jest.useRealTimers();
     });
   });
 });

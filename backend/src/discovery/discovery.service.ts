@@ -20,6 +20,7 @@ import {
   HAPPY_HOUR_BONUS_SUPER_LIKES,
   HAPPY_HOUR_VIEW_MULTIPLIER,
   isHappyHour,
+  isHiddenByVisibilitySchedule,
   LIKE_ACTIONS,
   LikedBySort,
   LIKED_BY_SORT_OPTIONS,
@@ -135,6 +136,12 @@ export interface ActiveModeResult {
 export interface SnoozeResult {
   snoozedUntil: string | null;
   statusMessage: string | null;
+}
+
+export interface VisibilityScheduleResult {
+  enabled: boolean;
+  hiddenStartHourUtc: number | null;
+  hiddenEndHourUtc: number | null;
 }
 
 @Injectable()
@@ -257,7 +264,8 @@ export class DiscoveryService {
             take: effectiveDeckSize,
           })
         : [];
-    const priorityCandidateById = new Map(priorityCandidatesRaw.map((c) => [c.id, c]));
+    const priorityCandidatesVisible = this.filterVisibleBySchedule(priorityCandidatesRaw, now);
+    const priorityCandidateById = new Map(priorityCandidatesVisible.map((c) => [c.id, c]));
     const priorityCandidates = priorityIdsOrdered
       .map((id) => priorityCandidateById.get(id))
       .filter((candidate): candidate is (typeof priorityCandidatesRaw)[number] => candidate != null)
@@ -280,7 +288,8 @@ export class DiscoveryService {
       },
       take: REMAINING_CANDIDATE_POOL_SIZE,
     });
-    const radiusFilteredPool = this.filterWithinRadius(remainingCandidatePool, origin, currentUser);
+    const visibleRemainingCandidatePool = this.filterVisibleBySchedule(remainingCandidatePool, now);
+    const radiusFilteredPool = this.filterWithinRadius(visibleRemainingCandidatePool, origin, currentUser);
     const remainingCandidates = await this.rankRemainingCandidates(
       radiusFilteredPool,
       origin,
@@ -1210,6 +1219,69 @@ export class DiscoveryService {
   }
 
   /**
+   * "Profile Visibility Schedule": a recurring daily UTC hour window during
+   * which this user's card is hidden from other people's swipe decks (see
+   * isHiddenByVisibilitySchedule/getDeck) - distinct from the one-off
+   * snoozedUntil above, which hides regardless of time of day until turned
+   * off or its end date passes.
+   */
+  async setVisibilitySchedule(
+    userId: string,
+    enabled: boolean,
+    hiddenStartHourUtc?: number,
+    hiddenEndHourUtc?: number,
+  ): Promise<VisibilityScheduleResult> {
+    const currentUser = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!currentUser) {
+      throw new NotFoundException('User not found.');
+    }
+
+    if (!enabled) {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          visibilityScheduleEnabled: false,
+          visibilityHiddenStartHourUtc: null,
+          visibilityHiddenEndHourUtc: null,
+        },
+      });
+      return { enabled: false, hiddenStartHourUtc: null, hiddenEndHourUtc: null };
+    }
+
+    if (hiddenStartHourUtc == null || hiddenEndHourUtc == null) {
+      throw new BadRequestException('hiddenStartHourUtc and hiddenEndHourUtc are required when enabling.');
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        visibilityScheduleEnabled: true,
+        visibilityHiddenStartHourUtc: hiddenStartHourUtc,
+        visibilityHiddenEndHourUtc: hiddenEndHourUtc,
+      },
+    });
+
+    return {
+      enabled: updated.visibilityScheduleEnabled,
+      hiddenStartHourUtc: updated.visibilityHiddenStartHourUtc,
+      hiddenEndHourUtc: updated.visibilityHiddenEndHourUtc,
+    };
+  }
+
+  async getVisibilitySchedule(userId: string): Promise<VisibilityScheduleResult> {
+    const currentUser = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!currentUser) {
+      throw new NotFoundException('User not found.');
+    }
+
+    return {
+      enabled: currentUser.visibilityScheduleEnabled,
+      hiddenStartHourUtc: currentUser.visibilityHiddenStartHourUtc,
+      hiddenEndHourUtc: currentUser.visibilityHiddenEndHourUtc,
+    };
+  }
+
+  /**
    * Dynamic reordering of the non-priority candidate pool: ranks by
    * proximity (closer scores higher, decaying to 0 by
    * PROXIMITY_SCORE_DECAY_KM, then scaled by this viewer's proximityWeight -
@@ -1227,6 +1299,17 @@ export class DiscoveryService {
    * first. Candidates with no location set are always kept, matching
    * [proximityScore]'s null handling.
    */
+  /** Drops candidates currently inside their own recurring hidden window - see isHiddenByVisibilitySchedule. */
+  private filterVisibleBySchedule<
+    T extends {
+      visibilityScheduleEnabled: boolean;
+      visibilityHiddenStartHourUtc: number | null;
+      visibilityHiddenEndHourUtc: number | null;
+    },
+  >(candidates: T[], now: Date): T[] {
+    return candidates.filter((candidate) => !isHiddenByVisibilitySchedule(candidate, now));
+  }
+
   private filterWithinRadius<T extends { latitude: number | null; longitude: number | null }>(
     candidates: T[],
     origin: { latitude: number | null; longitude: number | null },

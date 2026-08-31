@@ -136,6 +136,14 @@ model User {
   activeBrowsingPartnerId               String?
   snoozedUntil                          DateTime?
   snoozeStatusMessage                   String?
+  // Recurring daily hidden window (e.g. work hours, late nights), distinct
+  // from the one-off snoozedUntil above - see
+  // DiscoveryService.setVisibilitySchedule/isHiddenByVisibilitySchedule.
+  // Hours are UTC (this codebase tracks no per-user timezone) and support
+  // an overnight window where end < start (e.g. 22 -> 6).
+  visibilityScheduleEnabled             Boolean   @default(false)
+  visibilityHiddenStartHourUtc          Int?
+  visibilityHiddenEndHourUtc            Int?
   readReceiptsEnabled                   Boolean   @default(true)
   autoBlurIncomingMedia                 Boolean   @default(true)
   bonusSuperLikes                       Int       @default(0)

@@ -77,6 +77,37 @@ export function computeHappyHourWindow(now: Date): { startsAt: Date; endsAt: Dat
   return { startsAt, endsAt };
 }
 
+export const MIN_VISIBILITY_HOUR_UTC = 0;
+export const MAX_VISIBILITY_HOUR_UTC = 23;
+
+/**
+ * "Profile Visibility Schedule": a recurring daily window (UTC - this
+ * codebase tracks no per-user timezone) during which a user's card is
+ * hidden from other people's swipe decks, e.g. work hours or late nights -
+ * see DiscoveryService.setVisibilitySchedule. Supports an overnight window
+ * where end < start (e.g. 22 -> 6); equal start/end hides all day.
+ */
+export function isHiddenByVisibilitySchedule(
+  user: {
+    visibilityScheduleEnabled: boolean;
+    visibilityHiddenStartHourUtc: number | null;
+    visibilityHiddenEndHourUtc: number | null;
+  },
+  now: Date,
+): boolean {
+  if (
+    !user.visibilityScheduleEnabled ||
+    user.visibilityHiddenStartHourUtc == null ||
+    user.visibilityHiddenEndHourUtc == null
+  ) {
+    return false;
+  }
+
+  const hour = now.getUTCHours();
+  const { visibilityHiddenStartHourUtc: start, visibilityHiddenEndHourUtc: end } = user;
+  return start < end ? hour >= start && hour < end : hour >= start || hour < end;
+}
+
 export const SNOOZE_MAX_DURATION_DAYS = 90;
 export const SNOOZE_DEFAULT_DURATION_DAYS = 7;
 
