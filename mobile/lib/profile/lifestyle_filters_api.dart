@@ -34,6 +34,8 @@ class LifestyleFilters {
     required this.filterSmokingHabits,
     required this.filterDrinkingHabits,
     required this.filterWorkoutHabits,
+    this.filterMinHeightCm,
+    this.filterMaxHeightCm,
     required this.filterEducationLevels,
     required this.filterReligions,
     required this.filterDietaryPreferences,
@@ -66,6 +68,8 @@ class LifestyleFilters {
   final List<String> filterSmokingHabits;
   final List<String> filterDrinkingHabits;
   final List<String> filterWorkoutHabits;
+  final int? filterMinHeightCm;
+  final int? filterMaxHeightCm;
   final List<String> filterEducationLevels;
   final List<String> filterReligions;
   final List<String> filterDietaryPreferences;
@@ -107,6 +111,8 @@ class LifestyleFilters {
       filterSmokingHabits: filterSmokingHabits,
       filterDrinkingHabits: filterDrinkingHabits,
       filterWorkoutHabits: filterWorkoutHabits,
+      filterMinHeightCm: filterMinHeightCm,
+      filterMaxHeightCm: filterMaxHeightCm,
       filterEducationLevels: filterEducationLevels,
       filterReligions: filterReligions,
       filterDietaryPreferences: filterDietaryPreferences,
@@ -229,6 +235,8 @@ class LifestyleFiltersApi {
         'filterSmokingHabits': filters.filterSmokingHabits,
         'filterDrinkingHabits': filters.filterDrinkingHabits,
         'filterWorkoutHabits': filters.filterWorkoutHabits,
+        'filterMinHeightCm': ?filters.filterMinHeightCm,
+        'filterMaxHeightCm': ?filters.filterMaxHeightCm,
         'filterEducationLevels': filters.filterEducationLevels,
         'filterReligions': filters.filterReligions,
         'filterDietaryPreferences': filters.filterDietaryPreferences,
@@ -272,6 +280,8 @@ class LifestyleFiltersApi {
       filterSmokingHabits: (json['filterSmokingHabits'] as List).cast<String>(),
       filterDrinkingHabits: (json['filterDrinkingHabits'] as List).cast<String>(),
       filterWorkoutHabits: (json['filterWorkoutHabits'] as List).cast<String>(),
+      filterMinHeightCm: json['filterMinHeightCm'] as int?,
+      filterMaxHeightCm: json['filterMaxHeightCm'] as int?,
       filterEducationLevels: (json['filterEducationLevels'] as List).cast<String>(),
       filterReligions: (json['filterReligions'] as List).cast<String>(),
       filterDietaryPreferences: (json['filterDietaryPreferences'] as List).cast<String>(),

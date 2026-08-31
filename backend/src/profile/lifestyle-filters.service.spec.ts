@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SetLifestyleFiltersDto } from './dto/set-lifestyle-filters.dto';
 import { LifestyleFiltersService } from './lifestyle-filters.service';
@@ -36,6 +37,8 @@ describe('LifestyleFiltersService', () => {
         filterSmokingHabits: [],
         filterDrinkingHabits: [],
         filterWorkoutHabits: [],
+        filterMinHeightCm: null,
+        filterMaxHeightCm: null,
         filterEducationLevels: [],
         filterReligions: [],
         filterDietaryPreferences: [],
@@ -73,6 +76,8 @@ describe('LifestyleFiltersService', () => {
         filterSmokingHabits: ['Never', 'Trying to Quit'],
         filterDrinkingHabits: ['Never', 'Socially'],
         filterWorkoutHabits: ['Often', 'Daily'],
+        filterMinHeightCm: 160,
+        filterMaxHeightCm: 190,
         filterEducationLevels: ['Bachelors', 'Masters', 'Doctorate'],
         filterReligions: [],
         filterDietaryPreferences: ['Vegetarian', 'Vegan'],
@@ -111,6 +116,8 @@ describe('LifestyleFiltersService', () => {
           filterSmokingHabits: ['Never', 'Trying to Quit'],
           filterDrinkingHabits: ['Never', 'Socially'],
           filterWorkoutHabits: ['Often', 'Daily'],
+          filterMinHeightCm: 160,
+          filterMaxHeightCm: 190,
           filterEducationLevels: ['Bachelors', 'Masters', 'Doctorate'],
           filterReligions: [],
           filterDietaryPreferences: ['Vegetarian', 'Vegan'],
@@ -189,6 +196,34 @@ describe('LifestyleFiltersService', () => {
           }),
         }),
       );
+    });
+
+    it('rejects a min height greater than the max height', async () => {
+      const dto: SetLifestyleFiltersDto = {
+        showLifestyleBadgesOnProfile: true,
+        filterSmokingHabits: [],
+        filterDrinkingHabits: [],
+        filterWorkoutHabits: [],
+        filterMinHeightCm: 190,
+        filterMaxHeightCm: 160,
+        filterEducationLevels: [],
+        filterReligions: [],
+        filterDietaryPreferences: [],
+        filterWantsChildren: [],
+        filterRelationshipGoals: [],
+        filterKinkTags: [],
+        filterRelationshipDesires: [],
+        filterBoundaryTags: [],
+        filterPetOwnership: [],
+        filterPetAllergyStatus: [],
+        filterPoliticalOrientations: [],
+        filterSharedInterestsOnly: false,
+        filterVerifiedOnly: false,
+        filterCommunityGroups: [],
+      };
+
+      await expect(service.setLifestyleFilters(USER_ID, dto)).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.user.update).not.toHaveBeenCalled();
     });
   });
 });

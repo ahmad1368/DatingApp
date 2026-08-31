@@ -88,6 +88,18 @@ export class SetLifestyleFiltersDto {
   @IsIn(WORKOUT_HABITS, { each: true })
   filterWorkoutHabits!: string[];
 
+  @IsOptional()
+  @IsInt()
+  @Min(MIN_HEIGHT_CM)
+  @Max(MAX_HEIGHT_CM)
+  filterMinHeightCm?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(MIN_HEIGHT_CM)
+  @Max(MAX_HEIGHT_CM)
+  filterMaxHeightCm?: number;
+
   @IsArray()
   @ArrayMaxSize(MAX_FILTER_SELECTIONS)
   @IsIn(EDUCATION_LEVELS, { each: true })

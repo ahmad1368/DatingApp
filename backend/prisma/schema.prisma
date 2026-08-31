@@ -105,6 +105,8 @@ model User {
   filterSmokingHabits                   String[]  @default([])
   filterDrinkingHabits                  String[]  @default([])
   filterWorkoutHabits                   String[]  @default([])
+  filterMinHeightCm                     Int?
+  filterMaxHeightCm                     Int?
   filterEducationLevels                 String[]  @default([])
   filterReligions                       String[]  @default([])
   filterDietaryPreferences              String[]  @default([])

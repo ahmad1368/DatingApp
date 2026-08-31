@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SetLifestyleFiltersDto } from './dto/set-lifestyle-filters.dto';
 
@@ -19,6 +19,8 @@ export interface LifestyleFiltersResult {
   filterSmokingHabits: string[];
   filterDrinkingHabits: string[];
   filterWorkoutHabits: string[];
+  filterMinHeightCm: number | null;
+  filterMaxHeightCm: number | null;
   filterEducationLevels: string[];
   filterReligions: string[];
   filterDietaryPreferences: string[];
@@ -52,6 +54,8 @@ interface LifestyleFiltersRecord {
   filterSmokingHabits: string[];
   filterDrinkingHabits: string[];
   filterWorkoutHabits: string[];
+  filterMinHeightCm: number | null;
+  filterMaxHeightCm: number | null;
   filterEducationLevels: string[];
   filterReligions: string[];
   filterDietaryPreferences: string[];
@@ -85,6 +89,8 @@ const SELECT = {
   filterSmokingHabits: true,
   filterDrinkingHabits: true,
   filterWorkoutHabits: true,
+  filterMinHeightCm: true,
+  filterMaxHeightCm: true,
   filterEducationLevels: true,
   filterReligions: true,
   filterDietaryPreferences: true,
@@ -114,6 +120,14 @@ export class LifestyleFiltersService {
     userId: string,
     dto: SetLifestyleFiltersDto,
   ): Promise<LifestyleFiltersResult> {
+    if (
+      dto.filterMinHeightCm != null &&
+      dto.filterMaxHeightCm != null &&
+      dto.filterMinHeightCm > dto.filterMaxHeightCm
+    ) {
+      throw new BadRequestException('filterMinHeightCm cannot be greater than filterMaxHeightCm.');
+    }
+
     const user = await this.prisma.user.update({
       where: { id: userId },
       data: {
@@ -133,6 +147,8 @@ export class LifestyleFiltersService {
         filterSmokingHabits: dto.filterSmokingHabits,
         filterDrinkingHabits: dto.filterDrinkingHabits,
         filterWorkoutHabits: dto.filterWorkoutHabits,
+        filterMinHeightCm: dto.filterMinHeightCm ?? null,
+        filterMaxHeightCm: dto.filterMaxHeightCm ?? null,
         filterEducationLevels: dto.filterEducationLevels,
         filterReligions: dto.filterReligions,
         filterDietaryPreferences: dto.filterDietaryPreferences,
@@ -172,6 +188,8 @@ export class LifestyleFiltersService {
       filterSmokingHabits: user?.filterSmokingHabits ?? [],
       filterDrinkingHabits: user?.filterDrinkingHabits ?? [],
       filterWorkoutHabits: user?.filterWorkoutHabits ?? [],
+      filterMinHeightCm: user?.filterMinHeightCm ?? null,
+      filterMaxHeightCm: user?.filterMaxHeightCm ?? null,
       filterEducationLevels: user?.filterEducationLevels ?? [],
       filterReligions: user?.filterReligions ?? [],
       filterDietaryPreferences: user?.filterDietaryPreferences ?? [],

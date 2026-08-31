@@ -14,6 +14,8 @@ String _fullFiltersJson({
   String communityGroups = '[]',
   String petOwnership = '[]',
   String petAllergyStatus = '[]',
+  String minHeightCm = 'null',
+  String maxHeightCm = 'null',
 }) =>
     '''
 {
@@ -33,6 +35,8 @@ String _fullFiltersJson({
   "filterSmokingHabits": [],
   "filterDrinkingHabits": [],
   "filterWorkoutHabits": [],
+  "filterMinHeightCm": $minHeightCm,
+  "filterMaxHeightCm": $maxHeightCm,
   "filterEducationLevels": [],
   "filterReligions": [],
   "filterDietaryPreferences": [],
@@ -229,6 +233,37 @@ void main() {
       expect(putRequest!.body, contains('"filterRelationshipGoals":["CASUAL"]'));
       expect(putRequest!.body, contains('"filterWorkoutHabits":[]'));
       expect(updated.filterRelationshipGoals, ['CASUAL']);
+    });
+
+    test('parses and round-trips a height range filter', () async {
+      final api = LifestyleFiltersApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => _jsonResponse(
+            _fullFiltersJson(minHeightCm: '160', maxHeightCm: '190'),
+            200,
+          ),
+        ),
+      );
+
+      final current = await api.fetchFilters();
+
+      expect(current.filterMinHeightCm, 160);
+      expect(current.filterMaxHeightCm, 190);
+
+      http.Request? putRequest;
+      final putApi = LifestyleFiltersApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          putRequest = request;
+          return _jsonResponse(_fullFiltersJson(minHeightCm: '160', maxHeightCm: '190'), 200);
+        }),
+      );
+
+      await putApi.setFilters(current);
+
+      expect(putRequest!.body, contains('"filterMinHeightCm":160'));
+      expect(putRequest!.body, contains('"filterMaxHeightCm":190'));
     });
 
     test('throws LifestyleFiltersApiException on a non-200 response', () async {
