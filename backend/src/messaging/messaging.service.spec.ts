@@ -38,6 +38,7 @@ describe('MessagingService', () => {
     icebreakerResponse: { findMany: jest.Mock; upsert: jest.Mock };
     pollVote: { findMany: jest.Mock; upsert: jest.Mock };
     gameCardResponse: { findMany: jest.Mock; upsert: jest.Mock };
+    readReceiptUnlock: { findUnique: jest.Mock; findMany: jest.Mock; create: jest.Mock };
     swipe: { deleteMany: jest.Mock };
     dissolvedMatch: { findMany: jest.Mock; findUnique: jest.Mock; create: jest.Mock; delete: jest.Mock };
     archivedMessage: { findMany: jest.Mock; createMany: jest.Mock };
@@ -78,6 +79,11 @@ describe('MessagingService', () => {
       icebreakerResponse: { findMany: jest.fn().mockResolvedValue([]), upsert: jest.fn() },
       pollVote: { findMany: jest.fn().mockResolvedValue([]), upsert: jest.fn() },
       gameCardResponse: { findMany: jest.fn().mockResolvedValue([]), upsert: jest.fn() },
+      readReceiptUnlock: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        findMany: jest.fn().mockResolvedValue([]),
+        create: jest.fn(),
+      },
       swipe: { deleteMany: jest.fn() },
       dissolvedMatch: {
         findMany: jest.fn(),
@@ -546,6 +552,7 @@ describe('MessagingService', () => {
         backgroundSoundId: null,
         transcript: null,
         readAt: null,
+        readReceiptLocked: false,
         icebreaker: null,
         poll: null,
         reservation: null,
@@ -1428,6 +1435,7 @@ describe('MessagingService', () => {
           backgroundSoundId: null,
           transcript: null,
           readAt: null,
+          readReceiptLocked: false,
           icebreaker: null,
           poll: null,
           reservation: null,
@@ -1521,6 +1529,214 @@ describe('MessagingService', () => {
         data: { readReceiptsEnabled: false },
       });
       expect(result).toEqual({ readReceiptsEnabled: false });
+    });
+  });
+
+  describe('unlockReadReceipt', () => {
+    function mockSentReadMessage(overrides: Partial<{ readAt: Date | null }> = {}) {
+      prisma.message.findUnique.mockResolvedValue({
+        id: 'message-1',
+        matchId: MATCH_ID,
+        senderId: WOMAN_ID,
+        contentType: 'TEXT',
+        content: 'hi',
+        mediaUrl: null,
+        isBlurred: false,
+        readAt: new Date('2026-01-01T00:05:00.000Z'),
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        ...overrides,
+      });
+    }
+
+    it('throws when the message does not exist or was not sent by the caller', async () => {
+      mockMatch();
+      prisma.message.findUnique.mockResolvedValue({
+        id: 'message-1',
+        matchId: MATCH_ID,
+        senderId: MAN_ID,
+        readAt: new Date(),
+      });
+
+      await expect(service.unlockReadReceipt(WOMAN_ID, MATCH_ID, 'message-1')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      expect(prisma.readReceiptUnlock.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects unlocking a message that has not been read yet', async () => {
+      mockMatch();
+      mockSentReadMessage({ readAt: null });
+
+      await expect(service.unlockReadReceipt(WOMAN_ID, MATCH_ID, 'message-1')).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(prisma.readReceiptUnlock.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects a free-tier user without enough tokens', async () => {
+      mockMatch();
+      mockSentReadMessage();
+      prisma.user.findUnique.mockResolvedValue({
+        subscriptionTier: 'FREE',
+        giftTokenBalance: 5,
+      });
+
+      await expect(service.unlockReadReceipt(WOMAN_ID, MATCH_ID, 'message-1')).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(prisma.readReceiptUnlock.create).not.toHaveBeenCalled();
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('spends tokens for a free-tier user with enough balance and reveals the read time', async () => {
+      mockMatch();
+      mockSentReadMessage();
+      prisma.user.findUnique.mockResolvedValue({
+        subscriptionTier: 'FREE',
+        giftTokenBalance: 50,
+      });
+
+      const result = await service.unlockReadReceipt(WOMAN_ID, MATCH_ID, 'message-1');
+
+      expect(prisma.$transaction).toHaveBeenCalled();
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: WOMAN_ID },
+        data: { giftTokenBalance: { decrement: 10 } },
+      });
+      expect(prisma.readReceiptUnlock.create).toHaveBeenCalledWith({
+        data: { messageId: 'message-1', userId: WOMAN_ID },
+      });
+      expect(result.readAt).not.toBeNull();
+      expect(result.readReceiptLocked).toBe(false);
+    });
+
+    it('unlocks for free on a paid subscription tier without spending tokens', async () => {
+      mockMatch();
+      mockSentReadMessage();
+      prisma.user.findUnique.mockResolvedValue({
+        subscriptionTier: 'GOLD',
+        giftTokenBalance: 0,
+      });
+
+      const result = await service.unlockReadReceipt(WOMAN_ID, MATCH_ID, 'message-1');
+
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+      expect(prisma.user.update).not.toHaveBeenCalled();
+      expect(prisma.readReceiptUnlock.create).toHaveBeenCalledWith({
+        data: { messageId: 'message-1', userId: WOMAN_ID },
+      });
+      expect(result.readAt).not.toBeNull();
+    });
+
+    it('does not charge again once already unlocked', async () => {
+      mockMatch();
+      mockSentReadMessage();
+      prisma.readReceiptUnlock.findUnique.mockResolvedValue({
+        id: 'unlock-1',
+        messageId: 'message-1',
+        userId: WOMAN_ID,
+      });
+      prisma.user.findUnique.mockResolvedValue({
+        subscriptionTier: 'FREE',
+        giftTokenBalance: 0,
+      });
+
+      const result = await service.unlockReadReceipt(WOMAN_ID, MATCH_ID, 'message-1');
+
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+      expect(prisma.readReceiptUnlock.create).not.toHaveBeenCalled();
+      expect(result.readAt).not.toBeNull();
+    });
+  });
+
+  describe('listMessages read receipt masking', () => {
+    it('withholds readAt on a sent message that is read but not unlocked, for a free-tier viewer', async () => {
+      mockMatch();
+      prisma.message.findMany.mockResolvedValue([
+        {
+          id: 'm1',
+          senderId: WOMAN_ID,
+          contentType: 'TEXT',
+          content: 'hi',
+          mediaUrl: null,
+          isBlurred: false,
+          readAt: new Date('2026-01-01T00:05:00.000Z'),
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ]);
+      prisma.user.findUnique.mockResolvedValue({ subscriptionTier: 'FREE' });
+
+      const messages = await service.listMessages(WOMAN_ID, MATCH_ID);
+
+      expect(messages[0].readAt).toBeNull();
+      expect(messages[0].readReceiptLocked).toBe(true);
+    });
+
+    it('reveals readAt once the sent message has an unlock record', async () => {
+      mockMatch();
+      prisma.message.findMany.mockResolvedValue([
+        {
+          id: 'm1',
+          senderId: WOMAN_ID,
+          contentType: 'TEXT',
+          content: 'hi',
+          mediaUrl: null,
+          isBlurred: false,
+          readAt: new Date('2026-01-01T00:05:00.000Z'),
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ]);
+      prisma.user.findUnique.mockResolvedValue({ subscriptionTier: 'FREE' });
+      prisma.readReceiptUnlock.findMany.mockResolvedValue([{ messageId: 'm1', userId: WOMAN_ID }]);
+
+      const messages = await service.listMessages(WOMAN_ID, MATCH_ID);
+
+      expect(messages[0].readAt).not.toBeNull();
+      expect(messages[0].readReceiptLocked).toBe(false);
+    });
+
+    it('reveals readAt for free on a paid subscription tier', async () => {
+      mockMatch();
+      prisma.message.findMany.mockResolvedValue([
+        {
+          id: 'm1',
+          senderId: WOMAN_ID,
+          contentType: 'TEXT',
+          content: 'hi',
+          mediaUrl: null,
+          isBlurred: false,
+          readAt: new Date('2026-01-01T00:05:00.000Z'),
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ]);
+      prisma.user.findUnique.mockResolvedValue({ subscriptionTier: 'PLUS' });
+
+      const messages = await service.listMessages(WOMAN_ID, MATCH_ID);
+
+      expect(messages[0].readAt).not.toBeNull();
+      expect(messages[0].readReceiptLocked).toBe(false);
+    });
+
+    it('never masks readAt on messages received from the other person', async () => {
+      mockMatch();
+      prisma.message.findMany.mockResolvedValue([
+        {
+          id: 'm1',
+          senderId: MAN_ID,
+          contentType: 'TEXT',
+          content: 'hey',
+          mediaUrl: null,
+          isBlurred: false,
+          readAt: new Date('2026-01-01T00:05:00.000Z'),
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ]);
+
+      const messages = await service.listMessages(WOMAN_ID, MATCH_ID);
+
+      expect(messages[0].readAt).not.toBeNull();
+      expect(messages[0].readReceiptLocked).toBe(false);
+      expect(prisma.readReceiptUnlock.findMany).not.toHaveBeenCalled();
     });
   });
 

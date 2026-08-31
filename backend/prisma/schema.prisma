@@ -394,6 +394,23 @@ model GameCardResponse {
   @@map("game_card_responses")
 }
 
+// Records that a message's sender has paid (a one-time token spend, or a
+// free grant while on a paid subscription tier) to reveal that a specific
+// message was actually read - see
+// MessagingService.READ_RECEIPT_UNLOCK_TOKEN_COST. Only ever created for
+// the sender of the message; the recipient's own read-receipts-enabled
+// toggle (User.readReceiptsEnabled) still gates whether Message.readAt gets
+// stamped at all in the first place.
+model ReadReceiptUnlock {
+  id        String   @id @default(uuid())
+  messageId String
+  userId    String
+  createdAt DateTime @default(now())
+
+  @@unique([messageId, userId])
+  @@map("read_receipt_unlocks")
+}
+
 model ProfilePromptVoiceAnswer {
   id              String   @id @default(uuid())
   userId          String

@@ -165,6 +165,7 @@ class ChatMessage {
     this.backgroundSoundId,
     this.transcript,
     this.readAt,
+    this.readReceiptLocked = false,
     this.icebreaker,
     this.poll,
     this.reservation,
@@ -193,6 +194,11 @@ class ChatMessage {
   /// isn't a voice note.
   final String? transcript;
   final DateTime? readAt;
+
+  /// True when this message (one the current user sent) was actually read,
+  /// but the read time is withheld pending a paid unlock - see
+  /// MessagingApi.unlockReadReceipt.
+  final bool readReceiptLocked;
   final Icebreaker? icebreaker;
   final Poll? poll;
   final Reservation? reservation;
@@ -699,6 +705,24 @@ class MessagingApi {
     return _toChatMessage(body);
   }
 
+  /// Reveals that a message the current user sent was actually read - free
+  /// on any paid subscription tier, otherwise spends a one-time token cost.
+  /// Throws [MessagingApiException] (400) if the message hasn't been read
+  /// yet or the token balance is too low.
+  Future<ChatMessage> unlockReadReceipt({required String matchId, required String messageId}) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/matches/$matchId/messages/$messageId/unlock-read-receipt'),
+      headers: _headers,
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 200) {
+      throw MessagingApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return _toChatMessage(body);
+  }
+
   Future<ChatMessage> sendVoiceNote({
     required String matchId,
     required String mediaUrl,
@@ -1190,6 +1214,7 @@ class MessagingApi {
       backgroundSoundId: json['backgroundSoundId'] as String?,
       transcript: json['transcript'] as String?,
       readAt: json['readAt'] != null ? DateTime.parse(json['readAt'] as String) : null,
+      readReceiptLocked: json['readReceiptLocked'] as bool? ?? false,
       icebreaker: icebreakerJson != null
           ? Icebreaker(
               promptId: icebreakerJson['promptId'] as String,

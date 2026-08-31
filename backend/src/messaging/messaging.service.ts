@@ -33,6 +33,7 @@ import {
   MIN_POLL_OPTIONS,
   GIFT_CONTENT_TYPE,
   POLL_CONTENT_TYPE,
+  READ_RECEIPT_UNLOCK_TOKEN_COST,
   RESERVATION_CONTENT_TYPE,
   RESERVATION_PROVIDERS,
   ReservationProvider,
@@ -122,6 +123,10 @@ export interface MessageView {
   voiceEffectId: string | null;
   backgroundSoundId: string | null;
   readAt: string | null;
+  // True when this message (one the current user sent) was actually read,
+  // but readAt is being withheld pending a paid unlock - see
+  // MessagingService.toMessageView/unlockReadReceipt.
+  readReceiptLocked: boolean;
   transcript: string | null;
   icebreaker: IcebreakerView | null;
   poll: PollView | null;
@@ -136,6 +141,11 @@ export interface MessageView {
 
 export interface ReadReceiptsResult {
   readReceiptsEnabled: boolean;
+}
+
+interface ReadReceiptUnlockContext {
+  viewerHasPaidSubscription: boolean;
+  unlockedMessageIds: Set<string>;
 }
 
 export interface MediaBlurPreferenceResult {
@@ -603,6 +613,11 @@ export class MessagingService {
     }
     const unreadIdSet = new Set(unreadIncomingIds);
 
+    const readReceiptContext = await this.getReadReceiptUnlockContext(
+      userId,
+      messages.filter((message) => message.senderId === userId && message.readAt != null).map((message) => message.id),
+    );
+
     return messages.map((message) =>
       this.toMessageView(
         readAt && unreadIdSet.has(message.id) ? { ...message, readAt } : message,
@@ -610,6 +625,8 @@ export class MessagingService {
         responsesByMessageId.get(message.id) ?? [],
         votesByMessageId.get(message.id) ?? [],
         gameResponsesByMessageId.get(message.id) ?? [],
+        false,
+        readReceiptContext,
       ),
     );
   }
@@ -954,6 +971,55 @@ export class MessagingService {
     return { readReceiptsEnabled: updated.readReceiptsEnabled };
   }
 
+  /**
+   * A la carte: lets the SENDER of an already-read message reveal that it
+   * was read, either for free on any paid subscription tier or by spending
+   * READ_RECEIPT_UNLOCK_TOKEN_COST tokens for that one message. Only ever
+   * changes what this sender can see - it does not touch
+   * User.readReceiptsEnabled or affect any other viewer.
+   */
+  async unlockReadReceipt(userId: string, matchId: string, messageId: string): Promise<MessageView> {
+    await this.getMatchForUser(userId, matchId);
+
+    const message = await this.prisma.message.findUnique({ where: { id: messageId } });
+    if (!message || message.matchId !== matchId || message.senderId !== userId) {
+      throw new NotFoundException('Message not found.');
+    }
+    if (message.readAt == null) {
+      throw new BadRequestException('This message has not been read yet.');
+    }
+
+    const existingUnlock = await this.prisma.readReceiptUnlock.findUnique({
+      where: { messageId_userId: { messageId, userId } },
+    });
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found.');
+    }
+    const hasPaidSubscription = user.subscriptionTier !== 'FREE';
+
+    if (!existingUnlock && !hasPaidSubscription) {
+      if (user.giftTokenBalance < READ_RECEIPT_UNLOCK_TOKEN_COST) {
+        throw new BadRequestException('Not enough tokens to unlock this read receipt.');
+      }
+      await this.prisma.$transaction([
+        this.prisma.user.update({
+          where: { id: userId },
+          data: { giftTokenBalance: { decrement: READ_RECEIPT_UNLOCK_TOKEN_COST } },
+        }),
+        this.prisma.readReceiptUnlock.create({ data: { messageId, userId } }),
+      ]);
+    } else if (!existingUnlock) {
+      await this.prisma.readReceiptUnlock.create({ data: { messageId, userId } });
+    }
+
+    return this.toMessageView(message, userId, [], [], [], false, {
+      viewerHasPaidSubscription: hasPaidSubscription,
+      unlockedMessageIds: new Set([messageId]),
+    });
+  }
+
   async getMediaBlurPreference(userId: string): Promise<MediaBlurPreferenceResult> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -1122,6 +1188,10 @@ export class MessagingService {
     const gameResponsesByMessageId = await this.getGameCardResponsesByMessage(
       messages.filter((message) => message.contentType === GAME_CARD_CONTENT_TYPE).map((message) => message.id),
     );
+    const readReceiptContext = await this.getReadReceiptUnlockContext(
+      partnerId,
+      messages.filter((message) => message.senderId === partnerId && message.readAt != null).map((message) => message.id),
+    );
 
     return messages.map((message) =>
       this.toMessageView(
@@ -1130,6 +1200,8 @@ export class MessagingService {
         responsesByMessageId.get(message.id) ?? [],
         votesByMessageId.get(message.id) ?? [],
         gameResponsesByMessageId.get(message.id) ?? [],
+        false,
+        readReceiptContext,
       ),
     );
   }
@@ -1581,6 +1653,31 @@ export class MessagingService {
     return responsesByMessageId;
   }
 
+  /**
+   * Only fetches the viewer's subscription tier / unlock records when there
+   * is at least one already-read message they sent in this batch - the vast
+   * majority of listMessages calls have none, so this stays a no-op query
+   * for them.
+   */
+  private async getReadReceiptUnlockContext(
+    userId: string,
+    myReadMessageIds: string[],
+  ): Promise<ReadReceiptUnlockContext> {
+    if (myReadMessageIds.length === 0) {
+      return { viewerHasPaidSubscription: false, unlockedMessageIds: new Set() };
+    }
+
+    const [user, unlocks] = await Promise.all([
+      this.prisma.user.findUnique({ where: { id: userId }, select: { subscriptionTier: true } }),
+      this.prisma.readReceiptUnlock.findMany({ where: { userId, messageId: { in: myReadMessageIds } } }),
+    ]);
+
+    return {
+      viewerHasPaidSubscription: user?.subscriptionTier != null && user.subscriptionTier !== 'FREE',
+      unlockedMessageIds: new Set(unlocks.map((unlock) => unlock.messageId)),
+    };
+  }
+
   private toMessageView(
     message: {
       id: string;
@@ -1611,6 +1708,7 @@ export class MessagingService {
     pollVotes: { userId: string; optionIndex: number }[] = [],
     gameResponses: { userId: string; answerIndex: number }[] = [],
     revealMediaUrl = false,
+    readReceiptContext: ReadReceiptUnlockContext = { viewerHasPaidSubscription: false, unlockedMessageIds: new Set() },
   ): MessageView {
     const expiryMode = (message.expiryMode as ExpiryMode | undefined) ?? null;
     const expired = isEphemeralExpired(
@@ -1620,6 +1718,11 @@ export class MessagingService {
     const hasBeenViewed = message.viewedAt != null;
     const mediaUrl =
       expiryMode && !revealMediaUrl ? (expired || !hasBeenViewed ? null : message.mediaUrl) : message.mediaUrl;
+
+    const isMine = message.senderId === userId;
+    const readReceiptUnlocked =
+      readReceiptContext.viewerHasPaidSubscription || readReceiptContext.unlockedMessageIds.has(message.id);
+    const readReceiptLocked = isMine && message.readAt != null && !readReceiptUnlocked;
 
     return {
       id: message.id,
@@ -1633,7 +1736,8 @@ export class MessagingService {
       durationSeconds: message.durationSeconds,
       voiceEffectId: message.voiceEffectId ?? null,
       backgroundSoundId: message.backgroundSoundId ?? null,
-      readAt: message.readAt ? message.readAt.toISOString() : null,
+      readAt: readReceiptLocked ? null : message.readAt ? message.readAt.toISOString() : null,
+      readReceiptLocked,
       transcript: message.transcript ?? null,
       expiryMode,
       viewTimerSeconds: message.viewTimerSeconds ?? null,
