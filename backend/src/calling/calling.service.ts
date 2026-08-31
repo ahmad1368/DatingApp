@@ -7,7 +7,7 @@ import {
   ModerationResult,
 } from '../messaging/interfaces/content-moderator.interface';
 import { SafetyService, UserReportView } from '../safety/safety.service';
-import { ACTIVE_CALL_STATUSES, findVirtualBackground } from './calling.constants';
+import { ACTIVE_CALL_STATUSES, findAppearanceFilter, findVirtualBackground } from './calling.constants';
 
 export interface CallSessionView {
   id: string;
@@ -19,6 +19,7 @@ export interface CallSessionView {
   offerSdp: string;
   answerSdp: string | null;
   virtualBackgroundId: string | null;
+  appearanceFilterId: string | null;
   activeIcebreakerPromptId: string | null;
   callerMuted: boolean;
   calleeMuted: boolean;
@@ -45,6 +46,7 @@ interface CallSessionRecord {
   offerSdp: string;
   answerSdp: string | null;
   virtualBackgroundId: string | null;
+  appearanceFilterId: string | null;
   activeIcebreakerPromptId: string | null;
   callerMuted: boolean;
   calleeMuted: boolean;
@@ -217,6 +219,25 @@ export class CallingService {
   }
 
   /**
+   * "Video Date Mode": lets a participant pick a subtle appearance filter
+   * for their own feed - a cosmetic overlay independent of
+   * [setVirtualBackground]'s backdrop swap.
+   */
+  async setAppearanceFilter(userId: string, callId: string, filterId: string): Promise<CallSessionView> {
+    const call = await this.getActiveCallForParticipant(userId, callId);
+    if (!findAppearanceFilter(filterId)) {
+      throw new BadRequestException('Unknown appearance filter.');
+    }
+
+    const updated = await this.prisma.callSession.update({
+      where: { id: call.id },
+      data: { appearanceFilterId: filterId },
+    });
+
+    return this.toView(updated);
+  }
+
+  /**
    * "Video Date Mode": either participant can surface (or clear, by
    * omitting promptId) a shared icebreaker question overlay during the
    * call - purely a display prompt, not tied to the in-chat icebreaker
@@ -333,6 +354,7 @@ export class CallingService {
       offerSdp: call.offerSdp,
       answerSdp: call.answerSdp,
       virtualBackgroundId: call.virtualBackgroundId,
+      appearanceFilterId: call.appearanceFilterId,
       activeIcebreakerPromptId: call.activeIcebreakerPromptId,
       callerMuted: call.callerMuted,
       calleeMuted: call.calleeMuted,

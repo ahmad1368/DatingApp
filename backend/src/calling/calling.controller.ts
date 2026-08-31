@@ -3,13 +3,14 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AuthenticatedUser, JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AnswerCallDto } from './dto/answer-call.dto';
 import { InitiateCallDto } from './dto/initiate-call.dto';
+import { SetAppearanceFilterDto } from './dto/set-appearance-filter.dto';
 import { SetIcebreakerOverlayDto } from './dto/set-icebreaker-overlay.dto';
 import { SetMediaControlsDto } from './dto/set-media-controls.dto';
 import { SetVirtualBackgroundDto } from './dto/set-virtual-background.dto';
 import { SubmitIceCandidateDto } from './dto/submit-ice-candidate.dto';
 import { CheckTranscriptDto } from './dto/check-transcript.dto';
 import { ReportCallDto } from './dto/report-call.dto';
-import { VIRTUAL_BACKGROUNDS } from './calling.constants';
+import { APPEARANCE_FILTERS, VIRTUAL_BACKGROUNDS } from './calling.constants';
 import { CallingService } from './calling.service';
 
 @Controller('calls')
@@ -83,6 +84,21 @@ export class CallingController {
     @Body() dto: SetVirtualBackgroundDto,
   ) {
     return this.callingService.setVirtualBackground(user.id, callId, dto.backgroundId);
+  }
+
+  @Get('appearance-filters/catalog')
+  getAppearanceFilterCatalog() {
+    return APPEARANCE_FILTERS;
+  }
+
+  @Put(':callId/appearance-filter')
+  @HttpCode(HttpStatus.OK)
+  setAppearanceFilter(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('callId') callId: string,
+    @Body() dto: SetAppearanceFilterDto,
+  ) {
+    return this.callingService.setAppearanceFilter(user.id, callId, dto.filterId);
   }
 
   @Put(':callId/icebreaker')

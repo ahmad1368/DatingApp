@@ -28,3 +28,24 @@ export const VIRTUAL_BACKGROUNDS: VirtualBackground[] = [
 export function findVirtualBackground(backgroundId: string): VirtualBackground | undefined {
   return VIRTUAL_BACKGROUNDS.find((background) => background.id === backgroundId);
 }
+
+export interface AppearanceFilter {
+  id: string;
+  label: string;
+}
+
+// "Video Date Mode" subtle appearance filters - a cosmetic overlay separate
+// from VIRTUAL_BACKGROUNDS's backdrop swap. Curated and static, like
+// VIRTUAL_BACKGROUNDS; actually applying the filter to the video feed is a
+// client-side concern, the backend only tracks which one is selected.
+export const APPEARANCE_FILTERS: AppearanceFilter[] = [
+  { id: 'none', label: 'None' },
+  { id: 'natural-glow', label: 'Natural Glow' },
+  { id: 'soft-focus', label: 'Soft Focus' },
+  { id: 'warm-tone', label: 'Warm Tone' },
+  { id: 'brighten', label: 'Brighten' },
+];
+
+export function findAppearanceFilter(filterId: string): AppearanceFilter | undefined {
+  return APPEARANCE_FILTERS.find((filter) => filter.id === filterId);
+}
