@@ -32,6 +32,7 @@ String _fullFiltersJson({
   "showLifestyleBadgesOnProfile": true,
   "filterSmokingHabits": [],
   "filterDrinkingHabits": [],
+  "filterWorkoutHabits": [],
   "filterEducationLevels": [],
   "filterReligions": [],
   "filterDietaryPreferences": [],
@@ -226,6 +227,7 @@ void main() {
       expect(putRequest!.method, 'PUT');
       expect(putRequest!.url.path, '/profile/lifestyle');
       expect(putRequest!.body, contains('"filterRelationshipGoals":["CASUAL"]'));
+      expect(putRequest!.body, contains('"filterWorkoutHabits":[]'));
       expect(updated.filterRelationshipGoals, ['CASUAL']);
     });
 
@@ -238,6 +240,7 @@ void main() {
         showLifestyleBadgesOnProfile: true,
         filterSmokingHabits: const [],
         filterDrinkingHabits: const [],
+        filterWorkoutHabits: const [],
         filterEducationLevels: const [],
         filterReligions: const [],
         filterDietaryPreferences: const [],

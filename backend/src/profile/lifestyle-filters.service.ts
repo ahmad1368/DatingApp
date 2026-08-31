@@ -18,6 +18,7 @@ export interface LifestyleFiltersResult {
   showLifestyleBadgesOnProfile: boolean;
   filterSmokingHabits: string[];
   filterDrinkingHabits: string[];
+  filterWorkoutHabits: string[];
   filterEducationLevels: string[];
   filterReligions: string[];
   filterDietaryPreferences: string[];
@@ -50,6 +51,7 @@ interface LifestyleFiltersRecord {
   showLifestyleBadgesOnProfile: boolean;
   filterSmokingHabits: string[];
   filterDrinkingHabits: string[];
+  filterWorkoutHabits: string[];
   filterEducationLevels: string[];
   filterReligions: string[];
   filterDietaryPreferences: string[];
@@ -82,6 +84,7 @@ const SELECT = {
   showLifestyleBadgesOnProfile: true,
   filterSmokingHabits: true,
   filterDrinkingHabits: true,
+  filterWorkoutHabits: true,
   filterEducationLevels: true,
   filterReligions: true,
   filterDietaryPreferences: true,
@@ -129,6 +132,7 @@ export class LifestyleFiltersService {
         showLifestyleBadgesOnProfile: dto.showLifestyleBadgesOnProfile,
         filterSmokingHabits: dto.filterSmokingHabits,
         filterDrinkingHabits: dto.filterDrinkingHabits,
+        filterWorkoutHabits: dto.filterWorkoutHabits,
         filterEducationLevels: dto.filterEducationLevels,
         filterReligions: dto.filterReligions,
         filterDietaryPreferences: dto.filterDietaryPreferences,
@@ -167,6 +171,7 @@ export class LifestyleFiltersService {
       showLifestyleBadgesOnProfile: user?.showLifestyleBadgesOnProfile ?? true,
       filterSmokingHabits: user?.filterSmokingHabits ?? [],
       filterDrinkingHabits: user?.filterDrinkingHabits ?? [],
+      filterWorkoutHabits: user?.filterWorkoutHabits ?? [],
       filterEducationLevels: user?.filterEducationLevels ?? [],
       filterReligions: user?.filterReligions ?? [],
       filterDietaryPreferences: user?.filterDietaryPreferences ?? [],

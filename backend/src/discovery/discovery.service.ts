@@ -1402,6 +1402,7 @@ export class DiscoveryService {
   private buildLifestyleFilterWhere(currentUser: {
     filterSmokingHabits: string[];
     filterDrinkingHabits: string[];
+    filterWorkoutHabits?: string[];
     filterEducationLevels: string[];
     filterReligions: string[];
     filterDietaryPreferences: string[];
@@ -1425,6 +1426,9 @@ export class DiscoveryService {
     }
     if (currentUser.filterDrinkingHabits.length > 0) {
       where.drinkingHabit = { in: currentUser.filterDrinkingHabits };
+    }
+    if ((currentUser.filterWorkoutHabits ?? []).length > 0) {
+      where.workoutHabit = { in: currentUser.filterWorkoutHabits };
     }
     if (currentUser.filterEducationLevels.length > 0) {
       where.education = { in: currentUser.filterEducationLevels };

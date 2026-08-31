@@ -33,6 +33,7 @@ class LifestyleFilters {
     required this.showLifestyleBadgesOnProfile,
     required this.filterSmokingHabits,
     required this.filterDrinkingHabits,
+    required this.filterWorkoutHabits,
     required this.filterEducationLevels,
     required this.filterReligions,
     required this.filterDietaryPreferences,
@@ -64,6 +65,7 @@ class LifestyleFilters {
   final bool showLifestyleBadgesOnProfile;
   final List<String> filterSmokingHabits;
   final List<String> filterDrinkingHabits;
+  final List<String> filterWorkoutHabits;
   final List<String> filterEducationLevels;
   final List<String> filterReligions;
   final List<String> filterDietaryPreferences;
@@ -104,6 +106,7 @@ class LifestyleFilters {
       showLifestyleBadgesOnProfile: showLifestyleBadgesOnProfile,
       filterSmokingHabits: filterSmokingHabits,
       filterDrinkingHabits: filterDrinkingHabits,
+      filterWorkoutHabits: filterWorkoutHabits,
       filterEducationLevels: filterEducationLevels,
       filterReligions: filterReligions,
       filterDietaryPreferences: filterDietaryPreferences,
@@ -225,6 +228,7 @@ class LifestyleFiltersApi {
         'showLifestyleBadgesOnProfile': filters.showLifestyleBadgesOnProfile,
         'filterSmokingHabits': filters.filterSmokingHabits,
         'filterDrinkingHabits': filters.filterDrinkingHabits,
+        'filterWorkoutHabits': filters.filterWorkoutHabits,
         'filterEducationLevels': filters.filterEducationLevels,
         'filterReligions': filters.filterReligions,
         'filterDietaryPreferences': filters.filterDietaryPreferences,
@@ -267,6 +271,7 @@ class LifestyleFiltersApi {
       showLifestyleBadgesOnProfile: json['showLifestyleBadgesOnProfile'] as bool,
       filterSmokingHabits: (json['filterSmokingHabits'] as List).cast<String>(),
       filterDrinkingHabits: (json['filterDrinkingHabits'] as List).cast<String>(),
+      filterWorkoutHabits: (json['filterWorkoutHabits'] as List).cast<String>(),
       filterEducationLevels: (json['filterEducationLevels'] as List).cast<String>(),
       filterReligions: (json['filterReligions'] as List).cast<String>(),
       filterDietaryPreferences: (json['filterDietaryPreferences'] as List).cast<String>(),

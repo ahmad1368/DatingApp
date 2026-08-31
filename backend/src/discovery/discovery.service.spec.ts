@@ -929,6 +929,39 @@ describe('DiscoveryService', () => {
       });
     });
 
+    it('applies the workout habit filter to the candidate query', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+        filterWorkoutHabits: ['Often', 'Daily'],
+      });
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      prisma.user.findMany.mockResolvedValue([]);
+
+      await service.getDeck(USER_ID);
+
+      expect(prisma.user.findMany).toHaveBeenCalledWith({
+        where: {
+          id: { notIn: [USER_ID] },
+          onboardingCompletedAt: { not: null },
+          activeMode: 'DATING',
+          AND: [
+            { OR: [{ incognitoEnabled: false }, { id: { in: [] } }] },
+            { OR: [{ id: { notIn: [] } }, { id: { in: [] } }] },
+            { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
+          ],
+          workoutHabit: { in: ['Often', 'Daily'] },
+        },
+        take: 60,
+      });
+    });
+
     it('applies kink tag and relationship desire filters to the candidate query', async () => {
       prisma.user.findUnique.mockResolvedValue({
         id: USER_ID,
