@@ -169,6 +169,7 @@ class ChatMessage {
     this.poll,
     this.reservation,
     this.gift,
+    this.gameCard,
     this.expiryMode,
     this.viewTimerSeconds,
     this.isEphemeralExpired = false,
@@ -196,6 +197,7 @@ class ChatMessage {
   final Poll? poll;
   final Reservation? reservation;
   final GiftCard? gift;
+  final GameCard? gameCard;
 
   /// 'VIEW_ONCE' or 'TIMER' for an auto-expiring photo/GIF; null for a
   /// normal, permanent message.
@@ -247,6 +249,59 @@ class GiftCard {
   final String name;
   final String emoji;
   final int tokenCost;
+}
+
+/// A curated multiple-choice trivia card for the in-chat "Game Night" feature.
+class TriviaQuestion {
+  TriviaQuestion({
+    required this.id,
+    required this.question,
+    required this.options,
+    required this.correctOptionIndex,
+  });
+
+  final String id;
+  final String question;
+  final List<String> options;
+  final int correctOptionIndex;
+}
+
+/// A curated conversation-deepening question for the in-chat "21 Questions"
+/// game - answered with a normal chat reply, not a structured response.
+class TwentyOneQuestionsPrompt {
+  TwentyOneQuestionsPrompt({required this.id, required this.question});
+
+  final String id;
+  final String question;
+}
+
+/// An in-chat "Game Night" card: TRIVIA (guess the right answer),
+/// TWO_TRUTHS_AND_A_LIE (guess which statement is the lie), or
+/// TWENTY_ONE_QUESTIONS (a question card with no structured answer).
+class GameCard {
+  GameCard({
+    required this.gameType,
+    required this.question,
+    required this.options,
+    this.myAnswerIndex,
+    this.otherAnswerIndex,
+    this.correctOptionIndex,
+    this.isMyAnswerCorrect,
+  });
+
+  final String gameType;
+  final String question;
+  final List<String> options;
+  final int? myAnswerIndex;
+  final int? otherAnswerIndex;
+
+  /// The correct trivia answer, or the index of the lie - withheld until the
+  /// viewer has answered (or they sent the card themselves).
+  final int? correctOptionIndex;
+  final bool? isMyAnswerCorrect;
+
+  bool get haveIAnswered => myAnswerIndex != null;
+  bool get isTwentyOneQuestions => gameType == 'TWENTY_ONE_QUESTIONS';
 }
 
 class VoiceNoteEffect {
@@ -962,6 +1017,99 @@ class MessagingApi {
     return _toChatMessage(body);
   }
 
+  /// Fetches the curated trivia card bank for the "Game Night" feature.
+  Future<List<TriviaQuestion>> fetchTriviaQuestions() async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/matches/game-card-prompts?gameType=TRIVIA'),
+      headers: _headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw MessagingApiException(_errorMessage(_decode(response), response.statusCode));
+    }
+
+    final list = jsonDecode(response.body) as List;
+    return list
+        .cast<Map<String, dynamic>>()
+        .map(
+          (json) => TriviaQuestion(
+            id: json['id'] as String,
+            question: json['question'] as String,
+            options: (json['options'] as List).cast<String>(),
+            correctOptionIndex: json['correctOptionIndex'] as int,
+          ),
+        )
+        .toList();
+  }
+
+  /// Fetches the curated "21 Questions" prompt bank for the "Game Night" feature.
+  Future<List<TwentyOneQuestionsPrompt>> fetchTwentyOneQuestionsPrompts() async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/matches/game-card-prompts?gameType=TWENTY_ONE_QUESTIONS'),
+      headers: _headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw MessagingApiException(_errorMessage(_decode(response), response.statusCode));
+    }
+
+    final list = jsonDecode(response.body) as List;
+    return list
+        .cast<Map<String, dynamic>>()
+        .map((json) => TwentyOneQuestionsPrompt(id: json['id'] as String, question: json['question'] as String))
+        .toList();
+  }
+
+  /// Sends a TRIVIA or TWENTY_ONE_QUESTIONS card ([promptId] required), or a
+  /// player-authored TWO_TRUTHS_AND_A_LIE round ([statements] and [lieIndex]
+  /// required).
+  Future<ChatMessage> sendGameCard({
+    required String matchId,
+    required String gameType,
+    String? promptId,
+    List<String>? statements,
+    int? lieIndex,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/matches/$matchId/game-card'),
+      headers: _headers,
+      body: jsonEncode({
+        'gameType': gameType,
+        if (promptId != null) 'promptId': promptId,
+        if (statements != null) 'statements': statements,
+        if (lieIndex != null) 'lieIndex': lieIndex,
+      }),
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 201) {
+      throw MessagingApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return _toChatMessage(body);
+  }
+
+  /// Answers a TRIVIA or TWO_TRUTHS_AND_A_LIE card. TWENTY_ONE_QUESTIONS has
+  /// no structured response - answer it with a normal chat message.
+  Future<ChatMessage> respondToGameCard({
+    required String matchId,
+    required String messageId,
+    required int answerIndex,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/matches/$matchId/messages/$messageId/game-card-response'),
+      headers: _headers,
+      body: jsonEncode({'answerIndex': answerIndex}),
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 200) {
+      throw MessagingApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return _toChatMessage(body);
+  }
+
   /// [provider] must be 'OPENTABLE' (restaurant reservations) or
   /// 'EVENTBRITE' (event tickets); [query] is the restaurant or event name
   /// to search for on that platform.
@@ -1027,6 +1175,7 @@ class MessagingApi {
     final pollJson = json['poll'] as Map<String, dynamic>?;
     final reservationJson = json['reservation'] as Map<String, dynamic>?;
     final giftJson = json['gift'] as Map<String, dynamic>?;
+    final gameCardJson = json['gameCard'] as Map<String, dynamic>?;
     return ChatMessage(
       id: json['id'] as String,
       senderId: json['senderId'] as String,
@@ -1073,6 +1222,17 @@ class MessagingApi {
               name: giftJson['name'] as String,
               emoji: giftJson['emoji'] as String,
               tokenCost: giftJson['tokenCost'] as int,
+            )
+          : null,
+      gameCard: gameCardJson != null
+          ? GameCard(
+              gameType: gameCardJson['gameType'] as String,
+              question: gameCardJson['question'] as String,
+              options: (gameCardJson['options'] as List).cast<String>(),
+              myAnswerIndex: gameCardJson['myAnswerIndex'] as int?,
+              otherAnswerIndex: gameCardJson['otherAnswerIndex'] as int?,
+              correctOptionIndex: gameCardJson['correctOptionIndex'] as int?,
+              isMyAnswerCorrect: gameCardJson['isMyAnswerCorrect'] as bool?,
             )
           : null,
       expiryMode: json['expiryMode'] as String?,

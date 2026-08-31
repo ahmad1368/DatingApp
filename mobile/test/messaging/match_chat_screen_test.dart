@@ -1121,6 +1121,148 @@ void main() {
     expect(find.text('Them: Coffee'), findsOneWidget);
   });
 
+  testWidgets('sends a trivia card from the picker and answers it', (tester) async {
+    http.Request? sendRequest;
+    http.Request? responseRequest;
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/matches/game-card-prompts' &&
+            request.url.queryParameters['gameType'] == 'TRIVIA') {
+          return http.Response(
+            '[{"id":"eiffel-tower-city","question":"Which city is the Eiffel Tower in?",'
+            '"options":["Rome","London","Paris","Berlin"],"correctOptionIndex":2}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (request.method == 'POST' && request.url.path == '/matches/match-1/game-card') {
+          sendRequest = request;
+          return http.Response(
+            '{"id":"m1","senderId":"user-woman","contentType":"GAME_CARD","content":"eiffel-tower-city",'
+            '"mediaUrl":null,"isBlurred":false,"gameCard":{"gameType":"TRIVIA",'
+            '"question":"Which city is the Eiffel Tower in?","options":["Rome","London","Paris","Berlin"],'
+            '"myAnswerIndex":null,"otherAnswerIndex":null,"correctOptionIndex":null,"isMyAnswerCorrect":null},'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}',
+            201,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (request.method == 'POST' && request.url.path.endsWith('/game-card-response')) {
+          responseRequest = request;
+          return http.Response(
+            '{"id":"m1","senderId":"user-woman","contentType":"GAME_CARD","content":"eiffel-tower-city",'
+            '"mediaUrl":null,"isBlurred":false,"gameCard":{"gameType":"TRIVIA",'
+            '"question":"Which city is the Eiffel Tower in?","options":["Rome","London","Paris","Berlin"],'
+            '"myAnswerIndex":2,"otherAnswerIndex":null,"correctOptionIndex":2,"isMyAnswerCorrect":true},'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(_emptyMessages, 200, headers: {'content-type': 'application/json'});
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":null,"isExpired":false,'
+          '"firstMessageSent":true,"canSendFirstMessage":true}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchChatScreen(messagingApi: api, matchId: 'match-1', currentUserId: 'user-woman'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.casino_outlined));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Trivia'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Which city is the Eiffel Tower in?'), findsOneWidget);
+    await tester.tap(find.text('Which city is the Eiffel Tower in?'));
+    await tester.pumpAndSettle();
+
+    expect(sendRequest, isNotNull);
+    expect(sendRequest!.body, '{"gameType":"TRIVIA","promptId":"eiffel-tower-city"}');
+    expect(find.text('Paris'), findsOneWidget);
+
+    await tester.tap(find.text('Paris'));
+    await tester.pumpAndSettle();
+
+    expect(responseRequest, isNotNull);
+    expect(responseRequest!.body, '{"answerIndex":2}');
+    expect(find.text('Correct!'), findsOneWidget);
+  });
+
+  testWidgets('composes and sends a Two Truths and a Lie card', (tester) async {
+    http.Request? sendRequest;
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.method == 'POST' && request.url.path == '/matches/match-1/game-card') {
+          sendRequest = request;
+          return http.Response(
+            '{"id":"m1","senderId":"user-woman","contentType":"GAME_CARD","content":null,'
+            '"mediaUrl":null,"isBlurred":false,"gameCard":{"gameType":"TWO_TRUTHS_AND_A_LIE",'
+            '"question":"Which one is the lie?",'
+            '"options":["I have a twin","I hate coffee","I once met a president"],'
+            '"myAnswerIndex":null,"otherAnswerIndex":null,"correctOptionIndex":1,"isMyAnswerCorrect":null},'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}',
+            201,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(_emptyMessages, 200, headers: {'content-type': 'application/json'});
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":null,"isExpired":false,'
+          '"firstMessageSent":true,"canSendFirstMessage":true}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchChatScreen(messagingApi: api, matchId: 'match-1', currentUserId: 'user-woman'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.casino_outlined));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Two Truths and a Lie'));
+    await tester.pumpAndSettle();
+
+    final dialogTextFields = find.descendant(of: find.byType(AlertDialog), matching: find.byType(TextField));
+    await tester.enterText(dialogTextFields.at(0), 'I have a twin');
+    await tester.enterText(dialogTextFields.at(1), 'I hate coffee');
+    await tester.enterText(dialogTextFields.at(2), 'I once met a president');
+    await tester.tap(find.byType(Radio<int>).at(1));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Send'));
+    await tester.pumpAndSettle();
+
+    expect(sendRequest, isNotNull);
+    expect(
+      sendRequest!.body,
+      '{"gameType":"TWO_TRUTHS_AND_A_LIE",'
+      '"statements":["I have a twin","I hate coffee","I once met a president"],"lieIndex":1}',
+    );
+    expect(find.text('Which one is the lie?'), findsOneWidget);
+  });
+
   testWidgets('extending the match time limit updates the button state', (tester) async {
     http.Request? extendRequest;
     final api = MessagingApi(

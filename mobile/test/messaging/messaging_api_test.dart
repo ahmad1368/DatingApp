@@ -1373,6 +1373,163 @@ void main() {
     });
   });
 
+  group('MessagingApi.fetchTriviaQuestions', () {
+    test('fetches and parses the curated trivia catalog', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'GET');
+          expect(request.url.path, '/matches/game-card-prompts');
+          expect(request.url.queryParameters['gameType'], 'TRIVIA');
+          return http.Response(
+            '[{"id":"eiffel-tower-city","question":"Which city is the Eiffel Tower in?",'
+            '"options":["Rome","London","Paris","Berlin"],"correctOptionIndex":2}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final questions = await api.fetchTriviaQuestions();
+
+      expect(questions, hasLength(1));
+      expect(questions.first.id, 'eiffel-tower-city');
+      expect(questions.first.correctOptionIndex, 2);
+    });
+  });
+
+  group('MessagingApi.fetchTwentyOneQuestionsPrompts', () {
+    test('fetches and parses the curated 21 Questions catalog', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.url.queryParameters['gameType'], 'TWENTY_ONE_QUESTIONS');
+          return http.Response(
+            '[{"id":"q-love-language","question":"What is your love language?"}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final prompts = await api.fetchTwentyOneQuestionsPrompts();
+
+      expect(prompts, hasLength(1));
+      expect(prompts.first.question, 'What is your love language?');
+    });
+  });
+
+  group('MessagingApi.sendGameCard', () {
+    test('sends a TRIVIA card and parses the created message', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'POST');
+          expect(request.url.path, '/matches/match-1/game-card');
+          expect(request.body, '{"gameType":"TRIVIA","promptId":"eiffel-tower-city"}');
+          return http.Response(
+            '{"id":"m1","senderId":"user-1","contentType":"GAME_CARD","content":"eiffel-tower-city",'
+            '"mediaUrl":null,"isBlurred":false,"gameCard":{"gameType":"TRIVIA",'
+            '"question":"Which city is the Eiffel Tower in?","options":["Rome","London","Paris","Berlin"],'
+            '"myAnswerIndex":null,"otherAnswerIndex":null,"correctOptionIndex":2,"isMyAnswerCorrect":null},'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}',
+            201,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final message = await api.sendGameCard(
+        matchId: 'match-1',
+        gameType: 'TRIVIA',
+        promptId: 'eiffel-tower-city',
+      );
+
+      expect(message.contentType, 'GAME_CARD');
+      expect(message.gameCard, isNotNull);
+      expect(message.gameCard!.options, ['Rome', 'London', 'Paris', 'Berlin']);
+      expect(message.gameCard!.haveIAnswered, isFalse);
+    });
+
+    test('sends a TWO_TRUTHS_AND_A_LIE card with statements and lie index', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.url.path, '/matches/match-1/game-card');
+          expect(
+            request.body,
+            '{"gameType":"TWO_TRUTHS_AND_A_LIE",'
+            '"statements":["I have a twin","I hate coffee","I once met a president"],"lieIndex":1}',
+          );
+          return http.Response(
+            '{"id":"m1","senderId":"user-1","contentType":"GAME_CARD","content":null,'
+            '"mediaUrl":null,"isBlurred":false,"gameCard":{"gameType":"TWO_TRUTHS_AND_A_LIE",'
+            '"question":"Which one is the lie?",'
+            '"options":["I have a twin","I hate coffee","I once met a president"],'
+            '"myAnswerIndex":null,"otherAnswerIndex":null,"correctOptionIndex":1,"isMyAnswerCorrect":null},'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}',
+            201,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final message = await api.sendGameCard(
+        matchId: 'match-1',
+        gameType: 'TWO_TRUTHS_AND_A_LIE',
+        statements: ['I have a twin', 'I hate coffee', 'I once met a president'],
+        lieIndex: 1,
+      );
+
+      expect(message.gameCard!.gameType, 'TWO_TRUTHS_AND_A_LIE');
+    });
+
+    test('throws MessagingApiException on an invalid game card', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '{"message":"Unknown trivia question."}',
+            400,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      expect(
+        () => api.sendGameCard(matchId: 'match-1', gameType: 'TRIVIA', promptId: 'nope'),
+        throwsA(isA<MessagingApiException>()),
+      );
+    });
+  });
+
+  group('MessagingApi.respondToGameCard', () {
+    test('sends the chosen answer and parses the revealed correct answer', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'POST');
+          expect(request.url.path, '/matches/match-1/messages/m1/game-card-response');
+          expect(request.body, '{"answerIndex":2}');
+          return http.Response(
+            '{"id":"m1","senderId":"user-2","contentType":"GAME_CARD","content":"eiffel-tower-city",'
+            '"mediaUrl":null,"isBlurred":false,"gameCard":{"gameType":"TRIVIA",'
+            '"question":"Which city is the Eiffel Tower in?","options":["Rome","London","Paris","Berlin"],'
+            '"myAnswerIndex":2,"otherAnswerIndex":null,"correctOptionIndex":2,"isMyAnswerCorrect":true},'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final message = await api.respondToGameCard(matchId: 'match-1', messageId: 'm1', answerIndex: 2);
+
+      expect(message.gameCard!.haveIAnswered, isTrue);
+      expect(message.gameCard!.isMyAnswerCorrect, isTrue);
+    });
+  });
+
   group('MessagingApi.sendReservation', () {
     test('sends the provider and query, parsing the created message', () async {
       final api = MessagingApi(

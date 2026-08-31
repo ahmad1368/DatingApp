@@ -37,6 +37,7 @@ describe('MessagingService', () => {
     user: { findUnique: jest.Mock; findMany: jest.Mock; update: jest.Mock };
     icebreakerResponse: { findMany: jest.Mock; upsert: jest.Mock };
     pollVote: { findMany: jest.Mock; upsert: jest.Mock };
+    gameCardResponse: { findMany: jest.Mock; upsert: jest.Mock };
     swipe: { deleteMany: jest.Mock };
     dissolvedMatch: { findMany: jest.Mock; findUnique: jest.Mock; create: jest.Mock; delete: jest.Mock };
     archivedMessage: { findMany: jest.Mock; createMany: jest.Mock };
@@ -76,6 +77,7 @@ describe('MessagingService', () => {
       user: { findUnique: jest.fn(), findMany: jest.fn().mockResolvedValue([]), update: jest.fn() },
       icebreakerResponse: { findMany: jest.fn().mockResolvedValue([]), upsert: jest.fn() },
       pollVote: { findMany: jest.fn().mockResolvedValue([]), upsert: jest.fn() },
+      gameCardResponse: { findMany: jest.fn().mockResolvedValue([]), upsert: jest.fn() },
       swipe: { deleteMany: jest.fn() },
       dissolvedMatch: {
         findMany: jest.fn(),
@@ -548,6 +550,7 @@ describe('MessagingService', () => {
         poll: null,
         reservation: null,
         gift: null,
+        gameCard: null,
         expiryMode: null,
         viewTimerSeconds: null,
         isEphemeralExpired: false,
@@ -1429,6 +1432,7 @@ describe('MessagingService', () => {
           poll: null,
           reservation: null,
           gift: null,
+          gameCard: null,
           expiryMode: null,
           viewTimerSeconds: null,
           isEphemeralExpired: false,
@@ -1995,6 +1999,274 @@ describe('MessagingService', () => {
         voteCounts: [1, 1],
         totalVotes: 2,
       });
+    });
+  });
+
+  describe('getGameCardPrompts', () => {
+    it('returns the trivia catalog', () => {
+      const prompts = service.getGameCardPrompts('TRIVIA');
+      expect(prompts.length).toBeGreaterThan(0);
+    });
+
+    it('returns the 21 Questions catalog', () => {
+      const prompts = service.getGameCardPrompts('TWENTY_ONE_QUESTIONS');
+      expect(prompts.length).toBeGreaterThan(0);
+    });
+
+    it('rejects an unknown game type', () => {
+      expect(() => service.getGameCardPrompts('NOT_A_GAME')).toThrow(BadRequestException);
+    });
+  });
+
+  describe('sendGameCard', () => {
+    it('rejects an unknown game type', async () => {
+      await expect(
+        service.sendGameCard(WOMAN_ID, MATCH_ID, 'NOT_A_GAME', undefined, undefined, undefined),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.message.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects an unknown trivia question id', async () => {
+      await expect(
+        service.sendGameCard(WOMAN_ID, MATCH_ID, 'TRIVIA', 'not-a-real-question', undefined, undefined),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.message.create).not.toHaveBeenCalled();
+    });
+
+    it('creates a TRIVIA game card with options and the correct answer stored', async () => {
+      mockMatch();
+      mockUsers({ [WOMAN_ID]: ['Woman'], [MAN_ID]: ['Man'] });
+      prisma.message.create.mockResolvedValue({
+        id: 'message-1',
+        senderId: WOMAN_ID,
+        contentType: 'GAME_CARD',
+        gameType: 'TRIVIA',
+        content: 'coffee-or-tea-not-real',
+        mediaUrl: null,
+        isBlurred: false,
+        readAt: null,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      await service.sendGameCard(WOMAN_ID, MATCH_ID, 'TRIVIA', 'eiffel-tower-city', undefined, undefined);
+
+      expect(prisma.message.create).toHaveBeenCalledWith({
+        data: {
+          matchId: MATCH_ID,
+          senderId: WOMAN_ID,
+          contentType: 'GAME_CARD',
+          content: 'eiffel-tower-city',
+          pollOptions: ['Rome', 'London', 'Paris', 'Berlin'],
+          gameType: 'TRIVIA',
+          gameCorrectIndex: 2,
+        },
+      });
+    });
+
+    it('rejects Two Truths and a Lie without exactly 3 statements', async () => {
+      await expect(
+        service.sendGameCard(WOMAN_ID, MATCH_ID, 'TWO_TRUTHS_AND_A_LIE', undefined, ['Only one'], 0),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.message.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects an out-of-range lie index', async () => {
+      await expect(
+        service.sendGameCard(
+          WOMAN_ID,
+          MATCH_ID,
+          'TWO_TRUTHS_AND_A_LIE',
+          undefined,
+          ['I have a twin', 'I hate coffee', 'I once met a president'],
+          3,
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.message.create).not.toHaveBeenCalled();
+    });
+
+    it('creates a TWO_TRUTHS_AND_A_LIE card storing the statements and lie index', async () => {
+      mockMatch();
+      mockUsers({ [WOMAN_ID]: ['Woman'], [MAN_ID]: ['Man'] });
+      const statements = ['I have a twin', 'I hate coffee', 'I once met a president'];
+      prisma.message.create.mockResolvedValue({
+        id: 'message-1',
+        senderId: WOMAN_ID,
+        contentType: 'GAME_CARD',
+        gameType: 'TWO_TRUTHS_AND_A_LIE',
+        content: null,
+        pollOptions: statements,
+        mediaUrl: null,
+        isBlurred: false,
+        readAt: null,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      await service.sendGameCard(WOMAN_ID, MATCH_ID, 'TWO_TRUTHS_AND_A_LIE', undefined, statements, 1);
+
+      expect(prisma.message.create).toHaveBeenCalledWith({
+        data: {
+          matchId: MATCH_ID,
+          senderId: WOMAN_ID,
+          contentType: 'GAME_CARD',
+          content: null,
+          pollOptions: statements,
+          gameType: 'TWO_TRUTHS_AND_A_LIE',
+          gameCorrectIndex: 1,
+        },
+      });
+    });
+  });
+
+  describe('respondToGameCard', () => {
+    it('throws when the message is not a game card in this match', async () => {
+      mockMatch();
+      prisma.message.findUnique.mockResolvedValue({ id: 'message-1', matchId: MATCH_ID, contentType: 'TEXT' });
+
+      await expect(service.respondToGameCard(WOMAN_ID, MATCH_ID, 'message-1', 0)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      expect(prisma.gameCardResponse.upsert).not.toHaveBeenCalled();
+    });
+
+    it('rejects responding to a TWENTY_ONE_QUESTIONS card', async () => {
+      mockMatch();
+      prisma.message.findUnique.mockResolvedValue({
+        id: 'message-1',
+        matchId: MATCH_ID,
+        contentType: 'GAME_CARD',
+        gameType: 'TWENTY_ONE_QUESTIONS',
+        content: 'q-love-language',
+        pollOptions: [],
+      });
+
+      await expect(service.respondToGameCard(WOMAN_ID, MATCH_ID, 'message-1', 0)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(prisma.gameCardResponse.upsert).not.toHaveBeenCalled();
+    });
+
+    it('rejects an answer index outside the options', async () => {
+      mockMatch();
+      prisma.message.findUnique.mockResolvedValue({
+        id: 'message-1',
+        matchId: MATCH_ID,
+        contentType: 'GAME_CARD',
+        gameType: 'TRIVIA',
+        content: 'eiffel-tower-city',
+        pollOptions: ['Rome', 'London', 'Paris', 'Berlin'],
+        gameCorrectIndex: 2,
+      });
+
+      await expect(service.respondToGameCard(WOMAN_ID, MATCH_ID, 'message-1', 9)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(prisma.gameCardResponse.upsert).not.toHaveBeenCalled();
+    });
+
+    it('reveals the correct answer once the responder answers a trivia card', async () => {
+      mockMatch();
+      prisma.message.findUnique.mockResolvedValue({
+        id: 'message-1',
+        matchId: MATCH_ID,
+        senderId: WOMAN_ID,
+        contentType: 'GAME_CARD',
+        gameType: 'TRIVIA',
+        content: 'eiffel-tower-city',
+        pollOptions: ['Rome', 'London', 'Paris', 'Berlin'],
+        gameCorrectIndex: 2,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+      prisma.gameCardResponse.findMany.mockResolvedValue([{ userId: MAN_ID, answerIndex: 2 }]);
+
+      const result = await service.respondToGameCard(MAN_ID, MATCH_ID, 'message-1', 2);
+
+      expect(prisma.gameCardResponse.upsert).toHaveBeenCalledWith({
+        where: { messageId_userId: { messageId: 'message-1', userId: MAN_ID } },
+        create: { messageId: 'message-1', userId: MAN_ID, answerIndex: 2 },
+        update: { answerIndex: 2 },
+      });
+      expect(result.gameCard).toEqual({
+        gameType: 'TRIVIA',
+        question: 'Which city is the Eiffel Tower in?',
+        options: ['Rome', 'London', 'Paris', 'Berlin'],
+        myAnswerIndex: 2,
+        otherAnswerIndex: null,
+        correctOptionIndex: 2,
+        isMyAnswerCorrect: true,
+      });
+    });
+
+    it('reveals the lie once the guesser answers a Two Truths and a Lie card, even if they guessed wrong', async () => {
+      mockMatch();
+      prisma.message.findUnique.mockResolvedValue({
+        id: 'message-1',
+        matchId: MATCH_ID,
+        senderId: WOMAN_ID,
+        contentType: 'GAME_CARD',
+        gameType: 'TWO_TRUTHS_AND_A_LIE',
+        content: null,
+        pollOptions: ['I have a twin', 'I hate coffee', 'I once met a president'],
+        gameCorrectIndex: 1,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+      prisma.gameCardResponse.findMany.mockResolvedValue([{ userId: MAN_ID, answerIndex: 0 }]);
+
+      const result = await service.respondToGameCard(MAN_ID, MATCH_ID, 'message-1', 0);
+
+      expect(result.gameCard?.myAnswerIndex).toBe(0);
+      expect(result.gameCard?.correctOptionIndex).toBe(1);
+      expect(result.gameCard?.isMyAnswerCorrect).toBe(false);
+    });
+  });
+
+  describe('listMessages game card hydration', () => {
+    it('withholds the lie index from a guesser who has not answered yet', async () => {
+      mockMatch();
+      prisma.message.findMany.mockResolvedValue([
+        {
+          id: 'message-1',
+          senderId: WOMAN_ID,
+          contentType: 'GAME_CARD',
+          gameType: 'TWO_TRUTHS_AND_A_LIE',
+          content: null,
+          pollOptions: ['I have a twin', 'I hate coffee', 'I once met a president'],
+          gameCorrectIndex: 1,
+          mediaUrl: null,
+          isBlurred: false,
+          readAt: new Date('2026-01-01T00:05:00.000Z'),
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ]);
+      prisma.gameCardResponse.findMany.mockResolvedValue([]);
+
+      const messages = await service.listMessages(MAN_ID, MATCH_ID);
+
+      expect(messages[0].gameCard?.correctOptionIndex).toBeNull();
+      expect(messages[0].gameCard?.isMyAnswerCorrect).toBeNull();
+    });
+
+    it('shows the sender the lie index even before the guesser answers', async () => {
+      mockMatch();
+      prisma.message.findMany.mockResolvedValue([
+        {
+          id: 'message-1',
+          senderId: WOMAN_ID,
+          contentType: 'GAME_CARD',
+          gameType: 'TWO_TRUTHS_AND_A_LIE',
+          content: null,
+          pollOptions: ['I have a twin', 'I hate coffee', 'I once met a president'],
+          gameCorrectIndex: 1,
+          mediaUrl: null,
+          isBlurred: false,
+          readAt: null,
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ]);
+      prisma.gameCardResponse.findMany.mockResolvedValue([]);
+
+      const messages = await service.listMessages(WOMAN_ID, MATCH_ID);
+
+      expect(messages[0].gameCard?.correctOptionIndex).toBe(1);
     });
   });
 
