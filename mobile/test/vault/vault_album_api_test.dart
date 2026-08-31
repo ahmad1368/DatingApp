@@ -113,6 +113,21 @@ void main() {
       expect(capturedRequest!.body, '{"matchId":"match-1"}');
     });
 
+    test('grantAccess sends expiresInHours for a time-limited key', () async {
+      http.Request? capturedRequest;
+      final api = VaultAlbumApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          capturedRequest = request;
+          return http.Response('', 200);
+        }),
+      );
+
+      await api.grantAccess('album-1', 'match-1', expiresInHours: 24);
+
+      expect(capturedRequest!.body, '{"matchId":"match-1","expiresInHours":24}');
+    });
+
     test('revokeAccess sends the matchId', () async {
       http.Request? capturedRequest;
       final api = VaultAlbumApi(
@@ -149,8 +164,27 @@ void main() {
 
       expect(albums, hasLength(1));
       expect(albums.first.name, 'Beach Trip');
+      expect(albums.first.expiresAt, isNull);
       expect(albums.first.photos, hasLength(1));
       expect(albums.first.photos.first.mediaUrl, 'https://example.com/a.jpg');
+    });
+
+    test('parses expiresAt when the key is time-limited', () async {
+      final api = VaultAlbumApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '[{"id":"album-1","name":"Beach Trip","grantedAt":"2026-01-02T00:00:00.000Z",'
+            '"expiresAt":"2026-01-03T00:00:00.000Z","photos":[]}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      final albums = await api.fetchGrantedAlbums('match-1');
+
+      expect(albums.first.expiresAt, DateTime.parse('2026-01-03T00:00:00.000Z'));
     });
   });
 }

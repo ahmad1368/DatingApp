@@ -1,6 +1,12 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { MAX_VAULT_ALBUMS } from './vault.constants';
+import {
+  computeGrantExpiresAt,
+  isGrantExpired,
+  MAX_GRANT_EXPIRY_HOURS,
+  MAX_VAULT_ALBUMS,
+  MIN_GRANT_EXPIRY_HOURS,
+} from './vault.constants';
 
 export interface VaultAlbumView {
   id: string;
@@ -14,6 +20,7 @@ export interface GrantedVaultAlbumView {
   id: string;
   name: string;
   grantedAt: string;
+  expiresAt: string | null;
   photos: { id: string; mediaUrl: string }[];
 }
 
@@ -46,12 +53,15 @@ export class VaultAlbumService {
       orderBy: { createdAt: 'desc' },
     });
 
+    const now = new Date();
     return albums.map((album) => ({
       id: album.id,
       name: album.name,
       createdAt: album.createdAt.toISOString(),
       photoIds: album.photos.map((photo) => photo.id),
-      grantedMatchIds: album.grants.map((grant) => grant.matchId),
+      grantedMatchIds: album.grants
+        .filter((grant) => !isGrantExpired(grant.expiresAt, now))
+        .map((grant) => grant.matchId),
     }));
   }
 
@@ -68,15 +78,33 @@ export class VaultAlbumService {
     return { deleted: true };
   }
 
-  /** Grants a specific match's other participant access to every photo in this album. Idempotent. */
-  async grantAccess(userId: string, albumId: string, matchId: string): Promise<{ granted: boolean }> {
+  /**
+   * Grants a specific match's other participant access to every photo in
+   * this album, either permanently (the default) or as a time-limited key
+   * that expires on its own after [expiresInHours] - same shape as
+   * VaultService.grantAccess for a single photo. Idempotent; re-granting
+   * replaces any previous expiry with the new one.
+   */
+  async grantAccess(
+    userId: string,
+    albumId: string,
+    matchId: string,
+    expiresInHours?: number,
+  ): Promise<{ granted: boolean }> {
     const album = await this.getOwnedAlbum(userId, albumId);
     await this.assertMatchParticipant(userId, matchId);
 
+    if (expiresInHours != null && (expiresInHours < MIN_GRANT_EXPIRY_HOURS || expiresInHours > MAX_GRANT_EXPIRY_HOURS)) {
+      throw new BadRequestException(
+        `expiresInHours must be between ${MIN_GRANT_EXPIRY_HOURS} and ${MAX_GRANT_EXPIRY_HOURS}.`,
+      );
+    }
+    const expiresAt = expiresInHours != null ? computeGrantExpiresAt(new Date(), expiresInHours) : null;
+
     await this.prisma.vaultAlbumGrant.upsert({
       where: { vaultAlbumId_matchId: { vaultAlbumId: album.id, matchId } },
-      create: { vaultAlbumId: album.id, matchId },
-      update: {},
+      create: { vaultAlbumId: album.id, matchId, expiresAt },
+      update: { expiresAt },
     });
 
     return { granted: true };
@@ -96,7 +124,12 @@ export class VaultAlbumService {
     return { revoked: true };
   }
 
-  /** What the *other* side of a match currently sees: albums their match partner has granted them. */
+  /**
+   * What the *other* side of a match currently sees: albums their match
+   * partner has granted them, excluding any time-limited key that has
+   * expired - an expired grant still exists in storage until the owner
+   * revokes/re-grants it, it's just no longer visible here.
+   */
   async listGrantedAlbums(userId: string, matchId: string): Promise<GrantedVaultAlbumView[]> {
     const otherUserId = await this.assertMatchParticipant(userId, matchId);
 
@@ -106,12 +139,16 @@ export class VaultAlbumService {
       orderBy: { grantedAt: 'desc' },
     });
 
-    return grants.map((grant) => ({
-      id: grant.vaultAlbum.id,
-      name: grant.vaultAlbum.name,
-      grantedAt: grant.grantedAt.toISOString(),
-      photos: grant.vaultAlbum.photos.map((photo) => ({ id: photo.id, mediaUrl: photo.mediaUrl })),
-    }));
+    const now = new Date();
+    return grants
+      .filter((grant) => !isGrantExpired(grant.expiresAt, now))
+      .map((grant) => ({
+        id: grant.vaultAlbum.id,
+        name: grant.vaultAlbum.name,
+        grantedAt: grant.grantedAt.toISOString(),
+        expiresAt: grant.expiresAt ? grant.expiresAt.toISOString() : null,
+        photos: grant.vaultAlbum.photos.map((photo) => ({ id: photo.id, mediaUrl: photo.mediaUrl })),
+      }));
   }
 
   private async getOwnedAlbum(userId: string, albumId: string) {
