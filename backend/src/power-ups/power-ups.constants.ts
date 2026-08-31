@@ -34,6 +34,11 @@ export const POWER_UPS: PowerUp[] = [
   { id: 'priority-like', label: 'Priority Like', coinCost: 15, quantity: 1 },
   { id: 'priority-like-pack-5', label: 'Priority Like Pack (5)', coinCost: 65, quantity: 5 },
   { id: 'priority-like-pack-10', label: 'Priority Like Pack (10)', coinCost: 120, quantity: 10 },
+  // Single-use pass to view the "who liked you" grid without a subscription
+  // - see DiscoveryService.getLikedByGrid/PowerUpsService.
+  // purchaseSeeWhoLikedYouUnlock. Bulk pack mirrors the other packs above.
+  { id: 'see-who-liked-you-unlock', label: 'See Who Liked You (1 unlock)', coinCost: 50, quantity: 1 },
+  { id: 'see-who-liked-you-unlock-pack-5', label: 'See Who Liked You Pack (5 unlocks)', coinCost: 200, quantity: 5 },
   { id: 'extra-profile-views', label: 'Extra Profile Views (+20)', coinCost: 30 },
   { id: 'extend-match-timer', label: 'Extend Match Timer', coinCost: 40 },
   // Standalone, permanent toggle (not a subscription perk): once purchased,

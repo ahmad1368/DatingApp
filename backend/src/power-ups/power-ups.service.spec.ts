@@ -249,6 +249,45 @@ describe('PowerUpsService', () => {
       });
     });
 
+    describe('see-who-liked-you-unlock', () => {
+      it('deducts coins and grants a bonus unlock credit', async () => {
+        prisma.user.findUnique.mockResolvedValue({ giftTokenBalance: 50 });
+        prisma.user.update.mockResolvedValue({ giftTokenBalance: 0 });
+
+        const result = await service.purchasePowerUp(USER_ID, 'see-who-liked-you-unlock');
+
+        expect(prisma.user.update).toHaveBeenCalledWith({
+          where: { id: USER_ID },
+          data: { giftTokenBalance: { decrement: 50 }, bonusSeeWhoLikedYouUnlocks: { increment: 1 } },
+        });
+        expect(result).toEqual({ coinBalance: 0, powerUpId: 'see-who-liked-you-unlock' });
+      });
+    });
+
+    describe('see-who-liked-you-unlock-pack-5', () => {
+      it('deducts the discounted bulk price and grants 5 bonus unlock credits', async () => {
+        prisma.user.findUnique.mockResolvedValue({ giftTokenBalance: 200 });
+        prisma.user.update.mockResolvedValue({ giftTokenBalance: 0 });
+
+        const result = await service.purchasePowerUp(USER_ID, 'see-who-liked-you-unlock-pack-5');
+
+        expect(prisma.user.update).toHaveBeenCalledWith({
+          where: { id: USER_ID },
+          data: { giftTokenBalance: { decrement: 200 }, bonusSeeWhoLikedYouUnlocks: { increment: 5 } },
+        });
+        expect(result).toEqual({ coinBalance: 0, powerUpId: 'see-who-liked-you-unlock-pack-5' });
+      });
+
+      it('rejects when the coin balance is too low for the pack', async () => {
+        prisma.user.findUnique.mockResolvedValue({ giftTokenBalance: 10 });
+
+        await expect(
+          service.purchasePowerUp(USER_ID, 'see-who-liked-you-unlock-pack-5'),
+        ).rejects.toBeInstanceOf(BadRequestException);
+        expect(prisma.user.update).not.toHaveBeenCalled();
+      });
+    });
+
     describe('unmatch-protection', () => {
       it('deducts coins and enables the protection flag', async () => {
         prisma.user.findUnique.mockResolvedValue({ giftTokenBalance: 100, unmatchProtectionEnabled: false });

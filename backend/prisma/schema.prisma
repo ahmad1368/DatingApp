@@ -154,6 +154,11 @@ model User {
   // PowerUpsService.activateBoost whenever the user wants, instead of
   // activating immediately like a single "boost" purchase does.
   bonusBoosts                           Int       @default(0)
+  // A la carte "See Who Liked You" unlock credits (see the
+  // see-who-liked-you-unlock* POWER_UPS entries) - spent one at a time via
+  // DiscoveryService.getLikedByGrid to let a non-premium user view their
+  // likes grid without a subscription.
+  bonusSeeWhoLikedYouUnlocks             Int       @default(0)
   // Algorithm-driven match quality feedback: scales the proximity component
   // of rankRemainingCandidates's score, adjusted by DiscoveryService.
   // submitDeckFeedback - see applyDeckFeedback in discovery.constants.ts.

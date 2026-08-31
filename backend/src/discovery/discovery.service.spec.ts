@@ -2956,6 +2956,42 @@ describe('DiscoveryService', () => {
       await expect(service.getLikedByGrid(USER_ID)).rejects.toBeInstanceOf(ForbiddenException);
     });
 
+    it('throws when a non-premium user has no bonus unlock credits', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        isPremium: false,
+        bonusSeeWhoLikedYouUnlocks: 0,
+      });
+
+      await expect(service.getLikedByGrid(USER_ID)).rejects.toBeInstanceOf(ForbiddenException);
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it('spends a bonus unlock credit to let a non-premium user see the grid', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        isPremium: false,
+        bonusSeeWhoLikedYouUnlocks: 2,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+      });
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      prisma.user.findMany.mockResolvedValue([]);
+
+      const deck = await service.getLikedByGrid(USER_ID);
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: USER_ID },
+        data: { bonusSeeWhoLikedYouUnlocks: { decrement: 1 } },
+      });
+      expect(deck).toEqual([]);
+    });
+
     it('returns everyone who liked the user, most recent first, flagging super likes', async () => {
       prisma.user.findUnique.mockResolvedValue({
         id: USER_ID,
