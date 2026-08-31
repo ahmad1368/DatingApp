@@ -30,3 +30,13 @@ export const CROSSING_RECENCY_MINUTES = 15;
 export const CROSSING_DEDUPE_MINUTES = 30;
 // "Throughout the day": how far back the crossed-paths list looks.
 export const CROSSING_HISTORY_HOURS = 24;
+
+// Decimal places a crossing's lat/lng is rounded to for the map overlay -
+// ~0.001 degrees is roughly a neighborhood/landmark-sized block, coarse
+// enough that it never reveals an exact meeting point.
+export const CROSSING_ZONE_PRECISION = 3;
+
+export function roundToZone(value: number): number {
+  const factor = 10 ** CROSSING_ZONE_PRECISION;
+  return Math.round(value * factor) / factor;
+}

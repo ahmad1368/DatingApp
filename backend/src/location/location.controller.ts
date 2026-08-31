@@ -52,6 +52,11 @@ export class LocationController {
     return this.locationService.getCrossedPaths(user.id);
   }
 
+  @Get('crossing-zones')
+  getCrossingZones(@CurrentUser() user: AuthenticatedUser) {
+    return this.locationService.getCrossingZones(user.id);
+  }
+
   @Put('passport')
   @HttpCode(HttpStatus.OK)
   setPassportLocation(@CurrentUser() user: AuthenticatedUser, @Body() dto: SetPassportLocationDto) {

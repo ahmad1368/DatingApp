@@ -12,6 +12,7 @@ import {
   CROSSING_RECENCY_MINUTES,
   DEFAULT_SEARCH_RADIUS_KM,
   DistanceUnit,
+  roundToZone,
 } from './location.constants';
 import { haversineDistanceKm } from './utils/haversine';
 
@@ -49,6 +50,15 @@ export interface CrossedPath {
   profilePhotoUrl: string | null;
   crossCount: number;
   closestDistanceKm: number;
+  lastCrossedAt: string;
+}
+
+export interface CrossingZone {
+  zoneId: string;
+  latitude: number;
+  longitude: number;
+  crossingCount: number;
+  uniqueUserCount: number;
   lastCrossedAt: string;
 }
 
@@ -273,6 +283,66 @@ export class LocationService {
           lastCrossedAt: summary.lastCrossedAt.toISOString(),
         };
       })
+      .sort((a, b) => b.lastCrossedAt.localeCompare(a.lastCrossedAt));
+  }
+
+  /**
+   * The map-overlay counterpart to [getCrossedPaths]: the same
+   * CROSSING_HISTORY_HOURS crossings, but grouped by an approximate
+   * neighborhood/landmark-sized zone (see roundToZone) instead of by which
+   * person was crossed - each zone reports how many crossings and distinct
+   * potential matches were encountered there today, most recent first.
+   */
+  async getCrossingZones(userId: string): Promise<CrossingZone[]> {
+    const windowStart = new Date(Date.now() - CROSSING_HISTORY_HOURS * 60 * 60 * 1000);
+
+    const crossings = await this.prisma.pathCrossing.findMany({
+      where: {
+        OR: [{ userAId: userId }, { userBId: userId }],
+        crossedAt: { gte: windowStart },
+      },
+      orderBy: { crossedAt: 'desc' },
+    });
+
+    type ZoneSummary = {
+      latitude: number;
+      longitude: number;
+      crossingCount: number;
+      otherUserIds: Set<string>;
+      lastCrossedAt: Date;
+    };
+    const byZoneId = new Map<string, ZoneSummary>();
+
+    for (const crossing of crossings) {
+      const otherUserId = crossing.userAId === userId ? crossing.userBId : crossing.userAId;
+      const latitude = roundToZone(crossing.latitude);
+      const longitude = roundToZone(crossing.longitude);
+      const zoneId = `${latitude},${longitude}`;
+
+      const existing = byZoneId.get(zoneId);
+      if (!existing) {
+        byZoneId.set(zoneId, {
+          latitude,
+          longitude,
+          crossingCount: 1,
+          otherUserIds: new Set([otherUserId]),
+          lastCrossedAt: crossing.crossedAt,
+        });
+        continue;
+      }
+      existing.crossingCount += 1;
+      existing.otherUserIds.add(otherUserId);
+    }
+
+    return [...byZoneId.entries()]
+      .map(([zoneId, summary]) => ({
+        zoneId,
+        latitude: summary.latitude,
+        longitude: summary.longitude,
+        crossingCount: summary.crossingCount,
+        uniqueUserCount: summary.otherUserIds.size,
+        lastCrossedAt: summary.lastCrossedAt.toISOString(),
+      }))
       .sort((a, b) => b.lastCrossedAt.localeCompare(a.lastCrossedAt));
   }
 
