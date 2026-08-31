@@ -27,6 +27,10 @@ import { LoveStyleController } from './love-style.controller';
 import { LoveStyleService } from './love-style.service';
 import { AvatarController } from './avatar.controller';
 import { AvatarService } from './avatar.service';
+import { BioWriterController } from './bio-writer.controller';
+import { BioWriterService } from './bio-writer.service';
+import { BIO_WRITER_PROVIDER } from './interfaces/bio-writer-provider.interface';
+import { OpenAiBioWriterClient } from './providers/openai-bio-writer.client';
 
 @Module({
   imports: [AuthModule, ConfigModule],
@@ -42,6 +46,7 @@ import { AvatarService } from './avatar.service';
     ZodiacController,
     LoveStyleController,
     AvatarController,
+    BioWriterController,
   ],
   providers: [
     VoiceIntroService,
@@ -63,6 +68,11 @@ import { AvatarService } from './avatar.service';
     ZodiacService,
     LoveStyleService,
     AvatarService,
+    BioWriterService,
+    {
+      provide: BIO_WRITER_PROVIDER,
+      useClass: OpenAiBioWriterClient,
+    },
   ],
 })
 export class ProfileModule {}
