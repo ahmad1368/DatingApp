@@ -28,11 +28,20 @@ class VaultPhoto {
 }
 
 class GrantedVaultPhoto {
-  GrantedVaultPhoto({required this.id, required this.mediaUrl, required this.grantedAt});
+  GrantedVaultPhoto({
+    required this.id,
+    required this.mediaUrl,
+    required this.grantedAt,
+    this.expiresAt,
+  });
 
   final String id;
   final String mediaUrl;
   final DateTime grantedAt;
+
+  /// Null for a permanent key; otherwise when this time-limited key expires
+  /// and the photo stops being visible here.
+  final DateTime? expiresAt;
 }
 
 /// Talks to the backend's private photo vault endpoints. Requires a
@@ -88,11 +97,13 @@ class VaultApi {
     }
   }
 
-  Future<void> grantAccess(String photoId, String matchId) async {
+  /// Omit [expiresInHours] for a permanent grant; otherwise the key expires
+  /// on its own after that many hours.
+  Future<void> grantAccess(String photoId, String matchId, {int? expiresInHours}) async {
     final response = await _client.post(
       Uri.parse('$_baseUrl/vault/photos/$photoId/grant'),
       headers: _headers,
-      body: jsonEncode({'matchId': matchId}),
+      body: jsonEncode({'matchId': matchId, 'expiresInHours': ?expiresInHours}),
     );
 
     if (response.statusCode != 200) {
@@ -129,6 +140,7 @@ class VaultApi {
         id: json['id'] as String,
         mediaUrl: json['mediaUrl'] as String,
         grantedAt: DateTime.parse(json['grantedAt'] as String),
+        expiresAt: json['expiresAt'] != null ? DateTime.parse(json['expiresAt'] as String) : null,
       );
     }).toList();
   }

@@ -197,4 +197,51 @@ void main() {
     expect(grantRequest, isNotNull);
     expect(grantRequest!.body, '{"matchId":"match-1"}');
   });
+
+  testWidgets('setting a key expiry re-grants with expiresInHours', (tester) async {
+    http.Request? grantRequest;
+    final vaultApi = VaultApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.method == 'POST' && request.url.path.endsWith('/grant')) {
+          grantRequest = request;
+          return http.Response('', 200);
+        }
+        return http.Response(
+          '[{"id":"photo-1","mediaUrl":"https://example.com/a.jpg",'
+          '"createdAt":"2026-01-01T00:00:00.000Z","grantedMatchIds":["match-1"]}]',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+    final messagingApi = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient(
+        (request) async => http.Response(
+          '[{"matchId":"match-1","otherUserId":"user-2","otherUserName":"Jane",'
+          '"otherUserPhotoUrl":null,"expiresAt":null,"firstMessageSent":true,'
+          '"createdAt":"2026-01-01T00:00:00.000Z"}]',
+          200,
+          headers: {'content-type': 'application/json'},
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(home: VaultScreen(vaultApi: vaultApi, messagingApi: messagingApi)),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.lock_open));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.timer_outlined));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Expires in 24 hours'));
+    await tester.pumpAndSettle();
+
+    expect(grantRequest, isNotNull);
+    expect(grantRequest!.body, '{"matchId":"match-1","expiresInHours":24}');
+  });
 }

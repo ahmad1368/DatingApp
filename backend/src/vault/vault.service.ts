@@ -1,6 +1,12 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { MAX_VAULT_PHOTOS } from './vault.constants';
+import {
+  computeGrantExpiresAt,
+  isGrantExpired,
+  MAX_GRANT_EXPIRY_HOURS,
+  MAX_VAULT_PHOTOS,
+  MIN_GRANT_EXPIRY_HOURS,
+} from './vault.constants';
 
 export interface VaultPhotoView {
   id: string;
@@ -14,6 +20,7 @@ export interface GrantedVaultPhotoView {
   id: string;
   mediaUrl: string;
   grantedAt: string;
+  expiresAt: string | null;
 }
 
 @Injectable()
@@ -53,12 +60,15 @@ export class VaultService {
       orderBy: { createdAt: 'desc' },
     });
 
+    const now = new Date();
     return photos.map((photo) => ({
       id: photo.id,
       mediaUrl: photo.mediaUrl,
       albumId: photo.albumId,
       createdAt: photo.createdAt.toISOString(),
-      grantedMatchIds: photo.grants.map((grant) => grant.matchId),
+      grantedMatchIds: photo.grants
+        .filter((grant) => !isGrantExpired(grant.expiresAt, now))
+        .map((grant) => grant.matchId),
     }));
   }
 
@@ -73,15 +83,32 @@ export class VaultService {
     return { deleted: true };
   }
 
-  /** Grants a specific match's other participant access to this photo. Idempotent. */
-  async grantAccess(userId: string, photoId: string, matchId: string): Promise<{ granted: boolean }> {
+  /**
+   * Grants a specific match's other participant access to this photo,
+   * either permanently (the default) or as a time-limited key that expires
+   * on its own after [expiresInHours] - see isGrantExpired. Idempotent;
+   * re-granting replaces any previous expiry with the new one.
+   */
+  async grantAccess(
+    userId: string,
+    photoId: string,
+    matchId: string,
+    expiresInHours?: number,
+  ): Promise<{ granted: boolean }> {
     const photo = await this.getOwnedPhoto(userId, photoId);
     await this.assertMatchParticipant(userId, matchId);
 
+    if (expiresInHours != null && (expiresInHours < MIN_GRANT_EXPIRY_HOURS || expiresInHours > MAX_GRANT_EXPIRY_HOURS)) {
+      throw new BadRequestException(
+        `expiresInHours must be between ${MIN_GRANT_EXPIRY_HOURS} and ${MAX_GRANT_EXPIRY_HOURS}.`,
+      );
+    }
+    const expiresAt = expiresInHours != null ? computeGrantExpiresAt(new Date(), expiresInHours) : null;
+
     await this.prisma.vaultPhotoGrant.upsert({
       where: { vaultPhotoId_matchId: { vaultPhotoId: photo.id, matchId } },
-      create: { vaultPhotoId: photo.id, matchId },
-      update: {},
+      create: { vaultPhotoId: photo.id, matchId, expiresAt },
+      update: { expiresAt },
     });
 
     return { granted: true };
@@ -101,7 +128,13 @@ export class VaultService {
     return { revoked: true };
   }
 
-  /** What the *other* side of a match currently sees: photos their match partner has granted them. */
+  /**
+   * What the *other* side of a match currently sees: photos their match
+   * partner has granted them, excluding any time-limited key that has
+   * expired (see isGrantExpired) - an expired grant still exists in
+   * storage until the owner revokes/re-grants it, it's just no longer
+   * visible here.
+   */
   async listGrantedPhotos(userId: string, matchId: string): Promise<GrantedVaultPhotoView[]> {
     const otherUserId = await this.assertMatchParticipant(userId, matchId);
 
@@ -111,11 +144,15 @@ export class VaultService {
       orderBy: { grantedAt: 'desc' },
     });
 
-    return grants.map((grant) => ({
-      id: grant.vaultPhoto.id,
-      mediaUrl: grant.vaultPhoto.mediaUrl,
-      grantedAt: grant.grantedAt.toISOString(),
-    }));
+    const now = new Date();
+    return grants
+      .filter((grant) => !isGrantExpired(grant.expiresAt, now))
+      .map((grant) => ({
+        id: grant.vaultPhoto.id,
+        mediaUrl: grant.vaultPhoto.mediaUrl,
+        grantedAt: grant.grantedAt.toISOString(),
+        expiresAt: grant.expiresAt ? grant.expiresAt.toISOString() : null,
+      }));
   }
 
   private async getOwnedPhoto(userId: string, photoId: string) {

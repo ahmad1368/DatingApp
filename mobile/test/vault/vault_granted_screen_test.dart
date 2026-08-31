@@ -47,6 +47,29 @@ void main() {
     expect(find.text('Nothing shared with you yet.'), findsNothing);
   });
 
+  testWidgets('shows a timer badge only on a time-limited photo', (tester) async {
+    final api = VaultApi(
+      accessToken: 'a-jwt',
+      client: MockClient(
+        (request) async => http.Response(
+          '[{"id":"photo-1","mediaUrl":"https://example.com/a.jpg",'
+          '"grantedAt":"2026-01-01T00:00:00.000Z"},'
+          '{"id":"photo-2","mediaUrl":"https://example.com/b.jpg",'
+          '"grantedAt":"2026-01-01T00:00:00.000Z","expiresAt":"2026-01-03T00:00:00.000Z"}]',
+          200,
+          headers: {'content-type': 'application/json'},
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(home: VaultGrantedScreen(vaultApi: api, matchId: 'match-1')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.timer_outlined), findsOneWidget);
+  });
+
   testWidgets('shows an error when the request fails', (tester) async {
     final api = VaultApi(
       accessToken: 'a-jwt',
