@@ -1201,6 +1201,8 @@ describe('MessagingService', () => {
           mediaUrl: 'file:///tmp/note.m4a',
           durationSeconds: 12,
           transcript: 'a transcript',
+          moderationFlagged: false,
+          moderationCategories: [],
         },
       });
       expect(result.contentType).toBe('VOICE_NOTE');
@@ -1251,9 +1253,39 @@ describe('MessagingService', () => {
       const result = await service.sendVoiceNote(WOMAN_ID, MATCH_ID, 'file:///tmp/note.m4a', 12);
 
       expect(prisma.message.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({ transcript: null }),
+        data: expect.objectContaining({ transcript: null, moderationFlagged: false, moderationCategories: [] }),
       });
+      expect(contentModerator.moderate).not.toHaveBeenCalled();
       expect(result.transcript).toBeNull();
+    });
+
+    it('flags a voice note whose transcript the AI moderator considers harassment', async () => {
+      mockMatch();
+      mockUsers({ [WOMAN_ID]: ['Woman'], [MAN_ID]: ['Man'] });
+      transcriptionProvider.transcribe.mockResolvedValue('you are worthless and pathetic');
+      contentModerator.moderate.mockResolvedValue({ flagged: true, categories: ['harassment'] });
+      prisma.message.create.mockResolvedValue({
+        id: 'message-5',
+        senderId: WOMAN_ID,
+        contentType: 'VOICE_NOTE',
+        content: null,
+        mediaUrl: 'file:///tmp/note.m4a',
+        isBlurred: false,
+        durationSeconds: 12,
+        transcript: 'you are worthless and pathetic',
+        moderationFlagged: true,
+        moderationCategories: ['harassment'],
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const result = await service.sendVoiceNote(WOMAN_ID, MATCH_ID, 'file:///tmp/note.m4a', 12);
+
+      expect(contentModerator.moderate).toHaveBeenCalledWith('you are worthless and pathetic');
+      expect(prisma.message.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ moderationFlagged: true, moderationCategories: ['harassment'] }),
+      });
+      expect(result.moderationFlagged).toBe(true);
+      expect(result.moderationCategories).toEqual(['harassment']);
     });
 
     it('rejects an unknown voice effect', async () => {
@@ -1305,6 +1337,8 @@ describe('MessagingService', () => {
           voiceEffectId: 'robot',
           backgroundSoundId: 'rain',
           transcript: 'a transcript',
+          moderationFlagged: false,
+          moderationCategories: [],
         },
       });
       expect(result.voiceEffectId).toBe('robot');

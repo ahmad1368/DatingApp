@@ -75,8 +75,12 @@ export class MessageModerationService {
       throw new NotFoundException('Message not found.');
     }
 
-    const moderation: ModerationResult = message.content
-      ? await this.contentModerator.moderate(message.content)
+    // A VOICE_NOTE has no `content` - its text lives in the auto-generated
+    // `transcript` instead (see MessagingService.sendVoiceNote), so fall
+    // back to that for moderation.
+    const textToModerate = message.content ?? message.transcript;
+    const moderation: ModerationResult = textToModerate
+      ? await this.contentModerator.moderate(textToModerate)
       : { flagged: false, categories: [] };
 
     const report = await this.prisma.messageReport.create({
@@ -147,8 +151,10 @@ export class MessageModerationService {
       createdAt: message.createdAt.toISOString(),
     }));
 
+    // Falls back to `transcript` for VOICE_NOTE messages, which have no
+    // `content` - see the same fallback in reportMessage.
     const combinedText = messages
-      .map((message) => message.content)
+      .map((message) => message.content ?? message.transcript)
       .filter((content): content is string => content != null)
       .join('\n');
     const moderation: ModerationResult = combinedText
