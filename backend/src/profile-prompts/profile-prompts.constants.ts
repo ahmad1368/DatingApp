@@ -5,6 +5,8 @@ export interface ProfilePrompt {
 
 export const MAX_PROMPT_VOICE_SECONDS = 60;
 
+export const MAX_PROMPT_TEXT_ANSWER_LENGTH = 300;
+
 export const MAX_VOICE_PROMPT_REACTION_COMMENT_LENGTH = 300;
 
 // Video prompt answers are meant to be a quick, authentic clip rather than a

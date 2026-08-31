@@ -416,6 +416,21 @@ model ReadReceiptUnlock {
   @@map("read_receipt_unlocks")
 }
 
+// A written answer to a structured profile prompt (e.g. "My idea of a
+// perfect first date is..."), independent of any voice/video answer to the
+// same prompt - see ProfilePromptsService.recordTextAnswer.
+model ProfilePromptTextAnswer {
+  id        String   @id @default(uuid())
+  userId    String
+  promptId  String
+  answer    String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, promptId])
+  @@index([userId])
+  @@map("profile_prompt_text_answers")
+}
+
 model ProfilePromptVoiceAnswer {
   id              String   @id @default(uuid())
   userId          String

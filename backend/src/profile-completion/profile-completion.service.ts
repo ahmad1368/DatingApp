@@ -34,7 +34,10 @@ export class ProfileCompletionService {
     }
 
     const photoCount = await this.prisma.profilePhoto.count({ where: { ownerId: userId } });
-    const promptAnswerCount = await this.prisma.profilePromptVoiceAnswer.count({ where: { userId } });
+    const [voicePromptAnswerCount, textPromptAnswerCount] = await Promise.all([
+      this.prisma.profilePromptVoiceAnswer.count({ where: { userId } }),
+      this.prisma.profilePromptTextAnswer.count({ where: { userId } }),
+    ]);
 
     const completedIds = new Set<string>();
     if (user.name) completedIds.add('name');
@@ -44,7 +47,7 @@ export class ProfileCompletionService {
     if (user.interests.length >= MIN_INTERESTS_FOR_CREDIT) completedIds.add('interests');
     if (photoCount >= MIN_PHOTOS_FOR_CREDIT) completedIds.add('photos');
     if (user.voiceIntroUrl) completedIds.add('voiceIntro');
-    if (promptAnswerCount > 0) completedIds.add('promptAnswer');
+    if (voicePromptAnswerCount > 0 || textPromptAnswerCount > 0) completedIds.add('promptAnswer');
     if (user.instagramUserId || user.spotifyUserId) completedIds.add('linkedAccount');
 
     const checklist: CompletionChecklistItem[] = COMPLETION_CHECKS.map((check) => ({

@@ -20,6 +20,13 @@ export interface VideoPromptAnswerView {
   createdAt: string;
 }
 
+export interface TextPromptAnswerView {
+  promptId: string;
+  question: string;
+  answer: string;
+  createdAt: string;
+}
+
 export interface VoicePromptReactionView {
   id: string;
   fromUserId: string;
@@ -235,6 +242,68 @@ export class ProfilePromptsService {
     await this.prisma.profilePromptVideoAnswer.delete({
       where: { userId_promptId: { userId, promptId } },
     });
+  }
+
+  /**
+   * Records or re-records the current user's written answer to a prompt
+   * (one answer per prompt), independent of any voice/video answer to the
+   * same prompt.
+   */
+  async recordTextAnswer(userId: string, promptId: string, answer: string): Promise<TextPromptAnswerView> {
+    const prompt = findProfilePrompt(promptId);
+    if (!prompt) {
+      throw new BadRequestException('Unknown profile prompt.');
+    }
+
+    const saved = await this.prisma.profilePromptTextAnswer.upsert({
+      where: { userId_promptId: { userId, promptId } },
+      create: { userId, promptId, answer },
+      update: { answer },
+    });
+
+    return this.toTextView(saved, prompt);
+  }
+
+  async getTextAnswers(userId: string): Promise<TextPromptAnswerView[]> {
+    const answers = await this.prisma.profilePromptTextAnswer.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const views: TextPromptAnswerView[] = [];
+    for (const answer of answers) {
+      const prompt = findProfilePrompt(answer.promptId);
+      if (!prompt) {
+        continue;
+      }
+      views.push(this.toTextView(answer, prompt));
+    }
+    return views;
+  }
+
+  async deleteTextAnswer(userId: string, promptId: string): Promise<void> {
+    const answer = await this.prisma.profilePromptTextAnswer.findUnique({
+      where: { userId_promptId: { userId, promptId } },
+    });
+    if (!answer) {
+      throw new NotFoundException('Text answer not found.');
+    }
+
+    await this.prisma.profilePromptTextAnswer.delete({
+      where: { userId_promptId: { userId, promptId } },
+    });
+  }
+
+  private toTextView(
+    answer: { promptId: string; answer: string; createdAt: Date },
+    prompt: ProfilePrompt,
+  ): TextPromptAnswerView {
+    return {
+      promptId: answer.promptId,
+      question: prompt.question,
+      answer: answer.answer,
+      createdAt: answer.createdAt.toISOString(),
+    };
   }
 
   private toVideoView(

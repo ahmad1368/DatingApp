@@ -78,6 +78,20 @@ class VideoPromptAnswer {
   final DateTime createdAt;
 }
 
+class TextPromptAnswer {
+  TextPromptAnswer({
+    required this.promptId,
+    required this.question,
+    required this.answer,
+    required this.createdAt,
+  });
+
+  final String promptId;
+  final String question;
+  final String answer;
+  final DateTime createdAt;
+}
+
 /// Talks to the backend's voice-answer profile prompt endpoints.
 class ProfilePromptsApi {
   ProfilePromptsApi({required this.accessToken, http.Client? client, String? baseUrl})
@@ -275,6 +289,70 @@ class ProfilePromptsApi {
     if (response.statusCode != 200) {
       throw ProfilePromptsApiException(_errorMessage(_decode(response), response.statusCode));
     }
+  }
+
+  Future<List<TextPromptAnswer>> fetchMyTextAnswers() async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/profile-prompts/text/me'),
+      headers: _headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw ProfilePromptsApiException(_errorMessage(_decode(response), response.statusCode));
+    }
+
+    final list = jsonDecode(response.body) as List;
+    return list.cast<Map<String, dynamic>>().map(_toTextPromptAnswer).toList();
+  }
+
+  Future<List<TextPromptAnswer>> fetchTextAnswersForUser(String userId) async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/profile-prompts/text/$userId'),
+      headers: _headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw ProfilePromptsApiException(_errorMessage(_decode(response), response.statusCode));
+    }
+
+    final list = jsonDecode(response.body) as List;
+    return list.cast<Map<String, dynamic>>().map(_toTextPromptAnswer).toList();
+  }
+
+  /// Records or re-records a written answer to a prompt - independent of
+  /// any voice/video answer to the same prompt.
+  Future<TextPromptAnswer> recordTextAnswer({required String promptId, required String answer}) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/profile-prompts/text-answers'),
+      headers: _headers,
+      body: jsonEncode({'promptId': promptId, 'answer': answer}),
+    );
+
+    if (response.statusCode != 200) {
+      throw ProfilePromptsApiException(_errorMessage(_decode(response), response.statusCode));
+    }
+
+    return _toTextPromptAnswer(_decode(response));
+  }
+
+  Future<void> deleteTextAnswer(String promptId) async {
+    final response = await _client.delete(
+      Uri.parse('$_baseUrl/profile-prompts/text-answers/$promptId'),
+      headers: _headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw ProfilePromptsApiException(_errorMessage(_decode(response), response.statusCode));
+    }
+  }
+
+  TextPromptAnswer _toTextPromptAnswer(Map<String, dynamic> json) {
+    return TextPromptAnswer(
+      promptId: json['promptId'] as String,
+      question: json['question'] as String,
+      answer: json['answer'] as String,
+      createdAt: DateTime.parse(json['createdAt'] as String),
+    );
   }
 
   VideoPromptAnswer _toVideoPromptAnswer(Map<String, dynamic> json) {
