@@ -70,6 +70,21 @@ class SosAlertResult {
   final DateTime createdAt;
 }
 
+/// Result of a proactive, non-emergency [SafetyApi.shareDateLocation] call -
+/// same shape as [SosAlertResult], kept as its own type since the two are
+/// conceptually distinct backend actions.
+class DateLocationShareResult {
+  DateLocationShareResult({
+    required this.id,
+    required this.notifiedContactIds,
+    required this.createdAt,
+  });
+
+  final String id;
+  final List<String> notifiedContactIds;
+  final DateTime createdAt;
+}
+
 /// Talks to the backend's safety center: educational resources, date
 /// check-ins, emergency contacts, SOS alerts, and user reporting. Requires
 /// a signed-in user's access token.
@@ -253,6 +268,40 @@ class SafetyApi {
     }
 
     return SosAlertResult(
+      id: body['id'] as String,
+      notifiedContactIds: (body['notifiedContactIds'] as List).cast<String>(),
+      createdAt: DateTime.parse(body['createdAt'] as String),
+    );
+  }
+
+  /// Proactive safety share for the start of a date - unlike [triggerSos]'s
+  /// urgent "help now" alert, this is sent by the user themselves before
+  /// anything has gone wrong.
+  Future<DateLocationShareResult> shareDateLocation({
+    required double latitude,
+    required double longitude,
+    String? matchId,
+    String? destinationAddress,
+    List<String>? contactIds,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/safety/date-location-share'),
+      headers: _headers,
+      body: jsonEncode({
+        'latitude': latitude,
+        'longitude': longitude,
+        'matchId': ?matchId,
+        'destinationAddress': ?destinationAddress,
+        'contactIds': ?contactIds,
+      }),
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 201) {
+      throw SafetyApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return DateLocationShareResult(
       id: body['id'] as String,
       notifiedContactIds: (body['notifiedContactIds'] as List).cast<String>(),
       createdAt: DateTime.parse(body['createdAt'] as String),

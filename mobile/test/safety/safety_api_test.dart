@@ -308,4 +308,53 @@ void main() {
       );
     });
   });
+
+  group('SafetyApi.shareDateLocation', () {
+    test('sends the coordinates and destination, parsing the share result', () async {
+      final api = SafetyApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'POST');
+          expect(request.url.path, '/safety/date-location-share');
+          expect(
+            request.body,
+            '{"latitude":37.7749,"longitude":-122.4194,"destinationAddress":"123 Main St"}',
+          );
+          return http.Response(
+            '{"id":"share-1","notifiedContactIds":["contact-1"],'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}',
+            201,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final result = await api.shareDateLocation(
+        latitude: 37.7749,
+        longitude: -122.4194,
+        destinationAddress: '123 Main St',
+      );
+
+      expect(result.id, 'share-1');
+      expect(result.notifiedContactIds, ['contact-1']);
+    });
+
+    test('throws SafetyApiException when there are no emergency contacts', () async {
+      final api = SafetyApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '{"message":"Add at least one emergency contact before sharing your location."}',
+            400,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      expect(
+        () => api.shareDateLocation(latitude: 37.7749, longitude: -122.4194),
+        throwsA(isA<SafetyApiException>()),
+      );
+    });
+  });
 }

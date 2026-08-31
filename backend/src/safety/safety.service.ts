@@ -38,6 +38,12 @@ export interface SosAlertResult {
   createdAt: string;
 }
 
+export interface DateLocationShareResult {
+  id: string;
+  notifiedContactIds: string[];
+  createdAt: string;
+}
+
 @Injectable()
 export class SafetyService {
   constructor(
@@ -207,6 +213,62 @@ export class SafetyService {
       id: alert.id,
       notifiedContactIds: alert.contactIds,
       createdAt: alert.createdAt.toISOString(),
+    };
+  }
+
+  /**
+   * Proactive safety share for the start of a date: unlike [triggerSos]'s
+   * urgent "help now" alert, this is sent by the user themselves before
+   * anything has gone wrong - the destination address plus a live-location
+   * link, texted to their chosen trusted contacts so someone knows where
+   * they are.
+   */
+  async shareDateLocation(
+    userId: string,
+    latitude: number,
+    longitude: number,
+    matchId?: string,
+    destinationAddress?: string,
+    contactIds?: string[],
+  ): Promise<DateLocationShareResult> {
+    const [user, allContacts] = await Promise.all([
+      this.prisma.user.findUnique({ where: { id: userId }, select: { name: true } }),
+      this.prisma.emergencyContact.findMany({ where: { userId } }),
+    ]);
+
+    const targets = contactIds
+      ? allContacts.filter((contact) => contactIds.includes(contact.id))
+      : allContacts;
+
+    if (contactIds && targets.length !== contactIds.length) {
+      throw new NotFoundException('One or more emergency contacts were not found.');
+    }
+    if (targets.length === 0) {
+      throw new BadRequestException('Add at least one emergency contact before sharing your location.');
+    }
+
+    const mapsLink = `https://maps.google.com/?q=${latitude},${longitude}`;
+    const senderName = user?.name ?? 'Someone you know';
+    const destinationLine = destinationAddress ? ` Heading to: ${destinationAddress}.` : '';
+    const message = `${senderName} is on a date and shared their live location with you.${destinationLine} Live location: ${mapsLink}`;
+
+    await Promise.all(targets.map((contact) => this.smsProvider.sendMessage(contact.phone, message)));
+
+    const share = await this.prisma.dateLocationShare.create({
+      data: {
+        userId,
+        matchId: matchId ?? null,
+        destinationAddress: destinationAddress ?? null,
+        latitude,
+        longitude,
+        contactIds: targets.map((contact) => contact.id),
+      },
+    });
+
+    return {
+      id: share.id,
+      notifiedContactIds: share.contactIds,
+      createdAt: share.createdAt.toISOString(),
     };
   }
 

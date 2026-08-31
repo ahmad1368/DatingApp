@@ -5,6 +5,7 @@ import { ReportUserDto } from './dto/report-user.dto';
 import { CreateCheckInDto } from './dto/create-check-in.dto';
 import { AddEmergencyContactDto } from './dto/add-emergency-contact.dto';
 import { TriggerSosDto } from './dto/trigger-sos.dto';
+import { ShareDateLocationDto } from './dto/share-date-location.dto';
 import { SafetyService } from './safety.service';
 
 @Controller('safety')
@@ -65,6 +66,19 @@ export class SafetyController {
       dto.latitude,
       dto.longitude,
       dto.matchId,
+      dto.contactIds,
+    );
+  }
+
+  @Post('date-location-share')
+  @HttpCode(HttpStatus.CREATED)
+  shareDateLocation(@CurrentUser() user: AuthenticatedUser, @Body() dto: ShareDateLocationDto) {
+    return this.safetyService.shareDateLocation(
+      user.id,
+      dto.latitude,
+      dto.longitude,
+      dto.matchId,
+      dto.destinationAddress,
       dto.contactIds,
     );
   }
