@@ -49,6 +49,24 @@ class CrossedPath {
   final DateTime lastCrossedAt;
 }
 
+class CrossingZone {
+  CrossingZone({
+    required this.zoneId,
+    required this.latitude,
+    required this.longitude,
+    required this.crossingCount,
+    required this.uniqueUserCount,
+    required this.lastCrossedAt,
+  });
+
+  final String zoneId;
+  final double latitude;
+  final double longitude;
+  final int crossingCount;
+  final int uniqueUserCount;
+  final DateTime lastCrossedAt;
+}
+
 /// Talks to the backend's GPS location and search-radius endpoints. Requires
 /// a signed-in user's access token.
 class LocationApi {
@@ -198,6 +216,36 @@ class LocationApi {
             profilePhotoUrl: json['profilePhotoUrl'] as String?,
             crossCount: json['crossCount'] as int,
             closestDistanceKm: (json['closestDistanceKm'] as num).toDouble(),
+            lastCrossedAt: DateTime.parse(json['lastCrossedAt'] as String),
+          ),
+        )
+        .toList();
+  }
+
+  /// Today's crossing history grouped into approximate map zones (see
+  /// backend's roundToZone) instead of by person - powers the crossing
+  /// paths map overlay.
+  Future<List<CrossingZone>> fetchCrossingZones() async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/location/crossing-zones'),
+      headers: _headers,
+    );
+
+    if (response.statusCode != 200) {
+      final body = _decode(response);
+      throw LocationApiException(_errorMessage(body, response.statusCode));
+    }
+
+    final list = jsonDecode(response.body) as List;
+    return list
+        .cast<Map<String, dynamic>>()
+        .map(
+          (json) => CrossingZone(
+            zoneId: json['zoneId'] as String,
+            latitude: (json['latitude'] as num).toDouble(),
+            longitude: (json['longitude'] as num).toDouble(),
+            crossingCount: json['crossingCount'] as int,
+            uniqueUserCount: json['uniqueUserCount'] as int,
             lastCrossedAt: DateTime.parse(json['lastCrossedAt'] as String),
           ),
         )

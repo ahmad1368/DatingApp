@@ -231,4 +231,41 @@ void main() {
       expect(() => api.fetchCrossedPaths(), throwsA(isA<LocationApiException>()));
     });
   });
+
+  group('LocationApi.fetchCrossingZones', () {
+    test('parses the list of crossing zones', () async {
+      final api = LocationApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.url.path, '/location/crossing-zones');
+          expect(request.headers['Authorization'], 'Bearer a-jwt');
+          return http.Response(
+            '[{"zoneId":"40.713,-73.935","latitude":40.713,"longitude":-73.935,'
+            '"crossingCount":2,"uniqueUserCount":2,"lastCrossedAt":"2026-01-01T12:00:00.000Z"}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final zones = await api.fetchCrossingZones();
+
+      expect(zones, hasLength(1));
+      expect(zones.first.zoneId, '40.713,-73.935');
+      expect(zones.first.latitude, 40.713);
+      expect(zones.first.longitude, -73.935);
+      expect(zones.first.crossingCount, 2);
+      expect(zones.first.uniqueUserCount, 2);
+      expect(zones.first.lastCrossedAt, DateTime.parse('2026-01-01T12:00:00.000Z'));
+    });
+
+    test('throws LocationApiException on a non-200 response', () async {
+      final api = LocationApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => http.Response('', 500)),
+      );
+
+      expect(() => api.fetchCrossingZones(), throwsA(isA<LocationApiException>()));
+    });
+  });
 }

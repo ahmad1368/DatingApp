@@ -168,6 +168,74 @@ describe('LocationService', () => {
     });
   });
 
+  describe('getCrossingZones', () => {
+    it('returns an empty list when there are no recent crossings', async () => {
+      prisma.pathCrossing.findMany.mockResolvedValue([]);
+
+      const result = await service.getCrossingZones(USER_ID);
+
+      expect(result).toEqual([]);
+    });
+
+    it('groups crossings within the same rounded zone, counting distinct users', async () => {
+      prisma.pathCrossing.findMany.mockResolvedValue([
+        {
+          userAId: USER_ID,
+          userBId: 'other-user',
+          latitude: 40.712776,
+          longitude: -73.935242,
+          crossedAt: new Date('2026-01-01T12:00:00.000Z'),
+        },
+        {
+          userAId: 'another-user',
+          userBId: USER_ID,
+          // Rounds to the same zone as the crossing above.
+          latitude: 40.71281,
+          longitude: -73.93520,
+          crossedAt: new Date('2026-01-01T11:00:00.000Z'),
+        },
+      ]);
+
+      const result = await service.getCrossingZones(USER_ID);
+
+      expect(result).toEqual([
+        {
+          zoneId: '40.713,-73.935',
+          latitude: 40.713,
+          longitude: -73.935,
+          crossingCount: 2,
+          uniqueUserCount: 2,
+          lastCrossedAt: '2026-01-01T12:00:00.000Z',
+        },
+      ]);
+    });
+
+    it('keeps distant crossings in separate zones, most recent first', async () => {
+      prisma.pathCrossing.findMany.mockResolvedValue([
+        {
+          userAId: USER_ID,
+          userBId: 'other-user',
+          latitude: 40.712776,
+          longitude: -73.935242,
+          crossedAt: new Date('2026-01-01T09:00:00.000Z'),
+        },
+        {
+          userAId: USER_ID,
+          userBId: 'other-user',
+          latitude: 34.052235,
+          longitude: -118.243683,
+          crossedAt: new Date('2026-01-01T15:00:00.000Z'),
+        },
+      ]);
+
+      const result = await service.getCrossingZones(USER_ID);
+
+      expect(result).toHaveLength(2);
+      expect(result[0].zoneId).toBe('34.052,-118.244');
+      expect(result[1].zoneId).toBe('40.713,-73.935');
+    });
+  });
+
   describe('updateSearchRadius', () => {
     it('persists the radius', async () => {
       prisma.user.update.mockResolvedValue({ searchRadiusKm: 25 });

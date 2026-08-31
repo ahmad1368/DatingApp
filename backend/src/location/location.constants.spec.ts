@@ -1,4 +1,4 @@
-import { kmToMiles, milesToKm } from './location.constants';
+import { kmToMiles, milesToKm, roundToZone } from './location.constants';
 
 describe('distance unit conversion', () => {
   it('converts km to miles', () => {
@@ -13,5 +13,20 @@ describe('distance unit conversion', () => {
 
   it('round-trips without meaningful drift', () => {
     expect(kmToMiles(milesToKm(50))).toBeCloseTo(50, 6);
+  });
+});
+
+describe('roundToZone', () => {
+  it('rounds to the configured decimal precision', () => {
+    expect(roundToZone(40.712776)).toBe(40.713);
+    expect(roundToZone(-73.935242)).toBe(-73.935);
+  });
+
+  it('groups nearby coordinates into the same zone', () => {
+    expect(roundToZone(40.71281)).toBe(roundToZone(40.71276));
+  });
+
+  it('leaves an already-coarse value unchanged', () => {
+    expect(roundToZone(40.713)).toBe(40.713);
   });
 });
