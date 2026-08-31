@@ -631,6 +631,7 @@ describe('MessagingService', () => {
         reservation: null,
         gift: null,
         gameCard: null,
+        locationPin: null,
         expiryMode: null,
         viewTimerSeconds: null,
         isEphemeralExpired: false,
@@ -1617,6 +1618,7 @@ describe('MessagingService', () => {
           reservation: null,
           gift: null,
           gameCard: null,
+          locationPin: null,
           expiryMode: null,
           viewTimerSeconds: null,
           isEphemeralExpired: false,
@@ -2278,6 +2280,96 @@ describe('MessagingService', () => {
         query: 'Jazz Night',
         url: 'https://www.eventbrite.com/d/search?q=Jazz%20Night',
       });
+    });
+  });
+
+  describe('sendLocationPin', () => {
+    it('rejects the man sending the first location pin to a woman match', async () => {
+      mockMatch();
+      mockUsers({ [WOMAN_ID]: ['Woman'], [MAN_ID]: ['Man'] });
+
+      await expect(
+        service.sendLocationPin(MAN_ID, MATCH_ID, 'Blue Bottle Coffee', 37.7749, -122.4194),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(prisma.message.create).not.toHaveBeenCalled();
+    });
+
+    it('creates a LOCATION_PIN message with coordinates and an optional address', async () => {
+      mockMatch();
+      mockUsers({ [WOMAN_ID]: ['Woman'], [MAN_ID]: ['Man'] });
+      prisma.message.create.mockResolvedValue({
+        id: 'message-1',
+        senderId: WOMAN_ID,
+        contentType: 'LOCATION_PIN',
+        content: 'Blue Bottle Coffee',
+        locationLatitude: 37.7749,
+        locationLongitude: -122.4194,
+        locationAddress: '66 Mint St, San Francisco',
+        mediaUrl: null,
+        isBlurred: false,
+        readAt: null,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const result = await service.sendLocationPin(
+        WOMAN_ID,
+        MATCH_ID,
+        'Blue Bottle Coffee',
+        37.7749,
+        -122.4194,
+        '66 Mint St, San Francisco',
+      );
+
+      expect(prisma.message.create).toHaveBeenCalledWith({
+        data: {
+          matchId: MATCH_ID,
+          senderId: WOMAN_ID,
+          contentType: 'LOCATION_PIN',
+          content: 'Blue Bottle Coffee',
+          locationLatitude: 37.7749,
+          locationLongitude: -122.4194,
+          locationAddress: '66 Mint St, San Francisco',
+        },
+      });
+      expect(result.locationPin).toEqual({
+        label: 'Blue Bottle Coffee',
+        latitude: 37.7749,
+        longitude: -122.4194,
+        address: '66 Mint St, San Francisco',
+      });
+    });
+
+    it('creates a LOCATION_PIN message with no address', async () => {
+      mockMatch();
+      mockUsers({ [WOMAN_ID]: ['Woman'], [MAN_ID]: ['Man'] });
+      prisma.message.create.mockResolvedValue({
+        id: 'message-2',
+        senderId: WOMAN_ID,
+        contentType: 'LOCATION_PIN',
+        content: 'Dolores Park',
+        locationLatitude: 37.7596,
+        locationLongitude: -122.4269,
+        locationAddress: null,
+        mediaUrl: null,
+        isBlurred: false,
+        readAt: null,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const result = await service.sendLocationPin(WOMAN_ID, MATCH_ID, 'Dolores Park', 37.7596, -122.4269);
+
+      expect(prisma.message.create).toHaveBeenCalledWith({
+        data: {
+          matchId: MATCH_ID,
+          senderId: WOMAN_ID,
+          contentType: 'LOCATION_PIN',
+          content: 'Dolores Park',
+          locationLatitude: 37.7596,
+          locationLongitude: -122.4269,
+          locationAddress: null,
+        },
+      });
+      expect(result.locationPin?.address).toBeNull();
     });
   });
 

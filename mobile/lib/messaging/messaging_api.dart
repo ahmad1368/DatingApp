@@ -182,6 +182,7 @@ class ChatMessage {
     this.reservation,
     this.gift,
     this.gameCard,
+    this.locationPin,
     this.expiryMode,
     this.viewTimerSeconds,
     this.isEphemeralExpired = false,
@@ -219,6 +220,7 @@ class ChatMessage {
   final Reservation? reservation;
   final GiftCard? gift;
   final GameCard? gameCard;
+  final LocationPin? locationPin;
 
   /// 'VIEW_ONCE' or 'TIMER' for an auto-expiring photo/GIF; null for a
   /// normal, permanent message.
@@ -259,6 +261,17 @@ class Reservation {
   final String provider;
   final String query;
   final String url;
+}
+
+/// A dropped map pin for a public venue/coffee shop, to coordinate a date
+/// meetup - see MessagingApi.sendLocationPin.
+class LocationPin {
+  LocationPin({required this.label, required this.latitude, required this.longitude, this.address});
+
+  final String label;
+  final double latitude;
+  final double longitude;
+  final String? address;
 }
 
 /// A virtual gift sent directly into the chat as its own message - see
@@ -1254,6 +1267,34 @@ class MessagingApi {
     return _toChatMessage(body);
   }
 
+  /// Drops a map pin for a public venue/coffee shop directly into the chat,
+  /// to coordinate a date meetup.
+  Future<ChatMessage> sendLocationPin({
+    required String matchId,
+    required String label,
+    required double latitude,
+    required double longitude,
+    String? address,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/matches/$matchId/location-pin'),
+      headers: _headers,
+      body: jsonEncode({
+        'label': label,
+        'latitude': latitude,
+        'longitude': longitude,
+        'address': ?address,
+      }),
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 201) {
+      throw MessagingApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return _toChatMessage(body);
+  }
+
   /// Sends a virtual gift directly into the chat (spending gift tokens the
   /// same way GiftingApi.sendGift does) so it shows up as its own message
   /// bubble instead of only on the recipient's received-gifts list.
@@ -1298,6 +1339,7 @@ class MessagingApi {
     final reservationJson = json['reservation'] as Map<String, dynamic>?;
     final giftJson = json['gift'] as Map<String, dynamic>?;
     final gameCardJson = json['gameCard'] as Map<String, dynamic>?;
+    final locationPinJson = json['locationPin'] as Map<String, dynamic>?;
     return ChatMessage(
       id: json['id'] as String,
       senderId: json['senderId'] as String,
@@ -1357,6 +1399,14 @@ class MessagingApi {
               otherAnswerIndex: gameCardJson['otherAnswerIndex'] as int?,
               correctOptionIndex: gameCardJson['correctOptionIndex'] as int?,
               isMyAnswerCorrect: gameCardJson['isMyAnswerCorrect'] as bool?,
+            )
+          : null,
+      locationPin: locationPinJson != null
+          ? LocationPin(
+              label: locationPinJson['label'] as String,
+              latitude: (locationPinJson['latitude'] as num).toDouble(),
+              longitude: (locationPinJson['longitude'] as num).toDouble(),
+              address: locationPinJson['address'] as String?,
             )
           : null,
       expiryMode: json['expiryMode'] as String?,

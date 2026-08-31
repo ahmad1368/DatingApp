@@ -36,6 +36,7 @@ import {
   MIN_POLL_OPTIONS,
   needsFirstMoveReminder,
   GIFT_CONTENT_TYPE,
+  LOCATION_PIN_CONTENT_TYPE,
   POLL_CONTENT_TYPE,
   READ_RECEIPT_UNLOCK_TOKEN_COST,
   RESERVATION_CONTENT_TYPE,
@@ -99,6 +100,13 @@ export interface GiftView {
   tokenCost: number;
 }
 
+export interface LocationPinView {
+  label: string;
+  latitude: number;
+  longitude: number;
+  address: string | null;
+}
+
 export interface GameCardView {
   gameType: GameType;
   question: string;
@@ -141,6 +149,7 @@ export interface MessageView {
   reservation: ReservationView | null;
   gift: GiftView | null;
   gameCard: GameCardView | null;
+  locationPin: LocationPinView | null;
   expiryMode: ExpiryMode | null;
   viewTimerSeconds: number | null;
   isEphemeralExpired: boolean;
@@ -974,6 +983,35 @@ export class MessagingService {
       userId,
       provider === 'OPENTABLE' ? `Sent a reservation link: ${query}` : `Sent an event ticket link: ${query}`,
     );
+
+    return this.toMessageView(message, userId);
+  }
+
+  /** In-chat map pin for a public venue/coffee shop, to coordinate a date meetup. */
+  async sendLocationPin(
+    userId: string,
+    matchId: string,
+    label: string,
+    latitude: number,
+    longitude: number,
+    address?: string,
+  ): Promise<MessageView> {
+    const { match, firstMessageSent } = await this.assertCanSend(userId, matchId);
+
+    const message = await this.prisma.message.create({
+      data: {
+        matchId,
+        senderId: userId,
+        contentType: LOCATION_PIN_CONTENT_TYPE,
+        content: label,
+        locationLatitude: latitude,
+        locationLongitude: longitude,
+        locationAddress: address ?? null,
+      },
+    });
+
+    await this.markFirstMessageIfNeeded(matchId, firstMessageSent);
+    await this.notifyNewMessage(match, userId, `Shared a location: ${label}`);
 
     return this.toMessageView(message, userId);
   }
@@ -1865,6 +1903,9 @@ export class MessagingService {
       pollOptions?: string[];
       reservationProvider?: string | null;
       reservationUrl?: string | null;
+      locationLatitude?: number | null;
+      locationLongitude?: number | null;
+      locationAddress?: string | null;
       gameType?: string | null;
       gameCorrectIndex?: number | null;
       readAt: Date | null;
@@ -1938,6 +1979,13 @@ export class MessagingService {
         userId,
         gameResponses,
       ),
+      locationPin: this.toLocationPinView(
+        message.contentType,
+        content,
+        message.locationLatitude,
+        message.locationLongitude,
+        message.locationAddress,
+      ),
       createdAt: message.createdAt.toISOString(),
     };
   }
@@ -1963,6 +2011,19 @@ export class MessagingService {
       return null;
     }
     return { provider, query, url };
+  }
+
+  private toLocationPinView(
+    contentType: string,
+    label: string | null,
+    latitude: number | null | undefined,
+    longitude: number | null | undefined,
+    address: string | null | undefined,
+  ): LocationPinView | null {
+    if (contentType !== LOCATION_PIN_CONTENT_TYPE || !label || latitude == null || longitude == null) {
+      return null;
+    }
+    return { label, latitude, longitude, address: address ?? null };
   }
 
   private toIcebreakerView(

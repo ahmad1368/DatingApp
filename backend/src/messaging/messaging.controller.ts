@@ -27,6 +27,7 @@ import { RespondPollDto } from './dto/respond-poll.dto';
 import { SendGameCardDto } from './dto/send-game-card.dto';
 import { RespondGameCardDto } from './dto/respond-game-card.dto';
 import { SendReservationDto } from './dto/send-reservation.dto';
+import { SendLocationPinDto } from './dto/send-location-pin.dto';
 import { SendGiftMessageDto } from './dto/send-gift-message.dto';
 import { SendVoiceNoteDto } from './dto/send-voice-note.dto';
 import { SetMatchNoteDto } from './dto/set-match-note.dto';
@@ -371,6 +372,23 @@ export class MessagingController {
     @Body() dto: SendReservationDto,
   ) {
     return this.messagingService.sendReservation(user.id, matchId, dto.provider, dto.query);
+  }
+
+  @Post(':matchId/location-pin')
+  @HttpCode(HttpStatus.CREATED)
+  sendLocationPin(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('matchId') matchId: string,
+    @Body() dto: SendLocationPinDto,
+  ) {
+    return this.messagingService.sendLocationPin(
+      user.id,
+      matchId,
+      dto.label,
+      dto.latitude,
+      dto.longitude,
+      dto.address,
+    );
   }
 
   @Post(':matchId/gift')
