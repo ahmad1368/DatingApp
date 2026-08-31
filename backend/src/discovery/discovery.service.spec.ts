@@ -2278,6 +2278,49 @@ describe('DiscoveryService', () => {
       expect(result).toEqual({ matched: false });
     });
 
+    it('nudges the proximity weight up when passing with "Too far away"', async () => {
+      prisma.user.findUnique
+        .mockResolvedValueOnce({ id: TARGET_ID })
+        .mockResolvedValueOnce({ discoveryProximityWeight: 1 });
+      prisma.swipe.findUnique.mockResolvedValueOnce(null);
+      prisma.swipe.create.mockResolvedValue({});
+
+      await service.recordSwipe(
+        USER_ID,
+        TARGET_ID,
+        'PASS',
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        'Too far away',
+      );
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: USER_ID },
+        data: { discoveryProximityWeight: expect.closeTo(1.05, 5) },
+      });
+    });
+
+    it('does not touch the proximity weight for any other pass reason', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: TARGET_ID });
+      prisma.swipe.findUnique.mockResolvedValueOnce(null);
+      prisma.swipe.create.mockResolvedValue({});
+
+      await service.recordSwipe(
+        USER_ID,
+        TARGET_ID,
+        'PASS',
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        'Not my type',
+      );
+
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
     it('getPassReasons exposes the quick-pick catalog', () => {
       expect(service.getPassReasons()).toEqual([
         'Not my type',

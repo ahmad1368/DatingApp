@@ -9,6 +9,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { DEFAULT_SEARCH_RADIUS_KM, MAX_SEARCH_RADIUS_KM } from '../location/location.constants';
 import {
   applyDeckFeedback,
+  applyPassReasonFeedback,
   computeBoostExpiresAt,
   computeDefaultSnoozeUntil,
   computeHappyHourWindow,
@@ -844,6 +845,18 @@ export class DiscoveryService {
     });
 
     await this.recordPhotoTestOutcome(targetUserId, isLike);
+
+    if (passReason === 'Too far away') {
+      const swiper = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { discoveryProximityWeight: true },
+      });
+      const discoveryProximityWeight = applyPassReasonFeedback(
+        swiper?.discoveryProximityWeight ?? DEFAULT_PROXIMITY_WEIGHT,
+        passReason,
+      );
+      await this.prisma.user.update({ where: { id: userId }, data: { discoveryProximityWeight } });
+    }
 
     if (!isLike) {
       return { matched: false };
