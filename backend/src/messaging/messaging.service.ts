@@ -10,6 +10,9 @@ import {
   BACKGROUND_SOUNDS,
   BackgroundSound,
   buildReservationUrl,
+  CHAT_WALLPAPERS,
+  ChatWallpaper,
+  findChatWallpaper,
   computeExtendedExpiresAt,
   computeFirstMessageExpiresAt,
   daysSince,
@@ -155,6 +158,10 @@ interface ReadReceiptUnlockContext {
 
 export interface MediaBlurPreferenceResult {
   autoBlurIncomingMedia: boolean;
+}
+
+export interface ChatWallpaperResult {
+  wallpaperId: string | null;
 }
 
 export interface MatchNoteView {
@@ -432,6 +439,40 @@ export class MessagingService {
    */
   getVoiceNoteEffectsCatalog(): { voiceEffects: VoiceEffect[]; backgroundSounds: BackgroundSound[] } {
     return { voiceEffects: VOICE_EFFECTS, backgroundSounds: BACKGROUND_SOUNDS };
+  }
+
+  getChatWallpaperCatalog(): ChatWallpaper[] {
+    return CHAT_WALLPAPERS;
+  }
+
+  /**
+   * Private per-viewer thread background (see ChatWallpaperPreference) -
+   * each side of a match may set a different one for the same thread.
+   */
+  async setChatWallpaper(userId: string, matchId: string, wallpaperId: string): Promise<ChatWallpaperResult> {
+    await this.getMatchForUser(userId, matchId);
+
+    if (!findChatWallpaper(wallpaperId)) {
+      throw new BadRequestException('Unknown chat wallpaper.');
+    }
+
+    const preference = await this.prisma.chatWallpaperPreference.upsert({
+      where: { userId_matchId: { userId, matchId } },
+      create: { userId, matchId, wallpaperId },
+      update: { wallpaperId },
+    });
+
+    return { wallpaperId: preference.wallpaperId };
+  }
+
+  async getChatWallpaper(userId: string, matchId: string): Promise<ChatWallpaperResult> {
+    await this.getMatchForUser(userId, matchId);
+
+    const preference = await this.prisma.chatWallpaperPreference.findUnique({
+      where: { userId_matchId: { userId, matchId } },
+    });
+
+    return { wallpaperId: preference?.wallpaperId ?? null };
   }
 
   /**

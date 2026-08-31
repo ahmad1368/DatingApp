@@ -51,6 +51,16 @@ class MatchNote {
   final DateTime? updatedAt;
 }
 
+class ChatWallpaper {
+  ChatWallpaper({required this.id, required this.label, required this.type});
+
+  final String id;
+  final String label;
+
+  /// 'GRADIENT', 'PATTERN', or 'PHOTO'.
+  final String type;
+}
+
 class MatchSummary {
   MatchSummary({
     required this.matchId,
@@ -503,6 +513,61 @@ class MessagingApi {
     );
 
     return _parseMatchNote(response);
+  }
+
+  Future<List<ChatWallpaper>> fetchChatWallpaperCatalog() async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/matches/wallpapers'),
+      headers: _headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw MessagingApiException(_errorMessage(_decode(response), response.statusCode));
+    }
+
+    final list = jsonDecode(response.body) as List;
+    return list
+        .cast<Map<String, dynamic>>()
+        .map(
+          (json) => ChatWallpaper(
+            id: json['id'] as String,
+            label: json['label'] as String,
+            type: json['type'] as String,
+          ),
+        )
+        .toList();
+  }
+
+  /// The current user's private background for this thread - null when
+  /// nothing has been set yet, in which case the client falls back to a
+  /// default appearance.
+  Future<String?> fetchChatWallpaper(String matchId) async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/matches/$matchId/wallpaper'),
+      headers: _headers,
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 200) {
+      throw MessagingApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return body['wallpaperId'] as String?;
+  }
+
+  Future<String?> setChatWallpaper(String matchId, String wallpaperId) async {
+    final response = await _client.put(
+      Uri.parse('$_baseUrl/matches/$matchId/wallpaper'),
+      headers: _headers,
+      body: jsonEncode({'wallpaperId': wallpaperId}),
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 200) {
+      throw MessagingApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return body['wallpaperId'] as String?;
   }
 
   MatchNote _parseMatchNote(http.Response response) {
