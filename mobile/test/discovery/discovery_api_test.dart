@@ -889,6 +889,110 @@ void main() {
     });
   });
 
+  group('DiscoveryApi.setVisibilitySchedule', () {
+    test('sends the enabled flag and hour bounds, and parses the result', () async {
+      http.Request? capturedRequest;
+      final api = DiscoveryApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          capturedRequest = request;
+          return http.Response(
+            '{"enabled":true,"hiddenStartHourUtc":9,"hiddenEndHourUtc":17}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final schedule = await api.setVisibilitySchedule(true, hiddenStartHourUtc: 9, hiddenEndHourUtc: 17);
+
+      expect(capturedRequest!.method, 'PUT');
+      expect(capturedRequest!.url.path, '/discovery/visibility-schedule');
+      expect(
+        capturedRequest!.body,
+        '{"enabled":true,"hiddenStartHourUtc":9,"hiddenEndHourUtc":17}',
+      );
+      expect(schedule.enabled, isTrue);
+      expect(schedule.hiddenStartHourUtc, 9);
+      expect(schedule.hiddenEndHourUtc, 17);
+    });
+
+    test('disabling omits the hour bounds', () async {
+      http.Request? capturedRequest;
+      final api = DiscoveryApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          capturedRequest = request;
+          return http.Response(
+            '{"enabled":false,"hiddenStartHourUtc":null,"hiddenEndHourUtc":null}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final schedule = await api.setVisibilitySchedule(false);
+
+      expect(capturedRequest!.body, '{"enabled":false}');
+      expect(schedule.enabled, isFalse);
+      expect(schedule.hiddenStartHourUtc, isNull);
+    });
+
+    test('throws DiscoveryApiException when enabling without both hour bounds', () async {
+      final api = DiscoveryApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '{"message":"hiddenStartHourUtc and hiddenEndHourUtc are required when enabling."}',
+            400,
+          ),
+        ),
+      );
+
+      expect(() => api.setVisibilitySchedule(true), throwsA(isA<DiscoveryApiException>()));
+    });
+  });
+
+  group('DiscoveryApi.fetchVisibilitySchedule', () {
+    test('parses a disabled schedule', () async {
+      final api = DiscoveryApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'GET');
+          expect(request.url.path, '/discovery/visibility-schedule');
+          return http.Response(
+            '{"enabled":false,"hiddenStartHourUtc":null,"hiddenEndHourUtc":null}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final schedule = await api.fetchVisibilitySchedule();
+
+      expect(schedule.enabled, isFalse);
+    });
+
+    test('parses an enabled overnight window', () async {
+      final api = DiscoveryApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '{"enabled":true,"hiddenStartHourUtc":22,"hiddenEndHourUtc":6}',
+            200,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      final schedule = await api.fetchVisibilitySchedule();
+
+      expect(schedule.enabled, isTrue);
+      expect(schedule.hiddenStartHourUtc, 22);
+      expect(schedule.hiddenEndHourUtc, 6);
+    });
+  });
+
   group('DiscoveryApi.fetchVideoFeed', () {
     test('parses video feed cards from a snippet', () async {
       final api = DiscoveryApi(

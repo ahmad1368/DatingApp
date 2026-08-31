@@ -5,6 +5,7 @@ import { RecordSwipeDto } from './dto/record-swipe.dto';
 import { SetIncognitoModeDto } from './dto/set-incognito-mode.dto';
 import { SetActiveModeDto } from './dto/set-active-mode.dto';
 import { SetSnoozeModeDto } from './dto/set-snooze-mode.dto';
+import { SetVisibilityScheduleDto } from './dto/set-visibility-schedule.dto';
 import { SubmitDeckFeedbackDto } from './dto/submit-deck-feedback.dto';
 import { LikedBySort } from './discovery.constants';
 import { DiscoveryService } from './discovery.service';
@@ -100,6 +101,22 @@ export class DiscoveryController {
   @Get('snooze')
   getSnoozeStatus(@CurrentUser() user: AuthenticatedUser) {
     return this.discoveryService.getSnoozeStatus(user.id);
+  }
+
+  @Put('visibility-schedule')
+  @HttpCode(HttpStatus.OK)
+  setVisibilitySchedule(@CurrentUser() user: AuthenticatedUser, @Body() dto: SetVisibilityScheduleDto) {
+    return this.discoveryService.setVisibilitySchedule(
+      user.id,
+      dto.enabled,
+      dto.hiddenStartHourUtc,
+      dto.hiddenEndHourUtc,
+    );
+  }
+
+  @Get('visibility-schedule')
+  getVisibilitySchedule(@CurrentUser() user: AuthenticatedUser) {
+    return this.discoveryService.getVisibilitySchedule(user.id);
   }
 
   @Get('happy-hour')
