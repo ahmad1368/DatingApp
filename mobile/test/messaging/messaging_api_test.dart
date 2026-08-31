@@ -42,6 +42,39 @@ void main() {
     });
   });
 
+  group('MessagingApi.searchMatches', () {
+    test('sends the query and parses the matching results', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.url.path, '/matches/search');
+          expect(request.url.queryParameters['q'], 'sam');
+          return http.Response(
+            '[{"matchId":"match-1","otherUserId":"user-2","otherUserName":"Sam",'
+            '"otherUserPhotoUrl":null,"expiresAt":null,'
+            '"firstMessageSent":true,"canExtend":false,"createdAt":"2026-01-01T00:00:00.000Z"}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final matches = await api.searchMatches('sam');
+
+      expect(matches, hasLength(1));
+      expect(matches.first.otherUserName, 'Sam');
+    });
+
+    test('throws MessagingApiException on a non-200 response', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => http.Response('', 500)),
+      );
+
+      expect(() => api.searchMatches('sam'), throwsA(isA<MessagingApiException>()));
+    });
+  });
+
   group('MessagingApi.fetchMatchStatus', () {
     test('sends the bearer token and parses the status', () async {
       final api = MessagingApi(

@@ -2944,6 +2944,96 @@ describe('MessagingService', () => {
     });
   });
 
+  describe('searchMatches', () => {
+    it('returns nothing for an empty or whitespace-only query', async () => {
+      const result = await service.searchMatches(WOMAN_ID, '   ');
+
+      expect(result).toEqual([]);
+      expect(prisma.match.findMany).not.toHaveBeenCalled();
+    });
+
+    it('matches on the other user name', async () => {
+      prisma.match.findMany.mockResolvedValue([
+        {
+          id: MATCH_ID,
+          userAId: WOMAN_ID,
+          userBId: MAN_ID,
+          firstMessageExpiresAt: hoursFromNow(24),
+          firstMessageSentAt: null,
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ]);
+      prisma.user.findMany.mockResolvedValue([{ id: MAN_ID, name: 'Samantha', profilePhotoUrl: null, interests: [] }]);
+      prisma.message.findMany.mockResolvedValue([]);
+
+      const result = await service.searchMatches(WOMAN_ID, 'sam');
+
+      expect(result).toHaveLength(1);
+      expect(result[0].matchId).toBe(MATCH_ID);
+    });
+
+    it('matches on a shared interest', async () => {
+      prisma.match.findMany.mockResolvedValue([
+        {
+          id: MATCH_ID,
+          userAId: WOMAN_ID,
+          userBId: MAN_ID,
+          firstMessageExpiresAt: hoursFromNow(24),
+          firstMessageSentAt: null,
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ]);
+      prisma.user.findMany.mockResolvedValue([
+        { id: MAN_ID, name: 'Sam', profilePhotoUrl: null, interests: ['Rock Climbing'] },
+      ]);
+      prisma.message.findMany.mockResolvedValue([]);
+
+      const result = await service.searchMatches(WOMAN_ID, 'climbing');
+
+      expect(result).toHaveLength(1);
+    });
+
+    it('matches on a keyword found in the chat history', async () => {
+      prisma.match.findMany.mockResolvedValue([
+        {
+          id: MATCH_ID,
+          userAId: WOMAN_ID,
+          userBId: MAN_ID,
+          firstMessageExpiresAt: hoursFromNow(-1),
+          firstMessageSentAt: new Date('2026-01-01T00:00:00.000Z'),
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ]);
+      prisma.user.findMany.mockResolvedValue([{ id: MAN_ID, name: 'Sam', profilePhotoUrl: null, interests: [] }]);
+      prisma.message.findMany
+        .mockResolvedValueOnce([{ matchId: MATCH_ID, senderId: MAN_ID, createdAt: new Date() }])
+        .mockResolvedValueOnce([{ matchId: MATCH_ID, content: 'Want to grab sushi tonight?' }]);
+
+      const result = await service.searchMatches(WOMAN_ID, 'sushi');
+
+      expect(result).toHaveLength(1);
+    });
+
+    it('excludes a match that matches nothing', async () => {
+      prisma.match.findMany.mockResolvedValue([
+        {
+          id: MATCH_ID,
+          userAId: WOMAN_ID,
+          userBId: MAN_ID,
+          firstMessageExpiresAt: hoursFromNow(24),
+          firstMessageSentAt: null,
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ]);
+      prisma.user.findMany.mockResolvedValue([{ id: MAN_ID, name: 'Sam', profilePhotoUrl: null, interests: [] }]);
+      prisma.message.findMany.mockResolvedValue([]);
+
+      const result = await service.searchMatches(WOMAN_ID, 'unrelated-keyword');
+
+      expect(result).toEqual([]);
+    });
+  });
+
   describe('listInactiveThreads', () => {
     it('returns a thread whose last message is 14+ days old, with the other user profile info', async () => {
       prisma.match.findMany.mockResolvedValue([
