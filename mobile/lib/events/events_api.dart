@@ -19,6 +19,7 @@ class LocalEvent {
     required this.location,
     required this.category,
     required this.startsAt,
+    required this.priceCoins,
     required this.distanceKm,
     required this.rsvpCount,
     required this.isRsvped,
@@ -32,6 +33,7 @@ class LocalEvent {
   final String location;
   final String category;
   final DateTime startsAt;
+  final int priceCoins;
   final double? distanceKm;
   final int rsvpCount;
   final bool isRsvped;
@@ -67,26 +69,35 @@ class EventsApi {
     return list.cast<Map<String, dynamic>>().map(_toLocalEvent).toList();
   }
 
-  Future<void> rsvp(String eventId) async {
+  /// Returns the resulting coin balance. For a paid event this is the
+  /// access-pass purchase, deducted from the same in-app coin balance the
+  /// wallet/power-ups screens spend from.
+  Future<int> rsvp(String eventId) async {
     final response = await _client.post(
       Uri.parse('$_baseUrl/events/$eventId/rsvp'),
       headers: _headers,
     );
 
+    final body = _decode(response);
     if (response.statusCode != 200) {
-      throw EventsApiException(_errorMessage(_decode(response), response.statusCode));
+      throw EventsApiException(_errorMessage(body, response.statusCode));
     }
+    return body['coinBalance'] as int;
   }
 
-  Future<void> cancelRsvp(String eventId) async {
+  /// Returns the resulting coin balance; any coins spent on a paid access
+  /// pass are refunded.
+  Future<int> cancelRsvp(String eventId) async {
     final response = await _client.post(
       Uri.parse('$_baseUrl/events/$eventId/cancel-rsvp'),
       headers: _headers,
     );
 
+    final body = _decode(response);
     if (response.statusCode != 200) {
-      throw EventsApiException(_errorMessage(_decode(response), response.statusCode));
+      throw EventsApiException(_errorMessage(body, response.statusCode));
     }
+    return body['coinBalance'] as int;
   }
 
   /// Confirms physical attendance at an event already RSVPed to. Only
@@ -110,6 +121,7 @@ class EventsApi {
       location: json['location'] as String,
       category: json['category'] as String,
       startsAt: DateTime.parse(json['startsAt'] as String),
+      priceCoins: json['priceCoins'] as int? ?? 0,
       distanceKm: (json['distanceKm'] as num?)?.toDouble(),
       rsvpCount: json['rsvpCount'] as int,
       isRsvped: json['isRsvped'] as bool,

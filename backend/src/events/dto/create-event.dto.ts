@@ -1,4 +1,4 @@
-import { IsIn, IsISO8601, IsLatitude, IsLongitude, IsOptional, IsString, Length } from 'class-validator';
+import { IsIn, IsInt, IsISO8601, IsLatitude, IsLongitude, IsOptional, IsString, Length, Min } from 'class-validator';
 import { EVENT_CATEGORIES } from '../events.constants';
 
 export class CreateEventDto {
@@ -28,4 +28,10 @@ export class CreateEventDto {
 
   @IsISO8601()
   startsAt!: string;
+
+  /** In-app-currency access pass price; omitted or 0 means a free event. */
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  priceCoins?: number;
 }

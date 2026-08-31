@@ -6,109 +6,86 @@ import 'package:http/testing.dart';
 import 'package:mobile/events/events_api.dart';
 import 'package:mobile/events/events_screen.dart';
 
+http.Response _jsonResponse(String body, int status) =>
+    http.Response(body, status, headers: {'content-type': 'application/json'});
+
+String _eventJson({int priceCoins = 0, bool isRsvped = false}) =>
+    '{"id":"event-1","title":"Singles Mixer","description":null,'
+    '"location":"Downtown Bar","category":"MIXER","startsAt":"2026-02-01T18:00:00.000Z",'
+    '"priceCoins":$priceCoins,"distanceKm":null,"rsvpCount":0,"isRsvped":$isRsvped,'
+    '"checkedInCount":0,"isCheckedIn":false}';
+
 void main() {
-  testWidgets('shows an empty state when there are no nearby events', (tester) async {
+  testWidgets('shows the access-pass price on a paid event\'s RSVP button', (tester) async {
     final api = EventsApi(
       accessToken: 'a-jwt',
-      client: MockClient(
-        (request) async => http.Response('[]', 200, headers: {'content-type': 'application/json'}),
-      ),
+      client: MockClient((request) async => _jsonResponse('[${_eventJson(priceCoins: 20)}]', 200)),
     );
 
     await tester.pumpWidget(MaterialApp(home: EventsScreen(eventsApi: api)));
     await tester.pumpAndSettle();
 
-    expect(find.text('No upcoming events nearby yet.'), findsOneWidget);
+    expect(find.text('RSVP (20 coins)'), findsOneWidget);
+    expect(find.textContaining('20 coins'), findsWidgets);
   });
 
-  testWidgets('lists events with location, distance, and RSVP button', (tester) async {
+  testWidgets('shows "Free" for a free event and a plain RSVP button', (tester) async {
     final api = EventsApi(
       accessToken: 'a-jwt',
-      client: MockClient(
-        (request) async => http.Response(
-          '[{"id":"event-1","title":"Singles Mixer","description":null,'
-          '"location":"Downtown Bar","category":"MIXER",'
-          '"startsAt":"2026-02-01T18:00:00.000Z","distanceKm":2.5,'
-          '"rsvpCount":3,"isRsvped":false,"checkedInCount":0,"isCheckedIn":false}]',
-          200,
-          headers: {'content-type': 'application/json'},
-        ),
-      ),
+      client: MockClient((request) async => _jsonResponse('[${_eventJson()}]', 200)),
     );
 
     await tester.pumpWidget(MaterialApp(home: EventsScreen(eventsApi: api)));
     await tester.pumpAndSettle();
 
-    expect(find.text('Singles Mixer'), findsOneWidget);
-    expect(find.textContaining('Downtown Bar'), findsOneWidget);
-    expect(find.textContaining('2.5 km away'), findsOneWidget);
     expect(find.text('RSVP'), findsOneWidget);
-    expect(find.text('Check in'), findsNothing);
+    expect(find.textContaining('Free'), findsOneWidget);
   });
 
-  testWidgets('RSVPing then shows Cancel RSVP', (tester) async {
+  testWidgets('rsvping to a paid event updates and shows the resulting coin balance', (tester) async {
     http.Request? rsvpRequest;
-    var rsvped = false;
+    var alreadyRsvped = false;
     final api = EventsApi(
       accessToken: 'a-jwt',
       client: MockClient((request) async {
-        if (request.method == 'POST' && request.url.path == '/events/event-1/rsvp') {
+        if (request.method == 'POST') {
           rsvpRequest = request;
-          rsvped = true;
-          return http.Response('', 200);
+          alreadyRsvped = true;
+          return _jsonResponse('{"rsvped":true,"coinBalance":30}', 200);
         }
-        return http.Response(
-          '[{"id":"event-1","title":"Singles Mixer","description":null,'
-          '"location":"Downtown Bar","category":"MIXER",'
-          '"startsAt":"2026-02-01T18:00:00.000Z","distanceKm":null,'
-          '"rsvpCount":${rsvped ? 1 : 0},"isRsvped":$rsvped,'
-          '"checkedInCount":0,"isCheckedIn":false}]',
-          200,
-          headers: {'content-type': 'application/json'},
-        );
+        return _jsonResponse('[${_eventJson(priceCoins: 20, isRsvped: alreadyRsvped)}]', 200);
       }),
     );
 
     await tester.pumpWidget(MaterialApp(home: EventsScreen(eventsApi: api)));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('RSVP'));
+    await tester.tap(find.widgetWithText(ElevatedButton, 'RSVP (20 coins)'));
     await tester.pumpAndSettle();
 
     expect(rsvpRequest, isNotNull);
-    expect(find.text('Cancel RSVP'), findsOneWidget);
-    expect(find.text('Check in'), findsOneWidget);
+    expect(rsvpRequest!.url.path, '/events/event-1/rsvp');
+    expect(find.text('30 coins'), findsOneWidget);
+    expect(find.widgetWithText(ElevatedButton, 'Cancel RSVP'), findsOneWidget);
   });
 
-  testWidgets('checking in shows Checked in and disables the button', (tester) async {
-    var checkedIn = false;
+  testWidgets('shows an error when the coin balance is too low', (tester) async {
     final api = EventsApi(
       accessToken: 'a-jwt',
       client: MockClient((request) async {
-        if (request.method == 'POST' && request.url.path == '/events/event-1/check-in') {
-          checkedIn = true;
-          return http.Response('', 200);
+        if (request.method == 'POST') {
+          return _jsonResponse('{"message":"Not enough coins for this event access pass."}', 400);
         }
-        return http.Response(
-          '[{"id":"event-1","title":"Singles Mixer","description":null,'
-          '"location":"Downtown Bar","category":"MIXER",'
-          '"startsAt":"2026-02-01T18:00:00.000Z","distanceKm":null,'
-          '"rsvpCount":1,"isRsvped":true,'
-          '"checkedInCount":${checkedIn ? 1 : 0},"isCheckedIn":$checkedIn}]',
-          200,
-          headers: {'content-type': 'application/json'},
-        );
+        return _jsonResponse('[${_eventJson(priceCoins: 20)}]', 200);
       }),
     );
 
     await tester.pumpWidget(MaterialApp(home: EventsScreen(eventsApi: api)));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Check in'));
+    await tester.tap(find.widgetWithText(ElevatedButton, 'RSVP (20 coins)'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Checked in'), findsOneWidget);
-    final button = tester.widget<TextButton>(find.widgetWithText(TextButton, 'Checked in'));
-    expect(button.onPressed, isNull);
+    expect(find.text('Not enough coins for this event access pass.'), findsOneWidget);
   });
 }
