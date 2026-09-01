@@ -535,11 +535,29 @@ class MessagingApi {
     );
   }
 
+  /// Quick-pick reasons to offer alongside an unmatch/block - see [unmatch].
+  Future<List<String>> fetchUnmatchReasons() async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/matches/unmatch-reasons'),
+      headers: _headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw MessagingApiException(_errorMessage(_decode(response), response.statusCode));
+    }
+
+    return (jsonDecode(response.body) as List).cast<String>();
+  }
+
   /// Ends an ongoing match - the "politely unmatch" option on a ghosting prompt.
-  Future<void> unmatch(String matchId) async {
+  /// [reason] is an optional internal-only quick-pick tag (see
+  /// UNMATCH_REASONS on the backend) for moderation monitoring - never
+  /// shown to the other side, who isn't notified of the unmatch either way.
+  Future<void> unmatch(String matchId, {String? reason}) async {
     final response = await _client.post(
       Uri.parse('$_baseUrl/matches/$matchId/unmatch'),
       headers: _headers,
+      body: jsonEncode({if (reason != null) 'reason': reason}),
     );
 
     if (response.statusCode != 200) {

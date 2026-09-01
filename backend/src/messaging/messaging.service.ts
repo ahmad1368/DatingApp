@@ -46,6 +46,8 @@ import {
   RESERVATION_CONTENT_TYPE,
   RESERVATION_PROVIDERS,
   ReservationProvider,
+  UNMATCH_REASONS,
+  UnmatchReason,
   TRIVIA_QUESTIONS,
   TriviaQuestion,
   TWENTY_ONE_QUESTIONS_PROMPTS,
@@ -1507,10 +1509,25 @@ export class MessagingService {
     );
   }
 
-  /** Ends an ongoing (already-unlocked) match - the ghosting-prompt's "politely unmatch" option. */
-  async unmatch(userId: string, matchId: string): Promise<{ unmatched: boolean }> {
+  getUnmatchReasons(): readonly string[] {
+    return UNMATCH_REASONS;
+  }
+
+  /**
+   * Ends an ongoing (already-unlocked) match - the ghosting-prompt's
+   * "politely unmatch" option, and also this app's stand-in for "block"
+   * (see match_chat_screen's _blockSender on the mobile side). Instant and
+   * silent - the other party is never notified either way. [reason] is an
+   * optional internal-only quick-pick tag (see UNMATCH_REASONS) for
+   * moderation monitoring, never shown to the other side.
+   */
+  async unmatch(userId: string, matchId: string, reason?: string): Promise<{ unmatched: boolean }> {
+    if (reason && !UNMATCH_REASONS.includes(reason as UnmatchReason)) {
+      throw new BadRequestException('Unknown unmatch reason.');
+    }
+
     const match = await this.getMatchForUser(userId, matchId);
-    await this.dissolveMatch(match);
+    await this.dissolveMatch(match, reason);
     return { unmatched: true };
   }
 
@@ -1621,7 +1638,7 @@ export class MessagingService {
    * getArchivedThreadMessages - otherwise dissolving still deletes
    * everything as before.
    */
-  private async dissolveMatch(match: MatchRecord): Promise<void> {
+  private async dissolveMatch(match: MatchRecord, reason?: string): Promise<void> {
     const participants = await this.prisma.user.findMany({
       where: { id: { in: [match.userAId, match.userBId] } },
       select: { id: true, unmatchProtectionEnabled: true },
@@ -1629,7 +1646,7 @@ export class MessagingService {
     const isProtected = participants.some((user) => user.unmatchProtectionEnabled);
 
     const dissolved = await this.prisma.dissolvedMatch.create({
-      data: { userAId: match.userAId, userBId: match.userBId },
+      data: { userAId: match.userAId, userBId: match.userBId, unmatchReason: reason ?? null },
     });
 
     if (isProtected) {

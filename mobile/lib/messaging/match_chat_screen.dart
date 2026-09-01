@@ -351,10 +351,12 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
   /// Ends the match, this app's stand-in for "blocking" someone from a
   /// flagged message's warning - there's no separate block relationship
   /// anywhere else in this codebase, matches_screen's "Unmatch" does the
-  /// same thing.
+  /// same thing. Auto-tagged as "Inappropriate behavior" rather than
+  /// prompting for a reason, since this is meant to be a one-tap safety
+  /// action off the flagged-message warning.
   Future<void> _blockSender() async {
     try {
-      await widget.messagingApi.unmatch(widget.matchId);
+      await widget.messagingApi.unmatch(widget.matchId, reason: 'Inappropriate behavior');
       if (mounted) {
         Navigator.of(context).pop();
       }

@@ -17,6 +17,7 @@ import { SendMediaMessageDto } from './dto/send-media-message.dto';
 import { CheckMessageDto } from './dto/check-message.dto';
 import { ReportMessageDto } from './dto/report-message.dto';
 import { ReportAndUnmatchDto } from './dto/report-and-unmatch.dto';
+import { UnmatchDto } from './dto/unmatch.dto';
 import { SetReadReceiptsDto } from './dto/set-read-receipts.dto';
 import { SetMediaBlurPreferenceDto } from './dto/set-media-blur-preference.dto';
 import { SetChatWallpaperDto } from './dto/set-chat-wallpaper.dto';
@@ -89,6 +90,11 @@ export class MessagingController {
   @Get('voice-note-effects')
   getVoiceNoteEffects() {
     return this.messagingService.getVoiceNoteEffectsCatalog();
+  }
+
+  @Get('unmatch-reasons')
+  getUnmatchReasons() {
+    return this.messagingService.getUnmatchReasons();
   }
 
   @Get('wallpapers')
@@ -258,8 +264,12 @@ export class MessagingController {
 
   @Post(':matchId/unmatch')
   @HttpCode(HttpStatus.OK)
-  unmatch(@CurrentUser() user: AuthenticatedUser, @Param('matchId') matchId: string) {
-    return this.messagingService.unmatch(user.id, matchId);
+  unmatch(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('matchId') matchId: string,
+    @Body() dto: UnmatchDto,
+  ) {
+    return this.messagingService.unmatch(user.id, matchId, dto.reason);
   }
 
   @Post(':matchId/report-and-unmatch')
