@@ -24,6 +24,17 @@ export const RELIGIONS = [
   'Prefer Not to Say',
 ] as const;
 
+// How observant someone is within their stated religion (or spiritual
+// practice) - a separate axis from RELIGIONS itself, since two people who
+// share a religion can differ widely on how central it is to daily life.
+export const RELIGIOUS_PRACTICE_LEVELS = [
+  'Not Practicing',
+  'Culturally Only',
+  'Somewhat Practicing',
+  'Very Practicing',
+  'Prefer Not to Say',
+] as const;
+
 export const DIETARY_PREFERENCES = [
   'Omnivore',
   'Vegetarian',

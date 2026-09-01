@@ -7,6 +7,7 @@ export interface LifestyleFiltersResult {
   drinkingHabit: string | null;
   education: string | null;
   religion: string | null;
+  religiousPracticeLevel: string | null;
   dietaryPreference: string | null;
   wantsChildren: string | null;
   heightCm: number | null;
@@ -23,6 +24,7 @@ export interface LifestyleFiltersResult {
   filterMaxHeightCm: number | null;
   filterEducationLevels: string[];
   filterReligions: string[];
+  filterReligiousPracticeLevels: string[];
   filterDietaryPreferences: string[];
   filterWantsChildren: string[];
   filterRelationshipGoals: string[];
@@ -43,6 +45,7 @@ interface LifestyleFiltersRecord {
   drinkingHabit: string | null;
   education: string | null;
   religion: string | null;
+  religiousPracticeLevel: string | null;
   dietaryPreference: string | null;
   wantsChildren: string | null;
   heightCm: number | null;
@@ -59,6 +62,7 @@ interface LifestyleFiltersRecord {
   filterMaxHeightCm: number | null;
   filterEducationLevels: string[];
   filterReligions: string[];
+  filterReligiousPracticeLevels: string[];
   filterDietaryPreferences: string[];
   filterWantsChildren: string[];
   filterRelationshipGoals: string[];
@@ -79,6 +83,7 @@ const SELECT = {
   drinkingHabit: true,
   education: true,
   religion: true,
+  religiousPracticeLevel: true,
   dietaryPreference: true,
   wantsChildren: true,
   heightCm: true,
@@ -95,6 +100,7 @@ const SELECT = {
   filterMaxHeightCm: true,
   filterEducationLevels: true,
   filterReligions: true,
+  filterReligiousPracticeLevels: true,
   filterDietaryPreferences: true,
   filterWantsChildren: true,
   filterRelationshipGoals: true,
@@ -138,6 +144,7 @@ export class LifestyleFiltersService {
         drinkingHabit: dto.drinkingHabit ?? null,
         education: dto.education ?? null,
         religion: dto.religion ?? null,
+        religiousPracticeLevel: dto.religiousPracticeLevel ?? null,
         dietaryPreference: dto.dietaryPreference ?? null,
         wantsChildren: dto.wantsChildren ?? null,
         heightCm: dto.heightCm ?? null,
@@ -154,6 +161,7 @@ export class LifestyleFiltersService {
         filterMaxHeightCm: dto.filterMaxHeightCm ?? null,
         filterEducationLevels: dto.filterEducationLevels,
         filterReligions: dto.filterReligions,
+        filterReligiousPracticeLevels: dto.filterReligiousPracticeLevels,
         filterDietaryPreferences: dto.filterDietaryPreferences,
         filterWantsChildren: dto.filterWantsChildren,
         filterRelationshipGoals: dto.filterRelationshipGoals,
@@ -180,6 +188,7 @@ export class LifestyleFiltersService {
       drinkingHabit: user?.drinkingHabit ?? null,
       education: user?.education ?? null,
       religion: user?.religion ?? null,
+      religiousPracticeLevel: user?.religiousPracticeLevel ?? null,
       dietaryPreference: user?.dietaryPreference ?? null,
       wantsChildren: user?.wantsChildren ?? null,
       heightCm: user?.heightCm ?? null,
@@ -196,6 +205,7 @@ export class LifestyleFiltersService {
       filterMaxHeightCm: user?.filterMaxHeightCm ?? null,
       filterEducationLevels: user?.filterEducationLevels ?? [],
       filterReligions: user?.filterReligions ?? [],
+      filterReligiousPracticeLevels: user?.filterReligiousPracticeLevels ?? [],
       filterDietaryPreferences: user?.filterDietaryPreferences ?? [],
       filterWantsChildren: user?.filterWantsChildren ?? [],
       filterRelationshipGoals: user?.filterRelationshipGoals ?? [],

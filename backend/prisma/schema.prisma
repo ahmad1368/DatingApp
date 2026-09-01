@@ -92,6 +92,7 @@ model User {
   profilePollQuestion                   String?
   profilePollOptions                    String[]  @default([])
   religion                              String?
+  religiousPracticeLevel                String?
   dietaryPreference                     String?
   wantsChildren                         String?
   heightCm                              Int?
@@ -120,6 +121,7 @@ model User {
   filterMaxHeightCm                     Int?
   filterEducationLevels                 String[]  @default([])
   filterReligions                       String[]  @default([])
+  filterReligiousPracticeLevels         String[]  @default([])
   filterDietaryPreferences              String[]  @default([])
   filterWantsChildren                   String[]  @default([])
   filterRelationshipGoals               String[]  @default([])
