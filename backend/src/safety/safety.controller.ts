@@ -58,6 +58,12 @@ export class SafetyController {
     return this.safetyService.confirmCheckIn(user.id, id);
   }
 
+  @Post('check-ins/:id/share-link')
+  @HttpCode(HttpStatus.CREATED)
+  generateDatePlanShareLink(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.safetyService.generateDatePlanShareLink(user.id, id);
+  }
+
   @Get('emergency-contacts')
   listEmergencyContacts(@CurrentUser() user: AuthenticatedUser) {
     return this.safetyService.listEmergencyContacts(user.id);

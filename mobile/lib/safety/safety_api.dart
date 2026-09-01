@@ -321,6 +321,24 @@ class SafetyApi {
     return _toCheckIn(body);
   }
 
+  /// Generates (or reuses) a share link for this check-in - the "Safety
+  /// Date Plan" a friend or family member can open, showing the location,
+  /// scheduled time, and the matched partner's verification status,
+  /// without needing an account. Returns the full link, not just the token.
+  Future<String> generateDatePlanShareLink(String checkInId) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/safety/check-ins/$checkInId/share-link'),
+      headers: _headers,
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 201) {
+      throw SafetyApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return '$_baseUrl/safety/shared/${body['shareToken']}';
+  }
+
   Future<List<EmergencyContact>> fetchEmergencyContacts() async {
     final response = await _client.get(
       Uri.parse('$_baseUrl/safety/emergency-contacts'),

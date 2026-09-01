@@ -1,4 +1,5 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { SMS_PROVIDER, SmsProvider } from '../auth/interfaces/sms-provider.interface';
 import {
@@ -50,6 +51,24 @@ export interface DateLocationShareResult {
   id: string;
   notifiedContactIds: string[];
   createdAt: string;
+}
+
+export interface DatePlanShareLinkResult {
+  shareToken: string;
+}
+
+/**
+ * The public, unauthenticated view of a "Safety Date Plan" share link - see
+ * SafetyService.getSharedDatePlan. Deliberately excludes
+ * emergencyContactName/Phone, which stay private to the planner.
+ */
+export interface SharedDatePlanView {
+  plannerName: string | null;
+  location: string | null;
+  scheduledAt: string;
+  notes: string | null;
+  partnerName: string | null;
+  partnerVerified: boolean;
 }
 
 export interface ScamQuizQuestionView {
@@ -193,6 +212,73 @@ export class SafetyService {
     });
 
     return this.toCheckInView(updated);
+  }
+
+  /**
+   * "Safety Date Plan & Destination Sharing": mints (or reuses) an opaque
+   * share token for this check-in so the planner can hand friends/family a
+   * link to [getSharedDatePlan]'s public view, without requiring them to
+   * have an account or be one of the check-in's pre-added emergency
+   * contacts - unlike [shareDateLocation]'s direct-SMS push.
+   */
+  async generateDatePlanShareLink(userId: string, checkInId: string): Promise<DatePlanShareLinkResult> {
+    const checkIn = await this.prisma.dateCheckIn.findUnique({ where: { id: checkInId } });
+    if (!checkIn || checkIn.userId !== userId) {
+      throw new NotFoundException('Check-in not found.');
+    }
+    if (checkIn.shareToken) {
+      return { shareToken: checkIn.shareToken };
+    }
+
+    const shareToken = randomUUID();
+    await this.prisma.dateCheckIn.update({ where: { id: checkInId }, data: { shareToken } });
+
+    return { shareToken };
+  }
+
+  /**
+   * Public read for a "Safety Date Plan" link - see
+   * generateDatePlanShareLink. No auth: this is meant to be opened by
+   * whoever the planner shared the link with.
+   */
+  async getSharedDatePlan(shareToken: string): Promise<SharedDatePlanView> {
+    const checkIn = await this.prisma.dateCheckIn.findUnique({ where: { shareToken } });
+    if (!checkIn) {
+      throw new NotFoundException('Shared date plan not found.');
+    }
+
+    const planner = await this.prisma.user.findUnique({
+      where: { id: checkIn.userId },
+      select: { name: true },
+    });
+
+    let partnerName: string | null = null;
+    let partnerVerified = false;
+    if (checkIn.matchId) {
+      const match = await this.prisma.match.findUnique({ where: { id: checkIn.matchId } });
+      const partnerId = match
+        ? match.userAId === checkIn.userId
+          ? match.userBId
+          : match.userAId
+        : null;
+      if (partnerId) {
+        const partner = await this.prisma.user.findUnique({
+          where: { id: partnerId },
+          select: { name: true, verifiedAt: true },
+        });
+        partnerName = partner?.name ?? null;
+        partnerVerified = partner?.verifiedAt != null;
+      }
+    }
+
+    return {
+      plannerName: planner?.name ?? null,
+      location: checkIn.location,
+      scheduledAt: checkIn.scheduledAt.toISOString(),
+      notes: checkIn.notes,
+      partnerName,
+      partnerVerified,
+    };
   }
 
   async addEmergencyContact(userId: string, name: string, phone: string): Promise<EmergencyContactView> {

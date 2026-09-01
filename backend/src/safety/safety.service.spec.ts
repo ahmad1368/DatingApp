@@ -15,6 +15,7 @@ describe('SafetyService', () => {
     user: { findUnique: jest.Mock };
     userReport: { create: jest.Mock };
     dateCheckIn: { create: jest.Mock; findMany: jest.Mock; findUnique: jest.Mock; update: jest.Mock };
+    match: { findUnique: jest.Mock };
     emergencyContact: {
       create: jest.Mock;
       findMany: jest.Mock;
@@ -36,6 +37,7 @@ describe('SafetyService', () => {
         findUnique: jest.fn(),
         update: jest.fn(),
       },
+      match: { findUnique: jest.fn() },
       emergencyContact: {
         create: jest.fn(),
         findMany: jest.fn().mockResolvedValue([]),
@@ -384,6 +386,113 @@ describe('SafetyService', () => {
       });
       expect(checkIn.status).toBe('CONFIRMED');
       expect(checkIn.confirmedAt).toBe(confirmedAt.toISOString());
+    });
+  });
+
+  describe('generateDatePlanShareLink', () => {
+    it('throws when the check-in does not exist', async () => {
+      prisma.dateCheckIn.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.generateDatePlanShareLink(USER_ID, CHECK_IN_ID),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it("throws when generating a link for someone else's check-in", async () => {
+      prisma.dateCheckIn.findUnique.mockResolvedValue({ id: CHECK_IN_ID, userId: OTHER_ID });
+
+      await expect(
+        service.generateDatePlanShareLink(OUTSIDER_ID, CHECK_IN_ID),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('mints a new share token and persists it', async () => {
+      prisma.dateCheckIn.findUnique.mockResolvedValue({
+        id: CHECK_IN_ID,
+        userId: USER_ID,
+        shareToken: null,
+      });
+
+      const result = await service.generateDatePlanShareLink(USER_ID, CHECK_IN_ID);
+
+      expect(result.shareToken).toEqual(expect.any(String));
+      expect(prisma.dateCheckIn.update).toHaveBeenCalledWith({
+        where: { id: CHECK_IN_ID },
+        data: { shareToken: result.shareToken },
+      });
+    });
+
+    it('reuses an existing share token instead of minting a new one', async () => {
+      prisma.dateCheckIn.findUnique.mockResolvedValue({
+        id: CHECK_IN_ID,
+        userId: USER_ID,
+        shareToken: 'existing-token',
+      });
+
+      const result = await service.generateDatePlanShareLink(USER_ID, CHECK_IN_ID);
+
+      expect(result).toEqual({ shareToken: 'existing-token' });
+      expect(prisma.dateCheckIn.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getSharedDatePlan', () => {
+    it('throws when no check-in has this share token', async () => {
+      prisma.dateCheckIn.findUnique.mockResolvedValue(null);
+
+      await expect(service.getSharedDatePlan('unknown-token')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+
+    it('returns the plan without a partner when the check-in has no match', async () => {
+      const scheduledAt = new Date('2026-03-01T20:00:00.000Z');
+      prisma.dateCheckIn.findUnique.mockResolvedValue({
+        id: CHECK_IN_ID,
+        userId: USER_ID,
+        matchId: null,
+        location: 'The Rooftop Bar',
+        scheduledAt,
+        notes: 'First date',
+        emergencyContactName: 'Mom',
+        emergencyContactPhone: '+15551234567',
+        shareToken: 'a-token',
+      });
+      prisma.user.findUnique.mockResolvedValue({ name: 'Priya' });
+
+      const plan = await service.getSharedDatePlan('a-token');
+
+      expect(plan).toEqual({
+        plannerName: 'Priya',
+        location: 'The Rooftop Bar',
+        scheduledAt: scheduledAt.toISOString(),
+        notes: 'First date',
+        partnerName: null,
+        partnerVerified: false,
+      });
+      expect(plan).not.toHaveProperty('emergencyContactPhone');
+    });
+
+    it("includes the matched partner's name and verification status", async () => {
+      const scheduledAt = new Date('2026-03-01T20:00:00.000Z');
+      prisma.dateCheckIn.findUnique.mockResolvedValue({
+        id: CHECK_IN_ID,
+        userId: USER_ID,
+        matchId: 'match-1',
+        location: 'The Rooftop Bar',
+        scheduledAt,
+        notes: null,
+        shareToken: 'a-token',
+      });
+      prisma.match.findUnique.mockResolvedValue({ id: 'match-1', userAId: USER_ID, userBId: OTHER_ID });
+      prisma.user.findUnique
+        .mockResolvedValueOnce({ name: 'Priya' })
+        .mockResolvedValueOnce({ name: 'Jordan', verifiedAt: new Date('2026-01-01T00:00:00.000Z') });
+
+      const plan = await service.getSharedDatePlan('a-token');
+
+      expect(plan.partnerName).toBe('Jordan');
+      expect(plan.partnerVerified).toBe(true);
     });
   });
 

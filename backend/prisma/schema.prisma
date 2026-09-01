@@ -753,6 +753,12 @@ model DateCheckIn {
   notes                 String?
   confirmedAt           DateTime?
   alertSentAt           DateTime?
+  // Opaque, unguessable token for the "Safety Date Plan" public share link
+  // (see SafetyService.generateDatePlanShareLink/getSharedDatePlan) - null
+  // until the user first generates a link. The public view built from it
+  // never includes emergencyContactName/Phone, only location, scheduledAt,
+  // and the matched partner's verification status.
+  shareToken            String?   @unique
   createdAt             DateTime  @default(now())
 
   @@index([userId])

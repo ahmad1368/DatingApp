@@ -97,6 +97,42 @@ void main() {
     expect(find.byIcon(Icons.check_circle), findsOneWidget);
   });
 
+  testWidgets('sharing a date plan shows a dialog with the link', (tester) async {
+    http.Request? shareRequest;
+    final api = SafetyApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/safety/resources') {
+          return _jsonResponse('[]', 200);
+        }
+        if (request.method == 'POST' && request.url.path.endsWith('/share-link')) {
+          shareRequest = request;
+          return _jsonResponse('{"shareToken":"abc123"}', 201);
+        }
+        if (request.url.path == '/safety/emergency-contacts') {
+          return _jsonResponse('[]', 200);
+        }
+        return _jsonResponse(
+          '[{"id":"check-in-1","matchId":null,"location":"Cafe","scheduledAt":"2026-01-01T20:00:00.000Z",'
+          '"emergencyContactName":null,"emergencyContactPhone":null,"notes":null,"confirmedAt":null,'
+          '"status":"SCHEDULED"}]',
+          200,
+        );
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: SafetyCenterScreen(safetyApi: api)));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.share));
+    await tester.pumpAndSettle();
+
+    expect(shareRequest, isNotNull);
+    expect(shareRequest!.url.path, '/safety/check-ins/check-in-1/share-link');
+    expect(find.text('Share this date plan'), findsOneWidget);
+    expect(find.textContaining('/safety/shared/abc123'), findsOneWidget);
+  });
+
   testWidgets('scheduling a check-in submits the dialog and reloads', (tester) async {
     http.Request? createRequest;
     var checkInsCallCount = 0;
