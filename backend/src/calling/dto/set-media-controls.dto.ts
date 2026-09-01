@@ -12,4 +12,8 @@ export class SetMediaControlsDto {
   @IsOptional()
   @IsBoolean()
   noiseSuppressionEnabled?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  backgroundBlurred?: boolean;
 }
