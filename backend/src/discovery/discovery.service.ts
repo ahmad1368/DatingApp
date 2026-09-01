@@ -2,7 +2,11 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { getBlockedUserIds } from '../blocking/blocking.utils';
-import { getMutualConnectionCounts, getMutualConnectionHiddenIds } from '../social-graph/social-graph.utils';
+import {
+  getDirectContactUserIds,
+  getMutualConnectionCounts,
+  getMutualConnectionHiddenIds,
+} from '../social-graph/social-graph.utils';
 import { haversineDistanceKm } from '../location/utils/haversine';
 import { computeFirstMessageExpiresAt, findIcebreakerPrompt } from '../messaging/messaging.constants';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -175,6 +179,7 @@ export class DiscoveryService {
       ? await this.getJointPartnerSwipedIds(userId, currentUser.activeBrowsingPartnerId)
       : [];
     const dealbreakerFailedIds = await this.getMandatoryDealbreakerFailedIds(userId);
+    const directContactIds = await getDirectContactUserIds(this.prisma, userId);
 
     const excludedIds = [
       userId,
@@ -182,6 +187,7 @@ export class DiscoveryService {
       ...blockedIds,
       ...jointPartnerSwipedIds,
       ...dealbreakerFailedIds,
+      ...directContactIds,
     ];
     const lifestyleWhere = this.buildLifestyleFilterWhere(currentUser);
     const now = new Date();

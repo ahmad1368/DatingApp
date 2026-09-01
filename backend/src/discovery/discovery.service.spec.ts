@@ -261,6 +261,7 @@ describe('DiscoveryService', () => {
         },
       ]);
       prisma.socialContact.findMany
+        .mockResolvedValueOnce([]) // getDirectContactUserIds: no synced contacts to auto-exclude on
         .mockResolvedValueOnce([{ contactValue: 'shared@example.com' }])
         .mockResolvedValueOnce([{ userId: TARGET_ID }, { userId: TARGET_ID }])
         .mockResolvedValueOnce([{ contactValue: 'shared@example.com' }])
@@ -284,6 +285,7 @@ describe('DiscoveryService', () => {
       });
       prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
       prisma.socialContact.findMany
+        .mockResolvedValueOnce([]) // getDirectContactUserIds: no synced contacts to auto-exclude on
         .mockResolvedValueOnce([{ contactValue: 'shared@example.com' }])
         .mockResolvedValueOnce([{ userId: TARGET_ID }]);
       prisma.user.findMany
@@ -1368,6 +1370,64 @@ describe('DiscoveryService', () => {
             id: { notIn: [USER_ID, 'dealbreaker-fail'] },
           }),
         }),
+      );
+    });
+
+    it('excludes a candidate whose registered phone/email is directly in the current user\'s synced contacts', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+      });
+      prisma.socialContact.findMany.mockResolvedValueOnce([{ contactValue: 'sister@example.com' }]);
+      prisma.user.findMany
+        .mockResolvedValueOnce([{ id: 'my-sister' }]) // getDirectContactUserIds match
+        .mockResolvedValueOnce([]); // remaining candidate pool
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+
+      await service.getDeck(USER_ID);
+
+      expect(prisma.user.findMany).toHaveBeenNthCalledWith(1, {
+        where: {
+          id: { not: USER_ID },
+          OR: [{ phoneNumber: { in: ['sister@example.com'] } }, { email: { in: ['sister@example.com'] } }],
+        },
+        select: { id: true },
+      });
+      expect(prisma.user.findMany).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          where: expect.objectContaining({
+            id: { notIn: [USER_ID, 'my-sister'] },
+          }),
+        }),
+      );
+    });
+
+    it('does not query for direct contacts when the current user has no synced contacts', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+      });
+      prisma.socialContact.findMany.mockResolvedValueOnce([]);
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      prisma.user.findMany.mockResolvedValue([]);
+
+      await service.getDeck(USER_ID);
+
+      expect(prisma.user.findMany).not.toHaveBeenCalledWith(
+        expect.objectContaining({ select: { id: true } }),
       );
     });
 
