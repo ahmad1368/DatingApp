@@ -5,6 +5,7 @@ import { RecordTextAnswerDto } from './dto/record-text-answer.dto';
 import { RecordVideoAnswerDto } from './dto/record-video-answer.dto';
 import { RecordVoiceAnswerDto } from './dto/record-voice-answer.dto';
 import { ReactToVoicePromptDto } from './dto/react-to-voice-prompt.dto';
+import { ReactToPhotoDto } from './dto/react-to-photo.dto';
 import { ProfilePromptsService } from './profile-prompts.service';
 
 @Controller('profile-prompts')
@@ -74,6 +75,28 @@ export class ProfilePromptsController {
   @Get(':promptId/reactions')
   listReactions(@CurrentUser() user: AuthenticatedUser, @Param('promptId') promptId: string) {
     return this.profilePromptsService.listReactions(user.id, promptId);
+  }
+
+  @Post('photos/:photoId/reactions')
+  @HttpCode(HttpStatus.CREATED)
+  reactToPhoto(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('photoId') photoId: string,
+    @Body() dto: ReactToPhotoDto,
+  ) {
+    return this.profilePromptsService.reactToPhoto(
+      user.id,
+      dto.targetUserId,
+      photoId,
+      dto.comment,
+      dto.audioReplyUrl,
+      dto.durationSeconds,
+    );
+  }
+
+  @Get('photos/:photoId/reactions')
+  listPhotoReactions(@CurrentUser() user: AuthenticatedUser, @Param('photoId') photoId: string) {
+    return this.profilePromptsService.listPhotoReactions(user.id, photoId);
   }
 
   @Post('video-answers')

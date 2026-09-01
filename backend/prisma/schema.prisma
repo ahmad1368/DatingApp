@@ -565,17 +565,23 @@ model ProfilePromptVideoAnswer {
 
 // A reaction to someone else's ProfilePromptVoiceAnswer: a text comment, a
 // recorded audio reply, or both - see ProfilePromptsService.reactToVoicePrompt.
+// A voice-and-or-text reaction to either one of the target's voice prompt
+// answers (promptId) or one of their profile photos (photoId) - exactly one
+// of the two is set, never both. See ProfilePromptsService.reactToVoicePrompt/
+// reactToPhoto.
 model VoicePromptReaction {
   id              String   @id @default(uuid())
   fromUserId      String
   toUserId        String
-  promptId        String
+  promptId        String?
+  photoId         String?
   comment         String?
   audioReplyUrl   String?
   durationSeconds Int?
   createdAt       DateTime @default(now())
 
   @@index([toUserId, promptId])
+  @@index([toUserId, photoId])
   @@map("voice_prompt_reactions")
 }
 
