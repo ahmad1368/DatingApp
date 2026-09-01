@@ -159,6 +159,10 @@ model User {
   visibilityHiddenEndHourUtc            Int?
   readReceiptsEnabled                   Boolean   @default(true)
   autoBlurIncomingMedia                 Boolean   @default(true)
+  // Chat auto-translation target - see MessagingService.translateMessage.
+  // Null means the user hasn't opted in, so translateMessage requires an
+  // explicit targetLanguage per call instead.
+  preferredLanguage                     String?
   bonusSuperLikes                       Int       @default(0)
   // A la carte "Priority Like" credits (see the priority-like-pack-*
   // POWER_UPS entries) - spent one at a time via

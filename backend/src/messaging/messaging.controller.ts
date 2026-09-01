@@ -32,6 +32,8 @@ import { RespondVoicePreviewRequestDto } from './dto/respond-voice-preview-reque
 import { SendGiftMessageDto } from './dto/send-gift-message.dto';
 import { SendVoiceNoteDto } from './dto/send-voice-note.dto';
 import { SetMatchNoteDto } from './dto/set-match-note.dto';
+import { SetPreferredLanguageDto } from './dto/set-preferred-language.dto';
+import { TranslateMessageDto } from './dto/translate-message.dto';
 import { GifSearchService } from './gif-search.service';
 import { MessagingService } from './messaging.service';
 import { MessageModerationService } from './message-moderation.service';
@@ -167,6 +169,17 @@ export class MessagingController {
   @HttpCode(HttpStatus.OK)
   setMediaBlurPreference(@CurrentUser() user: AuthenticatedUser, @Body() dto: SetMediaBlurPreferenceDto) {
     return this.messagingService.setMediaBlurPreference(user.id, dto.enabled);
+  }
+
+  @Get('preferred-language')
+  getPreferredLanguage(@CurrentUser() user: AuthenticatedUser) {
+    return this.messagingService.getPreferredLanguage(user.id);
+  }
+
+  @Put('preferred-language')
+  @HttpCode(HttpStatus.OK)
+  setPreferredLanguage(@CurrentUser() user: AuthenticatedUser, @Body() dto: SetPreferredLanguageDto) {
+    return this.messagingService.setPreferredLanguage(user.id, dto.language);
   }
 
   /**
@@ -454,6 +467,17 @@ export class MessagingController {
     @Param('messageId') messageId: string,
   ) {
     return this.messagingService.unlockReadReceipt(user.id, matchId, messageId);
+  }
+
+  @Post(':matchId/messages/:messageId/translate')
+  @HttpCode(HttpStatus.OK)
+  translateMessage(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('matchId') matchId: string,
+    @Param('messageId') messageId: string,
+    @Body() dto: TranslateMessageDto,
+  ) {
+    return this.messagingService.translateMessage(user.id, matchId, messageId, dto.targetLanguage);
   }
 
   @Post(':matchId/messages/:messageId/report')

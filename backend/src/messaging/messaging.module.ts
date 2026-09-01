@@ -16,6 +16,8 @@ import { IMAGE_MODERATOR } from './interfaces/image-moderator.interface';
 import { OpenAiImageModerator } from './providers/openai-image-moderator.client';
 import { TRANSCRIPTION_PROVIDER } from './interfaces/transcription-provider.interface';
 import { OpenAiTranscriptionClient } from './providers/openai-transcription.client';
+import { TRANSLATION_PROVIDER } from './interfaces/translation-provider.interface';
+import { OpenAiTranslationClient } from './providers/openai-translation.client';
 
 @Module({
   imports: [AuthModule, ConfigModule, NotificationsModule, RelationshipCoachModule, GiftingModule],
@@ -39,6 +41,10 @@ import { OpenAiTranscriptionClient } from './providers/openai-transcription.clie
     {
       provide: TRANSCRIPTION_PROVIDER,
       useClass: OpenAiTranscriptionClient,
+    },
+    {
+      provide: TRANSLATION_PROVIDER,
+      useClass: OpenAiTranslationClient,
     },
   ],
 })

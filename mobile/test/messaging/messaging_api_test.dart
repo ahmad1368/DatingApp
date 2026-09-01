@@ -1269,6 +1269,121 @@ void main() {
     });
   });
 
+  group('MessagingApi.fetchPreferredLanguage', () {
+    test('sends a GET and parses the result', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'GET');
+          expect(request.url.path, '/matches/preferred-language');
+          return http.Response(
+            '{"preferredLanguage":"Spanish"}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final result = await api.fetchPreferredLanguage();
+
+      expect(result, 'Spanish');
+    });
+
+    test('throws MessagingApiException on a non-200 response', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => http.Response('', 500)),
+      );
+
+      expect(() => api.fetchPreferredLanguage(), throwsA(isA<MessagingApiException>()));
+    });
+  });
+
+  group('MessagingApi.setPreferredLanguage', () {
+    test('sends a PUT with the language and parses the result', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'PUT');
+          expect(request.url.path, '/matches/preferred-language');
+          expect(request.body, '{"language":"French"}');
+          return http.Response(
+            '{"preferredLanguage":"French"}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final result = await api.setPreferredLanguage('French');
+
+      expect(result, 'French');
+    });
+
+    test('throws MessagingApiException on a non-200 response', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => http.Response('', 500)),
+      );
+
+      expect(() => api.setPreferredLanguage('French'), throwsA(isA<MessagingApiException>()));
+    });
+  });
+
+  group('MessagingApi.translateMessage', () {
+    test('sends a POST and parses the translated content', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'POST');
+          expect(request.url.path, '/matches/match-1/messages/m1/translate');
+          expect(request.body, '{"targetLanguage":"Spanish"}');
+          return http.Response(
+            '{"translatedContent":"Hola!"}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final result = await api.translateMessage(
+        matchId: 'match-1',
+        messageId: 'm1',
+        targetLanguage: 'Spanish',
+      );
+
+      expect(result, 'Hola!');
+    });
+
+    test('omits targetLanguage when not provided', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.body, '{}');
+          return http.Response(
+            '{"translatedContent":"Hola!"}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      await api.translateMessage(matchId: 'match-1', messageId: 'm1');
+    });
+
+    test('throws MessagingApiException on a non-200 response', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => http.Response('{"message":"boom"}', 400)),
+      );
+
+      expect(
+        () => api.translateMessage(matchId: 'match-1', messageId: 'm1'),
+        throwsA(isA<MessagingApiException>()),
+      );
+    });
+  });
+
   group('MessagingApi.recordActivity', () {
     test('sends a PUT heartbeat and parses the timestamp', () async {
       final api = MessagingApi(
