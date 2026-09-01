@@ -1,5 +1,6 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { ProfilePollService } from './profile-poll.service';
 
 const OWNER_ID = 'owner-1';
@@ -8,18 +9,33 @@ const VOTER_ID = 'voter-1';
 describe('ProfilePollService', () => {
   let service: ProfilePollService;
   let prisma: {
-    user: { findUnique: jest.Mock; update: jest.Mock };
-    profilePollVote: { deleteMany: jest.Mock; findMany: jest.Mock; upsert: jest.Mock };
+    user: { findUnique: jest.Mock; findMany: jest.Mock; update: jest.Mock };
+    profilePollVote: {
+      deleteMany: jest.Mock;
+      findMany: jest.Mock;
+      findUnique: jest.Mock;
+      upsert: jest.Mock;
+    };
     $transaction: jest.Mock;
   };
+  let notificationsService: { notify: jest.Mock };
 
   beforeEach(() => {
+    notificationsService = { notify: jest.fn() };
     prisma = {
-      user: { findUnique: jest.fn(), update: jest.fn() },
-      profilePollVote: { deleteMany: jest.fn(), findMany: jest.fn().mockResolvedValue([]), upsert: jest.fn() },
+      user: { findUnique: jest.fn(), findMany: jest.fn().mockResolvedValue([]), update: jest.fn() },
+      profilePollVote: {
+        deleteMany: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
+        findUnique: jest.fn().mockResolvedValue(null),
+        upsert: jest.fn(),
+      },
       $transaction: jest.fn((ops: unknown[]) => Promise.all(ops)),
     };
-    service = new ProfilePollService(prisma as unknown as PrismaService);
+    service = new ProfilePollService(
+      prisma as unknown as PrismaService,
+      notificationsService as unknown as NotificationsService,
+    );
   });
 
   describe('setPoll', () => {
@@ -135,6 +151,80 @@ describe('ProfilePollService', () => {
       expect(result.myOptionIndex).toBe(1);
       expect(result.voteCounts).toEqual([0, 1]);
       expect(result.totalVotes).toBe(1);
+    });
+
+    it('notifies the owner on a genuinely new vote', async () => {
+      prisma.user.findUnique
+        .mockResolvedValueOnce({
+          profilePollQuestion: 'Best first date?',
+          profilePollOptions: ['Coffee', 'Hiking'],
+        })
+        .mockResolvedValueOnce({ name: 'Jordan' });
+      prisma.profilePollVote.findUnique.mockResolvedValue(null);
+
+      await service.vote(VOTER_ID, OWNER_ID, 1);
+
+      expect(notificationsService.notify).toHaveBeenCalledWith(
+        OWNER_ID,
+        'PROFILE_ACTIVITY',
+        'New poll vote',
+        'Jordan voted on your poll!',
+        { voterId: VOTER_ID },
+      );
+    });
+
+    it('does not notify again when the voter just changes their existing pick', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        profilePollQuestion: 'Best first date?',
+        profilePollOptions: ['Coffee', 'Hiking'],
+      });
+      prisma.profilePollVote.findUnique.mockResolvedValue({
+        pollOwnerId: OWNER_ID,
+        voterId: VOTER_ID,
+        optionIndex: 0,
+      });
+
+      await service.vote(VOTER_ID, OWNER_ID, 1);
+
+      expect(notificationsService.notify).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('listVoters', () => {
+    it('returns an empty list when nobody has voted', async () => {
+      const result = await service.listVoters(OWNER_ID);
+
+      expect(result).toEqual([]);
+      expect(prisma.user.findMany).not.toHaveBeenCalled();
+    });
+
+    it('hydrates each voter with their name/photo and picked option', async () => {
+      prisma.profilePollVote.findMany.mockResolvedValue([
+        {
+          voterId: VOTER_ID,
+          optionIndex: 1,
+          createdAt: new Date('2026-01-02T00:00:00.000Z'),
+        },
+      ]);
+      prisma.user.findMany.mockResolvedValue([
+        { id: VOTER_ID, name: 'Jordan', profilePhotoUrl: 'jordan.jpg' },
+      ]);
+
+      const result = await service.listVoters(OWNER_ID);
+
+      expect(prisma.profilePollVote.findMany).toHaveBeenCalledWith({
+        where: { pollOwnerId: OWNER_ID },
+        orderBy: { createdAt: 'desc' },
+      });
+      expect(result).toEqual([
+        {
+          voterId: VOTER_ID,
+          voterName: 'Jordan',
+          voterPhotoUrl: 'jordan.jpg',
+          optionIndex: 1,
+          votedAt: '2026-01-02T00:00:00.000Z',
+        },
+      ]);
     });
   });
 });
