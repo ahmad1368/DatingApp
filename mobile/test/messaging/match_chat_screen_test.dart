@@ -11,6 +11,7 @@ import 'package:mobile/messaging/post_match_survey_api.dart';
 import 'package:mobile/profile/voice_player_controller.dart';
 import 'package:mobile/profile/voice_recorder_controller.dart';
 import 'package:mobile/messaging/video_reaction_picker_controller.dart';
+import 'package:mobile/messaging/voice_waveform.dart';
 import 'package:mobile/vault/vault_api.dart';
 
 const _emptyMessages = '[]';
@@ -1761,6 +1762,51 @@ void main() {
 
     expect(player.lastPlayedPath, 'file:///tmp/incoming-note.m4a');
     expect(player.lastPlayedSpeed, 1.0);
+  });
+
+  testWidgets('shows a waveform for a voice note and tapping it plays the note back', (tester) async {
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(
+            '[{"id":"m1","senderId":"user-man","contentType":"VOICE_NOTE","content":null,'
+            '"mediaUrl":"file:///tmp/incoming-note.m4a","isBlurred":false,"durationSeconds":5,'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":null,"isExpired":false,'
+          '"firstMessageSent":true,"canSendFirstMessage":true}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+    final recorder = _FakeRecorder();
+    final player = _FakePlayer();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchChatScreen(
+          messagingApi: api,
+          matchId: 'match-1',
+          currentUserId: 'user-woman',
+          recorder: recorder,
+          player: player,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(VoiceWaveform), findsOneWidget);
+
+    await tester.tap(find.byType(VoiceWaveform));
+    await tester.pump();
+
+    expect(player.lastPlayedPath, 'file:///tmp/incoming-note.m4a');
   });
 
   testWidgets('cycling the speed button changes playback speed for that voice note', (tester) async {

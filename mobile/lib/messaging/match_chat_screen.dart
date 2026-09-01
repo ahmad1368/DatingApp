@@ -15,6 +15,7 @@ import 'messaging_api.dart';
 import 'post_match_survey_api.dart';
 import 'post_match_survey_screen.dart';
 import 'video_reaction_picker_controller.dart';
+import 'voice_waveform.dart';
 
 const int _maxVoiceNoteSeconds = 60;
 
@@ -1434,6 +1435,10 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
                   child: Text(_voiceNoteSpeedLabel(message)),
                 ),
               ],
+            ),
+            Padding(
+              padding: const EdgeInsets.only(left: 12, right: 12, bottom: 4),
+              child: VoiceWaveform(seed: message.id, onTap: () => _playVoiceNote(message)),
             ),
             if (message.transcript != null)
               Padding(
