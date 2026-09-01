@@ -47,6 +47,7 @@ describe('CallingService', () => {
     callerId: string;
     calleeId: string;
     status: string;
+    type: string;
   }> = {}) {
     const call = {
       id: CALL_ID,
@@ -162,6 +163,32 @@ describe('CallingService', () => {
         data: { status: 'ACCEPTED', answerSdp: 'answer-sdp' },
       });
       expect(result.status).toBe('ACCEPTED');
+    });
+
+    it('joins a VIDEO call with the callee camera off, pending video consent', async () => {
+      mockCall({ type: 'VIDEO' });
+      prisma.callSession.update.mockResolvedValue({
+        id: CALL_ID,
+        matchId: MATCH_ID,
+        callerId: CALLER_ID,
+        calleeId: CALLEE_ID,
+        type: 'VIDEO',
+        status: 'ACCEPTED',
+        offerSdp: 'offer',
+        answerSdp: 'answer-sdp',
+        callerVideoEnabled: true,
+        calleeVideoEnabled: false,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        endedAt: null,
+      });
+
+      const result = await service.answerCall(CALLEE_ID, CALL_ID, 'answer-sdp');
+
+      expect(prisma.callSession.update).toHaveBeenCalledWith({
+        where: { id: CALL_ID },
+        data: { status: 'ACCEPTED', answerSdp: 'answer-sdp', calleeVideoEnabled: false },
+      });
+      expect(result.calleeVideoEnabled).toBe(false);
     });
   });
 
@@ -577,6 +604,57 @@ describe('CallingService', () => {
       expect(prisma.callSession.update).toHaveBeenCalledWith({
         where: { id: CALL_ID },
         data: { calleeNoiseSuppressionEnabled: false },
+      });
+    });
+
+    it('toggles the caller-specific background blur field', async () => {
+      mockCall({ status: 'ACCEPTED', type: 'VIDEO' });
+      prisma.callSession.update.mockResolvedValue({
+        id: CALL_ID,
+        matchId: MATCH_ID,
+        callerId: CALLER_ID,
+        calleeId: CALLEE_ID,
+        type: 'VIDEO',
+        status: 'ACCEPTED',
+        offerSdp: 'offer',
+        answerSdp: 'answer',
+        callerBackgroundBlurred: false,
+        calleeBackgroundBlurred: true,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        endedAt: null,
+      });
+
+      const result = await service.setMediaControls(CALLER_ID, CALL_ID, { backgroundBlurred: false });
+
+      expect(prisma.callSession.update).toHaveBeenCalledWith({
+        where: { id: CALL_ID },
+        data: { callerBackgroundBlurred: false },
+      });
+      expect(result.callerBackgroundBlurred).toBe(false);
+    });
+
+    it('toggles the callee-specific background blur field', async () => {
+      mockCall({ status: 'ACCEPTED', type: 'VIDEO' });
+      prisma.callSession.update.mockResolvedValue({
+        id: CALL_ID,
+        matchId: MATCH_ID,
+        callerId: CALLER_ID,
+        calleeId: CALLEE_ID,
+        type: 'VIDEO',
+        status: 'ACCEPTED',
+        offerSdp: 'offer',
+        answerSdp: 'answer',
+        callerBackgroundBlurred: true,
+        calleeBackgroundBlurred: false,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        endedAt: null,
+      });
+
+      await service.setMediaControls(CALLEE_ID, CALL_ID, { backgroundBlurred: false });
+
+      expect(prisma.callSession.update).toHaveBeenCalledWith({
+        where: { id: CALL_ID },
+        data: { calleeBackgroundBlurred: false },
       });
     });
 

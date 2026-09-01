@@ -1004,6 +1004,12 @@ model CallSession {
   // side's own on-device noise suppression setting for "crisp voice dates".
   callerNoiseSuppressionEnabled Boolean @default(true)
   calleeNoiseSuppressionEnabled Boolean @default(true)
+  // "Privacy Shield": each side's own background stays blurred by default
+  // during a call until they explicitly turn it off - see
+  // CallingService.setMediaControls. Actually blurring the feed is a
+  // client-side concern, same as virtualBackgroundId/appearanceFilterId.
+  callerBackgroundBlurred  Boolean   @default(true)
+  calleeBackgroundBlurred  Boolean   @default(true)
   createdAt                DateTime  @default(now())
   endedAt                  DateTime?
 

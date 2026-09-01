@@ -27,6 +27,8 @@ export interface CallSessionView {
   calleeVideoEnabled: boolean;
   callerNoiseSuppressionEnabled: boolean;
   calleeNoiseSuppressionEnabled: boolean;
+  callerBackgroundBlurred: boolean;
+  calleeBackgroundBlurred: boolean;
   createdAt: string;
   endedAt: string | null;
 }
@@ -56,6 +58,8 @@ interface CallSessionRecord {
   calleeVideoEnabled: boolean;
   callerNoiseSuppressionEnabled: boolean;
   calleeNoiseSuppressionEnabled: boolean;
+  callerBackgroundBlurred: boolean;
+  calleeBackgroundBlurred: boolean;
   createdAt: Date;
   endedAt: Date | null;
 }
@@ -114,6 +118,13 @@ export class CallingService {
     return this.toView(call);
   }
 
+  /**
+   * "Privacy Shield": a callee accepting a VIDEO call joins with their
+   * camera off regardless of the schema default, and must explicitly
+   * confirm video consent afterward via setMediaControls - the caller
+   * already consented to video by initiating the call, so only the callee
+   * side is gated here.
+   */
   async answerCall(userId: string, callId: string, answerSdp: string): Promise<CallSessionView> {
     const call = await this.getCallForParticipant(userId, callId);
 
@@ -126,7 +137,11 @@ export class CallingService {
 
     const updated = await this.prisma.callSession.update({
       where: { id: callId },
-      data: { status: 'ACCEPTED', answerSdp },
+      data: {
+        status: 'ACCEPTED',
+        answerSdp,
+        ...(call.type === 'VIDEO' && { calleeVideoEnabled: false }),
+      },
     });
 
     return this.toView(updated);
@@ -267,15 +282,22 @@ export class CallingService {
 
   /**
    * "Video Date Mode" call controls: mute/unmute, enable/disable your own
-   * video feed, and toggle your own on-device background noise suppression
-   * for crisp voice dates - see the schema comment on
+   * video feed (see answerCall's doc comment for the video-consent "Privacy
+   * Shield" this also drives), toggle your own on-device background noise
+   * suppression for crisp voice dates - see the schema comment on
    * callerNoiseSuppressionEnabled for why this is a client-side toggle with
-   * no server-side audio pipeline behind it.
+   * no server-side audio pipeline behind it - and toggle your own
+   * background blur, on by default for the same privacy-shield reason.
    */
   async setMediaControls(
     userId: string,
     callId: string,
-    controls: { muted?: boolean; videoEnabled?: boolean; noiseSuppressionEnabled?: boolean },
+    controls: {
+      muted?: boolean;
+      videoEnabled?: boolean;
+      noiseSuppressionEnabled?: boolean;
+      backgroundBlurred?: boolean;
+    },
   ): Promise<CallSessionView> {
     const call = await this.getActiveCallForParticipant(userId, callId);
     const isCaller = call.callerId === userId;
@@ -293,6 +315,10 @@ export class CallingService {
           (isCaller
             ? { callerNoiseSuppressionEnabled: controls.noiseSuppressionEnabled }
             : { calleeNoiseSuppressionEnabled: controls.noiseSuppressionEnabled })),
+        ...(controls.backgroundBlurred != null &&
+          (isCaller
+            ? { callerBackgroundBlurred: controls.backgroundBlurred }
+            : { calleeBackgroundBlurred: controls.backgroundBlurred })),
       },
     });
 
@@ -376,6 +402,8 @@ export class CallingService {
       calleeVideoEnabled: call.calleeVideoEnabled,
       callerNoiseSuppressionEnabled: call.callerNoiseSuppressionEnabled,
       calleeNoiseSuppressionEnabled: call.calleeNoiseSuppressionEnabled,
+      callerBackgroundBlurred: call.callerBackgroundBlurred,
+      calleeBackgroundBlurred: call.calleeBackgroundBlurred,
       createdAt: call.createdAt.toISOString(),
       endedAt: call.endedAt ? call.endedAt.toISOString() : null,
     };
