@@ -1589,6 +1589,7 @@ export class DiscoveryService {
     filterMaxHeightCm?: number | null;
     filterEducationLevels: string[];
     filterReligions: string[];
+    filterReligiousPracticeLevels?: string[];
     filterDietaryPreferences: string[];
     filterWantsChildren: string[];
     filterRelationshipGoals: string[];
@@ -1627,6 +1628,9 @@ export class DiscoveryService {
     }
     if (currentUser.filterReligions.length > 0) {
       where.religion = { in: currentUser.filterReligions };
+    }
+    if ((currentUser.filterReligiousPracticeLevels ?? []).length > 0) {
+      where.religiousPracticeLevel = { in: currentUser.filterReligiousPracticeLevels };
     }
     if (currentUser.filterDietaryPreferences.length > 0) {
       where.dietaryPreference = { in: currentUser.filterDietaryPreferences };

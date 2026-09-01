@@ -17,6 +17,7 @@ import {
   PET_OWNERSHIP_OPTIONS,
   POLITICAL_ORIENTATIONS,
   RELIGIONS,
+  RELIGIOUS_PRACTICE_LEVELS,
   SMOKING_HABITS,
   WORKOUT_HABITS,
 } from './lifestyle-filters.constants';
@@ -33,6 +34,7 @@ export class LifestyleFiltersController {
       drinkingHabits: DRINKING_HABITS,
       educationLevels: EDUCATION_LEVELS,
       religions: RELIGIONS,
+      religiousPracticeLevels: RELIGIOUS_PRACTICE_LEVELS,
       dietaryPreferences: DIETARY_PREFERENCES,
       childrenPreferences: CHILDREN_PREFERENCES,
       relationshipGoals: RELATIONSHIP_GOALS,

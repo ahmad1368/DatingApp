@@ -15,6 +15,7 @@ import {
   PET_OWNERSHIP_OPTIONS,
   POLITICAL_ORIENTATIONS,
   RELIGIONS,
+  RELIGIOUS_PRACTICE_LEVELS,
   SMOKING_HABITS,
   WORKOUT_HABITS,
 } from '../lifestyle-filters.constants';
@@ -35,6 +36,10 @@ export class SetLifestyleFiltersDto {
   @IsOptional()
   @IsIn(RELIGIONS)
   religion?: string;
+
+  @IsOptional()
+  @IsIn(RELIGIOUS_PRACTICE_LEVELS)
+  religiousPracticeLevel?: string;
 
   @IsOptional()
   @IsIn(DIETARY_PREFERENCES)
@@ -109,6 +114,12 @@ export class SetLifestyleFiltersDto {
   @ArrayMaxSize(MAX_FILTER_SELECTIONS)
   @IsIn(RELIGIONS, { each: true })
   filterReligions!: string[];
+
+  /** When non-empty, the deck only shows candidates whose religious practice level is one of these. */
+  @IsArray()
+  @ArrayMaxSize(MAX_FILTER_SELECTIONS)
+  @IsIn(RELIGIOUS_PRACTICE_LEVELS, { each: true })
+  filterReligiousPracticeLevels!: string[];
 
   @IsArray()
   @ArrayMaxSize(MAX_FILTER_SELECTIONS)

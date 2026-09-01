@@ -40,6 +40,7 @@ String _fullFiltersJson({
   "filterMaxHeightCm": $maxHeightCm,
   "filterEducationLevels": [],
   "filterReligions": [],
+  "filterReligiousPracticeLevels": [],
   "filterDietaryPreferences": [],
   "filterWantsChildren": [],
   "filterRelationshipGoals": $relationshipGoals,
@@ -194,6 +195,37 @@ void main() {
     });
   });
 
+  group('LifestyleFiltersApi.fetchReligiousPracticeLevelOptions', () {
+    test('parses the religious practice level catalog', () async {
+      final api = LifestyleFiltersApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.url.path, '/profile/lifestyle/catalog');
+          return _jsonResponse(
+            '{"religiousPracticeLevels":["Not Practicing","Somewhat Practicing","Very Practicing"]}',
+            200,
+          );
+        }),
+      );
+
+      final options = await api.fetchReligiousPracticeLevelOptions();
+
+      expect(options, ['Not Practicing', 'Somewhat Practicing', 'Very Practicing']);
+    });
+
+    test('throws LifestyleFiltersApiException on a non-200 response', () async {
+      final api = LifestyleFiltersApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => _jsonResponse('{"message":"boom"}', 500)),
+      );
+
+      expect(
+        () => api.fetchReligiousPracticeLevelOptions(),
+        throwsA(isA<LifestyleFiltersApiException>()),
+      );
+    });
+  });
+
   group('LifestyleFiltersApi.fetchFilters', () {
     test('sends the bearer token and parses the current filters', () async {
       final api = LifestyleFiltersApi(
@@ -280,6 +312,7 @@ void main() {
         filterWorkoutHabits: const [],
         filterEducationLevels: const [],
         filterReligions: const [],
+        filterReligiousPracticeLevels: const [],
         filterDietaryPreferences: const [],
         filterWantsChildren: const [],
         filterRelationshipGoals: const [],
@@ -432,6 +465,28 @@ void main() {
 
       expect(putRequest!.body, contains('"filterPoliticalOrientations":["Moderate","Liberal"]'));
       expect(updated.filterPoliticalOrientations, isEmpty);
+    });
+
+    test('sends the updated filterReligiousPracticeLevels list', () async {
+      http.Request? putRequest;
+      final api = LifestyleFiltersApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          putRequest = request;
+          return _jsonResponse(_fullFiltersJson(), 200);
+        }),
+      );
+      final current = await LifestyleFiltersApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => _jsonResponse(_fullFiltersJson(), 200)),
+      ).fetchFilters();
+
+      final updated = await api.setFilters(
+        current.copyWith(filterReligiousPracticeLevels: ['Very Practicing']),
+      );
+
+      expect(putRequest!.body, contains('"filterReligiousPracticeLevels":["Very Practicing"]'));
+      expect(updated.filterReligiousPracticeLevels, isEmpty);
     });
   });
 }

@@ -22,6 +22,7 @@ class LifestyleFilters {
     this.drinkingHabit,
     this.education,
     this.religion,
+    this.religiousPracticeLevel,
     this.dietaryPreference,
     this.wantsChildren,
     this.heightCm,
@@ -38,6 +39,7 @@ class LifestyleFilters {
     this.filterMaxHeightCm,
     required this.filterEducationLevels,
     required this.filterReligions,
+    required this.filterReligiousPracticeLevels,
     required this.filterDietaryPreferences,
     required this.filterWantsChildren,
     required this.filterRelationshipGoals,
@@ -57,6 +59,7 @@ class LifestyleFilters {
   final String? drinkingHabit;
   final String? education;
   final String? religion;
+  final String? religiousPracticeLevel;
   final String? dietaryPreference;
   final String? wantsChildren;
   final int? heightCm;
@@ -73,6 +76,7 @@ class LifestyleFilters {
   final int? filterMaxHeightCm;
   final List<String> filterEducationLevels;
   final List<String> filterReligions;
+  final List<String> filterReligiousPracticeLevels;
   final List<String> filterDietaryPreferences;
   final List<String> filterWantsChildren;
   final List<String> filterRelationshipGoals;
@@ -93,6 +97,7 @@ class LifestyleFilters {
     List<String>? filterPetOwnership,
     List<String>? filterPetAllergyStatus,
     List<String>? filterPoliticalOrientations,
+    List<String>? filterReligiousPracticeLevels,
     bool? filterVerifiedOnly,
     List<String>? filterCommunityGroups,
     bool? filterSameCampusOnly,
@@ -102,6 +107,7 @@ class LifestyleFilters {
       drinkingHabit: drinkingHabit,
       education: education,
       religion: religion,
+      religiousPracticeLevel: religiousPracticeLevel,
       dietaryPreference: dietaryPreference,
       wantsChildren: wantsChildren,
       heightCm: heightCm,
@@ -127,6 +133,8 @@ class LifestyleFilters {
       filterPetOwnership: filterPetOwnership ?? this.filterPetOwnership,
       filterPetAllergyStatus: filterPetAllergyStatus ?? this.filterPetAllergyStatus,
       filterPoliticalOrientations: filterPoliticalOrientations ?? this.filterPoliticalOrientations,
+      filterReligiousPracticeLevels:
+          filterReligiousPracticeLevels ?? this.filterReligiousPracticeLevels,
       filterSharedInterestsOnly: filterSharedInterestsOnly,
       filterVerifiedOnly: filterVerifiedOnly ?? this.filterVerifiedOnly,
       filterCommunityGroups: filterCommunityGroups ?? this.filterCommunityGroups,
@@ -207,6 +215,17 @@ class LifestyleFiltersApi {
     return (body['politicalOrientations'] as List).cast<String>();
   }
 
+  Future<List<String>> fetchReligiousPracticeLevelOptions() async {
+    final response = await _client.get(Uri.parse('$_baseUrl/profile/lifestyle/catalog'));
+
+    if (response.statusCode != 200) {
+      throw LifestyleFiltersApiException(_errorMessage(_decode(response), response.statusCode));
+    }
+
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    return (body['religiousPracticeLevels'] as List).cast<String>();
+  }
+
   Future<LifestyleFilters> fetchFilters() async {
     final response = await _client.get(Uri.parse('$_baseUrl/profile/lifestyle'), headers: _headers);
 
@@ -227,6 +246,7 @@ class LifestyleFiltersApi {
         'drinkingHabit': ?filters.drinkingHabit,
         'education': ?filters.education,
         'religion': ?filters.religion,
+        'religiousPracticeLevel': ?filters.religiousPracticeLevel,
         'dietaryPreference': ?filters.dietaryPreference,
         'wantsChildren': ?filters.wantsChildren,
         'heightCm': ?filters.heightCm,
@@ -243,6 +263,7 @@ class LifestyleFiltersApi {
         'filterMaxHeightCm': ?filters.filterMaxHeightCm,
         'filterEducationLevels': filters.filterEducationLevels,
         'filterReligions': filters.filterReligions,
+        'filterReligiousPracticeLevels': filters.filterReligiousPracticeLevels,
         'filterDietaryPreferences': filters.filterDietaryPreferences,
         'filterWantsChildren': filters.filterWantsChildren,
         'filterRelationshipGoals': filters.filterRelationshipGoals,
@@ -273,6 +294,7 @@ class LifestyleFiltersApi {
       drinkingHabit: json['drinkingHabit'] as String?,
       education: json['education'] as String?,
       religion: json['religion'] as String?,
+      religiousPracticeLevel: json['religiousPracticeLevel'] as String?,
       dietaryPreference: json['dietaryPreference'] as String?,
       wantsChildren: json['wantsChildren'] as String?,
       heightCm: json['heightCm'] as int?,
@@ -289,6 +311,7 @@ class LifestyleFiltersApi {
       filterMaxHeightCm: json['filterMaxHeightCm'] as int?,
       filterEducationLevels: (json['filterEducationLevels'] as List).cast<String>(),
       filterReligions: (json['filterReligions'] as List).cast<String>(),
+      filterReligiousPracticeLevels: (json['filterReligiousPracticeLevels'] as List).cast<String>(),
       filterDietaryPreferences: (json['filterDietaryPreferences'] as List).cast<String>(),
       filterWantsChildren: (json['filterWantsChildren'] as List).cast<String>(),
       filterRelationshipGoals: (json['filterRelationshipGoals'] as List).cast<String>(),
