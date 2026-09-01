@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 
 import 'safety_api.dart';
@@ -218,6 +219,35 @@ class _SafetyCenterScreenState extends State<SafetyCenterScreen> {
         _checkIns = _checkIns.map((c) => c.id == updated.id ? updated : c).toList();
         _statusText = "You're marked safe.";
       });
+    } on SafetyApiException catch (e) {
+      setState(() => _errorText = e.message);
+    }
+  }
+
+  Future<void> _shareDatePlan(CheckIn checkIn) async {
+    setState(() => _errorText = null);
+    try {
+      final link = await widget.safetyApi.generateDatePlanShareLink(checkIn.id);
+      if (!mounted) {
+        return;
+      }
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Share this date plan'),
+          content: SelectableText(link),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: link));
+                Navigator.of(context).pop();
+              },
+              child: const Text('Copy link'),
+            ),
+            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close')),
+          ],
+        ),
+      );
     } on SafetyApiException catch (e) {
       setState(() => _errorText = e.message);
     }
@@ -470,7 +500,12 @@ class _SafetyCenterScreenState extends State<SafetyCenterScreen> {
                   ],
                 ),
                 if (_checkIns.isEmpty) const Text('No check-ins scheduled.'),
-                for (final checkIn in _checkIns) _CheckInTile(checkIn: checkIn, onConfirm: () => _confirmCheckIn(checkIn)),
+                for (final checkIn in _checkIns)
+                  _CheckInTile(
+                    checkIn: checkIn,
+                    onConfirm: () => _confirmCheckIn(checkIn),
+                    onShare: () => _shareDatePlan(checkIn),
+                  ),
                 const SizedBox(height: 24),
                 const Text('Safety Resources', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 for (final resource in _resources)
@@ -485,10 +520,11 @@ class _SafetyCenterScreenState extends State<SafetyCenterScreen> {
 }
 
 class _CheckInTile extends StatelessWidget {
-  const _CheckInTile({required this.checkIn, required this.onConfirm});
+  const _CheckInTile({required this.checkIn, required this.onConfirm, required this.onShare});
 
   final CheckIn checkIn;
   final VoidCallback onConfirm;
+  final VoidCallback onShare;
 
   Color? get _statusColor {
     if (checkIn.isOverdue) {
@@ -509,9 +545,20 @@ class _CheckInTile extends StatelessWidget {
         '${checkIn.alertSent ? ' · contact alerted' : ''}',
         style: TextStyle(color: _statusColor),
       ),
-      trailing: checkIn.isConfirmed
-          ? const Icon(Icons.check_circle, color: Colors.green)
-          : TextButton(onPressed: onConfirm, child: const Text("I'm safe")),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.share),
+            tooltip: 'Share this date plan',
+            onPressed: onShare,
+          ),
+          if (checkIn.isConfirmed)
+            const Icon(Icons.check_circle, color: Colors.green)
+          else
+            TextButton(onPressed: onConfirm, child: const Text("I'm safe")),
+        ],
+      ),
     );
   }
 }
