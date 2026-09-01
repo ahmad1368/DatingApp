@@ -301,6 +301,10 @@ model Match {
   // MessagingService.sendFirstMoveRemindersIfNeeded) has fired for this
   // match, so it's only sent once as the 24-hour deadline approaches.
   firstMoveReminderSentAt   DateTime?
+  // Set by MessagingService.restoreInactiveThread - a one-tap "un-archive"
+  // that moves a dormant thread back into listMyMatches without requiring
+  // a real message, the same way sending one naturally would.
+  manuallyRestoredAt        DateTime?
 
   messages Message[]
 

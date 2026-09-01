@@ -244,6 +244,7 @@ interface MatchRecord {
   verificationRequestedAt: Date | null;
   verificationRequestedById: string | null;
   firstMoveReminderSentAt: Date | null;
+  manuallyRestoredAt: Date | null;
 }
 
 interface MatchListRecord extends MatchRecord {
@@ -1271,6 +1272,29 @@ export class MessagingService {
     return inactive;
   }
 
+  /**
+   * One-tap "un-archive": moves a dormant thread out of listInactiveThreads
+   * and back into listMyMatches immediately, without requiring the user to
+   * send a real message first (see the manuallyRestoredAt handling in
+   * buildMatchSummaries). Restoring a thread that isn't currently inactive
+   * is a harmless no-op.
+   */
+  async restoreInactiveThread(userId: string, matchId: string): Promise<MatchSummaryView> {
+    const match = await this.getMatchForUser(userId, matchId);
+
+    await this.prisma.match.update({
+      where: { id: matchId },
+      data: { manuallyRestoredAt: new Date() },
+    });
+
+    const { active } = await this.buildMatchSummaries(userId);
+    const restored = active.find((summary) => summary.matchId === match.id);
+    if (!restored) {
+      throw new BadRequestException('This match could not be restored.');
+    }
+    return restored;
+  }
+
   private async buildMatchSummaries(
     userId: string,
   ): Promise<{ active: MatchSummaryView[]; inactive: InactiveThreadView[] }> {
@@ -1315,17 +1339,25 @@ export class MessagingService {
       const firstMessageSent = match.firstMessageSentAt != null;
       const lastMessage = lastMessageByMatchId.get(match.id);
 
+      // A manual restore (see restoreInactiveThread) counts as fresh
+      // activity, same as sending a real message would, until it too ages
+      // past the threshold.
+      const lastActivityAt =
+        match.manuallyRestoredAt && (!lastMessage || match.manuallyRestoredAt > lastMessage.createdAt)
+          ? match.manuallyRestoredAt
+          : lastMessage?.createdAt;
+
       if (
         firstMessageSent &&
-        lastMessage != null &&
-        daysSince(lastMessage.createdAt, now) >= INACTIVITY_AUTO_ARCHIVE_DAYS
+        lastActivityAt != null &&
+        daysSince(lastActivityAt, now) >= INACTIVITY_AUTO_ARCHIVE_DAYS
       ) {
         inactive.push({
           matchId: match.id,
           otherUserId,
           otherUserName: otherUser?.name ?? null,
           otherUserPhotoUrl: otherUser?.profilePhotoUrl ?? null,
-          lastMessageAt: lastMessage.createdAt.toISOString(),
+          lastMessageAt: lastActivityAt.toISOString(),
         });
         continue;
       }

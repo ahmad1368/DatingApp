@@ -3413,6 +3413,98 @@ describe('MessagingService', () => {
 
       expect(threads).toEqual([]);
     });
+
+    it('treats a recent manual restore as fresh activity, keeping the thread out of the inactive list', async () => {
+      prisma.match.findMany.mockResolvedValue([
+        {
+          id: MATCH_ID,
+          userAId: WOMAN_ID,
+          userBId: MAN_ID,
+          firstMessageExpiresAt: hoursFromNow(-100),
+          firstMessageSentAt: new Date('2026-01-01T00:00:00.000Z'),
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+          manuallyRestoredAt: new Date(Date.now() - 60 * 60 * 1000),
+        },
+      ]);
+      prisma.user.findMany.mockResolvedValue([{ id: MAN_ID, name: 'Sam', profilePhotoUrl: null }]);
+      prisma.message.findMany.mockResolvedValue([
+        { matchId: MATCH_ID, senderId: MAN_ID, createdAt: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000) },
+      ]);
+
+      const threads = await service.listInactiveThreads(WOMAN_ID);
+
+      expect(threads).toEqual([]);
+    });
+
+    it('ignores a manual restore that is older than the last message', async () => {
+      const lastMessageAt = new Date(Date.now() - 20 * 24 * 60 * 60 * 1000);
+      prisma.match.findMany.mockResolvedValue([
+        {
+          id: MATCH_ID,
+          userAId: WOMAN_ID,
+          userBId: MAN_ID,
+          firstMessageExpiresAt: hoursFromNow(-100),
+          firstMessageSentAt: new Date('2026-01-01T00:00:00.000Z'),
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+          manuallyRestoredAt: new Date(Date.now() - 25 * 24 * 60 * 60 * 1000),
+        },
+      ]);
+      prisma.user.findMany.mockResolvedValue([{ id: MAN_ID, name: 'Sam', profilePhotoUrl: null }]);
+      prisma.message.findMany.mockResolvedValue([
+        { matchId: MATCH_ID, senderId: MAN_ID, createdAt: lastMessageAt },
+      ]);
+
+      const threads = await service.listInactiveThreads(WOMAN_ID);
+
+      expect(threads).toEqual([
+        {
+          matchId: MATCH_ID,
+          otherUserId: MAN_ID,
+          otherUserName: 'Sam',
+          otherUserPhotoUrl: null,
+          lastMessageAt: lastMessageAt.toISOString(),
+        },
+      ]);
+    });
+  });
+
+  describe('restoreInactiveThread', () => {
+    it('throws when the user is not part of the match', async () => {
+      mockMatch();
+
+      await expect(service.restoreInactiveThread('stranger', MATCH_ID)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      expect(prisma.match.update).not.toHaveBeenCalled();
+    });
+
+    it('sets manuallyRestoredAt and returns the thread in the active list', async () => {
+      mockMatch({ firstMessageSentAt: new Date('2026-01-01T00:00:00.000Z') });
+      prisma.match.findMany.mockResolvedValue([
+        {
+          id: MATCH_ID,
+          userAId: WOMAN_ID,
+          userBId: MAN_ID,
+          firstMessageExpiresAt: hoursFromNow(-100),
+          firstMessageSentAt: new Date('2026-01-01T00:00:00.000Z'),
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+          manuallyRestoredAt: new Date(),
+        },
+      ]);
+      prisma.user.findMany.mockResolvedValue([{ id: MAN_ID, name: 'Sam', profilePhotoUrl: null }]);
+      prisma.message.findMany.mockResolvedValue([
+        { matchId: MATCH_ID, senderId: MAN_ID, createdAt: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000) },
+      ]);
+
+      const result = await service.restoreInactiveThread(WOMAN_ID, MATCH_ID);
+
+      expect(prisma.match.update).toHaveBeenCalledWith({
+        where: { id: MATCH_ID },
+        data: { manuallyRestoredAt: expect.any(Date) },
+      });
+      expect(result.matchId).toBe(MATCH_ID);
+      expect(result.otherUserName).toBe('Sam');
+    });
   });
 
   describe('unmatch', () => {
