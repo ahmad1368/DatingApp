@@ -123,6 +123,13 @@ export class MessagingController {
     return this.messagingService.listInactiveThreads(user.id);
   }
 
+  /** One-tap "un-archive" - see MessagingService.restoreInactiveThread. */
+  @Post(':matchId/restore')
+  @HttpCode(HttpStatus.OK)
+  restoreInactiveThread(@CurrentUser() user: AuthenticatedUser, @Param('matchId') matchId: string) {
+    return this.messagingService.restoreInactiveThread(user.id, matchId);
+  }
+
   @Post('reconnect/:dissolvedMatchId')
   @HttpCode(HttpStatus.OK)
   reconnectMatch(

@@ -509,6 +509,32 @@ class MessagingApi {
     }).toList();
   }
 
+  /// One-tap "un-archive": moves a dormant thread out of
+  /// [fetchInactiveThreads] and back into [fetchMyMatches] immediately.
+  Future<MatchSummary> restoreInactiveThread(String matchId) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/matches/$matchId/restore'),
+      headers: _headers,
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 200) {
+      throw MessagingApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return MatchSummary(
+      matchId: body['matchId'] as String,
+      otherUserId: body['otherUserId'] as String,
+      otherUserName: body['otherUserName'] as String?,
+      otherUserPhotoUrl: body['otherUserPhotoUrl'] as String?,
+      expiresAt: body['expiresAt'] != null ? DateTime.parse(body['expiresAt'] as String) : null,
+      firstMessageSent: body['firstMessageSent'] as bool,
+      canExtend: body['canExtend'] as bool? ?? false,
+      createdAt: DateTime.parse(body['createdAt'] as String),
+      needsGhostingPrompt: body['needsGhostingPrompt'] as bool? ?? false,
+    );
+  }
+
   /// Ends an ongoing match - the "politely unmatch" option on a ghosting prompt.
   Future<void> unmatch(String matchId) async {
     final response = await _client.post(

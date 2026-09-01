@@ -354,6 +354,40 @@ void main() {
     });
   });
 
+  group('MessagingApi.restoreInactiveThread', () {
+    test('posts to the restore endpoint and parses the active match summary', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'POST');
+          expect(request.url.path, '/matches/match-1/restore');
+          return http.Response(
+            '{"matchId":"match-1","otherUserId":"user-2","otherUserName":"Sam",'
+            '"otherUserPhotoUrl":"sam.jpg","expiresAt":null,"firstMessageSent":true,'
+            '"canExtend":false,"createdAt":"2026-01-01T00:00:00.000Z","needsGhostingPrompt":false}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final match = await api.restoreInactiveThread('match-1');
+
+      expect(match.matchId, 'match-1');
+      expect(match.otherUserName, 'Sam');
+      expect(match.firstMessageSent, isTrue);
+    });
+
+    test('throws MessagingApiException on a non-200 response', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => http.Response('', 404)),
+      );
+
+      expect(() => api.restoreInactiveThread('match-1'), throwsA(isA<MessagingApiException>()));
+    });
+  });
+
   group('MessagingApi.fetchArchivedThreads', () {
     test('sends the bearer token and parses the archived threads', () async {
       final api = MessagingApi(
