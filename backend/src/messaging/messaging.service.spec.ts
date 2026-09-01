@@ -7,6 +7,7 @@ import { ImageModerator } from './interfaces/image-moderator.interface';
 import { TranscriptionProvider } from './interfaces/transcription-provider.interface';
 import { TranslationProvider } from './interfaces/translation-provider.interface';
 import { MessagingService } from './messaging.service';
+import { UNMATCH_REASONS } from './messaging.constants';
 
 const MATCH_ID = 'match-1';
 const WOMAN_ID = 'user-woman';
@@ -2043,6 +2044,12 @@ describe('MessagingService', () => {
     });
   });
 
+  describe('getUnmatchReasons', () => {
+    it('returns the static quick-pick reason list', () => {
+      expect(service.getUnmatchReasons()).toEqual(UNMATCH_REASONS);
+    });
+  });
+
   describe('getSuggestedIcebreaker', () => {
     it('throws when the user is not part of the match', async () => {
       mockMatch();
@@ -3167,7 +3174,7 @@ describe('MessagingService', () => {
       });
       expect(prisma.match.delete).toHaveBeenCalledWith({ where: { id: MATCH_ID } });
       expect(prisma.dissolvedMatch.create).toHaveBeenCalledWith({
-        data: { userAId: WOMAN_ID, userBId: MAN_ID },
+        data: { userAId: WOMAN_ID, userBId: MAN_ID, unmatchReason: null },
       });
       expect(matches).toEqual([]);
       // Only the unmatch-protection check (inside dissolveMatch) calls this -
@@ -3623,6 +3630,25 @@ describe('MessagingService', () => {
       );
     });
 
+    it('rejects an unknown unmatch reason', async () => {
+      mockMatch();
+
+      await expect(
+        service.unmatch(WOMAN_ID, MATCH_ID, 'made up reason'),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.dissolvedMatch.create).not.toHaveBeenCalled();
+    });
+
+    it('stores a valid quick-pick reason on the dissolved match record', async () => {
+      mockMatch({ firstMessageSentAt: new Date() });
+
+      await service.unmatch(WOMAN_ID, MATCH_ID, 'Stopped responding');
+
+      expect(prisma.dissolvedMatch.create).toHaveBeenCalledWith({
+        data: { userAId: WOMAN_ID, userBId: MAN_ID, unmatchReason: 'Stopped responding' },
+      });
+    });
+
     it('deletes the messages, swipes, and match, and records a reconnect trace', async () => {
       mockMatch({ firstMessageSentAt: new Date() });
 
@@ -3631,7 +3657,7 @@ describe('MessagingService', () => {
       expect(prisma.message.deleteMany).toHaveBeenCalledWith({ where: { matchId: MATCH_ID } });
       expect(prisma.match.delete).toHaveBeenCalledWith({ where: { id: MATCH_ID } });
       expect(prisma.dissolvedMatch.create).toHaveBeenCalledWith({
-        data: { userAId: WOMAN_ID, userBId: MAN_ID },
+        data: { userAId: WOMAN_ID, userBId: MAN_ID, unmatchReason: null },
       });
       expect(result).toEqual({ unmatched: true });
     });

@@ -115,10 +115,42 @@ class _MatchesScreenState extends State<MatchesScreen> {
     }
   }
 
+  /// Offers an optional quick-pick reason (never shown to the other party)
+  /// before ending the match - see MessagingApi.unmatch.
   Future<void> _unmatch(MatchSummary match) async {
+    List<String> reasons;
+    try {
+      reasons = await widget.messagingApi.fetchUnmatchReasons();
+    } catch (_) {
+      reasons = const [];
+    }
+    if (!mounted) {
+      return;
+    }
+
+    final reason = reasons.isEmpty
+        ? null
+        : await showDialog<String>(
+            context: context,
+            builder: (context) => SimpleDialog(
+              title: const Text('Why unmatch? (optional)'),
+              children: [
+                for (final reason in reasons)
+                  SimpleDialogOption(
+                    onPressed: () => Navigator.of(context).pop(reason),
+                    child: Text(reason),
+                  ),
+                SimpleDialogOption(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Skip'),
+                ),
+              ],
+            ),
+          );
+
     setState(() => _errorText = null);
     try {
-      await widget.messagingApi.unmatch(match.matchId);
+      await widget.messagingApi.unmatch(match.matchId, reason: reason);
       setState(() {
         _matches = _matches.where((existing) => existing.matchId != match.matchId).toList();
       });

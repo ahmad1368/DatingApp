@@ -1101,6 +1101,11 @@ model DissolvedMatch {
   userAId     String
   userBId     String
   dissolvedAt DateTime @default(now())
+  // Internal-only quick-pick reason tag (see UNMATCH_REASONS) for moderation
+  // monitoring - never shown to the other party, who is never notified of
+  // the unmatch/block at all. Null for a system-initiated dissolve (e.g. an
+  // expired unmessaged match).
+  unmatchReason String?
 
   @@index([userAId])
   @@index([userBId])

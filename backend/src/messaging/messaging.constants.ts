@@ -343,3 +343,19 @@ export function computeExtendedExpiresAt(from: Date): Date {
 export function isWoman(genderIdentities: string[]): boolean {
   return genderIdentities.some((identity) => WOMAN_GENDER_IDENTITIES.includes(identity));
 }
+
+/**
+ * Optional quick-pick reason for a discreet unmatch/block (see
+ * MessagingService.unmatch) - stored on DissolvedMatch for internal
+ * moderation monitoring only, same "captured feedback, not shown to the
+ * other side" shape as DiscoveryService's PASS_REASONS.
+ */
+export const UNMATCH_REASONS = [
+  'Not a match',
+  'Inappropriate behavior',
+  'Stopped responding',
+  'Safety concern',
+  'Other',
+] as const;
+
+export type UnmatchReason = (typeof UNMATCH_REASONS)[number];

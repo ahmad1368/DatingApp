@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -198,6 +200,9 @@ void main() {
         if (request.url.path == '/matches/reconnectable') {
           return http.Response('[]', 200, headers: {'content-type': 'application/json'});
         }
+        if (request.url.path == '/matches/unmatch-reasons') {
+          return http.Response('[]', 200, headers: {'content-type': 'application/json'});
+        }
         return http.Response(
           '[{"matchId":"match-1","otherUserId":"user-2","otherUserName":"Jane",'
           '"otherUserPhotoUrl":null,"expiresAt":null,"firstMessageSent":true,'
@@ -223,6 +228,56 @@ void main() {
 
     expect(unmatchRequest, isNotNull);
     expect(find.text('No matches yet.'), findsOneWidget);
+  });
+
+  testWidgets('offers quick-pick unmatch reasons and sends the chosen one', (tester) async {
+    http.Request? unmatchRequest;
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.method == 'POST' && request.url.path == '/matches/match-1/unmatch') {
+          unmatchRequest = request;
+          return http.Response('', 200);
+        }
+        if (request.url.path == '/matches/reconnectable') {
+          return http.Response('[]', 200, headers: {'content-type': 'application/json'});
+        }
+        if (request.url.path == '/matches/unmatch-reasons') {
+          return http.Response(
+            '["Not a match","Stopped responding"]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '[{"matchId":"match-1","otherUserId":"user-2","otherUserName":"Jane",'
+          '"otherUserPhotoUrl":null,"expiresAt":null,"firstMessageSent":true,'
+          '"createdAt":"2026-01-01T00:00:00.000Z","needsGhostingPrompt":true}]',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(home: MatchesScreen(messagingApi: api, currentUserId: 'user-1')),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    await tester.tap(find.text('Unmatch'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('Why unmatch? (optional)'), findsOneWidget);
+    expect(find.text('Stopped responding'), findsOneWidget);
+
+    await tester.tap(find.text('Stopped responding'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(unmatchRequest, isNotNull);
+    expect(jsonDecode(unmatchRequest!.body) as Map, {'reason': 'Stopped responding'});
   });
 
   testWidgets('opens archived conversations from the app bar', (tester) async {
