@@ -54,6 +54,17 @@ import { MatchingService } from '../matching/matching.service';
 import { findProfilePrompt } from '../profile-prompts/profile-prompts.constants';
 import { findCommunityGroup } from '../community-groups/community-groups.constants';
 
+/**
+ * "Ethical Non-Monogamy & Poly Partner Linking": a confirmed PartnerLink
+ * (see CouplePairingService), surfaced on the deck card as a visible,
+ * navigable reference to the linked account - not just the free-text
+ * relationshipStructure label below.
+ */
+export interface LinkedPartnerBadge {
+  partnerId: string;
+  partnerName: string | null;
+}
+
 export interface DeckCard {
   id: string;
   name: string | null;
@@ -67,6 +78,7 @@ export interface DeckCard {
   interests: string[];
   sharedInterests: string[];
   sharedCommunityGroups: string[];
+  linkedPartners: LinkedPartnerBadge[];
   relationshipGoal: string | null;
   relationshipIntentBadges: string[];
   lifestyleBadges: string[];
@@ -330,6 +342,9 @@ export class DiscoveryService {
       userId,
       candidates.map((candidate) => candidate.id),
     );
+    const linkedPartnersByUserId = await this.getLinkedPartnersByUserIds(
+      candidates.map((candidate) => candidate.id),
+    );
 
     return candidates.map((candidate) =>
       this.toDeckCard(candidate, now, origin, {
@@ -342,6 +357,7 @@ export class DiscoveryService {
         viewerSchool: currentUser.school,
         viewerCommunityGroupIds: currentUser.communityGroupIds,
         mutualConnectionCount: mutualConnectionCounts.get(candidate.id) ?? 0,
+        linkedPartners: linkedPartnersByUserId.get(candidate.id) ?? [],
       }),
     );
   }
@@ -486,6 +502,9 @@ export class DiscoveryService {
       userId,
       orderedLikers.map((liker) => liker.id),
     );
+    const linkedPartnersByUserId = await this.getLinkedPartnersByUserIds(
+      orderedLikers.map((liker) => liker.id),
+    );
 
     const cards = orderedLikers.map((liker) =>
       this.toDeckCard(liker, now, origin, {
@@ -498,6 +517,7 @@ export class DiscoveryService {
         viewerSchool: currentUser.school,
         viewerCommunityGroupIds: currentUser.communityGroupIds,
         mutualConnectionCount: mutualConnectionCounts.get(liker.id) ?? 0,
+        linkedPartners: linkedPartnersByUserId.get(liker.id) ?? [],
       }),
     );
 
@@ -581,6 +601,7 @@ export class DiscoveryService {
       viewerSchool: string | null;
       viewerCommunityGroupIds?: string[];
       mutualConnectionCount: number;
+      linkedPartners: LinkedPartnerBadge[];
     },
   ): DeckCard {
     return {
@@ -607,6 +628,7 @@ export class DiscoveryService {
         .filter((groupId) => (flags.viewerCommunityGroupIds ?? []).includes(groupId))
         .map((groupId) => findCommunityGroup(groupId)?.name)
         .filter((name): name is string => name != null),
+      linkedPartners: flags.linkedPartners,
       relationshipGoal: candidate.relationshipGoal,
       relationshipIntentBadges: this.buildRelationshipIntentBadges(candidate),
       lifestyleBadges: this.buildLifestyleBadges(candidate),
@@ -1523,6 +1545,52 @@ export class DiscoveryService {
       }),
       this.prisma.user.update({ where: { id: ownerId }, data: { profilePhotoUrl: best.mediaUrl } }),
     ]);
+  }
+
+  /**
+   * "Ethical Non-Monogamy & Poly Partner Linking": every candidate's
+   * confirmed PartnerLink(s) (see CouplePairingService.listPartners),
+   * batched for a page of deck candidates so each card can show a visible
+   * reference to the linked account(s) - a candidate may have more than
+   * one link to support polyamorous relationship structures.
+   */
+  private async getLinkedPartnersByUserIds(
+    candidateIds: string[],
+  ): Promise<Map<string, LinkedPartnerBadge[]>> {
+    if (candidateIds.length === 0) {
+      return new Map();
+    }
+
+    const links = await this.prisma.partnerLink.findMany({
+      where: { OR: [{ userAId: { in: candidateIds } }, { userBId: { in: candidateIds } }] },
+    });
+    if (links.length === 0) {
+      return new Map();
+    }
+
+    const partnerIds = [...new Set(links.map((link) => [link.userAId, link.userBId]).flat())];
+    const partners = await this.prisma.user.findMany({
+      where: { id: { in: partnerIds } },
+      select: { id: true, name: true },
+    });
+    const nameById = new Map(partners.map((partner) => [partner.id, partner.name]));
+
+    const byCandidateId = new Map<string, LinkedPartnerBadge[]>();
+    for (const link of links) {
+      for (const [ownerId, partnerId] of [
+        [link.userAId, link.userBId],
+        [link.userBId, link.userAId],
+      ]) {
+        if (!candidateIds.includes(ownerId)) {
+          continue;
+        }
+        const badges = byCandidateId.get(ownerId) ?? [];
+        badges.push({ partnerId, partnerName: nameById.get(partnerId) ?? null });
+        byCandidateId.set(ownerId, badges);
+      }
+    }
+
+    return byCandidateId;
   }
 
   /**

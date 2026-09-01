@@ -117,6 +117,36 @@ void main() {
     expect(find.byIcon(Icons.groups), findsNothing);
   });
 
+  testWidgets('shows a chip for each linked partner', (tester) async {
+    final card = DeckCard(
+      id: 'user-2',
+      name: 'Jane',
+      age: 25,
+      interests: const ['Hiking'],
+      linkedPartners: [
+        LinkedPartnerBadge(partnerId: 'partner-1', partnerName: 'Alex'),
+        LinkedPartnerBadge(partnerId: 'partner-2', partnerName: null),
+      ],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(home: Scaffold(body: Center(child: SwipeCard(card: card, onSwiped: (_) {})))),
+    );
+
+    expect(find.text('Linked with Alex'), findsOneWidget);
+    expect(find.text('Linked with a partner'), findsOneWidget);
+  });
+
+  testWidgets('shows no linked-partner chips when there is no partner link', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: Center(child: SwipeCard(card: _sampleCard(), onSwiped: (_) {}))),
+      ),
+    );
+
+    expect(find.textContaining('Linked with'), findsNothing);
+  });
+
   testWidgets('shows a shared school badge when the candidate attended the same school', (tester) async {
     final card = DeckCard(
       id: 'user-2',
