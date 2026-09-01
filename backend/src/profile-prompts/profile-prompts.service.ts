@@ -31,7 +31,8 @@ export interface VoicePromptReactionView {
   id: string;
   fromUserId: string;
   toUserId: string;
-  promptId: string;
+  promptId: string | null;
+  photoId: string | null;
   comment: string | null;
   audioReplyUrl: string | null;
   durationSeconds: number | null;
@@ -167,11 +168,62 @@ export class ProfilePromptsService {
     return reactions.map((reaction) => this.toReactionView(reaction));
   }
 
+  /**
+   * Reacts to one of someone else's profile photos with a text comment, a
+   * recorded audio reply, or both - the same targeted reaction mechanism as
+   * [reactToVoicePrompt], scoped to a specific photo instead of a specific
+   * voice prompt answer.
+   */
+  async reactToPhoto(
+    fromUserId: string,
+    toUserId: string,
+    photoId: string,
+    comment?: string,
+    audioReplyUrl?: string,
+    durationSeconds?: number,
+  ): Promise<VoicePromptReactionView> {
+    if (fromUserId === toUserId) {
+      throw new BadRequestException('You cannot react to your own photo.');
+    }
+    if (!comment && !audioReplyUrl) {
+      throw new BadRequestException('Include a comment, an audio reply, or both.');
+    }
+
+    const targetPhoto = await this.prisma.profilePhoto.findUnique({ where: { id: photoId } });
+    if (!targetPhoto || targetPhoto.ownerId !== toUserId) {
+      throw new NotFoundException('This user has no photo with that id.');
+    }
+
+    const reaction = await this.prisma.voicePromptReaction.create({
+      data: {
+        fromUserId,
+        toUserId,
+        photoId,
+        comment: comment ?? null,
+        audioReplyUrl: audioReplyUrl ?? null,
+        durationSeconds: durationSeconds ?? null,
+      },
+    });
+
+    return this.toReactionView(reaction);
+  }
+
+  /** Reactions received on one of the caller's own profile photos. */
+  async listPhotoReactions(userId: string, photoId: string): Promise<VoicePromptReactionView[]> {
+    const reactions = await this.prisma.voicePromptReaction.findMany({
+      where: { toUserId: userId, photoId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return reactions.map((reaction) => this.toReactionView(reaction));
+  }
+
   private toReactionView(reaction: {
     id: string;
     fromUserId: string;
     toUserId: string;
-    promptId: string;
+    promptId: string | null;
+    photoId: string | null;
     comment: string | null;
     audioReplyUrl: string | null;
     durationSeconds: number | null;
@@ -182,6 +234,7 @@ export class ProfilePromptsService {
       fromUserId: reaction.fromUserId,
       toUserId: reaction.toUserId,
       promptId: reaction.promptId,
+      photoId: reaction.photoId,
       comment: reaction.comment,
       audioReplyUrl: reaction.audioReplyUrl,
       durationSeconds: reaction.durationSeconds,

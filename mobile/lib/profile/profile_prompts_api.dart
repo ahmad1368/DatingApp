@@ -38,14 +38,17 @@ class VoicePromptAnswer {
   final DateTime createdAt;
 }
 
-/// A reaction to someone else's voice prompt answer - a text comment, a
-/// recorded audio reply, or both. See ProfilePromptsApi.reactToVoicePrompt.
+/// A reaction to someone else's voice prompt answer or profile photo - a
+/// text comment, a recorded audio reply, or both. Exactly one of
+/// [promptId]/[photoId] is set, matching whichever target the reaction was
+/// made on. See ProfilePromptsApi.reactToVoicePrompt/reactToPhoto.
 class VoicePromptReaction {
   VoicePromptReaction({
     required this.id,
     required this.fromUserId,
     required this.toUserId,
-    required this.promptId,
+    this.promptId,
+    this.photoId,
     this.comment,
     this.audioReplyUrl,
     this.durationSeconds,
@@ -55,7 +58,8 @@ class VoicePromptReaction {
   final String id;
   final String fromUserId;
   final String toUserId;
-  final String promptId;
+  final String? promptId;
+  final String? photoId;
   final String? comment;
   final String? audioReplyUrl;
   final int? durationSeconds;
@@ -228,6 +232,49 @@ class ProfilePromptsApi {
     return list.cast<Map<String, dynamic>>().map(_toVoicePromptReaction).toList();
   }
 
+  /// Reacts to [targetUserId]'s profile photo [photoId] with a text
+  /// [comment], a recorded [audioReplyUrl], or both - at least one is
+  /// required.
+  Future<VoicePromptReaction> reactToPhoto({
+    required String photoId,
+    required String targetUserId,
+    String? comment,
+    String? audioReplyUrl,
+    int? durationSeconds,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/profile-prompts/photos/$photoId/reactions'),
+      headers: _headers,
+      body: jsonEncode({
+        'targetUserId': targetUserId,
+        if (comment != null) 'comment': comment,
+        if (audioReplyUrl != null) 'audioReplyUrl': audioReplyUrl,
+        if (durationSeconds != null) 'durationSeconds': durationSeconds,
+      }),
+    );
+
+    if (response.statusCode != 201) {
+      throw ProfilePromptsApiException(_errorMessage(_decode(response), response.statusCode));
+    }
+
+    return _toVoicePromptReaction(_decode(response));
+  }
+
+  /// Reactions received on the caller's own profile photo [photoId].
+  Future<List<VoicePromptReaction>> fetchPhotoReactions(String photoId) async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/profile-prompts/photos/$photoId/reactions'),
+      headers: _headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw ProfilePromptsApiException(_errorMessage(_decode(response), response.statusCode));
+    }
+
+    final list = jsonDecode(response.body) as List;
+    return list.cast<Map<String, dynamic>>().map(_toVoicePromptReaction).toList();
+  }
+
   Future<List<VideoPromptAnswer>> fetchMyVideoAnswers() async {
     final response = await _client.get(
       Uri.parse('$_baseUrl/profile-prompts/video/me'),
@@ -370,7 +417,8 @@ class ProfilePromptsApi {
       id: json['id'] as String,
       fromUserId: json['fromUserId'] as String,
       toUserId: json['toUserId'] as String,
-      promptId: json['promptId'] as String,
+      promptId: json['promptId'] as String?,
+      photoId: json['photoId'] as String?,
       comment: json['comment'] as String?,
       audioReplyUrl: json['audioReplyUrl'] as String?,
       durationSeconds: json['durationSeconds'] as int?,

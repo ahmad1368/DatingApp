@@ -257,6 +257,86 @@ void main() {
     });
   });
 
+  group('ProfilePromptsApi.reactToPhoto', () {
+    test('sends an audio reply reaction to a photo', () async {
+      http.Request? postRequest;
+      final api = ProfilePromptsApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          postRequest = request;
+          return _jsonResponse(
+            '{"id":"reaction-3","fromUserId":"user-1","toUserId":"user-2",'
+            '"promptId":null,"photoId":"photo-1","comment":null,'
+            '"audioReplyUrl":"file:///tmp/reply.m4a","durationSeconds":6,'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}',
+            201,
+          );
+        }),
+      );
+
+      final reaction = await api.reactToPhoto(
+        photoId: 'photo-1',
+        targetUserId: 'user-2',
+        audioReplyUrl: 'file:///tmp/reply.m4a',
+        durationSeconds: 6,
+      );
+
+      expect(postRequest!.method, 'POST');
+      expect(postRequest!.url.path, '/profile-prompts/photos/photo-1/reactions');
+      expect(
+        postRequest!.body,
+        '{"targetUserId":"user-2","audioReplyUrl":"file:///tmp/reply.m4a","durationSeconds":6}',
+      );
+      expect(reaction.photoId, 'photo-1');
+      expect(reaction.promptId, isNull);
+    });
+
+    test('throws ProfilePromptsApiException when the target has no photo with that id', () async {
+      final api = ProfilePromptsApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => _jsonResponse('{"message":"This user has no photo with that id."}', 404),
+        ),
+      );
+
+      expect(
+        () => api.reactToPhoto(photoId: 'photo-1', targetUserId: 'user-2', comment: 'Hi'),
+        throwsA(isA<ProfilePromptsApiException>()),
+      );
+    });
+  });
+
+  group('ProfilePromptsApi.fetchPhotoReactions', () {
+    test("parses reactions received on the caller's own photo", () async {
+      final api = ProfilePromptsApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.url.path, '/profile-prompts/photos/photo-1/reactions');
+          return _jsonResponse(
+            '[{"id":"reaction-1","fromUserId":"user-2","toUserId":"user-1",'
+            '"promptId":null,"photoId":"photo-1","comment":"Great shot!","audioReplyUrl":null,'
+            '"durationSeconds":null,"createdAt":"2026-01-01T00:00:00.000Z"}]',
+            200,
+          );
+        }),
+      );
+
+      final reactions = await api.fetchPhotoReactions('photo-1');
+
+      expect(reactions, hasLength(1));
+      expect(reactions.first.comment, 'Great shot!');
+    });
+
+    test('throws ProfilePromptsApiException on a non-200 response', () async {
+      final api = ProfilePromptsApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async => http.Response('', 500)),
+      );
+
+      expect(() => api.fetchPhotoReactions('photo-1'), throwsA(isA<ProfilePromptsApiException>()));
+    });
+  });
+
   group('ProfilePromptsApi.fetchMyVideoAnswers', () {
     test('parses stored video answers', () async {
       final api = ProfilePromptsApi(

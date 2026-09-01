@@ -31,6 +31,7 @@ describe('ProfilePromptsService', () => {
       create: jest.Mock;
       findMany: jest.Mock;
     };
+    profilePhoto: { findUnique: jest.Mock };
   };
   let transcriptionProvider: { transcribe: jest.Mock };
 
@@ -58,6 +59,7 @@ describe('ProfilePromptsService', () => {
         create: jest.fn(),
         findMany: jest.fn(),
       },
+      profilePhoto: { findUnique: jest.fn() },
     };
     transcriptionProvider = { transcribe: jest.fn().mockResolvedValue('a transcript') };
     service = new ProfilePromptsService(
@@ -330,6 +332,108 @@ describe('ProfilePromptsService', () => {
       });
       expect(result).toHaveLength(1);
       expect(result[0].comment).toBe('Love this!');
+    });
+  });
+
+  describe('reactToPhoto', () => {
+    const PHOTO_ID = 'photo-1';
+    const OTHER_USER_ID = 'user-2';
+
+    it('rejects reacting to your own photo', async () => {
+      await expect(
+        service.reactToPhoto(USER_ID, USER_ID, PHOTO_ID, 'Nice photo!'),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.voicePromptReaction.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects a reaction with neither a comment nor an audio reply', async () => {
+      await expect(
+        service.reactToPhoto(USER_ID, OTHER_USER_ID, PHOTO_ID),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.voicePromptReaction.create).not.toHaveBeenCalled();
+    });
+
+    it('throws when the target has no photo with that id', async () => {
+      prisma.profilePhoto.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.reactToPhoto(USER_ID, OTHER_USER_ID, PHOTO_ID, 'Nice photo!'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(prisma.voicePromptReaction.create).not.toHaveBeenCalled();
+    });
+
+    it("throws when the photo belongs to someone other than the stated target", async () => {
+      prisma.profilePhoto.findUnique.mockResolvedValue({ id: PHOTO_ID, ownerId: 'someone-else' });
+
+      await expect(
+        service.reactToPhoto(USER_ID, OTHER_USER_ID, PHOTO_ID, 'Nice photo!'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(prisma.voicePromptReaction.create).not.toHaveBeenCalled();
+    });
+
+    it('creates an audio-reply reaction to a photo', async () => {
+      prisma.profilePhoto.findUnique.mockResolvedValue({ id: PHOTO_ID, ownerId: OTHER_USER_ID });
+      prisma.voicePromptReaction.create.mockResolvedValue({
+        id: 'reaction-3',
+        fromUserId: USER_ID,
+        toUserId: OTHER_USER_ID,
+        promptId: null,
+        photoId: PHOTO_ID,
+        comment: null,
+        audioReplyUrl: 'file:///tmp/reply.m4a',
+        durationSeconds: 6,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const result = await service.reactToPhoto(
+        USER_ID,
+        OTHER_USER_ID,
+        PHOTO_ID,
+        undefined,
+        'file:///tmp/reply.m4a',
+        6,
+      );
+
+      expect(prisma.voicePromptReaction.create).toHaveBeenCalledWith({
+        data: {
+          fromUserId: USER_ID,
+          toUserId: OTHER_USER_ID,
+          photoId: PHOTO_ID,
+          comment: null,
+          audioReplyUrl: 'file:///tmp/reply.m4a',
+          durationSeconds: 6,
+        },
+      });
+      expect(result.photoId).toBe(PHOTO_ID);
+      expect(result.promptId).toBeNull();
+    });
+  });
+
+  describe('listPhotoReactions', () => {
+    it("returns reactions received on the caller's own photo, most recent first", async () => {
+      const PHOTO_ID = 'photo-1';
+      prisma.voicePromptReaction.findMany.mockResolvedValue([
+        {
+          id: 'reaction-1',
+          fromUserId: 'user-2',
+          toUserId: USER_ID,
+          promptId: null,
+          photoId: PHOTO_ID,
+          comment: 'Great shot!',
+          audioReplyUrl: null,
+          durationSeconds: null,
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ]);
+
+      const result = await service.listPhotoReactions(USER_ID, PHOTO_ID);
+
+      expect(prisma.voicePromptReaction.findMany).toHaveBeenCalledWith({
+        where: { toUserId: USER_ID, photoId: PHOTO_ID },
+        orderBy: { createdAt: 'desc' },
+      });
+      expect(result).toHaveLength(1);
+      expect(result[0].comment).toBe('Great shot!');
     });
   });
 
