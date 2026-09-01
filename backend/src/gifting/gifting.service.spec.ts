@@ -58,12 +58,18 @@ describe('GiftingService', () => {
       ).rejects.toBeInstanceOf(BadRequestException);
     });
 
+    it('rejects a rose with no message attached', async () => {
+      await expect(service.sendGift(SENDER_ID, RECIPIENT_ID, 'rose')).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+    });
+
     it('throws when the sender does not exist', async () => {
       prisma.user.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce({ id: RECIPIENT_ID });
 
-      await expect(service.sendGift(SENDER_ID, RECIPIENT_ID, 'rose')).rejects.toBeInstanceOf(
-        NotFoundException,
-      );
+      await expect(
+        service.sendGift(SENDER_ID, RECIPIENT_ID, 'rose', 'For you!'),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
 
     it('throws when the recipient does not exist', async () => {
@@ -71,9 +77,9 @@ describe('GiftingService', () => {
         .mockResolvedValueOnce({ id: SENDER_ID, giftTokenBalance: 100 })
         .mockResolvedValueOnce(null);
 
-      await expect(service.sendGift(SENDER_ID, RECIPIENT_ID, 'rose')).rejects.toBeInstanceOf(
-        NotFoundException,
-      );
+      await expect(
+        service.sendGift(SENDER_ID, RECIPIENT_ID, 'rose', 'For you!'),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
 
     it('rejects when the sender has an insufficient balance', async () => {
@@ -81,9 +87,9 @@ describe('GiftingService', () => {
         .mockResolvedValueOnce({ id: SENDER_ID, giftTokenBalance: 5 })
         .mockResolvedValueOnce({ id: RECIPIENT_ID, name: 'Alex', profilePhotoUrl: null });
 
-      await expect(service.sendGift(SENDER_ID, RECIPIENT_ID, 'rose')).rejects.toBeInstanceOf(
-        BadRequestException,
-      );
+      await expect(
+        service.sendGift(SENDER_ID, RECIPIENT_ID, 'rose', 'For you!'),
+      ).rejects.toBeInstanceOf(BadRequestException);
       expect(prisma.$transaction).not.toHaveBeenCalled();
     });
 
@@ -129,6 +135,26 @@ describe('GiftingService', () => {
           otherUserPhotoUrl: 'alex.jpg',
         },
       });
+    });
+
+    it('allows a non-Rose gift with no message attached', async () => {
+      prisma.user.findUnique
+        .mockResolvedValueOnce({ id: SENDER_ID, giftTokenBalance: 100 })
+        .mockResolvedValueOnce({ id: RECIPIENT_ID, name: 'Alex', profilePhotoUrl: null });
+      prisma.user.update.mockResolvedValue({ giftTokenBalance: 85 });
+      prisma.giftTransaction.create.mockResolvedValue({
+        id: 'gift-2',
+        senderId: SENDER_ID,
+        recipientId: RECIPIENT_ID,
+        giftId: 'coffee',
+        tokenCost: 15,
+        message: null,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const result = await service.sendGift(SENDER_ID, RECIPIENT_ID, 'coffee');
+
+      expect(result.transaction.gift.id).toBe('coffee');
     });
   });
 

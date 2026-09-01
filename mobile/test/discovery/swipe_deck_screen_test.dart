@@ -313,7 +313,7 @@ void main() {
     expect(swipeRequest!.body, '{"targetUserId":"user-2","action":"PASS"}');
   });
 
-  testWidgets('tapping super like records a SUPER_LIKE swipe', (tester) async {
+  testWidgets('composing a note sends a SUPER_LIKE with the text attached', (tester) async {
     http.Request? capturedRequest;
     final api = DiscoveryApi(
       accessToken: 'a-jwt',
@@ -336,8 +336,47 @@ void main() {
     await tester.tap(find.byIcon(Icons.star));
     await tester.pumpAndSettle();
 
+    await tester.enterText(find.byType(TextField), 'Loved your profile!');
+    await tester.tap(find.text('Send Super Like'));
+    await tester.pumpAndSettle();
+
     expect(capturedRequest, isNotNull);
-    expect(capturedRequest!.body, '{"targetUserId":"user-2","action":"SUPER_LIKE"}');
+    expect(
+      capturedRequest!.body,
+      '{"targetUserId":"user-2","action":"SUPER_LIKE","complimentText":"Loved your profile!"}',
+    );
+  });
+
+  testWidgets('cancelling the super like note composer sends nothing', (tester) async {
+    var swipeRequested = false;
+    final api = DiscoveryApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/discovery/deck') {
+          return http.Response(_deckResponse, 200, headers: {'content-type': 'application/json'});
+        }
+        if (request.url.path == '/discovery/swipe') {
+          swipeRequested = true;
+          return http.Response('{"matched":false}', 200, headers: {'content-type': 'application/json'});
+        }
+        return http.Response(
+          '{"active":false,"expiresAt":null,"viewCount":0}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: SwipeDeckScreen(discoveryApi: api)));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.star));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+
+    expect(swipeRequested, isFalse);
   });
 
   testWidgets('composing a compliment sends a LIKE with the text attached', (tester) async {

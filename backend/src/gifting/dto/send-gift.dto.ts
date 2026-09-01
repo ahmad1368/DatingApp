@@ -7,6 +7,7 @@ export class SendGiftDto {
   @IsString()
   giftId!: string;
 
+  /** Required when giftId is 'rose' - see GiftingService.sendGift. */
   @IsOptional()
   @IsString()
   @Length(1, 200)

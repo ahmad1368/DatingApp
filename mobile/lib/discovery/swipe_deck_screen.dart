@@ -270,6 +270,38 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
     await _handleSwipe(card, 'LIKE', complimentText: text);
   }
 
+  /// A Super Like requires an attached note so it stands out prominently in
+  /// the recipient's incoming likes queue (server-enforced - see
+  /// DiscoveryService.recordSwipe). Cancelling the composer aborts the
+  /// Super Like entirely rather than sending one with no note.
+  Future<void> _handleSuperLike(DeckCard card) async {
+    final controller = TextEditingController();
+    final text = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Super Like'),
+        content: TextField(
+          controller: controller,
+          maxLength: 200,
+          decoration: const InputDecoration(hintText: 'Add a note (required)…'),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+            child: const Text('Send Super Like'),
+          ),
+        ],
+      ),
+    );
+
+    if (text == null || text.isEmpty) {
+      return;
+    }
+    await _handleSwipe(card, 'SUPER_LIKE', complimentText: text);
+  }
+
   /// Answers a dual-choice icebreaker while liking, so if it's a match the
   /// chat opens with both people's answers already compared.
   Future<void> _handleIcebreakerLike(DeckCard card) async {
@@ -605,7 +637,8 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
                   FloatingActionButton(
                     heroTag: 'superLike',
                     backgroundColor: Colors.blue,
-                    onPressed: () => _handleSwipe(_deck.first, 'SUPER_LIKE'),
+                    tooltip: 'Super Like with a note',
+                    onPressed: () => _handleSuperLike(_deck.first),
                     child: const Icon(Icons.star),
                   ),
                   FloatingActionButton(

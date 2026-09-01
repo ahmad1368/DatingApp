@@ -62,6 +62,12 @@ export class GiftingService {
       throw new BadRequestException('Unknown gift.');
     }
 
+    // A Rose is the "priority like with a note" gift (see issue #311) -
+    // require the note instead of letting the flower alone stand in for it.
+    if (gift.id === 'rose' && !message) {
+      throw new BadRequestException('A Rose needs a message attached.');
+    }
+
     const [sender, recipient] = await Promise.all([
       this.prisma.user.findUnique({ where: { id: senderId } }),
       this.prisma.user.findUnique({ where: { id: recipientId } }),
