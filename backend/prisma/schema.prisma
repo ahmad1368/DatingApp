@@ -91,6 +91,10 @@ model User {
   // same "editing invalidates old answers" shape as Message.pollOptions.
   profilePollQuestion                   String?
   profilePollOptions                    String[]  @default([])
+  // "Opening Move Question Selector": a single curated question (see
+  // OPENING_QUESTIONS) displayed on the profile header so a match can reply
+  // to something specific as their first message - see OpeningQuestionService.
+  openingQuestionId                     String?
   religion                              String?
   religiousPracticeLevel                String?
   dietaryPreference                     String?

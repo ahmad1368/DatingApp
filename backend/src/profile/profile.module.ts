@@ -34,6 +34,8 @@ import { BIO_WRITER_PROVIDER } from './interfaces/bio-writer-provider.interface'
 import { OpenAiBioWriterClient } from './providers/openai-bio-writer.client';
 import { ProfilePollController } from './profile-poll.controller';
 import { ProfilePollService } from './profile-poll.service';
+import { OpeningQuestionController } from './opening-question.controller';
+import { OpeningQuestionService } from './opening-question.service';
 
 @Module({
   imports: [AuthModule, ConfigModule, NotificationsModule],
@@ -51,6 +53,7 @@ import { ProfilePollService } from './profile-poll.service';
     AvatarController,
     BioWriterController,
     ProfilePollController,
+    OpeningQuestionController,
   ],
   providers: [
     VoiceIntroService,
@@ -78,6 +81,7 @@ import { ProfilePollService } from './profile-poll.service';
       useClass: OpenAiBioWriterClient,
     },
     ProfilePollService,
+    OpeningQuestionService,
   ],
 })
 export class ProfileModule {}
