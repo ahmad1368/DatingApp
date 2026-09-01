@@ -22,6 +22,11 @@ export class ProfilePollController {
     return this.profilePollService.clearPoll(user.id);
   }
 
+  @Get('voters')
+  listVoters(@CurrentUser() user: AuthenticatedUser) {
+    return this.profilePollService.listVoters(user.id);
+  }
+
   @Get(':targetUserId')
   getPoll(@CurrentUser() user: AuthenticatedUser, @Param('targetUserId') targetUserId: string) {
     return this.profilePollService.getPoll(user.id, targetUserId);

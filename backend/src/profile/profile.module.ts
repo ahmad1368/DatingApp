@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from '../auth/auth.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { VoiceIntroController } from './voice-intro.controller';
 import { VoiceIntroService } from './voice-intro.service';
 import { VideoSnippetController } from './video-snippet.controller';
@@ -35,7 +36,7 @@ import { ProfilePollController } from './profile-poll.controller';
 import { ProfilePollService } from './profile-poll.service';
 
 @Module({
-  imports: [AuthModule, ConfigModule],
+  imports: [AuthModule, ConfigModule, NotificationsModule],
   controllers: [
     VoiceIntroController,
     VideoSnippetController,
