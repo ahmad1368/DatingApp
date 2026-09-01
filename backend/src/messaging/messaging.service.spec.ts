@@ -5,6 +5,7 @@ import { GiftingService } from '../gifting/gifting.service';
 import { ContentModerator } from './interfaces/content-moderator.interface';
 import { ImageModerator } from './interfaces/image-moderator.interface';
 import { TranscriptionProvider } from './interfaces/transcription-provider.interface';
+import { TranslationProvider } from './interfaces/translation-provider.interface';
 import { MessagingService } from './messaging.service';
 
 const MATCH_ID = 'match-1';
@@ -52,6 +53,7 @@ describe('MessagingService', () => {
   let notificationsService: { notify: jest.Mock };
   let transcriptionProvider: { transcribe: jest.Mock };
   let giftingService: { sendGift: jest.Mock };
+  let translationProvider: { translate: jest.Mock };
 
   beforeEach(() => {
     imageModerator = { moderate: jest.fn().mockResolvedValue({ flagged: false, categories: [] }) };
@@ -59,6 +61,7 @@ describe('MessagingService', () => {
     notificationsService = { notify: jest.fn() };
     transcriptionProvider = { transcribe: jest.fn().mockResolvedValue('a transcript') };
     giftingService = { sendGift: jest.fn().mockResolvedValue({ tokenBalance: 90, transaction: {} }) };
+    translationProvider = { translate: jest.fn().mockResolvedValue('Hola!') };
     prisma = {
       match: {
         findUnique: jest.fn(),
@@ -105,6 +108,7 @@ describe('MessagingService', () => {
       transcriptionProvider as unknown as TranscriptionProvider,
       giftingService as unknown as GiftingService,
       contentModerator as unknown as ContentModerator,
+      translationProvider as unknown as TranslationProvider,
     );
   });
 
@@ -1297,6 +1301,109 @@ describe('MessagingService', () => {
         data: { autoBlurIncomingMedia: false },
       });
       expect(result).toEqual({ autoBlurIncomingMedia: false });
+    });
+  });
+
+  describe('getPreferredLanguage', () => {
+    it('throws NotFoundException when the user does not exist', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(service.getPreferredLanguage(WOMAN_ID)).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('returns the stored preference', async () => {
+      prisma.user.findUnique.mockResolvedValue({ preferredLanguage: 'Spanish' });
+
+      const result = await service.getPreferredLanguage(WOMAN_ID);
+
+      expect(prisma.user.findUnique).toHaveBeenCalledWith({
+        where: { id: WOMAN_ID },
+        select: { preferredLanguage: true },
+      });
+      expect(result).toEqual({ preferredLanguage: 'Spanish' });
+    });
+  });
+
+  describe('setPreferredLanguage', () => {
+    it('persists the preference', async () => {
+      prisma.user.update.mockResolvedValue({ preferredLanguage: 'French' });
+
+      const result = await service.setPreferredLanguage(WOMAN_ID, 'French');
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: WOMAN_ID },
+        data: { preferredLanguage: 'French' },
+      });
+      expect(result).toEqual({ preferredLanguage: 'French' });
+    });
+  });
+
+  describe('translateMessage', () => {
+    function mockTextMessage(overrides: Partial<{ contentType: string; content: string | null }> = {}) {
+      prisma.message.findUnique.mockResolvedValue({
+        id: 'message-1',
+        matchId: MATCH_ID,
+        senderId: MAN_ID,
+        contentType: 'TEXT',
+        content: 'Hello there!',
+        ...overrides,
+      });
+    }
+
+    it('throws when the message does not exist or belongs to a different match', async () => {
+      mockMatch();
+      prisma.message.findUnique.mockResolvedValue({ id: 'message-1', matchId: 'other-match' });
+
+      await expect(
+        service.translateMessage(WOMAN_ID, MATCH_ID, 'message-1', 'Spanish'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(translationProvider.translate).not.toHaveBeenCalled();
+    });
+
+    it('rejects a non-TEXT message', async () => {
+      mockMatch();
+      mockTextMessage({ contentType: 'IMAGE', content: null });
+
+      await expect(
+        service.translateMessage(WOMAN_ID, MATCH_ID, 'message-1', 'Spanish'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(translationProvider.translate).not.toHaveBeenCalled();
+    });
+
+    it('translates using the given targetLanguage without looking up a preference', async () => {
+      mockMatch();
+      mockTextMessage();
+
+      const result = await service.translateMessage(WOMAN_ID, MATCH_ID, 'message-1', 'Spanish');
+
+      expect(translationProvider.translate).toHaveBeenCalledWith('Hello there!', 'Spanish');
+      expect(prisma.user.findUnique).not.toHaveBeenCalled();
+      expect(result).toEqual({ translatedContent: 'Hola!' });
+    });
+
+    it('falls back to the caller preferredLanguage when targetLanguage is omitted', async () => {
+      mockMatch();
+      mockTextMessage();
+      prisma.user.findUnique.mockResolvedValue({ preferredLanguage: 'German' });
+
+      await service.translateMessage(WOMAN_ID, MATCH_ID, 'message-1');
+
+      expect(prisma.user.findUnique).toHaveBeenCalledWith({
+        where: { id: WOMAN_ID },
+        select: { preferredLanguage: true },
+      });
+      expect(translationProvider.translate).toHaveBeenCalledWith('Hello there!', 'German');
+    });
+
+    it('rejects when neither targetLanguage nor a preferred language is available', async () => {
+      mockMatch();
+      mockTextMessage();
+      prisma.user.findUnique.mockResolvedValue({ preferredLanguage: null });
+
+      await expect(service.translateMessage(WOMAN_ID, MATCH_ID, 'message-1')).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(translationProvider.translate).not.toHaveBeenCalled();
     });
   });
 

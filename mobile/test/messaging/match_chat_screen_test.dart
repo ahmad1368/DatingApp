@@ -854,6 +854,56 @@ void main() {
     expect(find.text('Unlock read receipt'), findsNothing);
   });
 
+  testWidgets('tapping Translate shows the translated text under the message', (tester) async {
+    http.Request? translateRequest;
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.method == 'POST' && request.url.path.endsWith('/translate')) {
+          translateRequest = request;
+          return http.Response(
+            '{"translatedContent":"Hola!"}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(
+            '[{"id":"m1","senderId":"user-man","contentType":"TEXT","content":"hi!",'
+            '"mediaUrl":null,"isBlurred":false,"readAt":null,"readReceiptLocked":false,'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":null,"isExpired":false,'
+          '"firstMessageSent":true,"canSendFirstMessage":true}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchChatScreen(messagingApi: api, matchId: 'match-1', currentUserId: 'user-woman'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Translate'), findsOneWidget);
+    expect(find.text('Hola!'), findsNothing);
+
+    await tester.tap(find.text('Translate'));
+    await tester.pumpAndSettle();
+
+    expect(translateRequest, isNotNull);
+    expect(translateRequest!.url.path, '/matches/match-1/messages/m1/translate');
+    expect(find.text('Hola!'), findsOneWidget);
+    expect(find.text('Translate'), findsNothing);
+  });
+
   testWidgets('does not show a Read label for an unread message from the other person', (
     tester,
   ) async {

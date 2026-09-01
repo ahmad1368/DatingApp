@@ -1034,6 +1034,60 @@ class MessagingApi {
     return body['autoBlurIncomingMedia'] as bool;
   }
 
+  /// The language [translateMessage] defaults to when no targetLanguage is
+  /// passed. Null means the user hasn't opted in yet.
+  Future<String?> fetchPreferredLanguage() async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/matches/preferred-language'),
+      headers: _headers,
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 200) {
+      throw MessagingApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return body['preferredLanguage'] as String?;
+  }
+
+  Future<String?> setPreferredLanguage(String language) async {
+    final response = await _client.put(
+      Uri.parse('$_baseUrl/matches/preferred-language'),
+      headers: _headers,
+      body: jsonEncode({'language': language}),
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 200) {
+      throw MessagingApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return body['preferredLanguage'] as String?;
+  }
+
+  /// Translates a single text message on demand, for either side of the
+  /// conversation. Defaults to the caller's [setPreferredLanguage] choice
+  /// when [targetLanguage] is omitted - throws [MessagingApiException] if
+  /// neither is available.
+  Future<String> translateMessage({
+    required String matchId,
+    required String messageId,
+    String? targetLanguage,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/matches/$matchId/messages/$messageId/translate'),
+      headers: _headers,
+      body: jsonEncode({if (targetLanguage != null) 'targetLanguage': targetLanguage}),
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 200) {
+      throw MessagingApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return body['translatedContent'] as String;
+  }
+
   /// Heartbeat to call while the app is in active use, so matches can see
   /// roughly how recently this user was active. Automatically withheld from
   /// a match whose chat has gone quiet for a week (see

@@ -6,6 +6,7 @@ import { findVirtualGift } from '../gifting/gifting.constants';
 import { CONTENT_MODERATOR, ContentModerator } from './interfaces/content-moderator.interface';
 import { IMAGE_MODERATOR, ImageModerator } from './interfaces/image-moderator.interface';
 import { TRANSCRIPTION_PROVIDER, TranscriptionProvider } from './interfaces/transcription-provider.interface';
+import { TRANSLATION_PROVIDER, TranslationProvider } from './interfaces/translation-provider.interface';
 import {
   BACKGROUND_SOUNDS,
   BackgroundSound,
@@ -178,6 +179,14 @@ export interface MediaBlurPreferenceResult {
   autoBlurIncomingMedia: boolean;
 }
 
+export interface PreferredLanguageResult {
+  preferredLanguage: string | null;
+}
+
+export interface TranslateMessageResult {
+  translatedContent: string;
+}
+
 export interface ChatWallpaperResult {
   wallpaperId: string | null;
 }
@@ -260,6 +269,7 @@ export class MessagingService {
     @Inject(TRANSCRIPTION_PROVIDER) private readonly transcriptionProvider: TranscriptionProvider,
     private readonly giftingService: GiftingService,
     @Inject(CONTENT_MODERATOR) private readonly contentModerator: ContentModerator,
+    @Inject(TRANSLATION_PROVIDER) private readonly translationProvider: TranslationProvider,
   ) {}
 
   async getMatchStatus(userId: string, matchId: string): Promise<MatchStatus> {
@@ -1199,6 +1209,65 @@ export class MessagingService {
     });
 
     return { autoBlurIncomingMedia: updated.autoBlurIncomingMedia };
+  }
+
+  async getPreferredLanguage(userId: string): Promise<PreferredLanguageResult> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { preferredLanguage: true },
+    });
+    if (!user) {
+      throw new NotFoundException('User not found.');
+    }
+
+    return { preferredLanguage: user.preferredLanguage };
+  }
+
+  /** The language [translateMessage] defaults to when no targetLanguage is given. */
+  async setPreferredLanguage(userId: string, language: string): Promise<PreferredLanguageResult> {
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: { preferredLanguage: language },
+    });
+
+    return { preferredLanguage: updated.preferredLanguage };
+  }
+
+  /**
+   * Translates a single text message on demand - works for either side of
+   * the conversation (an outgoing message translated for re-reading, or an
+   * incoming one translated to the caller's language). Defaults to the
+   * caller's [setPreferredLanguage] choice when targetLanguage is omitted.
+   */
+  async translateMessage(
+    userId: string,
+    matchId: string,
+    messageId: string,
+    targetLanguage?: string,
+  ): Promise<TranslateMessageResult> {
+    await this.getMatchForUser(userId, matchId);
+
+    const message = await this.prisma.message.findUnique({ where: { id: messageId } });
+    if (!message || message.matchId !== matchId || message.contentType !== 'TEXT' || !message.content) {
+      throw new NotFoundException('Text message not found.');
+    }
+
+    let language = targetLanguage;
+    if (!language) {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { preferredLanguage: true },
+      });
+      language = user?.preferredLanguage ?? undefined;
+    }
+    if (!language) {
+      throw new BadRequestException(
+        'No targetLanguage given and no preferred language set - call setPreferredLanguage first.',
+      );
+    }
+
+    const translatedContent = await this.translationProvider.translate(message.content, language);
+    return { translatedContent };
   }
 
   /**

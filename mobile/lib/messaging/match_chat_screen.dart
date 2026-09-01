@@ -77,6 +77,7 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
   bool _autoBlurMediaEnabled = true;
   static const _voiceNoteSpeeds = [1.0, 1.25, 1.5, 2.0];
   final Map<String, double> _voiceNoteSpeedByMessageId = {};
+  final Map<String, String> _translatedContentByMessageId = {};
   bool _isRecording = false;
   int _recordedSeconds = 0;
   Timer? _recordTimer;
@@ -968,6 +969,22 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
     }
   }
 
+  /// Translates a single text message on demand, caching the result inline
+  /// under the bubble. Works for either side of the conversation - see
+  /// MessagingApi.translateMessage.
+  Future<void> _translateMessage(ChatMessage message) async {
+    setState(() => _errorText = null);
+    try {
+      final translated = await widget.messagingApi.translateMessage(
+        matchId: widget.matchId,
+        messageId: message.id,
+      );
+      setState(() => _translatedContentByMessageId[message.id] = translated);
+    } on MessagingApiException catch (e) {
+      setState(() => _errorText = e.message);
+    }
+  }
+
   Future<void> _extendMatchTimeLimit() async {
     setState(() => _errorText = null);
     try {
@@ -1199,6 +1216,31 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
                                   if (!isMine && message.moderationFlagged)
                                     _buildFlaggedMessageWarning(message),
                                   _buildMessageContent(message, isMine),
+                                  if (message.contentType == 'TEXT' && message.content != null)
+                                    if (_translatedContentByMessageId[message.id] case final translated?)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 2),
+                                        child: Text(
+                                          translated,
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            fontStyle: FontStyle.italic,
+                                            color: Colors.grey,
+                                          ),
+                                        ),
+                                      )
+                                    else
+                                      GestureDetector(
+                                        onTap: () => _translateMessage(message),
+                                        child: const Text(
+                                          'Translate',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: Colors.indigo,
+                                            decoration: TextDecoration.underline,
+                                          ),
+                                        ),
+                                      ),
                                   if (isMine && message.readReceiptLocked)
                                     GestureDetector(
                                       onTap: () => _unlockReadReceipt(message),
