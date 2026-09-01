@@ -39,6 +39,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { AdsModule } from './ads/ads.module';
 import { SpeedDatingModule } from './speed-dating/speed-dating.module';
 import { WorkVerificationModule } from './work-verification/work-verification.module';
+import { MatchAnalyticsModule } from './match-analytics/match-analytics.module';
 
 @Module({
   imports: [
@@ -82,6 +83,7 @@ import { WorkVerificationModule } from './work-verification/work-verification.mo
     AdsModule,
     SpeedDatingModule,
     WorkVerificationModule,
+    MatchAnalyticsModule,
   ],
 })
 export class AppModule {}
