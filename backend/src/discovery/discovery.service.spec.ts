@@ -1689,6 +1689,57 @@ describe('DiscoveryService', () => {
       expect(deck[0].sharedInterests).toEqual(['Hiking']);
     });
 
+    it('highlights which community groups the viewer and a candidate both belong to', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+        communityGroupIds: ['gamers', 'foodies'],
+      });
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      prisma.user.findMany.mockResolvedValue([
+        {
+          id: TARGET_ID,
+          name: 'Jane',
+          dateOfBirth: null,
+          profilePhotoUrl: null,
+          interests: [],
+          relationshipGoal: 'CASUAL',
+          communityGroupIds: ['gamers', 'book-lovers'],
+        },
+      ]);
+
+      const deck = await service.getDeck(USER_ID);
+
+      expect(deck[0].sharedCommunityGroups).toEqual(['Gamers']);
+    });
+
+    it('defaults sharedCommunityGroups to empty when a candidate has no group memberships on record', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+      });
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      prisma.user.findMany.mockResolvedValue([
+        { id: TARGET_ID, name: 'Jane', dateOfBirth: null, profilePhotoUrl: null, interests: [], relationshipGoal: 'CASUAL' },
+      ]);
+
+      const deck = await service.getDeck(USER_ID);
+
+      expect(deck[0].sharedCommunityGroups).toEqual([]);
+    });
+
     it('ranks the remaining candidate pool closer-first when no one has recent engagement', async () => {
       prisma.user.findUnique.mockResolvedValue({
         id: USER_ID,

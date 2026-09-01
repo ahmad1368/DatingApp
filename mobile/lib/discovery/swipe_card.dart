@@ -316,6 +316,22 @@ class _CardContent extends StatelessWidget {
                   ],
                 ),
               ],
+              if (card.sharedCommunityGroups.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    for (final group in card.sharedCommunityGroups)
+                      Chip(
+                        avatar: const Icon(Icons.groups, size: 16),
+                        label: Text(group),
+                        backgroundColor: Colors.orange.shade100,
+                        visualDensity: VisualDensity.compact,
+                      ),
+                  ],
+                ),
+              ],
               if (card.zodiacSign != null) ...[
                 const SizedBox(height: 8),
                 Chip(

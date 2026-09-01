@@ -52,6 +52,7 @@ import { getZodiacSign } from '../matching/zodiac.utils';
 import { calculateAge } from './utils/age';
 import { MatchingService } from '../matching/matching.service';
 import { findProfilePrompt } from '../profile-prompts/profile-prompts.constants';
+import { findCommunityGroup } from '../community-groups/community-groups.constants';
 
 export interface DeckCard {
   id: string;
@@ -65,6 +66,7 @@ export interface DeckCard {
   distanceKm: number | null;
   interests: string[];
   sharedInterests: string[];
+  sharedCommunityGroups: string[];
   relationshipGoal: string | null;
   relationshipIntentBadges: string[];
   lifestyleBadges: string[];
@@ -338,6 +340,7 @@ export class DiscoveryService {
         complimentTarget: null,
         viewerInterests: currentUser.interests,
         viewerSchool: currentUser.school,
+        viewerCommunityGroupIds: currentUser.communityGroupIds,
         mutualConnectionCount: mutualConnectionCounts.get(candidate.id) ?? 0,
       }),
     );
@@ -493,6 +496,7 @@ export class DiscoveryService {
         complimentTarget: complimentBySwiperId.get(liker.id)?.target ?? null,
         viewerInterests: currentUser.interests,
         viewerSchool: currentUser.school,
+        viewerCommunityGroupIds: currentUser.communityGroupIds,
         mutualConnectionCount: mutualConnectionCounts.get(liker.id) ?? 0,
       }),
     );
@@ -563,6 +567,7 @@ export class DiscoveryService {
       messagesReceivedCount: number;
       messagesRepliedCount: number;
       passportEnabled: boolean;
+      communityGroupIds?: string[];
     },
     now: Date,
     origin: { latitude: number | null; longitude: number | null },
@@ -574,6 +579,7 @@ export class DiscoveryService {
       complimentTarget: string | null;
       viewerInterests: string[];
       viewerSchool: string | null;
+      viewerCommunityGroupIds?: string[];
       mutualConnectionCount: number;
     },
   ): DeckCard {
@@ -597,6 +603,10 @@ export class DiscoveryService {
       sharedInterests: candidate.interests.filter((interest) =>
         flags.viewerInterests.includes(interest),
       ),
+      sharedCommunityGroups: (candidate.communityGroupIds ?? [])
+        .filter((groupId) => (flags.viewerCommunityGroupIds ?? []).includes(groupId))
+        .map((groupId) => findCommunityGroup(groupId)?.name)
+        .filter((name): name is string => name != null),
       relationshipGoal: candidate.relationshipGoal,
       relationshipIntentBadges: this.buildRelationshipIntentBadges(candidate),
       lifestyleBadges: this.buildLifestyleBadges(candidate),
