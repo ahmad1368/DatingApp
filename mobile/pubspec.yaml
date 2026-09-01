@@ -60,6 +60,10 @@ dependencies:
   # Local audio playback, used to preview the recorded voice intro.
   audioplayers: ^6.1.0
 
+  # Local video playback, used to read a recorded clip's real duration and
+  # to preview recorded video prompt answers.
+  video_player: ^2.9.2
+
   # Resolves a writable directory to record the voice intro into.
   path_provider: ^2.1.4
 
