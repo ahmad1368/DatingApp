@@ -1,5 +1,9 @@
 import { PrismaService } from '../prisma/prisma.service';
-import { getMutualConnectionCounts, getMutualConnectionHiddenIds } from './social-graph.utils';
+import {
+  getDirectContactUserIds,
+  getMutualConnectionCounts,
+  getMutualConnectionHiddenIds,
+} from './social-graph.utils';
 
 const USER_ID = 'user-1';
 
@@ -94,5 +98,44 @@ describe('getMutualConnectionHiddenIds', () => {
       select: { id: true },
     });
     expect(ids).toEqual(['candidate-1']);
+  });
+});
+
+describe('getDirectContactUserIds', () => {
+  let prisma: { socialContact: { findMany: jest.Mock }; user: { findMany: jest.Mock } };
+
+  beforeEach(() => {
+    prisma = { socialContact: { findMany: jest.fn() }, user: { findMany: jest.fn() } };
+  });
+
+  it('returns an empty array and skips the user lookup when there are no synced contacts', async () => {
+    prisma.socialContact.findMany.mockResolvedValueOnce([]);
+
+    const ids = await getDirectContactUserIds(prisma as unknown as PrismaService, USER_ID);
+
+    expect(ids).toEqual([]);
+    expect(prisma.user.findMany).not.toHaveBeenCalled();
+  });
+
+  it('matches registered users by phone number or email directly, unconditionally', async () => {
+    prisma.socialContact.findMany.mockResolvedValueOnce([
+      { contactValue: 'sister@example.com' },
+      { contactValue: '+15551234567' },
+    ]);
+    prisma.user.findMany.mockResolvedValue([{ id: 'my-sister' }, { id: 'my-cousin' }]);
+
+    const ids = await getDirectContactUserIds(prisma as unknown as PrismaService, USER_ID);
+
+    expect(prisma.user.findMany).toHaveBeenCalledWith({
+      where: {
+        id: { not: USER_ID },
+        OR: [
+          { phoneNumber: { in: ['sister@example.com', '+15551234567'] } },
+          { email: { in: ['sister@example.com', '+15551234567'] } },
+        ],
+      },
+      select: { id: true },
+    });
+    expect(ids).toEqual(['my-sister', 'my-cousin']);
   });
 });

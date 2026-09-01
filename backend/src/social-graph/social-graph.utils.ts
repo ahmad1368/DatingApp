@@ -73,3 +73,36 @@ export async function getMutualConnectionHiddenIds(
   });
   return hidden.map((user) => user.id);
 }
+
+/**
+ * "Contact Book Auto-Exclusion": unlike [getMutualConnectionHiddenIds] (an
+ * opt-in toggle for people who merely share an acquaintance), this
+ * unconditionally keeps a user's own directly-synced contacts - people
+ * whose registered phoneNumber/email is literally in `userId`'s address
+ * book, i.e. already-known acquaintances/friends/family - out of their
+ * deck entirely. Applying this from each side independently (both users
+ * run this against their own contact list) suppresses visibility in both
+ * directions without needing the two accounts to agree on anything.
+ */
+export async function getDirectContactUserIds(
+  prisma: PrismaService,
+  userId: string,
+): Promise<string[]> {
+  const myContacts = await prisma.socialContact.findMany({
+    where: { userId },
+    select: { contactValue: true },
+  });
+  if (myContacts.length === 0) {
+    return [];
+  }
+
+  const contactValues = myContacts.map((contact) => contact.contactValue);
+  const matched = await prisma.user.findMany({
+    where: {
+      id: { not: userId },
+      OR: [{ phoneNumber: { in: contactValues } }, { email: { in: contactValues } }],
+    },
+    select: { id: true },
+  });
+  return matched.map((user) => user.id);
+}
