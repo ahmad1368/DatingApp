@@ -8,7 +8,11 @@ export class RecordSwipeDto {
   @IsIn(SWIPE_ACTIONS)
   action!: string;
 
-  /** A short pre-match compliment, e.g. praising a specific photo or prompt. */
+  /**
+   * A short pre-match compliment, e.g. praising a specific photo or prompt.
+   * Required on a SUPER_LIKE (or an icebreaker response given instead) - see
+   * DiscoveryService.recordSwipe.
+   */
   @IsOptional()
   @IsString()
   @Length(1, 200)

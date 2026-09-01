@@ -74,7 +74,7 @@ void main() {
           return _jsonResponse(
             '{"tokenBalance":90,"transaction":{"id":"gift-1",'
             '"gift":{"id":"rose","name":"Rose","emoji":"🌹","tokenCost":10},'
-            '"message":null,"createdAt":"2026-01-01T00:00:00.000Z",'
+            '"message":"For you!","createdAt":"2026-01-01T00:00:00.000Z",'
             '"otherUserId":"user-2","otherUserName":"Alex","otherUserPhotoUrl":null}}',
             201,
           );
@@ -86,7 +86,7 @@ void main() {
           }
           return _jsonResponse(
             '[{"id":"gift-1","gift":{"id":"rose","name":"Rose","emoji":"🌹","tokenCost":10},'
-            '"message":null,"createdAt":"2026-01-01T00:00:00.000Z",'
+            '"message":"For you!","createdAt":"2026-01-01T00:00:00.000Z",'
             '"otherUserId":"user-2","otherUserName":"Alex","otherUserPhotoUrl":null}]',
             200,
           );
@@ -98,14 +98,39 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: GiftingScreen(giftingApi: api)));
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextField), 'user-2');
+    await tester.enterText(find.byType(TextField).at(0), 'user-2');
+    await tester.enterText(find.byType(TextField).at(1), 'For you!');
     await tester.tap(find.widgetWithText(ActionChip, 'Rose (10)'));
     await tester.pumpAndSettle();
 
     expect(sendRequest, isNotNull);
-    expect(sendRequest!.body, '{"recipientId":"user-2","giftId":"rose"}');
+    expect(sendRequest!.body, '{"recipientId":"user-2","giftId":"rose","message":"For you!"}');
     expect(find.text('Token balance: 90'), findsOneWidget);
     expect(find.text('Sent 🌹 Rose!'), findsOneWidget);
     expect(find.text('Rose to Alex'), findsOneWidget);
+  });
+
+  testWidgets('shows an error when sending a rose with no message', (tester) async {
+    final api = GiftingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/gifting/catalog') {
+          return _jsonResponse(_catalogResponse, 200);
+        }
+        if (request.url.path == '/gifting/balance') {
+          return _jsonResponse('{"tokenBalance":100}', 200);
+        }
+        return _jsonResponse('[]', 200);
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: GiftingScreen(giftingApi: api)));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).at(0), 'user-2');
+    await tester.tap(find.widgetWithText(ActionChip, 'Rose (10)'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('A Rose needs a message attached.'), findsOneWidget);
   });
 }

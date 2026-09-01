@@ -491,25 +491,30 @@ export class DiscoveryService {
       }),
     );
 
+    let sorted: DeckCard[];
     if (sortBy === 'PROXIMITY') {
-      return [...cards].sort((a, b) => {
+      sorted = [...cards].sort((a, b) => {
         if (a.distanceKm == null) return 1;
         if (b.distanceKm == null) return -1;
         return a.distanceKm - b.distanceKm;
       });
-    }
-
-    if (sortBy === 'COMPATIBILITY') {
+    } else if (sortBy === 'COMPATIBILITY') {
       const scores = await Promise.all(
         cards.map((card) => this.matchingService.getCompatibility(userId, card.id)),
       );
       const percentageById = new Map(cards.map((card, index) => [card.id, scores[index].percentage]));
-      return [...cards].sort(
+      sorted = [...cards].sort(
         (a, b) => (percentageById.get(b.id) ?? -1) - (percentageById.get(a.id) ?? -1),
       );
+    } else {
+      sorted = cards;
     }
 
-    return cards;
+    // Super Likes now carry a mandatory note or icebreaker response (see
+    // recordSwipe) and are meant to stand out from the backlog - pin them to
+    // the top of the queue regardless of sort, keeping each group's relative
+    // order as the chosen sort produced it.
+    return [...sorted.filter((card) => card.isSuperLike), ...sorted.filter((card) => !card.isSuperLike)];
   }
 
   private toDeckCard(
@@ -774,6 +779,15 @@ export class DiscoveryService {
       if (!findIcebreakerPrompt(icebreakerPromptId)) {
         throw new BadRequestException('Unknown icebreaker prompt.');
       }
+    }
+
+    // A Super Like is meant to stand out at the top of the recipient's
+    // incoming queue (see getLikedByGrid) - require the attached note or
+    // prompt response that makes it worth surfacing prominently.
+    if (action === 'SUPER_LIKE' && !complimentText && icebreakerPromptId == null) {
+      throw new BadRequestException(
+        'A Super Like needs a note or a prompt-response icebreaker attached.',
+      );
     }
 
     const target = await this.prisma.user.findUnique({ where: { id: targetUserId } });

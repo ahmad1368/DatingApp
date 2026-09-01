@@ -16,6 +16,7 @@ class GiftingScreen extends StatefulWidget {
 
 class _GiftingScreenState extends State<GiftingScreen> {
   final _recipientController = TextEditingController();
+  final _messageController = TextEditingController();
   List<VirtualGift> _catalog = [];
   List<GiftTransaction> _received = [];
   List<GiftTransaction> _sent = [];
@@ -33,6 +34,7 @@ class _GiftingScreenState extends State<GiftingScreen> {
   @override
   void dispose() {
     _recipientController.dispose();
+    _messageController.dispose();
     super.dispose();
   }
 
@@ -70,6 +72,14 @@ class _GiftingScreenState extends State<GiftingScreen> {
       return;
     }
 
+    final message = _messageController.text.trim();
+    // A Rose doubles as a "priority like with a note" - the server rejects
+    // one with no message attached (see GiftingService.sendGift).
+    if (gift.id == 'rose' && message.isEmpty) {
+      setState(() => _errorText = 'A Rose needs a message attached.');
+      return;
+    }
+
     setState(() {
       _errorText = null;
       _statusText = null;
@@ -78,10 +88,12 @@ class _GiftingScreenState extends State<GiftingScreen> {
       final newBalance = await widget.giftingApi.sendGift(
         recipientId: recipientId,
         giftId: gift.id,
+        message: message.isEmpty ? null : message,
       );
       setState(() {
         _tokenBalance = newBalance;
         _statusText = 'Sent ${gift.emoji} ${gift.name}!';
+        _messageController.clear();
       });
       final sent = await widget.giftingApi.fetchSentGifts();
       setState(() => _sent = sent);
@@ -104,6 +116,15 @@ class _GiftingScreenState extends State<GiftingScreen> {
                 TextField(
                   controller: _recipientController,
                   decoration: const InputDecoration(labelText: 'Send to (user ID)'),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _messageController,
+                  maxLength: 200,
+                  decoration: const InputDecoration(
+                    labelText: 'Message',
+                    hintText: 'Required for a Rose, optional otherwise',
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Wrap(

@@ -2230,6 +2230,33 @@ describe('DiscoveryService', () => {
       expect(prisma.swipe.create).not.toHaveBeenCalled();
     });
 
+    it('rejects a super like with no note or icebreaker response attached', async () => {
+      await expect(service.recordSwipe(USER_ID, TARGET_ID, 'SUPER_LIKE')).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(prisma.swipe.create).not.toHaveBeenCalled();
+    });
+
+    it('allows a super like with only an icebreaker response attached, no compliment text', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: TARGET_ID });
+      prisma.swipe.findUnique.mockResolvedValueOnce(null);
+      prisma.swipe.count.mockResolvedValue(0);
+      prisma.swipe.create.mockResolvedValue({});
+
+      const result = await service.recordSwipe(
+        USER_ID,
+        TARGET_ID,
+        'SUPER_LIKE',
+        undefined,
+        undefined,
+        'coffee-or-tea',
+        0,
+      );
+
+      expect(result).toEqual({ matched: false });
+      expect(prisma.swipe.create).toHaveBeenCalled();
+    });
+
     it('rejects attaching a pass reason to a LIKE', async () => {
       await expect(
         service.recordSwipe(
@@ -2500,9 +2527,9 @@ describe('DiscoveryService', () => {
       prisma.swipe.findUnique.mockResolvedValueOnce(null);
       prisma.swipe.count.mockResolvedValue(1);
 
-      await expect(service.recordSwipe(USER_ID, TARGET_ID, 'SUPER_LIKE')).rejects.toBeInstanceOf(
-        BadRequestException,
-      );
+      await expect(
+        service.recordSwipe(USER_ID, TARGET_ID, 'SUPER_LIKE', 'Loved your profile!'),
+      ).rejects.toBeInstanceOf(BadRequestException);
       expect(prisma.swipe.create).not.toHaveBeenCalled();
     });
 
@@ -2515,7 +2542,7 @@ describe('DiscoveryService', () => {
       prisma.swipe.create.mockResolvedValue({});
       prisma.user.update.mockResolvedValue({});
 
-      const result = await service.recordSwipe(USER_ID, TARGET_ID, 'SUPER_LIKE');
+      const result = await service.recordSwipe(USER_ID, TARGET_ID, 'SUPER_LIKE', 'Loved your profile!');
 
       expect(prisma.user.update).toHaveBeenCalledWith({
         where: { id: USER_ID },
@@ -2533,14 +2560,14 @@ describe('DiscoveryService', () => {
       prisma.swipe.create.mockResolvedValue({});
       prisma.match.create.mockResolvedValue({ id: 'match-1' });
 
-      const result = await service.recordSwipe(USER_ID, TARGET_ID, 'SUPER_LIKE');
+      const result = await service.recordSwipe(USER_ID, TARGET_ID, 'SUPER_LIKE', 'Loved your profile!');
 
       expect(prisma.swipe.create).toHaveBeenCalledWith({
         data: {
           swiperId: USER_ID,
           targetUserId: TARGET_ID,
           action: 'SUPER_LIKE',
-          complimentText: null,
+          complimentText: 'Loved your profile!',
           complimentTarget: null,
           icebreakerPromptId: null,
           icebreakerOptionIndex: null,
@@ -2739,7 +2766,7 @@ describe('DiscoveryService', () => {
         prisma.swipe.create.mockResolvedValue({});
         prisma.boost.findFirst.mockResolvedValue(null);
 
-        const result = await service.recordSwipe(USER_ID, TARGET_ID, 'SUPER_LIKE');
+        const result = await service.recordSwipe(USER_ID, TARGET_ID, 'SUPER_LIKE', 'Loved your profile!');
 
         expect(prisma.user.update).not.toHaveBeenCalled();
         expect(prisma.swipe.create).toHaveBeenCalled();
@@ -2754,9 +2781,9 @@ describe('DiscoveryService', () => {
         prisma.swipe.findUnique.mockResolvedValueOnce(null);
         prisma.swipe.count.mockResolvedValue(3); // at the happy-hour-extended limit (1 + 2 bonus)
 
-        await expect(service.recordSwipe(USER_ID, TARGET_ID, 'SUPER_LIKE')).rejects.toBeInstanceOf(
-          BadRequestException,
-        );
+        await expect(
+          service.recordSwipe(USER_ID, TARGET_ID, 'SUPER_LIKE', 'Loved your profile!'),
+        ).rejects.toBeInstanceOf(BadRequestException);
         expect(prisma.swipe.create).not.toHaveBeenCalled();
       });
     });
@@ -3204,6 +3231,40 @@ describe('DiscoveryService', () => {
       expect(grid[1].isSuperLike).toBe(false);
       expect(grid[1].complimentText).toBe('Love your hiking photo!');
       expect(grid[1].complimentTarget).toBe('your hiking photo');
+    });
+
+    it('pins a super like to the top of the grid even when it is not the most recent like', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        isPremium: true,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+      });
+      prisma.swipe.findMany
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([
+          { swiperId: 'liker-recent', action: 'LIKE', complimentText: null, complimentTarget: null },
+          {
+            swiperId: 'liker-older-super',
+            action: 'SUPER_LIKE',
+            complimentText: 'Loved your profile!',
+            complimentTarget: null,
+          },
+        ]); // most recent first - the super like is older
+      prisma.user.findMany.mockResolvedValue([
+        { id: 'liker-recent', name: 'Alex', dateOfBirth: null, profilePhotoUrl: null, interests: [], relationshipGoal: null },
+        { id: 'liker-older-super', name: 'Sam', dateOfBirth: null, profilePhotoUrl: null, interests: [], relationshipGoal: null },
+      ]);
+
+      const grid = await service.getLikedByGrid(USER_ID);
+
+      expect(grid.map((card) => card.id)).toEqual(['liker-older-super', 'liker-recent']);
+      expect(grid[0].isSuperLike).toBe(true);
     });
 
     it('returns an empty grid without querying users when nobody has liked the user', async () => {
