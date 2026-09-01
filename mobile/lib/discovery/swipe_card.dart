@@ -332,6 +332,22 @@ class _CardContent extends StatelessWidget {
                   ],
                 ),
               ],
+              if (card.linkedPartners.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    for (final partner in card.linkedPartners)
+                      Chip(
+                        avatar: const Icon(Icons.favorite, size: 16),
+                        label: Text('Linked with ${partner.partnerName ?? 'a partner'}'),
+                        backgroundColor: Colors.pink.shade100,
+                        visualDensity: VisualDensity.compact,
+                      ),
+                  ],
+                ),
+              ],
               if (card.zodiacSign != null) ...[
                 const SizedBox(height: 8),
                 Chip(

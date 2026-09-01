@@ -23,7 +23,7 @@ describe('DiscoveryService', () => {
       delete: jest.Mock;
     };
     match: { create: jest.Mock; findUnique: jest.Mock; delete: jest.Mock };
-    partnerLink: { findFirst: jest.Mock };
+    partnerLink: { findFirst: jest.Mock; findMany: jest.Mock };
     boost: { findFirst: jest.Mock; findMany: jest.Mock; create: jest.Mock; updateMany: jest.Mock };
     blockedContact: { findMany: jest.Mock };
     socialContact: { findMany: jest.Mock };
@@ -47,7 +47,7 @@ describe('DiscoveryService', () => {
         delete: jest.fn(),
       },
       match: { create: jest.fn(), findUnique: jest.fn(), delete: jest.fn() },
-      partnerLink: { findFirst: jest.fn() },
+      partnerLink: { findFirst: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
       boost: {
         findFirst: jest.fn(),
         findMany: jest.fn().mockResolvedValue([]),
@@ -1738,6 +1738,53 @@ describe('DiscoveryService', () => {
       const deck = await service.getDeck(USER_ID);
 
       expect(deck[0].sharedCommunityGroups).toEqual([]);
+    });
+
+    it('shows a candidate\'s confirmed partner link as a visible badge', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+      });
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      prisma.user.findMany
+        .mockResolvedValueOnce([
+          { id: TARGET_ID, name: 'Jane', dateOfBirth: null, profilePhotoUrl: null, interests: [], relationshipGoal: 'CASUAL' },
+        ])
+        .mockResolvedValueOnce([{ id: 'partner-1', name: 'Alex' }]);
+      prisma.partnerLink.findMany.mockResolvedValueOnce([
+        { id: 'link-1', userAId: TARGET_ID, userBId: 'partner-1', jointBrowsingEnabled: false },
+      ]);
+
+      const deck = await service.getDeck(USER_ID);
+
+      expect(deck[0].linkedPartners).toEqual([{ partnerId: 'partner-1', partnerName: 'Alex' }]);
+    });
+
+    it('defaults linkedPartners to empty when a candidate has no confirmed partner link', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+      });
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      prisma.user.findMany.mockResolvedValue([
+        { id: TARGET_ID, name: 'Jane', dateOfBirth: null, profilePhotoUrl: null, interests: [], relationshipGoal: 'CASUAL' },
+      ]);
+
+      const deck = await service.getDeck(USER_ID);
+
+      expect(deck[0].linkedPartners).toEqual([]);
     });
 
     it('ranks the remaining candidate pool closer-first when no one has recent engagement', async () => {

@@ -382,6 +382,27 @@ void main() {
       expect(deck.first.sharedCommunityGroups, ['Gamers']);
     });
 
+    test('parses linkedPartners when the backend includes them', () async {
+      final api = DiscoveryApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response(
+            '[{"id":"user-2","name":"Jane","age":25,"profilePhotoUrl":null,'
+            '"distanceKm":3.4,"interests":[],"relationshipGoal":"CASUAL",'
+            '"linkedPartners":[{"partnerId":"partner-1","partnerName":"Alex"}]}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      final deck = await api.fetchDeck();
+
+      expect(deck.first.linkedPartners, hasLength(1));
+      expect(deck.first.linkedPartners.first.partnerId, 'partner-1');
+      expect(deck.first.linkedPartners.first.partnerName, 'Alex');
+    });
+
     test('throws DiscoveryApiException on a non-200 response', () async {
       final api = DiscoveryApi(
         accessToken: 'a-jwt',

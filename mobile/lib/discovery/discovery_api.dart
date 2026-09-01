@@ -11,6 +11,16 @@ class DiscoveryApiException implements Exception {
   String toString() => message;
 }
 
+/// A confirmed partner link ("Ethical Non-Monogamy & Poly Partner Linking")
+/// shown as a visible, navigable reference to the linked account on the
+/// candidate's card.
+class LinkedPartnerBadge {
+  LinkedPartnerBadge({required this.partnerId, this.partnerName});
+
+  final String partnerId;
+  final String? partnerName;
+}
+
 class DeckCard {
   DeckCard({
     required this.id,
@@ -23,6 +33,7 @@ class DeckCard {
     required this.interests,
     this.sharedInterests = const [],
     this.sharedCommunityGroups = const [],
+    this.linkedPartners = const [],
     this.relationshipGoal,
     this.relationshipIntentBadges = const [],
     this.lifestyleBadges = const [],
@@ -56,6 +67,7 @@ class DeckCard {
   final List<String> interests;
   final List<String> sharedInterests;
   final List<String> sharedCommunityGroups;
+  final List<LinkedPartnerBadge> linkedPartners;
   final String? relationshipGoal;
   final List<String> relationshipIntentBadges;
   final List<String> lifestyleBadges;
@@ -232,6 +244,15 @@ class DiscoveryApi {
       interests: (json['interests'] as List).cast<String>(),
       sharedInterests: (json['sharedInterests'] as List?)?.cast<String>() ?? const [],
       sharedCommunityGroups: (json['sharedCommunityGroups'] as List?)?.cast<String>() ?? const [],
+      linkedPartners: (json['linkedPartners'] as List?)
+              ?.map(
+                (item) => LinkedPartnerBadge(
+                  partnerId: (item as Map<String, dynamic>)['partnerId'] as String,
+                  partnerName: item['partnerName'] as String?,
+                ),
+              )
+              .toList() ??
+          const [],
       relationshipGoal: json['relationshipGoal'] as String?,
       relationshipIntentBadges:
           (json['relationshipIntentBadges'] as List?)?.cast<String>() ?? const [],
