@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'parallax_photo_view.dart';
 import 'profile_photo_picker_controller.dart';
 import 'profile_photos_api.dart';
 
@@ -129,6 +130,12 @@ class _ProfilePhotosScreenState extends State<ProfilePhotosScreen> {
     if (photoToDelete != null) {
       await _deletePhoto(photoToDelete);
     }
+  }
+
+  void _previewParallax(ProfilePhoto photo) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (context) => _ParallaxPreviewScreen(photo: photo)),
+    );
   }
 
   /// Opens a dialog to add, edit, or clear a photo's caption. Saving an
@@ -270,6 +277,11 @@ class _ProfilePhotosScreenState extends State<ProfilePhotosScreen> {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   IconButton(
+                                    icon: const Icon(Icons.view_in_ar),
+                                    tooltip: 'Preview 3D parallax effect',
+                                    onPressed: () => _previewParallax(photo),
+                                  ),
+                                  IconButton(
                                     icon: const Icon(Icons.edit_note),
                                     tooltip: 'Edit caption',
                                     onPressed: () => _editCaption(photo),
@@ -340,6 +352,31 @@ class _CurationSuggestionsDialog extends StatelessWidget {
           child: const Text('Close'),
         ),
       ],
+    );
+  }
+}
+
+/// Full-screen tilt-to-preview for the 3D parallax effect (see
+/// ParallaxPhotoView) on one photo, so the owner can check how it looks
+/// before it appears to prospective matches.
+class _ParallaxPreviewScreen extends StatelessWidget {
+  const _ParallaxPreviewScreen({required this.photo});
+
+  final ProfilePhoto photo;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        title: const Text('Tilt your phone to preview'),
+      ),
+      body: ParallaxPhotoView(
+        imageUrl: photo.mediaUrl,
+        focalX: photo.cropFocalX,
+        focalY: photo.cropFocalY,
+      ),
     );
   }
 }

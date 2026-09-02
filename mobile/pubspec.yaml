@@ -67,6 +67,10 @@ dependencies:
   # Resolves a writable directory to record the voice intro into.
   path_provider: ^2.1.4
 
+  # Device gyroscope/accelerometer, used to drive the tilt-based 3D
+  # parallax effect on profile photos.
+  sensors_plus: ^6.0.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
