@@ -154,10 +154,6 @@
   ],
   "queue": [
     {
-      "number": 356,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
-    {
       "number": 357,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
     },
