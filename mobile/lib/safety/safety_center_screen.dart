@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 
+import '../messaging/messaging_api.dart';
 import 'safety_api.dart';
 
 const _reportReasons = [
@@ -40,15 +41,19 @@ Future<Coordinates> _defaultCurrentPositionProvider() async {
 
 /// A dedicated safety hub: educational resources, date check-in scheduling
 /// with emergency-contact details, a reusable emergency-contact list, a
-/// quick-trigger SOS button, and a direct user-reporting channel.
+/// quick-trigger SOS button, a direct user-reporting channel, and - when
+/// [messagingApi] is supplied - one-tap blocking of an existing match
+/// without needing to open that match's chat first.
 class SafetyCenterScreen extends StatefulWidget {
   const SafetyCenterScreen({
     super.key,
     required this.safetyApi,
+    this.messagingApi,
     this.currentPositionProvider = _defaultCurrentPositionProvider,
   });
 
   final SafetyApi safetyApi;
+  final MessagingApi? messagingApi;
   final Future<Coordinates> Function() currentPositionProvider;
 
   @override
@@ -57,8 +62,10 @@ class SafetyCenterScreen extends StatefulWidget {
 
 class _SafetyCenterScreenState extends State<SafetyCenterScreen> {
   List<SafetyResource> _resources = [];
+  List<EmergencyHotline> _hotlines = [];
   List<CheckIn> _checkIns = [];
   List<EmergencyContact> _contacts = [];
+  List<MatchSummary> _matches = [];
   bool _isLoading = true;
   bool _isSendingSos = false;
   bool _isSharingLocation = false;
@@ -79,13 +86,15 @@ class _SafetyCenterScreenState extends State<SafetyCenterScreen> {
     try {
       final results = await Future.wait([
         widget.safetyApi.fetchResources(),
+        widget.safetyApi.fetchEmergencyHotlines(),
         widget.safetyApi.fetchCheckIns(),
         widget.safetyApi.fetchEmergencyContacts(),
       ]);
       setState(() {
         _resources = results[0] as List<SafetyResource>;
-        _checkIns = results[1] as List<CheckIn>;
-        _contacts = results[2] as List<EmergencyContact>;
+        _hotlines = results[1] as List<EmergencyHotline>;
+        _checkIns = results[2] as List<CheckIn>;
+        _contacts = results[3] as List<EmergencyContact>;
       });
     } on SafetyApiException catch (e) {
       setState(() => _errorText = e.message);
@@ -93,6 +102,40 @@ class _SafetyCenterScreenState extends State<SafetyCenterScreen> {
       if (mounted) {
         setState(() => _isLoading = false);
       }
+    }
+
+    final messagingApi = widget.messagingApi;
+    if (messagingApi != null) {
+      try {
+        final matches = await messagingApi.fetchMyMatches();
+        if (mounted) {
+          setState(() => _matches = matches);
+        }
+      } on MessagingApiException {
+        // Non-critical: the rest of the safety center still works without
+        // the quick-block match list.
+      }
+    }
+  }
+
+  /// One-tap block of an existing match, right from the safety center -
+  /// unmatching is this app's stand-in for blocking (see MessagingApi.
+  /// unmatch's doc comment), tagged as a safety-driven block so it's
+  /// distinguishable in moderation monitoring from a routine unmatch.
+  Future<void> _blockMatch(MatchSummary match) async {
+    final messagingApi = widget.messagingApi;
+    if (messagingApi == null) {
+      return;
+    }
+    setState(() => _errorText = null);
+    try {
+      await messagingApi.unmatch(match.matchId, reason: 'Safety concern');
+      setState(() {
+        _matches = _matches.where((existing) => existing.matchId != match.matchId).toList();
+        _statusText = '${match.otherUserName ?? 'This match'} has been blocked.';
+      });
+    } on MessagingApiException catch (e) {
+      setState(() => _errorText = e.message);
     }
   }
 
@@ -487,6 +530,19 @@ class _SafetyCenterScreenState extends State<SafetyCenterScreen> {
                       onPressed: () => _deleteEmergencyContact(contact),
                     ),
                   ),
+                if (widget.messagingApi != null) ...[
+                  const SizedBox(height: 24),
+                  const Text('Block a Match', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  if (_matches.isEmpty) const Text('No active matches.'),
+                  for (final match in _matches)
+                    ListTile(
+                      title: Text(match.otherUserName ?? 'Someone new'),
+                      trailing: TextButton(
+                        onPressed: () => _blockMatch(match),
+                        child: const Text('Block'),
+                      ),
+                    ),
+                ],
                 const SizedBox(height: 24),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -512,6 +568,17 @@ class _SafetyCenterScreenState extends State<SafetyCenterScreen> {
                   ListTile(
                     title: Text(resource.title),
                     subtitle: Text(resource.summary),
+                  ),
+                const SizedBox(height: 24),
+                const Text(
+                  'Crisis Support Hotlines',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                for (final hotline in _hotlines)
+                  ListTile(
+                    title: Text(hotline.name),
+                    subtitle: Text('${hotline.phoneNumber}\n${hotline.description}'),
+                    isThreeLine: true,
                   ),
               ],
             ),

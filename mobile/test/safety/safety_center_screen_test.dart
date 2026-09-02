@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+import 'package:mobile/messaging/messaging_api.dart';
 import 'package:mobile/safety/safety_api.dart';
 import 'package:mobile/safety/safety_center_screen.dart';
 
@@ -31,11 +32,36 @@ void main() {
     expect(find.text('No check-ins scheduled.'), findsOneWidget);
   });
 
+  testWidgets('shows crisis support hotlines', (tester) async {
+    final api = SafetyApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/safety/hotlines') {
+          return _jsonResponse(
+            '[{"id":"988","name":"988 Suicide & Crisis Lifeline","phoneNumber":"988",'
+            '"description":"24/7 crisis support."}]',
+            200,
+          );
+        }
+        return _jsonResponse('[]', 200);
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: SafetyCenterScreen(safetyApi: api)));
+    await tester.pumpAndSettle();
+
+    expect(find.text('988 Suicide & Crisis Lifeline'), findsOneWidget);
+    expect(find.textContaining('988\n24/7 crisis support.'), findsOneWidget);
+  });
+
   testWidgets('shows an existing check-in with its status', (tester) async {
     final api = SafetyApi(
       accessToken: 'a-jwt',
       client: MockClient((request) async {
         if (request.url.path == '/safety/resources') {
+          return _jsonResponse('[]', 200);
+        }
+        if (request.url.path == '/safety/hotlines') {
           return _jsonResponse('[]', 200);
         }
         if (request.url.path == '/safety/emergency-contacts') {
@@ -63,6 +89,9 @@ void main() {
       accessToken: 'a-jwt',
       client: MockClient((request) async {
         if (request.url.path == '/safety/resources') {
+          return _jsonResponse('[]', 200);
+        }
+        if (request.url.path == '/safety/hotlines') {
           return _jsonResponse('[]', 200);
         }
         if (request.method == 'PUT' && request.url.path.endsWith('/confirm')) {
@@ -105,6 +134,9 @@ void main() {
         if (request.url.path == '/safety/resources') {
           return _jsonResponse('[]', 200);
         }
+        if (request.url.path == '/safety/hotlines') {
+          return _jsonResponse('[]', 200);
+        }
         if (request.method == 'POST' && request.url.path.endsWith('/share-link')) {
           shareRequest = request;
           return _jsonResponse('{"shareToken":"abc123"}', 201);
@@ -142,6 +174,9 @@ void main() {
         if (request.url.path == '/safety/resources') {
           return _jsonResponse('[]', 200);
         }
+        if (request.url.path == '/safety/hotlines') {
+          return _jsonResponse('[]', 200);
+        }
         if (request.method == 'POST' && request.url.path == '/safety/check-ins') {
           createRequest = request;
           return _jsonResponse(
@@ -177,6 +212,9 @@ void main() {
       accessToken: 'a-jwt',
       client: MockClient((request) async {
         if (request.url.path == '/safety/resources') {
+          return _jsonResponse('[]', 200);
+        }
+        if (request.url.path == '/safety/hotlines') {
           return _jsonResponse('[]', 200);
         }
         if (request.method == 'POST' && request.url.path == '/safety/check-ins') {
@@ -220,6 +258,9 @@ void main() {
         if (request.url.path == '/safety/resources') {
           return _jsonResponse('[]', 200);
         }
+        if (request.url.path == '/safety/hotlines') {
+          return _jsonResponse('[]', 200);
+        }
         if (request.url.path == '/safety/emergency-contacts') {
           return _jsonResponse('[]', 200);
         }
@@ -244,6 +285,9 @@ void main() {
       accessToken: 'a-jwt',
       client: MockClient((request) async {
         if (request.url.path == '/safety/resources') {
+          return _jsonResponse('[]', 200);
+        }
+        if (request.url.path == '/safety/hotlines') {
           return _jsonResponse('[]', 200);
         }
         if (request.method == 'POST' && request.url.path == '/safety/reports') {
@@ -275,6 +319,9 @@ void main() {
       accessToken: 'a-jwt',
       client: MockClient((request) async {
         if (request.url.path == '/safety/resources') {
+          return _jsonResponse('[]', 200);
+        }
+        if (request.url.path == '/safety/hotlines') {
           return _jsonResponse('[]', 200);
         }
         if (request.method == 'POST' && request.url.path == '/safety/emergency-contacts') {
@@ -315,6 +362,9 @@ void main() {
         if (request.url.path == '/safety/resources') {
           return _jsonResponse('[]', 200);
         }
+        if (request.url.path == '/safety/hotlines') {
+          return _jsonResponse('[]', 200);
+        }
         if (request.method == 'DELETE') {
           deleteRequest = request;
           return http.Response('', 200);
@@ -343,6 +393,9 @@ void main() {
       accessToken: 'a-jwt',
       client: MockClient((request) async {
         if (request.url.path == '/safety/resources') {
+          return _jsonResponse('[]', 200);
+        }
+        if (request.url.path == '/safety/hotlines') {
           return _jsonResponse('[]', 200);
         }
         if (request.method == 'POST' && request.url.path == '/safety/sos') {
@@ -382,6 +435,9 @@ void main() {
         if (request.url.path == '/safety/resources') {
           return _jsonResponse('[]', 200);
         }
+        if (request.url.path == '/safety/hotlines') {
+          return _jsonResponse('[]', 200);
+        }
         if (request.method == 'POST' && request.url.path == '/safety/sos') {
           return _jsonResponse(
             '{"message":"Add at least one emergency contact before triggering SOS."}',
@@ -417,6 +473,9 @@ void main() {
       accessToken: 'a-jwt',
       client: MockClient((request) async {
         if (request.url.path == '/safety/resources') {
+          return _jsonResponse('[]', 200);
+        }
+        if (request.url.path == '/safety/hotlines') {
           return _jsonResponse('[]', 200);
         }
         if (request.method == 'POST' && request.url.path == '/safety/date-location-share') {
@@ -463,6 +522,9 @@ void main() {
         if (request.url.path == '/safety/resources') {
           return _jsonResponse('[]', 200);
         }
+        if (request.url.path == '/safety/hotlines') {
+          return _jsonResponse('[]', 200);
+        }
         if (request.method == 'POST' && request.url.path == '/safety/date-location-share') {
           return _jsonResponse(
             '{"message":"Add at least one emergency contact before sharing your location."}',
@@ -492,5 +554,56 @@ void main() {
       find.text('Add at least one emergency contact before sharing your location.'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('blocking a match from the safety center unmatches it and removes it from the list', (tester) async {
+    final api = SafetyApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async => _jsonResponse('[]', 200)),
+    );
+    http.Request? unmatchRequest;
+    final messagingApi = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.method == 'POST' && request.url.path == '/matches/match-1/unmatch') {
+          unmatchRequest = request;
+          return _jsonResponse('{"unmatched":true}', 200);
+        }
+        return _jsonResponse(
+          '[{"matchId":"match-1","otherUserId":"user-2","otherUserName":"Jane",'
+          '"otherUserPhotoUrl":null,"expiresAt":null,"firstMessageSent":true,'
+          '"createdAt":"2026-01-01T00:00:00.000Z"}]',
+          200,
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(home: SafetyCenterScreen(safetyApi: api, messagingApi: messagingApi)),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Block a Match'), findsOneWidget);
+    expect(find.text('Jane'), findsOneWidget);
+
+    await tester.tap(find.text('Block'));
+    await tester.pumpAndSettle();
+
+    expect(unmatchRequest, isNotNull);
+    expect(unmatchRequest!.body, '{"reason":"Safety concern"}');
+    expect(find.text('Jane'), findsNothing);
+    expect(find.text('Jane has been blocked.'), findsOneWidget);
+  });
+
+  testWidgets('does not show the block-a-match section without a messagingApi', (tester) async {
+    final api = SafetyApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async => _jsonResponse('[]', 200)),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: SafetyCenterScreen(safetyApi: api)));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Block a Match'), findsNothing);
   });
 }
