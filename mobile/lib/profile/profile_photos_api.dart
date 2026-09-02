@@ -22,6 +22,7 @@ class ProfilePhoto {
     required this.qualityScore,
     required this.cropFocalX,
     required this.cropFocalY,
+    required this.brightnessAdjustment,
     this.caption,
   });
 
@@ -39,6 +40,11 @@ class ProfilePhoto {
   /// any container aspect ratio via `alignment:`.
   final double cropFocalX;
   final double cropFocalY;
+
+  /// AI-suggested exposure fix in percentage points (-30..+30), negative
+  /// meaning "darken" and positive "brighten"; 0 means already well-exposed.
+  /// Actually adjusting the image is left to the client.
+  final int brightnessAdjustment;
 
   /// User-written context or humor caption shown under this photo, null
   /// until set - see ProfilePhotosApi.setPhotoCaption.
@@ -238,6 +244,7 @@ class ProfilePhotosApi {
       qualityScore: json['qualityScore'] as int,
       cropFocalX: (json['cropFocalX'] as num).toDouble(),
       cropFocalY: (json['cropFocalY'] as num).toDouble(),
+      brightnessAdjustment: json['brightnessAdjustment'] as int,
       caption: json['caption'] as String?,
     );
   }

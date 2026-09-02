@@ -48,7 +48,7 @@ void main() {
         return http.Response(
           '[{"id":"photo-1","mediaUrl":"https://example.com/a.jpg","isLead":true,'
           '"impressions":10,"rightSwipes":4,"conversionRate":0.4,"qualityScore":39,'
-          '"cropFocalX":0.5,"cropFocalY":0.35}]',
+          '"cropFocalX":0.5,"cropFocalY":0.35,"brightnessAdjustment":0}]',
           200,
           headers: {'content-type': 'application/json'},
         );
@@ -68,6 +68,29 @@ void main() {
     expect(alignment.y, closeTo(-0.3, 0.0001));
   });
 
+  testWidgets('shows the suggested brightness adjustment when non-zero', (tester) async {
+    final api = ProfilePhotosApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/profile-photos/blur-until-match') {
+          return _blurResponse();
+        }
+        return http.Response(
+          '[{"id":"photo-1","mediaUrl":"https://example.com/a.jpg","isLead":true,'
+          '"impressions":0,"rightSwipes":0,"conversionRate":null,"qualityScore":39,'
+          '"cropFocalX":0.5,"cropFocalY":0.35,"brightnessAdjustment":12}]',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: ProfilePhotosScreen(profilePhotosApi: api)));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Suggest 12% brighter'), findsOneWidget);
+  });
+
   testWidgets('adding a photo picks and uploads it', (tester) async {
     http.Request? addRequest;
     var fetchCount = 0;
@@ -82,7 +105,7 @@ void main() {
           return http.Response(
             '{"id":"photo-1","mediaUrl":"file:///tmp/photo.jpg","isLead":true,'
             '"impressions":0,"rightSwipes":0,"conversionRate":null,"qualityScore":39,'
-            '"cropFocalX":0.5,"cropFocalY":0.35}',
+            '"cropFocalX":0.5,"cropFocalY":0.35,"brightnessAdjustment":0}',
             201,
             headers: {'content-type': 'application/json'},
           );
@@ -92,7 +115,7 @@ void main() {
             ? '[]'
             : '[{"id":"photo-1","mediaUrl":"file:///tmp/photo.jpg","isLead":true,'
                 '"impressions":0,"rightSwipes":0,"conversionRate":null,"qualityScore":39,'
-                '"cropFocalX":0.5,"cropFocalY":0.35}]';
+                '"cropFocalX":0.5,"cropFocalY":0.35,"brightnessAdjustment":0}]';
         return http.Response(body, 200, headers: {'content-type': 'application/json'});
       }),
     );
@@ -125,7 +148,7 @@ void main() {
         return http.Response(
           '[{"id":"photo-1","mediaUrl":"https://example.com/a.jpg","isLead":true,'
           '"impressions":0,"rightSwipes":0,"conversionRate":null,"qualityScore":39,'
-          '"cropFocalX":0.5,"cropFocalY":0.35}]',
+          '"cropFocalX":0.5,"cropFocalY":0.35,"brightnessAdjustment":0}]',
           200,
           headers: {'content-type': 'application/json'},
         );
@@ -156,7 +179,7 @@ void main() {
           return http.Response(
             '{"id":"photo-1","mediaUrl":"https://example.com/a.jpg","isLead":true,'
             '"impressions":0,"rightSwipes":0,"conversionRate":null,"qualityScore":39,'
-            '"cropFocalX":0.5,"cropFocalY":0.35,"caption":"Hiking last summer"}',
+            '"cropFocalX":0.5,"cropFocalY":0.35,"brightnessAdjustment":0,"caption":"Hiking last summer"}',
             200,
             headers: {'content-type': 'application/json'},
           );
@@ -164,7 +187,7 @@ void main() {
         return http.Response(
           '[{"id":"photo-1","mediaUrl":"https://example.com/a.jpg","isLead":true,'
           '"impressions":0,"rightSwipes":0,"conversionRate":null,"qualityScore":39,'
-          '"cropFocalX":0.5,"cropFocalY":0.35}]',
+          '"cropFocalX":0.5,"cropFocalY":0.35,"brightnessAdjustment":0}]',
           200,
           headers: {'content-type': 'application/json'},
         );
@@ -196,7 +219,7 @@ void main() {
         return http.Response(
           '[{"id":"photo-1","mediaUrl":"https://example.com/a.jpg","isLead":true,'
           '"impressions":0,"rightSwipes":0,"conversionRate":null,"qualityScore":39,'
-          '"cropFocalX":0.5,"cropFocalY":0.35}]',
+          '"cropFocalX":0.5,"cropFocalY":0.35,"brightnessAdjustment":0}]',
           200,
           headers: {'content-type': 'application/json'},
         );
@@ -226,10 +249,10 @@ void main() {
           return http.Response(
             '[{"id":"photo-2","mediaUrl":"https://example.com/b.jpg","isLead":true,'
             '"impressions":0,"rightSwipes":0,"conversionRate":null,"qualityScore":98,'
-            '"cropFocalX":0.4,"cropFocalY":0.3},'
+            '"cropFocalX":0.4,"cropFocalY":0.3,"brightnessAdjustment":0},'
             '{"id":"photo-1","mediaUrl":"https://example.com/a.jpg","isLead":false,'
             '"impressions":10,"rightSwipes":4,"conversionRate":0.4,"qualityScore":39,'
-            '"cropFocalX":0.5,"cropFocalY":0.35}]',
+            '"cropFocalX":0.5,"cropFocalY":0.35,"brightnessAdjustment":0}]',
             200,
             headers: {'content-type': 'application/json'},
           );
@@ -237,10 +260,10 @@ void main() {
         return http.Response(
           '[{"id":"photo-1","mediaUrl":"https://example.com/a.jpg","isLead":true,'
           '"impressions":10,"rightSwipes":4,"conversionRate":0.4,"qualityScore":39,'
-          '"cropFocalX":0.5,"cropFocalY":0.35},'
+          '"cropFocalX":0.5,"cropFocalY":0.35,"brightnessAdjustment":0},'
           '{"id":"photo-2","mediaUrl":"https://example.com/b.jpg","isLead":false,'
           '"impressions":0,"rightSwipes":0,"conversionRate":null,"qualityScore":98,'
-          '"cropFocalX":0.4,"cropFocalY":0.3}]',
+          '"cropFocalX":0.4,"cropFocalY":0.3,"brightnessAdjustment":0}]',
           200,
           headers: {'content-type': 'application/json'},
         );
@@ -280,7 +303,7 @@ void main() {
         return http.Response(
           '[{"id":"photo-1","mediaUrl":"https://example.com/a.jpg","isLead":true,'
           '"impressions":0,"rightSwipes":0,"conversionRate":null,"qualityScore":10,'
-          '"cropFocalX":0.5,"cropFocalY":0.35}]',
+          '"cropFocalX":0.5,"cropFocalY":0.35,"brightnessAdjustment":0}]',
           200,
           headers: {'content-type': 'application/json'},
         );
@@ -321,7 +344,7 @@ void main() {
         return http.Response(
           '[{"id":"photo-1","mediaUrl":"https://example.com/a.jpg","isLead":true,'
           '"impressions":0,"rightSwipes":0,"conversionRate":null,"qualityScore":90,'
-          '"cropFocalX":0.5,"cropFocalY":0.35}]',
+          '"cropFocalX":0.5,"cropFocalY":0.35,"brightnessAdjustment":0}]',
           200,
           headers: {'content-type': 'application/json'},
         );
