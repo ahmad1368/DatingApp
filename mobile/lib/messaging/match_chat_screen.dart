@@ -19,6 +19,16 @@ import 'voice_waveform.dart';
 
 const int _maxVoiceNoteSeconds = 60;
 
+// Mirrors the backend's USER_REPORT_REASONS (safety.constants.ts).
+const _reportAndUnmatchReasons = [
+  'HARASSMENT',
+  'FAKE_PROFILE',
+  'INAPPROPRIATE_CONTENT',
+  'IN_PERSON_SAFETY_CONCERN',
+  'SCAM_OR_SOLICITATION',
+  'OTHER',
+];
+
 /// Chat screen for a single match. Enforces the women-first rule client
 /// side (the backend is the source of truth): until the first message has
 /// been sent, only the woman in the match may type, and the match shows a
@@ -357,6 +367,63 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
   Future<void> _blockSender() async {
     try {
       await widget.messagingApi.unmatch(widget.matchId, reason: 'Inappropriate behavior');
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+    } on MessagingApiException catch (e) {
+      setState(() => _errorText = e.message);
+    }
+  }
+
+  /// "Discreet Unmatch & Harassment Report Combo": lets the user report the
+  /// whole conversation and unmatch in one streamlined action, instead of
+  /// reporting a message and separately unmatching.
+  Future<void> _openReportAndUnmatchDialog() async {
+    final detailsController = TextEditingController();
+    var reason = _reportAndUnmatchReasons.first;
+
+    final submitted = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Report & unmatch'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButton<String>(
+                value: reason,
+                items: _reportAndUnmatchReasons
+                    .map((r) => DropdownMenuItem(value: r, child: Text(r)))
+                    .toList(),
+                onChanged: (value) => setDialogState(() => reason = value ?? reason),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: detailsController,
+                decoration: const InputDecoration(labelText: 'Details (optional)'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Report & unmatch'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (submitted != true) {
+      return;
+    }
+    try {
+      await widget.messagingApi.reportAndUnmatch(
+        matchId: widget.matchId,
+        reason: reason,
+        details: detailsController.text.trim().isEmpty ? null : detailsController.text.trim(),
+      );
       if (mounted) {
         Navigator.of(context).pop();
       }
@@ -1157,6 +1224,11 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
             icon: const Icon(Icons.sticky_note_2_outlined),
             tooltip: 'Private note',
             onPressed: _editNote,
+          ),
+          IconButton(
+            icon: const Icon(Icons.report_gmailerrorred_outlined),
+            tooltip: 'Report & unmatch',
+            onPressed: _openReportAndUnmatchDialog,
           ),
         ],
       ),

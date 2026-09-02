@@ -2457,4 +2457,51 @@ void main() {
     final badge = tester.widget<Badge>(find.byType(Badge));
     expect(badge.isLabelVisible, isTrue);
   });
+
+  testWidgets('reporting and unmatching from the app bar sends the reason and closes the chat', (
+    tester,
+  ) async {
+    http.Request? reportAndUnmatchRequest;
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path.endsWith('/report-and-unmatch')) {
+          reportAndUnmatchRequest = request;
+          return http.Response('{}', 201, headers: {'content-type': 'application/json'});
+        }
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(_emptyMessages, 200, headers: {'content-type': 'application/json'});
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":null,'
+          '"isExpired":false,"firstMessageSent":true,"canSendFirstMessage":true}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Navigator(
+          onGenerateRoute: (settings) => MaterialPageRoute(
+            builder: (context) =>
+                MatchChatScreen(messagingApi: api, matchId: 'match-1', currentUserId: 'user-woman'),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.report_gmailerrorred_outlined));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(TextButton, 'Report & unmatch'));
+    await tester.pumpAndSettle();
+
+    expect(reportAndUnmatchRequest, isNotNull);
+    expect(reportAndUnmatchRequest!.url.path, '/matches/match-1/report-and-unmatch');
+    expect(reportAndUnmatchRequest!.body, '{"reason":"HARASSMENT"}');
+    expect(find.byType(MatchChatScreen), findsNothing);
+  });
 }

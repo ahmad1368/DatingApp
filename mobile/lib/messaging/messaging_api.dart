@@ -1500,6 +1500,27 @@ class MessagingApi {
     }
   }
 
+  /// "Discreet Unmatch & Harassment Report Combo": snapshots the whole chat
+  /// log server-side and runs it through the AI content moderator, then
+  /// unmatches - a single streamlined action instead of reporting and
+  /// unmatching separately (see MessageModerationService.reportAndUnmatch on
+  /// the backend).
+  Future<void> reportAndUnmatch({
+    required String matchId,
+    required String reason,
+    String? details,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/matches/$matchId/report-and-unmatch'),
+      headers: _headers,
+      body: jsonEncode({'reason': reason, if (details != null) 'details': details}),
+    );
+
+    if (response.statusCode != 201) {
+      throw MessagingApiException(_errorMessage(_decode(response), response.statusCode));
+    }
+  }
+
   ChatMessage _toChatMessage(Map<String, dynamic> json) {
     final icebreakerJson = json['icebreaker'] as Map<String, dynamic>?;
     final pollJson = json['poll'] as Map<String, dynamic>?;
