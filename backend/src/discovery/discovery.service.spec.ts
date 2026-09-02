@@ -167,6 +167,45 @@ describe('DiscoveryService', () => {
       expect(deck[0].videoSnippetUrl).toBe('https://example.com/snippet.mp4');
     });
 
+    it('surfaces whether a candidate completed selfie verification', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: 0,
+        longitude: 0,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+      });
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      prisma.user.findMany.mockResolvedValue([
+        {
+          id: TARGET_ID,
+          name: 'Jane',
+          dateOfBirth: null,
+          profilePhotoUrl: null,
+          interests: [],
+          relationshipGoal: null,
+          isVerified: true,
+        },
+        {
+          id: 'unverified-user',
+          name: 'John',
+          dateOfBirth: null,
+          profilePhotoUrl: null,
+          interests: [],
+          relationshipGoal: null,
+          isVerified: false,
+        },
+      ]);
+
+      const deck = await service.getDeck(USER_ID);
+
+      expect(deck.find((card) => card.id === TARGET_ID)?.isVerified).toBe(true);
+      expect(deck.find((card) => card.id === 'unverified-user')?.isVerified).toBe(false);
+    });
+
     it('also excludes candidates the joint browsing partner has already swiped on', async () => {
       const PARTNER_ID = 'partner-1';
       prisma.user.findUnique.mockResolvedValue({

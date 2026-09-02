@@ -177,6 +177,32 @@ void main() {
     expect(find.textContaining('went to'), findsNothing);
   });
 
+  testWidgets('shows a verified checkmark badge when the candidate is verified', (tester) async {
+    final card = DeckCard(
+      id: 'user-2',
+      name: 'Jane',
+      age: 25,
+      interests: const ['Hiking'],
+      isVerified: true,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(home: Scaffold(body: Center(child: SwipeCard(card: card, onSwiped: (_) {})))),
+    );
+
+    expect(find.byIcon(Icons.verified), findsOneWidget);
+  });
+
+  testWidgets('hides the verified checkmark badge when the candidate is unverified', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: Center(child: SwipeCard(card: _sampleCard(), onSwiped: (_) {}))),
+      ),
+    );
+
+    expect(find.byIcon(Icons.verified), findsNothing);
+  });
+
   testWidgets('shows a playable voice intro control when the card has one', (tester) async {
     final card = DeckCard(
       id: 'user-2',

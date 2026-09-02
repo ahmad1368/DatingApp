@@ -267,9 +267,20 @@ class _CardContent extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              Text(
-                [card.name ?? 'Someone', if (card.age != null) card.age.toString()].join(', '),
-                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      [card.name ?? 'Someone', if (card.age != null) card.age.toString()].join(', '),
+                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  if (card.isVerified) ...[
+                    const SizedBox(width: 6),
+                    const Icon(Icons.verified, color: Colors.lightBlueAccent, size: 22),
+                  ],
+                ],
               ),
               if (card.relationshipGoal != null) ...[
                 const SizedBox(height: 4),
