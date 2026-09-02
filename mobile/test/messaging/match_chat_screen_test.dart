@@ -2020,6 +2020,78 @@ void main() {
     expect(textField.controller!.text, 'I saw you love hiking too - favorite trail?');
   });
 
+  testWidgets('picking a smart reply fills the composer', (tester) async {
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(_emptyMessages, 200, headers: {'content-type': 'application/json'});
+        }
+        if (request.url.path == '/matches/match-1/smart-replies') {
+          return http.Response(
+            '["Sounds fun!","Tell me more","Haha nice"]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":null,'
+          '"isExpired":false,"firstMessageSent":true,"canSendFirstMessage":true}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchChatScreen(messagingApi: api, matchId: 'match-1', currentUserId: 'user-woman'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.reply_all_outlined));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Tell me more'));
+    await tester.pumpAndSettle();
+
+    final textField = tester.widget<TextField>(find.byType(TextField));
+    expect(textField.controller!.text, 'Tell me more');
+  });
+
+  testWidgets('shows an empty state when there are no smart replies to suggest', (tester) async {
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(_emptyMessages, 200, headers: {'content-type': 'application/json'});
+        }
+        if (request.url.path == '/matches/match-1/smart-replies') {
+          return http.Response('[]', 200, headers: {'content-type': 'application/json'});
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":null,'
+          '"isExpired":false,"firstMessageSent":true,"canSendFirstMessage":true}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchChatScreen(messagingApi: api, matchId: 'match-1', currentUserId: 'user-woman'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.reply_all_outlined));
+    await tester.pumpAndSettle();
+
+    expect(find.text('No suggestions available right now.'), findsOneWidget);
+  });
+
   testWidgets('disables the opener suggestions button before the message window unlocks', (tester) async {
     final api = MessagingApi(
       accessToken: 'a-jwt',

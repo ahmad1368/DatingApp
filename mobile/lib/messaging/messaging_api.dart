@@ -1193,6 +1193,24 @@ class MessagingApi {
     return list.cast<String>();
   }
 
+  /// Short, tappable reply options for the other side's most recent
+  /// message, to help keep an already-active conversation flowing - empty
+  /// when there's nothing to reply to yet (no messages, the caller sent
+  /// the last one, or it has no text content).
+  Future<List<String>> fetchSmartReplies(String matchId) async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/matches/$matchId/smart-replies'),
+      headers: _headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw MessagingApiException(_errorMessage(_decode(response), response.statusCode));
+    }
+
+    final list = jsonDecode(response.body) as List;
+    return list.cast<String>();
+  }
+
   Future<ChatMessage> sendIcebreaker({required String matchId, required String promptId}) async {
     final response = await _client.post(
       Uri.parse('$_baseUrl/matches/$matchId/icebreaker'),

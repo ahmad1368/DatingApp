@@ -246,6 +246,17 @@ export class MessagingController {
     return this.relationshipCoachService.getIcebreakerSuggestions(user.id, matchId);
   }
 
+  /**
+   * "In-Chat AI Smart Reply Suggestions": short, tappable reply options
+   * for the other side's most recent message, to help keep an
+   * already-active conversation flowing - see
+   * RelationshipCoachService.getSmartReplies.
+   */
+  @Get(':matchId/smart-replies')
+  getSmartReplies(@CurrentUser() user: AuthenticatedUser, @Param('matchId') matchId: string) {
+    return this.relationshipCoachService.getSmartReplies(user.id, matchId);
+  }
+
   @Put(':matchId/note')
   @HttpCode(HttpStatus.OK)
   setMatchNote(
