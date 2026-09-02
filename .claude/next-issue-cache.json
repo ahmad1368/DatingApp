@@ -154,10 +154,6 @@
   ],
   "queue": [
     {
-      "number": 365,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
-    {
       "number": 366,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
     },
@@ -202,10 +198,6 @@
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
     },
     {
-      "number": 378,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
-    {
       "number": 379,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
     },
@@ -235,10 +227,6 @@
     },
     {
       "number": 387,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
-    {
-      "number": 388,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
     },
     {
@@ -302,10 +290,6 @@
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
     },
     {
-      "number": 406,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
-    {
       "number": 407,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
     },
@@ -363,10 +347,6 @@
     },
     {
       "number": 423,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    },
-    {
-      "number": 426,
       "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
     },
     {
