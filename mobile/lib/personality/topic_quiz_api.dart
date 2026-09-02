@@ -94,6 +94,40 @@ class TopicQuizApi {
     }
   }
 
+  /// The next unanswered question for the current user, or null once every
+  /// question has been answered - lets the quiz be taken one prompt at a
+  /// time (e.g. surfaced during a discovery session) instead of all at once.
+  Future<TopicQuizQuestion?> fetchNextQuestion() async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/topic-quiz/next-question'),
+      headers: _headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw TopicQuizApiException(_errorMessage(_decode(response), response.statusCode));
+    }
+
+    final decoded = response.body.isEmpty ? null : jsonDecode(response.body);
+    if (decoded == null) {
+      return null;
+    }
+
+    return _toQuestion(decoded as Map<String, dynamic>);
+  }
+
+  Future<void> answerQuestion(String questionId, String stance) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/topic-quiz/answer'),
+      headers: _headers,
+      body: jsonEncode({'questionId': questionId, 'stance': stance}),
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 200) {
+      throw TopicQuizApiException(_errorMessage(body, response.statusCode));
+    }
+  }
+
   Future<TopicAlignmentResult> fetchAlignment(String otherUserId) async {
     final response = await _client.get(
       Uri.parse('$_baseUrl/topic-quiz/alignment/$otherUserId'),

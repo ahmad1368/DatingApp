@@ -1,6 +1,7 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AuthenticatedUser, JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { AnswerTopicQuizQuestionDto } from './dto/answer-topic-quiz-question.dto';
 import { SubmitTopicQuizDto } from './dto/submit-topic-quiz.dto';
 import { TopicQuizService } from './topic-quiz.service';
 
@@ -24,6 +25,19 @@ export class TopicQuizController {
   @UseGuards(JwtAuthGuard)
   getMyResponses(@CurrentUser() user: AuthenticatedUser) {
     return this.topicQuizService.getMyResponses(user.id);
+  }
+
+  @Get('next-question')
+  @UseGuards(JwtAuthGuard)
+  getNextQuestion(@CurrentUser() user: AuthenticatedUser) {
+    return this.topicQuizService.getNextQuestion(user.id);
+  }
+
+  @Post('answer')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  answerQuestion(@CurrentUser() user: AuthenticatedUser, @Body() dto: AnswerTopicQuizQuestionDto) {
+    return this.topicQuizService.answerQuestion(user.id, dto);
   }
 
   @Get('alignment/:otherUserId')

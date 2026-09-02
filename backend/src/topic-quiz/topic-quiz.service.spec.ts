@@ -103,6 +103,82 @@ describe('TopicQuizService', () => {
     });
   });
 
+  describe('answerQuestion', () => {
+    it('rejects an unknown question id', async () => {
+      await expect(
+        service.answerQuestion(USER_ID, { questionId: 'not-a-real-question', stance: 'AGREE' }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.topicQuizProfile.upsert).not.toHaveBeenCalled();
+    });
+
+    it('creates a new profile with just the one answer when nothing exists yet', async () => {
+      prisma.topicQuizProfile.findUnique.mockResolvedValue(null);
+      prisma.topicQuizProfile.upsert.mockResolvedValue({
+        responses: { [TOPIC_QUIZ_QUESTIONS[0].id]: 'AGREE' },
+        completedAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      await service.answerQuestion(USER_ID, { questionId: TOPIC_QUIZ_QUESTIONS[0].id, stance: 'AGREE' });
+
+      const upsertCall = prisma.topicQuizProfile.upsert.mock.calls[0][0];
+      expect(upsertCall.create.responses).toEqual({ [TOPIC_QUIZ_QUESTIONS[0].id]: 'AGREE' });
+      expect(upsertCall.update).toEqual({ responses: { [TOPIC_QUIZ_QUESTIONS[0].id]: 'AGREE' } });
+    });
+
+    it('merges into existing responses without requiring the full quiz', async () => {
+      prisma.topicQuizProfile.findUnique.mockResolvedValue({
+        responses: { [TOPIC_QUIZ_QUESTIONS[0].id]: 'AGREE' },
+      });
+      prisma.topicQuizProfile.upsert.mockResolvedValue({
+        responses: { [TOPIC_QUIZ_QUESTIONS[0].id]: 'AGREE', [TOPIC_QUIZ_QUESTIONS[1].id]: 'DISAGREE' },
+        completedAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      await service.answerQuestion(USER_ID, { questionId: TOPIC_QUIZ_QUESTIONS[1].id, stance: 'DISAGREE' });
+
+      const upsertCall = prisma.topicQuizProfile.upsert.mock.calls[0][0];
+      expect(upsertCall.update.responses).toEqual({
+        [TOPIC_QUIZ_QUESTIONS[0].id]: 'AGREE',
+        [TOPIC_QUIZ_QUESTIONS[1].id]: 'DISAGREE',
+      });
+    });
+  });
+
+  describe('getNextQuestion', () => {
+    it('returns the first question when nothing has been answered yet', async () => {
+      prisma.topicQuizProfile.findUnique.mockResolvedValue(null);
+
+      const result = await service.getNextQuestion(USER_ID);
+
+      expect(result).toEqual({
+        id: TOPIC_QUIZ_QUESTIONS[0].id,
+        category: TOPIC_QUIZ_QUESTIONS[0].category,
+        statement: TOPIC_QUIZ_QUESTIONS[0].statement,
+      });
+    });
+
+    it('skips already-answered questions', async () => {
+      prisma.topicQuizProfile.findUnique.mockResolvedValue({
+        responses: { [TOPIC_QUIZ_QUESTIONS[0].id]: 'AGREE' },
+      });
+
+      const result = await service.getNextQuestion(USER_ID);
+
+      expect(result?.id).toBe(TOPIC_QUIZ_QUESTIONS[1].id);
+    });
+
+    it('returns null once every question has been answered', async () => {
+      const responses = Object.fromEntries(
+        TOPIC_QUIZ_QUESTIONS.map((question) => [question.id, 'NEUTRAL']),
+      );
+      prisma.topicQuizProfile.findUnique.mockResolvedValue({ responses });
+
+      const result = await service.getNextQuestion(USER_ID);
+
+      expect(result).toBeNull();
+    });
+  });
+
   describe('getAlignment', () => {
     it('rejects comparing a user with themselves', async () => {
       await expect(service.getAlignment(USER_ID, USER_ID)).rejects.toBeInstanceOf(

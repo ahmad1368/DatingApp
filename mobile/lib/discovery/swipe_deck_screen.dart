@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../messaging/messaging_api.dart';
+import '../personality/topic_quiz_api.dart';
 import '../profile/profile_poll_api.dart';
 import '../safety/screen_security_api.dart';
 import '../safety/screen_security_channel.dart';
@@ -25,13 +26,15 @@ class SwipeDeckScreen extends StatefulWidget {
     ScreenSecurityApi? screenSecurityApi,
     MessagingApi? messagingApi,
     ProfilePollApi? profilePollApi,
+    TopicQuizApi? topicQuizApi,
   })  : profileVisitsApi =
             profileVisitsApi ?? ProfileVisitsApi(accessToken: discoveryApi.accessToken),
         screenSecurityChannel = screenSecurityChannel ?? ScreenSecurityChannel(),
         screenSecurityApi =
             screenSecurityApi ?? ScreenSecurityApi(accessToken: discoveryApi.accessToken),
         messagingApi = messagingApi ?? MessagingApi(accessToken: discoveryApi.accessToken),
-        profilePollApi = profilePollApi ?? ProfilePollApi(accessToken: discoveryApi.accessToken);
+        profilePollApi = profilePollApi ?? ProfilePollApi(accessToken: discoveryApi.accessToken),
+        topicQuizApi = topicQuizApi ?? TopicQuizApi(accessToken: discoveryApi.accessToken);
 
   final DiscoveryApi discoveryApi;
   final ProfileVisitsApi profileVisitsApi;
@@ -39,6 +42,7 @@ class SwipeDeckScreen extends StatefulWidget {
   final ScreenSecurityApi screenSecurityApi;
   final MessagingApi messagingApi;
   final ProfilePollApi profilePollApi;
+  final TopicQuizApi topicQuizApi;
 
   @override
   State<SwipeDeckScreen> createState() => _SwipeDeckScreenState();
@@ -163,6 +167,77 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
       }
     } on DiscoveryApiException catch (e) {
       setState(() => _errorText = e.message);
+    }
+  }
+
+  /// "Interactive Compatibility Quiz Cards": surfaces the next unanswered
+  /// topic-quiz question (see TopicQuizApi.fetchNextQuestion), so a
+  /// candidate's compatibility score (see TopicQuizApi.fetchAlignment) can
+  /// keep refining during a discovery session without requiring a trip to a
+  /// separate settings screen.
+  Future<void> _openCompatibilityQuiz() async {
+    TopicQuizQuestion? nextQuestion;
+    try {
+      nextQuestion = await widget.topicQuizApi.fetchNextQuestion();
+    } on TopicQuizApiException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      }
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    if (nextQuestion == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("You've answered every compatibility question!")),
+      );
+      return;
+    }
+    final question = nextQuestion;
+
+    final stance = await showDialog<String>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('Quick compatibility question'),
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Text(question.statement),
+          ),
+          const SizedBox(height: 12),
+          SimpleDialogOption(
+            onPressed: () => Navigator.of(context).pop('AGREE'),
+            child: const Text('Agree'),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.of(context).pop('NEUTRAL'),
+            child: const Text('Neutral'),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.of(context).pop('DISAGREE'),
+            child: const Text('Disagree'),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Skip'),
+          ),
+        ],
+      ),
+    );
+    if (stance == null) {
+      return;
+    }
+    try {
+      await widget.topicQuizApi.answerQuestion(question.id, stance);
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Answer saved!')));
+      }
+    } on TopicQuizApiException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      }
     }
   }
 
@@ -520,6 +595,11 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
           ),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.quiz),
+            tooltip: 'Compatibility quiz',
+            onPressed: _openCompatibilityQuiz,
+          ),
           IconButton(
             icon: const Icon(Icons.video_collection),
             tooltip: 'Video feed',
