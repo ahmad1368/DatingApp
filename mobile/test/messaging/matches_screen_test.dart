@@ -62,6 +62,7 @@ void main() {
 
     expect(find.text('Jane'), findsOneWidget);
     expect(find.textContaining('left to say something'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
 
     await tester.tap(find.text('Jane'));
     await tester.pump();
@@ -94,6 +95,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('Chat unlocked'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
   });
 
   testWidgets('extending a match removes the extend button', (tester) async {
