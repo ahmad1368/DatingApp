@@ -476,7 +476,13 @@ export class DiscoveryService {
         action: { in: LIKE_ACTIONS },
         swiperId: { notIn: excludedIds },
       },
-      select: { swiperId: true, action: true, complimentText: true, complimentTarget: true },
+      select: {
+        swiperId: true,
+        action: true,
+        complimentText: true,
+        complimentTarget: true,
+        isPriorityLike: true,
+      },
       orderBy: { createdAt: 'desc' },
     });
     const likerIdsOrdered = likersOfMe.map((s) => s.swiperId);
@@ -485,6 +491,9 @@ export class DiscoveryService {
     );
     const complimentBySwiperId = new Map(
       likersOfMe.map((s) => [s.swiperId, { text: s.complimentText, target: s.complimentTarget }]),
+    );
+    const paidPriorityLikerIdSet = new Set(
+      likersOfMe.filter((s) => s.isPriorityLike && !superLikerIdSet.has(s.swiperId)).map((s) => s.swiperId),
     );
 
     const lifestyleWhere = this.buildLifestyleFilterWhere(currentUser);
@@ -503,6 +512,18 @@ export class DiscoveryService {
     const orderedLikers = likerIdsOrdered
       .map((id) => likerById.get(id))
       .filter((liker): liker is (typeof likers)[number] => liker != null);
+
+    // "Priority Match Queue Placement": a subscriber's regular (non-super)
+    // like also earns a spot near the top of the recipient's incoming
+    // queue, one tier below an outright super like - the same placement
+    // getDeck already gives a premium liker (or a purchased priority-like
+    // credit, Swipe.isPriorityLike) in the swipe deck itself.
+    const priorityLikerIdSet = new Set([
+      ...orderedLikers
+        .filter((liker) => liker.isPremium && !superLikerIdSet.has(liker.id))
+        .map((liker) => liker.id),
+      ...paidPriorityLikerIdSet,
+    ]);
 
     const usingPassport =
       currentUser.passportEnabled &&
@@ -526,7 +547,7 @@ export class DiscoveryService {
       this.toDeckCard(liker, now, origin, {
         isSuperLike: superLikerIdSet.has(liker.id),
         isBoosted: false,
-        isPriorityLike: false,
+        isPriorityLike: priorityLikerIdSet.has(liker.id),
         complimentText: complimentBySwiperId.get(liker.id)?.text ?? null,
         complimentTarget: complimentBySwiperId.get(liker.id)?.target ?? null,
         viewerInterests: currentUser.interests,
@@ -558,9 +579,14 @@ export class DiscoveryService {
 
     // Super Likes now carry a mandatory note or icebreaker response (see
     // recordSwipe) and are meant to stand out from the backlog - pin them to
-    // the top of the queue regardless of sort, keeping each group's relative
-    // order as the chosen sort produced it.
-    return [...sorted.filter((card) => card.isSuperLike), ...sorted.filter((card) => !card.isSuperLike)];
+    // the top of the queue regardless of sort, then a subscriber's (or
+    // paid priority-like credit's) regular like one tier below that -
+    // keeping each group's relative order as the chosen sort produced it.
+    return [
+      ...sorted.filter((card) => card.isSuperLike),
+      ...sorted.filter((card) => !card.isSuperLike && priorityLikerIdSet.has(card.id)),
+      ...sorted.filter((card) => !card.isSuperLike && !priorityLikerIdSet.has(card.id)),
+    ];
   }
 
   private toDeckCard(
