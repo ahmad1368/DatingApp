@@ -54,6 +54,7 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
   String? _errorText;
   String? _matchText;
   bool _incognitoEnabled = false;
+  bool _activeStatusVisible = true;
   bool _browseAnonymously = false;
   BoostStatus? _boostStatus;
   String _activeMode = 'DATING';
@@ -471,6 +472,16 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
     }
   }
 
+  Future<void> _toggleActiveStatusVisibility() async {
+    setState(() => _errorText = null);
+    try {
+      final enabled = await widget.discoveryApi.setActiveStatusVisibility(!_activeStatusVisible);
+      setState(() => _activeStatusVisible = enabled);
+    } on DiscoveryApiException catch (e) {
+      setState(() => _errorText = e.message);
+    }
+  }
+
   Future<void> _activateBoost() async {
     setState(() => _errorText = null);
     try {
@@ -623,6 +634,14 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
             color: _incognitoEnabled ? Colors.purple : null,
             tooltip: _incognitoEnabled ? 'Incognito mode on' : 'Go incognito',
             onPressed: _isLoading ? null : _toggleIncognito,
+          ),
+          IconButton(
+            icon: Icon(_activeStatusVisible ? Icons.circle : Icons.circle_outlined),
+            color: _activeStatusVisible ? Colors.green : null,
+            tooltip: _activeStatusVisible
+                ? 'Active status visible - tap to hide'
+                : 'Active status hidden - tap to show',
+            onPressed: _toggleActiveStatusVisibility,
           ),
           IconButton(
             icon: Icon(_browseAnonymously ? Icons.person_off : Icons.person_off_outlined),

@@ -54,6 +54,7 @@ class DeckCard {
     this.responseRateBadge,
     this.isTraveling = false,
     this.isVerified = false,
+    this.lastActiveAt,
   });
 
   final String id;
@@ -95,6 +96,10 @@ class DeckCard {
   /// VerificationService.submitSelfie on the backend) - shown as a
   /// prominent checkmark badge on the card.
   final bool isVerified;
+
+  /// When this candidate was last active, or null if they've never been
+  /// active or have turned off DiscoveryApi.setActiveStatusVisibility.
+  final DateTime? lastActiveAt;
 }
 
 /// A card in the "vertical video feed" - only candidates with an actual
@@ -280,6 +285,9 @@ class DiscoveryApi {
       responseRateBadge: json['responseRateBadge'] as String?,
       isTraveling: json['isTraveling'] as bool? ?? false,
       isVerified: json['isVerified'] as bool? ?? false,
+      lastActiveAt: json['lastActiveAt'] != null
+          ? DateTime.parse(json['lastActiveAt'] as String)
+          : null,
     );
   }
 
@@ -381,6 +389,23 @@ class DiscoveryApi {
     }
 
     return body['incognitoEnabled'] as bool;
+  }
+
+  /// Controls whether this user's DeckCard.lastActiveAt is shown to other
+  /// people browsing the deck. Always allowed, free feature.
+  Future<bool> setActiveStatusVisibility(bool enabled) async {
+    final response = await _client.put(
+      Uri.parse('$_baseUrl/discovery/active-status-visibility'),
+      headers: _headers,
+      body: jsonEncode({'enabled': enabled}),
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 200) {
+      throw DiscoveryApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return body['showActiveStatusOnProfile'] as bool;
   }
 
   /// Premium "boost": pushes the user to the top of nearby decks for 30

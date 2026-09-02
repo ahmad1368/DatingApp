@@ -18,6 +18,24 @@ const Map<String, String> _relationshipGoalLabels = {
   'NOT_SURE': 'Still figuring it out',
 };
 
+/// Below this, a candidate reads as "Online now" rather than "Active X ago".
+const int _onlineNowThresholdMinutes = 5;
+
+String _activeStatusLabel(DateTime lastActiveAt) {
+  final minutes = DateTime.now().difference(lastActiveAt).inMinutes;
+  if (minutes < _onlineNowThresholdMinutes) {
+    return 'Online now';
+  }
+  if (minutes < 60) {
+    return 'Active ${minutes}m ago';
+  }
+  final hours = minutes ~/ 60;
+  if (hours < 24) {
+    return 'Active ${hours}h ago';
+  }
+  return 'Active ${hours ~/ 24}d ago';
+}
+
 /// A single draggable profile card: drag right to like, left to pass.
 /// Flings off-screen and calls [onSwiped] with 'LIKE' or 'PASS' once past
 /// the threshold; otherwise springs back to center.
@@ -282,6 +300,22 @@ class _CardContent extends StatelessWidget {
                   ],
                 ],
               ),
+              if (card.lastActiveAt != null)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.circle,
+                      size: 8,
+                      color: DateTime.now().difference(card.lastActiveAt!).inMinutes <
+                              _onlineNowThresholdMinutes
+                          ? Colors.greenAccent
+                          : Colors.grey,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(_activeStatusLabel(card.lastActiveAt!)),
+                  ],
+                ),
               if (card.relationshipGoal != null) ...[
                 const SizedBox(height: 4),
                 Chip(
