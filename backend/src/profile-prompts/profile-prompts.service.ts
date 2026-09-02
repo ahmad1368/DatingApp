@@ -17,6 +17,7 @@ export interface VideoPromptAnswerView {
   question: string;
   videoUrl: string;
   durationSeconds: number;
+  transcript: string | null;
   createdAt: string;
 }
 
@@ -245,7 +246,10 @@ export class ProfilePromptsService {
   /**
    * Records or re-records the current user's short video answer to a prompt
    * (one answer per prompt, independent of any voice answer to the same
-   * prompt).
+   * prompt). Also generates a caption/transcript for accessibility and
+   * silent browsing, same as [recordAnswer]'s voice answer - a
+   * transcription failure never blocks saving the video itself, it just
+   * leaves the transcript null.
    */
   async recordVideoAnswer(
     userId: string,
@@ -258,10 +262,12 @@ export class ProfilePromptsService {
       throw new BadRequestException('Unknown profile prompt.');
     }
 
+    const transcript = await this.transcribeSafely(videoUrl);
+
     const answer = await this.prisma.profilePromptVideoAnswer.upsert({
       where: { userId_promptId: { userId, promptId } },
-      create: { userId, promptId, videoUrl, durationSeconds },
-      update: { videoUrl, durationSeconds },
+      create: { userId, promptId, videoUrl, durationSeconds, transcript },
+      update: { videoUrl, durationSeconds, transcript },
     });
 
     return this.toVideoView(answer, prompt);
@@ -360,7 +366,13 @@ export class ProfilePromptsService {
   }
 
   private toVideoView(
-    answer: { promptId: string; videoUrl: string; durationSeconds: number; createdAt: Date },
+    answer: {
+      promptId: string;
+      videoUrl: string;
+      durationSeconds: number;
+      transcript?: string | null;
+      createdAt: Date;
+    },
     prompt: ProfilePrompt,
   ): VideoPromptAnswerView {
     return {
@@ -368,6 +380,7 @@ export class ProfilePromptsService {
       question: prompt.question,
       videoUrl: answer.videoUrl,
       durationSeconds: answer.durationSeconds,
+      transcript: answer.transcript ?? null,
       createdAt: answer.createdAt.toISOString(),
     };
   }
