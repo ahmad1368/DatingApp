@@ -186,6 +186,33 @@ void main() {
     expect(find.textContaining('Hiking last summer'), findsOneWidget);
   });
 
+  testWidgets('tapping the parallax preview icon opens the tilt-to-preview screen', (tester) async {
+    final api = ProfilePhotosApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/profile-photos/blur-until-match') {
+          return _blurResponse();
+        }
+        return http.Response(
+          '[{"id":"photo-1","mediaUrl":"https://example.com/a.jpg","isLead":true,'
+          '"impressions":0,"rightSwipes":0,"conversionRate":null,"qualityScore":39,'
+          '"cropFocalX":0.5,"cropFocalY":0.35}]',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: ProfilePhotosScreen(profilePhotosApi: api)));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.view_in_ar));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('Tilt your phone to preview'), findsOneWidget);
+  });
+
   testWidgets('tapping the AI reorder action re-ranks photos by quality score', (tester) async {
     http.Request? reorderRequest;
     final api = ProfilePhotosApi(
