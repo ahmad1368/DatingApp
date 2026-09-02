@@ -61,4 +61,46 @@ export class OpenAiCoachClient implements AiCoachProvider {
       profileTips: parsed.profileTips ?? [],
     };
   }
+
+  async generateSmartReplies(lastMessage: string): Promise<string[]> {
+    const apiKey = this.configService.get<string>('OPENAI_API_KEY') ?? '';
+
+    const response = await fetch(CHAT_COMPLETIONS_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        response_format: { type: 'json_object' },
+        messages: [
+          {
+            role: 'system',
+            content:
+              'You are helping someone reply quickly in a dating app chat. Given the other person\'s most recent message, respond with a JSON object containing a single field "replies": an array of 3 short, natural, varied reply options (a few words to one short sentence each) that keep the conversation flowing.',
+          },
+          {
+            role: 'user',
+            content: lastMessage,
+          },
+        ],
+      }),
+    });
+    if (!response.ok) {
+      throw new ServiceUnavailableException('Unable to generate smart replies right now.');
+    }
+
+    const body = (await response.json()) as ChatCompletionResponse;
+    const raw = body.choices[0]?.message?.content ?? '{}';
+
+    let parsed: { replies?: string[] };
+    try {
+      parsed = JSON.parse(raw) as { replies?: string[] };
+    } catch {
+      throw new ServiceUnavailableException('Unable to generate smart replies right now.');
+    }
+
+    return parsed.replies ?? [];
+  }
 }

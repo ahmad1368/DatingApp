@@ -14,15 +14,17 @@ describe('RelationshipCoachService', () => {
     user: { findUnique: jest.Mock };
     match: { findMany: jest.Mock; findUnique: jest.Mock };
     profilePromptVoiceAnswer: { findMany: jest.Mock };
+    message: { findFirst: jest.Mock };
   };
   let matchingService: { getCompatibility: jest.Mock };
-  let coachProvider: { generateSuggestions: jest.Mock };
+  let coachProvider: { generateSuggestions: jest.Mock; generateSmartReplies: jest.Mock };
 
   beforeEach(() => {
     prisma = {
       user: { findUnique: jest.fn() },
       match: { findMany: jest.fn(), findUnique: jest.fn() },
       profilePromptVoiceAnswer: { findMany: jest.fn().mockResolvedValue([]) },
+      message: { findFirst: jest.fn() },
     };
     matchingService = {
       getCompatibility: jest.fn().mockResolvedValue({
@@ -33,7 +35,7 @@ describe('RelationshipCoachService', () => {
         zodiacHarmony: null,
       }),
     };
-    coachProvider = { generateSuggestions: jest.fn() };
+    coachProvider = { generateSuggestions: jest.fn(), generateSmartReplies: jest.fn() };
     service = new RelationshipCoachService(
       prisma as unknown as PrismaService,
       matchingService as unknown as MatchingService,
@@ -250,6 +252,74 @@ describe('RelationshipCoachService', () => {
       const result = await service.getIcebreakerSuggestions(USER_ID, MATCH_ID);
 
       expect(result).toEqual(['Ask about their trip']);
+    });
+  });
+
+  describe('getSmartReplies', () => {
+    it('throws when the match does not belong to the user', async () => {
+      prisma.match.findUnique.mockResolvedValue({
+        id: MATCH_ID,
+        userAId: OTHER_USER_ID,
+        userBId: 'user-3',
+      });
+
+      await expect(service.getSmartReplies(USER_ID, MATCH_ID)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+
+    it('returns nothing when there are no messages yet', async () => {
+      prisma.match.findUnique.mockResolvedValue({ id: MATCH_ID, userAId: USER_ID, userBId: OTHER_USER_ID });
+      prisma.message.findFirst.mockResolvedValue(null);
+
+      const result = await service.getSmartReplies(USER_ID, MATCH_ID);
+
+      expect(result).toEqual([]);
+      expect(coachProvider.generateSmartReplies).not.toHaveBeenCalled();
+    });
+
+    it('returns nothing when the caller sent the most recent message', async () => {
+      prisma.match.findUnique.mockResolvedValue({ id: MATCH_ID, userAId: USER_ID, userBId: OTHER_USER_ID });
+      prisma.message.findFirst.mockResolvedValue({
+        senderId: USER_ID,
+        content: 'how are you?',
+      });
+
+      const result = await service.getSmartReplies(USER_ID, MATCH_ID);
+
+      expect(result).toEqual([]);
+      expect(coachProvider.generateSmartReplies).not.toHaveBeenCalled();
+    });
+
+    it('returns nothing when the most recent message has no text content', async () => {
+      prisma.match.findUnique.mockResolvedValue({ id: MATCH_ID, userAId: USER_ID, userBId: OTHER_USER_ID });
+      prisma.message.findFirst.mockResolvedValue({
+        senderId: OTHER_USER_ID,
+        content: null,
+      });
+
+      const result = await service.getSmartReplies(USER_ID, MATCH_ID);
+
+      expect(result).toEqual([]);
+      expect(coachProvider.generateSmartReplies).not.toHaveBeenCalled();
+    });
+
+    it("generates replies based on the other side's most recent message", async () => {
+      prisma.match.findUnique.mockResolvedValue({ id: MATCH_ID, userAId: USER_ID, userBId: OTHER_USER_ID });
+      prisma.message.findFirst.mockResolvedValue({
+        senderId: OTHER_USER_ID,
+        content: 'How was your weekend?',
+      });
+      coachProvider.generateSmartReplies.mockResolvedValue(['It was great!', 'Pretty quiet', 'Tell you later']);
+
+      const result = await service.getSmartReplies(USER_ID, MATCH_ID);
+
+      expect(prisma.message.findFirst).toHaveBeenCalledWith({
+        where: { matchId: MATCH_ID },
+        orderBy: { createdAt: 'desc' },
+      });
+      expect(coachProvider.generateSmartReplies).toHaveBeenCalledWith('How was your weekend?');
+      expect(result).toEqual(['It was great!', 'Pretty quiet', 'Tell you later']);
     });
   });
 });

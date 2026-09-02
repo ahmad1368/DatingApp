@@ -29,4 +29,10 @@ export interface CoachSuggestions {
 
 export interface AiCoachProvider {
   generateSuggestions(context: CoachEngagementContext): Promise<CoachSuggestions>;
+  /**
+   * "In-Chat AI Smart Reply Suggestions": short, tappable reply options
+   * given the other side's most recent message text, to help keep an
+   * already-active conversation flowing.
+   */
+  generateSmartReplies(lastMessage: string): Promise<string[]>;
 }

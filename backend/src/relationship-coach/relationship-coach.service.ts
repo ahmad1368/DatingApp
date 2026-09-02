@@ -76,6 +76,31 @@ export class RelationshipCoachService {
     return conversationOpeners;
   }
 
+  /**
+   * "In-Chat AI Smart Reply Suggestions": short, tappable reply options for
+   * the other side's most recent message - the mid-conversation
+   * counterpart to [getIcebreakerSuggestions], which only helps start one.
+   * Empty (rather than an error) when there's nothing to reply to yet: no
+   * messages, the caller sent the last one, or it has no text content
+   * (e.g. an image/GIF).
+   */
+  async getSmartReplies(userId: string, matchId: string): Promise<string[]> {
+    const match = await this.prisma.match.findUnique({ where: { id: matchId } });
+    if (!match || (match.userAId !== userId && match.userBId !== userId)) {
+      throw new NotFoundException('Match not found.');
+    }
+
+    const lastMessage = await this.prisma.message.findFirst({
+      where: { matchId },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (!lastMessage || lastMessage.senderId === userId || !lastMessage.content) {
+      return [];
+    }
+
+    return this.coachProvider.generateSmartReplies(lastMessage.content);
+  }
+
   private findMissingProfileFields(user: ProfileCompletenessFields): string[] {
     const missing: string[] = [];
     if (!user.profilePhotoUrl) {

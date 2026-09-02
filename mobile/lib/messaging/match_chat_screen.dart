@@ -670,6 +670,53 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
     }
   }
 
+  /// Short, tappable reply options for her most recent message, to help
+  /// keep an already-active conversation flowing - see
+  /// MessagingApi.fetchSmartReplies. The mid-conversation counterpart to
+  /// [_openIcebreakerAssistant], which only helps start one.
+  Future<void> _openSmartReplies() async {
+    List<String> suggestions;
+    try {
+      suggestions = await widget.messagingApi.fetchSmartReplies(widget.matchId);
+    } on MessagingApiException catch (e) {
+      setState(() => _errorText = e.message);
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Text('Smart replies', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+            if (suggestions.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: Text('No suggestions available right now.'),
+              ),
+            for (final suggestion in suggestions)
+              ListTile(
+                title: Text(suggestion),
+                onTap: () => Navigator.of(context).pop(suggestion),
+              ),
+          ],
+        ),
+      ),
+    );
+
+    if (selected != null) {
+      _controller.text = selected;
+    }
+  }
+
   Future<void> _openSendGiftDialog() async {
     List<VirtualGift> catalog;
     try {
@@ -1040,6 +1087,11 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
             icon: const Icon(Icons.auto_awesome_outlined),
             tooltip: 'Opener suggestions',
             onPressed: _canType ? _openIcebreakerAssistant : null,
+          ),
+          IconButton(
+            icon: const Icon(Icons.reply_all_outlined),
+            tooltip: 'Smart replies',
+            onPressed: _canType ? _openSmartReplies : null,
           ),
           IconButton(
             icon: const Icon(Icons.place_outlined),
