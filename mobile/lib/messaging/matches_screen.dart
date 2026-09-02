@@ -173,6 +173,55 @@ class _MatchesScreenState extends State<MatchesScreen> {
     return '${hours}h ${minutes}m ${seconds}s left to say something';
   }
 
+  /// Fraction of the 24-hour first-move window still remaining, for the
+  /// visual countdown ring on the match avatar - null once the chat is
+  /// unlocked (no deadline left to show).
+  double? _remainingFraction(MatchSummary match) {
+    if (match.firstMessageSent || match.expiresAt == null) {
+      return null;
+    }
+    final remaining = match.expiresAt!.difference(_now);
+    if (remaining.isNegative) {
+      return 0;
+    }
+    const totalWindow = Duration(hours: 24);
+    return (remaining.inSeconds / totalWindow.inSeconds).clamp(0.0, 1.0);
+  }
+
+  Widget _buildAvatar(MatchSummary match) {
+    final avatar = CircleAvatar(
+      radius: 22,
+      backgroundImage: match.otherUserPhotoUrl != null ? NetworkImage(match.otherUserPhotoUrl!) : null,
+      child: match.otherUserPhotoUrl == null ? const Icon(Icons.person) : null,
+    );
+
+    final remainingFraction = _remainingFraction(match);
+    if (remainingFraction == null) {
+      return avatar;
+    }
+
+    return SizedBox(
+      width: 48,
+      height: 48,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          SizedBox(
+            width: 48,
+            height: 48,
+            child: CircularProgressIndicator(
+              value: remainingFraction,
+              strokeWidth: 3,
+              backgroundColor: Colors.grey.shade300,
+              color: remainingFraction < 0.25 ? Colors.red : Colors.deepPurple,
+            ),
+          ),
+          avatar,
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -235,6 +284,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
                           itemBuilder: (context, index) {
                             final match = _matches[index];
                             return ListTile(
+                              leading: _buildAvatar(match),
                               title: Text(match.otherUserName ?? 'Someone new'),
                               subtitle: Text(
                                 match.needsGhostingPrompt
