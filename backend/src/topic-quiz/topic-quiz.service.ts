@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { AnswerTopicQuizQuestionDto } from './dto/answer-topic-quiz-question.dto';
 import { SubmitTopicQuizDto } from './dto/submit-topic-quiz.dto';
 import {
   categoryForQuestion,
@@ -81,6 +82,45 @@ export class TopicQuizService {
       throw new NotFoundException("You haven't taken the topic quiz yet.");
     }
     return this.toView(profile);
+  }
+
+  /**
+   * Answers a single question at a time - unlike submitQuiz's all-at-once
+   * survey flow, this lets the quiz be taken incrementally (e.g. one prompt
+   * surfaced per discovery session) while immediately counting toward
+   * getAlignment for any candidate who already answered the same question.
+   * Doesn't touch completedAt, which only submitQuiz's full-survey flow sets.
+   */
+  async answerQuestion(userId: string, dto: AnswerTopicQuizQuestionDto): Promise<TopicQuizProfileView> {
+    if (!TOPIC_QUIZ_QUESTIONS.some((question) => question.id === dto.questionId)) {
+      throw new BadRequestException(`Unknown quiz question: ${dto.questionId}`);
+    }
+
+    const existing = await this.prisma.topicQuizProfile.findUnique({ where: { userId } });
+    const responses = {
+      ...((existing?.responses as Record<string, TopicQuizStance>) ?? {}),
+      [dto.questionId]: dto.stance as TopicQuizStance,
+    };
+
+    const profile = await this.prisma.topicQuizProfile.upsert({
+      where: { userId },
+      create: { userId, responses },
+      update: { responses },
+    });
+
+    return this.toView(profile);
+  }
+
+  /** The first quiz question this user hasn't answered yet, or null once all are done. */
+  async getNextQuestion(userId: string): Promise<TopicQuizQuestionView | null> {
+    const profile = await this.prisma.topicQuizProfile.findUnique({ where: { userId } });
+    const answeredIds = new Set(Object.keys((profile?.responses as Record<string, TopicQuizStance>) ?? {}));
+
+    const next = TOPIC_QUIZ_QUESTIONS.find((question) => !answeredIds.has(question.id));
+    if (!next) {
+      return null;
+    }
+    return { id: next.id, category: next.category, statement: next.statement };
   }
 
   /**

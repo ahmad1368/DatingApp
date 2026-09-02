@@ -9,6 +9,7 @@ import 'package:mobile/discovery/discovery_api.dart';
 import 'package:mobile/discovery/profile_visits_api.dart';
 import 'package:mobile/discovery/swipe_deck_screen.dart';
 import 'package:mobile/messaging/messaging_api.dart';
+import 'package:mobile/personality/topic_quiz_api.dart';
 
 const _deckResponse = '[{"id":"user-2","name":"Jane","age":25,"profilePhotoUrl":null,'
     '"distanceKm":3.4,"interests":["Hiking"],"relationshipGoal":"CASUAL"}]';
@@ -1141,5 +1142,73 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Video Feed'), findsOneWidget);
+  });
+
+  testWidgets('tapping the compatibility quiz icon asks a question and submits the answer', (
+    tester,
+  ) async {
+    http.Request? answerRequest;
+    final api = DiscoveryApi(
+      accessToken: 'a-jwt',
+      client: MockClient(
+        (request) async => http.Response('[]', 200, headers: {'content-type': 'application/json'}),
+      ),
+    );
+    final topicQuizApi = TopicQuizApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/topic-quiz/next-question') {
+          return http.Response(
+            '{"id":"climate-policy","category":"Politics","statement":"Climate policy should be a top priority."}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        answerRequest = request;
+        return http.Response('{}', 200, headers: {'content-type': 'application/json'});
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(home: SwipeDeckScreen(discoveryApi: api, topicQuizApi: topicQuizApi)),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.quiz));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Climate policy should be a top priority.'), findsOneWidget);
+
+    await tester.tap(find.text('Agree'));
+    await tester.pumpAndSettle();
+
+    expect(answerRequest, isNotNull);
+    expect(answerRequest!.body, '{"questionId":"climate-policy","stance":"AGREE"}');
+    expect(find.text('Answer saved!'), findsOneWidget);
+  });
+
+  testWidgets('tapping the compatibility quiz icon shows a message once everything is answered', (
+    tester,
+  ) async {
+    final api = DiscoveryApi(
+      accessToken: 'a-jwt',
+      client: MockClient(
+        (request) async => http.Response('[]', 200, headers: {'content-type': 'application/json'}),
+      ),
+    );
+    final topicQuizApi = TopicQuizApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async => http.Response('null', 200, headers: {'content-type': 'application/json'})),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(home: SwipeDeckScreen(discoveryApi: api, topicQuizApi: topicQuizApi)),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.quiz));
+    await tester.pumpAndSettle();
+
+    expect(find.text("You've answered every compatibility question!"), findsOneWidget);
   });
 }
