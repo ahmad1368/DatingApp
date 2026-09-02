@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../messaging/messaging_api.dart';
+import '../profile/profile_poll_api.dart';
 import '../safety/screen_security_api.dart';
 import '../safety/screen_security_channel.dart';
 import 'discovery_api.dart';
@@ -23,18 +24,21 @@ class SwipeDeckScreen extends StatefulWidget {
     ScreenSecurityChannel? screenSecurityChannel,
     ScreenSecurityApi? screenSecurityApi,
     MessagingApi? messagingApi,
+    ProfilePollApi? profilePollApi,
   })  : profileVisitsApi =
             profileVisitsApi ?? ProfileVisitsApi(accessToken: discoveryApi.accessToken),
         screenSecurityChannel = screenSecurityChannel ?? ScreenSecurityChannel(),
         screenSecurityApi =
             screenSecurityApi ?? ScreenSecurityApi(accessToken: discoveryApi.accessToken),
-        messagingApi = messagingApi ?? MessagingApi(accessToken: discoveryApi.accessToken);
+        messagingApi = messagingApi ?? MessagingApi(accessToken: discoveryApi.accessToken),
+        profilePollApi = profilePollApi ?? ProfilePollApi(accessToken: discoveryApi.accessToken);
 
   final DiscoveryApi discoveryApi;
   final ProfileVisitsApi profileVisitsApi;
   final ScreenSecurityChannel screenSecurityChannel;
   final ScreenSecurityApi screenSecurityApi;
   final MessagingApi messagingApi;
+  final ProfilePollApi profilePollApi;
 
   @override
   State<SwipeDeckScreen> createState() => _SwipeDeckScreenState();
@@ -689,6 +693,7 @@ class _SwipeDeckScreenState extends State<SwipeDeckScreen> {
           onSwiped: (action) => _handleSwipe(_deck.first, action),
           onTap: () => _recordVisit(_deck.first),
           viewerAccessToken: widget.discoveryApi.accessToken,
+          profilePollApi: widget.profilePollApi,
         ),
       ],
     );

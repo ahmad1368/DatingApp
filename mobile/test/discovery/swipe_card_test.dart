@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 import 'package:mobile/discovery/discovery_api.dart';
 import 'package:mobile/discovery/swipe_card.dart';
+import 'package:mobile/profile/profile_poll_api.dart';
 
 DeckCard _sampleCard() => DeckCard(id: 'user-2', name: 'Jane', age: 25, interests: const ['Hiking']);
 
@@ -311,5 +314,105 @@ void main() {
       find.descendant(of: find.byType(ImageFiltered), matching: find.byType(Image)),
       findsOneWidget,
     );
+  });
+
+  testWidgets('shows the poll question and options once fetched', (tester) async {
+    final pollApi = ProfilePollApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        expect(request.url.path, '/profile/poll/user-2');
+        return http.Response(
+          '{"question":"Coffee or tea?","options":["Coffee","Tea","Neither"],'
+          '"myOptionIndex":null,"voteCounts":[0,0,0],"totalVotes":0}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SwipeCard(card: _sampleCard(), onSwiped: (_) {}, profilePollApi: pollApi),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Coffee or tea?'), findsOneWidget);
+    expect(find.text('Coffee'), findsOneWidget);
+    expect(find.text('Tea'), findsOneWidget);
+    expect(find.text('Neither'), findsOneWidget);
+  });
+
+  testWidgets('tapping a poll option votes and shows the result breakdown', (tester) async {
+    http.Request? voteRequest;
+    final pollApi = ProfilePollApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.method == 'POST' && request.url.path == '/profile/poll/vote') {
+          voteRequest = request;
+          return http.Response(
+            '{"question":"Coffee or tea?","options":["Coffee","Tea","Neither"],'
+            '"myOptionIndex":1,"voteCounts":[1,3,0],"totalVotes":4}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"question":"Coffee or tea?","options":["Coffee","Tea","Neither"],'
+          '"myOptionIndex":null,"voteCounts":[1,2,0],"totalVotes":3}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SwipeCard(card: _sampleCard(), onSwiped: (_) {}, profilePollApi: pollApi),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Tea'));
+    await tester.pumpAndSettle();
+
+    expect(voteRequest, isNotNull);
+    expect(voteRequest!.body, '{"targetUserId":"user-2","optionIndex":1}');
+    expect(find.textContaining('Tea - 75%'), findsOneWidget);
+    expect(find.textContaining('Coffee - 25%'), findsOneWidget);
+  });
+
+  testWidgets('shows no poll block when the candidate has none', (tester) async {
+    final pollApi = ProfilePollApi(
+      accessToken: 'a-jwt',
+      client: MockClient(
+        (request) async => http.Response(
+          '{"question":null,"options":[],"myOptionIndex":null,"voteCounts":[],"totalVotes":0}',
+          200,
+          headers: {'content-type': 'application/json'},
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SwipeCard(card: _sampleCard(), onSwiped: (_) {}, profilePollApi: pollApi),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(OutlinedButton), findsNothing);
   });
 }
