@@ -445,12 +445,48 @@ describe('ProfilePromptsService', () => {
       expect(prisma.profilePromptVideoAnswer.upsert).not.toHaveBeenCalled();
     });
 
-    it('upserts the video answer', async () => {
+    it('upserts the video answer with its generated transcript', async () => {
       const promptId = PROFILE_PROMPTS[0].id;
       prisma.profilePromptVideoAnswer.upsert.mockResolvedValue({
         promptId,
         videoUrl: 'file:///a.mp4',
         durationSeconds: 12,
+        transcript: 'a transcript',
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const result = await service.recordVideoAnswer(USER_ID, promptId, 'file:///a.mp4', 12);
+
+      expect(transcriptionProvider.transcribe).toHaveBeenCalledWith('file:///a.mp4');
+      expect(prisma.profilePromptVideoAnswer.upsert).toHaveBeenCalledWith({
+        where: { userId_promptId: { userId: USER_ID, promptId } },
+        create: {
+          userId: USER_ID,
+          promptId,
+          videoUrl: 'file:///a.mp4',
+          durationSeconds: 12,
+          transcript: 'a transcript',
+        },
+        update: { videoUrl: 'file:///a.mp4', durationSeconds: 12, transcript: 'a transcript' },
+      });
+      expect(result).toEqual({
+        promptId,
+        question: PROFILE_PROMPTS[0].question,
+        videoUrl: 'file:///a.mp4',
+        durationSeconds: 12,
+        transcript: 'a transcript',
+        createdAt: '2026-01-01T00:00:00.000Z',
+      });
+    });
+
+    it('saves the video answer with a null transcript when transcription fails', async () => {
+      const promptId = PROFILE_PROMPTS[0].id;
+      transcriptionProvider.transcribe.mockRejectedValue(new Error('service unavailable'));
+      prisma.profilePromptVideoAnswer.upsert.mockResolvedValue({
+        promptId,
+        videoUrl: 'file:///a.mp4',
+        durationSeconds: 12,
+        transcript: null,
         createdAt: new Date('2026-01-01T00:00:00.000Z'),
       });
 
@@ -458,16 +494,16 @@ describe('ProfilePromptsService', () => {
 
       expect(prisma.profilePromptVideoAnswer.upsert).toHaveBeenCalledWith({
         where: { userId_promptId: { userId: USER_ID, promptId } },
-        create: { userId: USER_ID, promptId, videoUrl: 'file:///a.mp4', durationSeconds: 12 },
-        update: { videoUrl: 'file:///a.mp4', durationSeconds: 12 },
+        create: {
+          userId: USER_ID,
+          promptId,
+          videoUrl: 'file:///a.mp4',
+          durationSeconds: 12,
+          transcript: null,
+        },
+        update: { videoUrl: 'file:///a.mp4', durationSeconds: 12, transcript: null },
       });
-      expect(result).toEqual({
-        promptId,
-        question: PROFILE_PROMPTS[0].question,
-        videoUrl: 'file:///a.mp4',
-        durationSeconds: 12,
-        createdAt: '2026-01-01T00:00:00.000Z',
-      });
+      expect(result.transcript).toBeNull();
     });
   });
 
@@ -497,6 +533,7 @@ describe('ProfilePromptsService', () => {
           question: PROFILE_PROMPTS[0].question,
           videoUrl: 'file:///a.mp4',
           durationSeconds: 12,
+          transcript: null,
           createdAt: '2026-01-01T00:00:00.000Z',
         },
       ]);

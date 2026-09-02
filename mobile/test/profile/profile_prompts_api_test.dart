@@ -356,6 +356,25 @@ void main() {
       expect(answers, hasLength(1));
       expect(answers.first.videoUrl, 'file:///a.mp4');
       expect(answers.first.durationSeconds, 10);
+      expect(answers.first.transcript, isNull);
+    });
+
+    test('parses a generated transcript when present', () async {
+      final api = ProfilePromptsApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => _jsonResponse(
+            '[{"promptId":"perfect-first-date","question":"My idea of a perfect first date is...",'
+            '"videoUrl":"file:///a.mp4","durationSeconds":10,"transcript":"a transcript",'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}]',
+            200,
+          ),
+        ),
+      );
+
+      final answers = await api.fetchMyVideoAnswers();
+
+      expect(answers.first.transcript, 'a transcript');
     });
 
     test('throws ProfilePromptsApiException on a non-200 response', () async {

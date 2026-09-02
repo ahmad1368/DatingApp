@@ -562,6 +562,10 @@ model ProfilePromptVideoAnswer {
   promptId        String
   videoUrl        String
   durationSeconds Int
+  // Auto-generated caption/transcript for accessibility and silent browsing
+  // (see ProfilePromptsService.transcribeSafely) - null if transcription
+  // failed or hasn't run, never blocks saving the answer itself.
+  transcript      String?
   createdAt       DateTime @default(now())
 
   @@unique([userId, promptId])

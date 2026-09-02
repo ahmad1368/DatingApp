@@ -72,6 +72,7 @@ class VideoPromptAnswer {
     required this.question,
     required this.videoUrl,
     required this.durationSeconds,
+    this.transcript,
     required this.createdAt,
   });
 
@@ -79,6 +80,9 @@ class VideoPromptAnswer {
   final String question;
   final String videoUrl;
   final int durationSeconds;
+  /// Auto-generated caption for accessibility and silent browsing - null if
+  /// transcription failed or hasn't run yet.
+  final String? transcript;
   final DateTime createdAt;
 }
 
@@ -408,6 +412,7 @@ class ProfilePromptsApi {
       question: json['question'] as String,
       videoUrl: json['videoUrl'] as String,
       durationSeconds: json['durationSeconds'] as int,
+      transcript: json['transcript'] as String?,
       createdAt: DateTime.parse(json['createdAt'] as String),
     );
   }

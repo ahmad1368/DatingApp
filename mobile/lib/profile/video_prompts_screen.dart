@@ -135,23 +135,36 @@ class _VideoPromptsScreenState extends State<VideoPromptsScreen> {
             Text(prompt.question, style: const TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             if (answer != null)
-              Row(
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('${answer.durationSeconds}s video'),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.play_arrow),
-                    onPressed: _isBusy ? null : () => _play(answer),
+                  Row(
+                    children: [
+                      Text('${answer.durationSeconds}s video'),
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(Icons.play_arrow),
+                        onPressed: _isBusy ? null : () => _play(answer),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.videocam),
+                        tooltip: 'Re-record',
+                        onPressed: _isBusy ? null : () => _record(prompt.id),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline),
+                        onPressed: _isBusy ? null : () => _delete(prompt.id),
+                      ),
+                    ],
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.videocam),
-                    tooltip: 'Re-record',
-                    onPressed: _isBusy ? null : () => _record(prompt.id),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline),
-                    onPressed: _isBusy ? null : () => _delete(prompt.id),
-                  ),
+                  if (answer.transcript != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        answer.transcript!,
+                        style: const TextStyle(fontStyle: FontStyle.italic, color: Colors.grey),
+                      ),
+                    ),
                 ],
               )
             else
