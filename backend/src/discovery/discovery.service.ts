@@ -96,6 +96,7 @@ export interface DeckCard {
   kinkTagBadges: string[];
   responseRateBadge: string | null;
   isTraveling: boolean;
+  isVerified: boolean;
 }
 
 /**
@@ -629,6 +630,7 @@ export class DiscoveryService {
       messagesReceivedCount: number;
       messagesRepliedCount: number;
       passportEnabled: boolean;
+      isVerified: boolean;
       communityGroupIds?: string[];
     },
     now: Date,
@@ -695,6 +697,7 @@ export class DiscoveryService {
       kinkTagBadges: candidate.showKinkTagsOnProfile ? candidate.kinkTags : [],
       responseRateBadge: this.buildResponseRateBadge(candidate),
       isTraveling: candidate.passportEnabled,
+      isVerified: candidate.isVerified,
     };
   }
 

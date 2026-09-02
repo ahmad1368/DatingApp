@@ -53,6 +53,7 @@ class DeckCard {
     this.voiceIntroDurationSeconds,
     this.responseRateBadge,
     this.isTraveling = false,
+    this.isVerified = false,
   });
 
   final String id;
@@ -89,6 +90,11 @@ class DeckCard {
   /// location rather than their real one - shown as a "Traveler" badge so
   /// local matches know they're just visiting.
   final bool isTraveling;
+
+  /// True once this candidate has completed selfie verification (see
+  /// VerificationService.submitSelfie on the backend) - shown as a
+  /// prominent checkmark badge on the card.
+  final bool isVerified;
 }
 
 /// A card in the "vertical video feed" - only candidates with an actual
@@ -273,6 +279,7 @@ class DiscoveryApi {
       voiceIntroDurationSeconds: json['voiceIntroDurationSeconds'] as int?,
       responseRateBadge: json['responseRateBadge'] as String?,
       isTraveling: json['isTraveling'] as bool? ?? false,
+      isVerified: json['isVerified'] as bool? ?? false,
     );
   }
 
