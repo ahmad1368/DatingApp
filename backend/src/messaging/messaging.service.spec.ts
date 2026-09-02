@@ -883,6 +883,51 @@ describe('MessagingService', () => {
       expect(result.isBlurred).toBe(false);
     });
 
+    it('blurs an image the moderator flags as explicit even when the recipient opted out of auto-blur', async () => {
+      mockMatch();
+      prisma.user.findUnique.mockImplementation(({ where }: { where: { id: string } }) => {
+        if (where.id === WOMAN_ID) {
+          return Promise.resolve({ genderIdentities: ['Woman'] });
+        }
+        return Promise.resolve({ genderIdentities: ['Man'], autoBlurIncomingMedia: false });
+      });
+      imageModerator.moderate.mockResolvedValue({ flagged: true, categories: ['sexual'] });
+      prisma.message.create.mockResolvedValue({
+        id: 'message-6',
+        senderId: WOMAN_ID,
+        contentType: 'IMAGE',
+        content: null,
+        mediaUrl: 'https://example.com/photo.jpg',
+        isBlurred: true,
+        moderationFlagged: true,
+        moderationCategories: ['sexual'],
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const result = await service.sendMediaMessage(
+        WOMAN_ID,
+        MATCH_ID,
+        'IMAGE',
+        'https://example.com/photo.jpg',
+      );
+
+      expect(prisma.message.create).toHaveBeenCalledWith({
+        data: {
+          matchId: MATCH_ID,
+          senderId: WOMAN_ID,
+          contentType: 'IMAGE',
+          mediaUrl: 'https://example.com/photo.jpg',
+          isBlurred: true,
+          moderationFlagged: true,
+          moderationCategories: ['sexual'],
+          expiryMode: null,
+          viewTimerSeconds: null,
+          durationSeconds: null,
+        },
+      });
+      expect(result.isBlurred).toBe(true);
+    });
+
     it('flags an image the moderator detects as explicit', async () => {
       mockMatch();
       mockUsers({ [WOMAN_ID]: ['Woman'], [MAN_ID]: ['Man'] });

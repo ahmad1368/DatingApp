@@ -392,10 +392,12 @@ export class MessagingService {
    * default; the recipient must explicitly reveal them via [revealImage] -
    * unless the recipient has opted out via [setMediaBlurPreference], in
    * which case their incoming images arrive already revealed. Images also
-   * run through on-device-style automatic explicit-content detection so
-   * the reveal prompt can carry an extra warning - a failure of that check
-   * (e.g. the moderation service being unavailable) doesn't block sending,
-   * it just leaves the image unflagged.
+   * run through on-device-style automatic explicit-content detection - a
+   * failure of that check (e.g. the moderation service being unavailable)
+   * doesn't block sending, it just leaves the image unflagged. A flagged
+   * image stays blurred regardless of the recipient's auto-blur preference
+   * (see the isBlurred computation below) - opting out only skips blurring
+   * ordinary photos, not detected explicit/inappropriate ones.
    *
    * [expiryMode] optionally makes this an auto-expiring attachment: 'TIMER'
    * requires [viewTimerSeconds]; 'VIEW_ONCE' must not have one. Neither
@@ -429,7 +431,14 @@ export class MessagingService {
     const moderation =
       contentType === 'IMAGE' ? await this.moderateImageSafely(mediaUrl) : null;
 
-    const isBlurred = contentType === 'IMAGE' && (await this.recipientWantsAutoBlur(userId, match));
+    // "AI Harassment & Explicit Media Shield": an image the moderator flags
+    // as explicit/inappropriate stays blurred even if this recipient has
+    // opted out of blurring incoming media generally - that preference is
+    // about convenience for normal photos, not consent to see unsolicited
+    // explicit content unblurred.
+    const isBlurred =
+      contentType === 'IMAGE' &&
+      ((await this.recipientWantsAutoBlur(userId, match)) || (moderation?.flagged ?? false));
 
     const message = await this.prisma.message.create({
       data: {
