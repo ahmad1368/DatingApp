@@ -13,9 +13,10 @@ class LifestyleFiltersApiException implements Exception {
 
 /// The full set of lifestyle preferences and deck filters. Only
 /// `filterRelationshipGoals`/`filterVerifiedOnly`/`filterCommunityGroups`/
-/// `filterRelationshipDesires` are editable via `copyWith`; every other
-/// field is round-tripped unchanged so a save here never clobbers filters
-/// set elsewhere.
+/// `filterRelationshipDesires`/`filterSmokingHabits`/`filterDrinkingHabits`/
+/// `filterWorkoutHabits` are editable via `copyWith`; every other field is
+/// round-tripped unchanged so a save here never clobbers filters set
+/// elsewhere.
 class LifestyleFilters {
   LifestyleFilters({
     this.smokingHabit,
@@ -101,6 +102,9 @@ class LifestyleFilters {
     bool? filterVerifiedOnly,
     List<String>? filterCommunityGroups,
     bool? filterSameCampusOnly,
+    List<String>? filterSmokingHabits,
+    List<String>? filterDrinkingHabits,
+    List<String>? filterWorkoutHabits,
   }) {
     return LifestyleFilters(
       smokingHabit: smokingHabit,
@@ -117,9 +121,9 @@ class LifestyleFilters {
       politicalOrientation: politicalOrientation,
       civicActivityLevel: civicActivityLevel,
       showLifestyleBadgesOnProfile: showLifestyleBadgesOnProfile,
-      filterSmokingHabits: filterSmokingHabits,
-      filterDrinkingHabits: filterDrinkingHabits,
-      filterWorkoutHabits: filterWorkoutHabits,
+      filterSmokingHabits: filterSmokingHabits ?? this.filterSmokingHabits,
+      filterDrinkingHabits: filterDrinkingHabits ?? this.filterDrinkingHabits,
+      filterWorkoutHabits: filterWorkoutHabits ?? this.filterWorkoutHabits,
       filterMinHeightCm: filterMinHeightCm,
       filterMaxHeightCm: filterMaxHeightCm,
       filterEducationLevels: filterEducationLevels,
@@ -159,6 +163,39 @@ class LifestyleFiltersApi {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $accessToken',
       };
+
+  Future<List<String>> fetchSmokingHabitOptions() async {
+    final response = await _client.get(Uri.parse('$_baseUrl/profile/lifestyle/catalog'));
+
+    if (response.statusCode != 200) {
+      throw LifestyleFiltersApiException(_errorMessage(_decode(response), response.statusCode));
+    }
+
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    return (body['smokingHabits'] as List).cast<String>();
+  }
+
+  Future<List<String>> fetchDrinkingHabitOptions() async {
+    final response = await _client.get(Uri.parse('$_baseUrl/profile/lifestyle/catalog'));
+
+    if (response.statusCode != 200) {
+      throw LifestyleFiltersApiException(_errorMessage(_decode(response), response.statusCode));
+    }
+
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    return (body['drinkingHabits'] as List).cast<String>();
+  }
+
+  Future<List<String>> fetchWorkoutHabitOptions() async {
+    final response = await _client.get(Uri.parse('$_baseUrl/profile/lifestyle/catalog'));
+
+    if (response.statusCode != 200) {
+      throw LifestyleFiltersApiException(_errorMessage(_decode(response), response.statusCode));
+    }
+
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    return (body['workoutHabits'] as List).cast<String>();
+  }
 
   Future<List<String>> fetchRelationshipGoalOptions() async {
     final response = await _client.get(Uri.parse('$_baseUrl/profile/lifestyle/catalog'));
