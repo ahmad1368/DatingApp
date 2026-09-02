@@ -184,7 +184,13 @@ class _ProfilePhotosScreenState extends State<ProfilePhotosScreen> {
     final swipes = photo.conversionRate == null
         ? 'No swipes yet'
         : '${(photo.conversionRate! * 100).toStringAsFixed(0)}% right-swipes (${photo.impressions} shown)';
-    return '$swipes · Quality score: ${photo.qualityScore}';
+    final label = '$swipes · Quality score: ${photo.qualityScore}';
+    final brightness = photo.brightnessAdjustment;
+    if (brightness == 0) {
+      return label;
+    }
+    final direction = brightness > 0 ? 'brighter' : 'darker';
+    return '$label · Suggest ${brightness.abs()}% $direction';
   }
 
   @override

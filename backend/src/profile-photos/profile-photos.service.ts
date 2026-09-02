@@ -18,6 +18,7 @@ export interface ProfilePhotoView {
   qualityScore: number;
   cropFocalX: number;
   cropFocalY: number;
+  brightnessAdjustment: number;
   caption: string | null;
 }
 
@@ -71,6 +72,22 @@ function detectFaceFocalPoint(mediaUrl: string): CropFocalPoint {
   };
 }
 
+const BRIGHTNESS_ADJUSTMENT_RANGE = 30;
+
+/**
+ * Stands in for real computer-vision exposure analysis (no such library
+ * exists in this codebase - see scorePhotoQuality above for the same
+ * approach): a deterministic suggested brightness adjustment in
+ * percentage points, derived from the media URL's hash. Negative means
+ * "darken", positive means "brighten", 0 means "already well-exposed".
+ * Actually adjusting the image is a client-side concern; this only
+ * surfaces the suggestion.
+ */
+function suggestBrightnessAdjustment(mediaUrl: string): number {
+  const digest = createHash('sha256').update(mediaUrl).digest();
+  return (digest[3] % (2 * BRIGHTNESS_ADJUSTMENT_RANGE + 1)) - BRIGHTNESS_ADJUSTMENT_RANGE;
+}
+
 /**
  * Manages a user's photo gallery. The lead photo (lowest `position`) is
  * mirrored onto `User.profilePhotoUrl`, which is what the discovery deck
@@ -103,6 +120,7 @@ export class ProfilePhotosService {
         qualityScore: scorePhotoQuality(mediaUrl),
         cropFocalX: focalPoint.x,
         cropFocalY: focalPoint.y,
+        brightnessAdjustment: suggestBrightnessAdjustment(mediaUrl),
       },
     });
 
@@ -276,6 +294,7 @@ export class ProfilePhotosService {
       qualityScore: number;
       cropFocalX: number;
       cropFocalY: number;
+      brightnessAdjustment: number;
       caption?: string | null;
     },
     isLead: boolean,
@@ -290,6 +309,7 @@ export class ProfilePhotosService {
       qualityScore: photo.qualityScore,
       cropFocalX: photo.cropFocalX,
       cropFocalY: photo.cropFocalY,
+      brightnessAdjustment: photo.brightnessAdjustment,
       caption: photo.caption ?? null,
     };
   }

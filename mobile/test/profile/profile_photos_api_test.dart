@@ -15,7 +15,7 @@ void main() {
           return http.Response(
             '[{"id":"photo-1","mediaUrl":"https://example.com/a.jpg","isLead":true,'
             '"impressions":10,"rightSwipes":4,"conversionRate":0.4,"qualityScore":39,'
-            '"cropFocalX":0.5,"cropFocalY":0.35}]',
+            '"cropFocalX":0.5,"cropFocalY":0.35,"brightnessAdjustment":-10}]',
             200,
             headers: {'content-type': 'application/json'},
           );
@@ -30,6 +30,7 @@ void main() {
       expect(photos.first.qualityScore, 39);
       expect(photos.first.cropFocalX, 0.5);
       expect(photos.first.cropFocalY, 0.35);
+      expect(photos.first.brightnessAdjustment, -10);
     });
 
     test('throws ProfilePhotosApiException on a non-200 response', () async {
@@ -53,7 +54,7 @@ void main() {
           return http.Response(
             '{"id":"photo-1","mediaUrl":"https://example.com/a.jpg","isLead":true,'
             '"impressions":0,"rightSwipes":0,"conversionRate":null,"qualityScore":39,'
-            '"cropFocalX":0.5,"cropFocalY":0.35}',
+            '"cropFocalX":0.5,"cropFocalY":0.35,"brightnessAdjustment":0}',
             201,
             headers: {'content-type': 'application/json'},
           );
@@ -111,7 +112,7 @@ void main() {
           return http.Response(
             '{"id":"photo-1","mediaUrl":"https://example.com/a.jpg","isLead":true,'
             '"impressions":0,"rightSwipes":0,"conversionRate":null,"qualityScore":39,'
-            '"cropFocalX":0.5,"cropFocalY":0.35,"caption":"Hiking last summer"}',
+            '"cropFocalX":0.5,"cropFocalY":0.35,"brightnessAdjustment":0,"caption":"Hiking last summer"}',
             200,
             headers: {'content-type': 'application/json'},
           );
@@ -136,7 +137,7 @@ void main() {
           return http.Response(
             '{"id":"photo-1","mediaUrl":"https://example.com/a.jpg","isLead":true,'
             '"impressions":0,"rightSwipes":0,"conversionRate":null,"qualityScore":39,'
-            '"cropFocalX":0.5,"cropFocalY":0.35,"caption":null}',
+            '"cropFocalX":0.5,"cropFocalY":0.35,"brightnessAdjustment":0,"caption":null}',
             200,
             headers: {'content-type': 'application/json'},
           );
@@ -169,10 +170,10 @@ void main() {
           return http.Response(
             '[{"id":"photo-2","mediaUrl":"https://example.com/b.jpg","isLead":true,'
             '"impressions":0,"rightSwipes":0,"conversionRate":null,"qualityScore":98,'
-            '"cropFocalX":0.4,"cropFocalY":0.3},'
+            '"cropFocalX":0.4,"cropFocalY":0.3,"brightnessAdjustment":5},'
             '{"id":"photo-1","mediaUrl":"https://example.com/a.jpg","isLead":false,'
             '"impressions":10,"rightSwipes":4,"conversionRate":0.4,"qualityScore":39,'
-            '"cropFocalX":0.5,"cropFocalY":0.35}]',
+            '"cropFocalX":0.5,"cropFocalY":0.35,"brightnessAdjustment":-10}]',
             200,
             headers: {'content-type': 'application/json'},
           );

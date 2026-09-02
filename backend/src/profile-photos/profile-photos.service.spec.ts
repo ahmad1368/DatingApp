@@ -67,6 +67,7 @@ describe('ProfilePhotosService', () => {
           qualityScore: 39,
           cropFocalX: expect.any(Number),
           cropFocalY: expect.any(Number),
+          brightnessAdjustment: expect.any(Number),
         },
       });
       expect(prisma.user.update).toHaveBeenCalledWith({
@@ -96,6 +97,7 @@ describe('ProfilePhotosService', () => {
           qualityScore: 98,
           cropFocalX: expect.any(Number),
           cropFocalY: expect.any(Number),
+          brightnessAdjustment: expect.any(Number),
         },
       });
       expect(prisma.user.update).not.toHaveBeenCalled();
@@ -154,6 +156,40 @@ describe('ProfilePhotosService', () => {
       expect(cropFocalX).toBeLessThanOrEqual(0.65);
       expect(cropFocalY).toBeGreaterThanOrEqual(0.2);
       expect(cropFocalY).toBeLessThanOrEqual(0.5);
+    });
+
+    it('suggests the same brightness adjustment for the same media URL every time', async () => {
+      prisma.profilePhoto.count.mockResolvedValue(0);
+      prisma.profilePhoto.findFirst.mockResolvedValue(null);
+      prisma.profilePhoto.create.mockResolvedValue({
+        id: PHOTO_ID,
+        mediaUrl: 'https://example.com/a.jpg',
+        impressions: 0,
+        rightSwipes: 0,
+      });
+
+      await service.addPhoto(OWNER_ID, 'https://example.com/a.jpg');
+      await service.addPhoto(OWNER_ID, 'https://example.com/a.jpg');
+
+      const [firstCall, secondCall] = prisma.profilePhoto.create.mock.calls;
+      expect(firstCall[0].data.brightnessAdjustment).toBe(secondCall[0].data.brightnessAdjustment);
+    });
+
+    it('keeps the suggested brightness adjustment within +/-30 percentage points', async () => {
+      prisma.profilePhoto.count.mockResolvedValue(0);
+      prisma.profilePhoto.findFirst.mockResolvedValue(null);
+      prisma.profilePhoto.create.mockResolvedValue({
+        id: PHOTO_ID,
+        mediaUrl: 'https://example.com/a.jpg',
+        impressions: 0,
+        rightSwipes: 0,
+      });
+
+      await service.addPhoto(OWNER_ID, 'https://example.com/a.jpg');
+
+      const { brightnessAdjustment } = prisma.profilePhoto.create.mock.calls[0][0].data;
+      expect(brightnessAdjustment).toBeGreaterThanOrEqual(-30);
+      expect(brightnessAdjustment).toBeLessThanOrEqual(30);
     });
   });
 

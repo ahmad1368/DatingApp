@@ -1322,6 +1322,12 @@ model ProfilePhoto {
   // consistently across different aspect ratio containers.
   cropFocalX   Float    @default(0.5)
   cropFocalY   Float    @default(0.35)
+  // Suggested brightness adjustment in percentage points (-30..+30,
+  // negative means "darken", positive means "brighten"; 0 means "already
+  // well-exposed") - see suggestBrightnessAdjustment in
+  // profile-photos.service.ts. Actually adjusting the image is a
+  // client-side concern; this only stores the suggestion.
+  brightnessAdjustment Int @default(0)
   // User-written context or humor caption shown under this photo - see
   // ProfilePhotosService.setPhotoCaption. Null until the owner sets one.
   caption      String?
