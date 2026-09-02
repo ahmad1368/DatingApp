@@ -3700,7 +3700,13 @@ describe('DiscoveryService', () => {
           action: { in: ['LIKE', 'SUPER_LIKE'] },
           swiperId: { notIn: [USER_ID, 'already-swiped'] },
         },
-        select: { swiperId: true, action: true, complimentText: true, complimentTarget: true },
+        select: {
+          swiperId: true,
+          action: true,
+          complimentText: true,
+          complimentTarget: true,
+          isPriorityLike: true,
+        },
         orderBy: { createdAt: 'desc' },
       });
       expect(prisma.user.findMany).toHaveBeenCalledWith({
@@ -3753,6 +3759,113 @@ describe('DiscoveryService', () => {
       expect(grid[0].isSuperLike).toBe(true);
     });
 
+    it('pins a premium subscriber\'s regular like above a non-subscriber\'s, below a super like', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        isPremium: true,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+      });
+      prisma.swipe.findMany
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([
+          { swiperId: 'liker-regular', action: 'LIKE', complimentText: null, complimentTarget: null },
+          { swiperId: 'liker-subscriber', action: 'LIKE', complimentText: null, complimentTarget: null },
+          { swiperId: 'liker-super', action: 'SUPER_LIKE', complimentText: null, complimentTarget: null },
+        ]); // most recent first
+      prisma.user.findMany.mockResolvedValue([
+        {
+          id: 'liker-regular',
+          name: 'Regular',
+          dateOfBirth: null,
+          profilePhotoUrl: null,
+          interests: [],
+          relationshipGoal: null,
+          isPremium: false,
+        },
+        {
+          id: 'liker-subscriber',
+          name: 'Subscriber',
+          dateOfBirth: null,
+          profilePhotoUrl: null,
+          interests: [],
+          relationshipGoal: null,
+          isPremium: true,
+        },
+        {
+          id: 'liker-super',
+          name: 'Super',
+          dateOfBirth: null,
+          profilePhotoUrl: null,
+          interests: [],
+          relationshipGoal: null,
+          isPremium: false,
+        },
+      ]);
+
+      const grid = await service.getLikedByGrid(USER_ID);
+
+      expect(grid.map((card) => card.id)).toEqual(['liker-super', 'liker-subscriber', 'liker-regular']);
+      expect(grid[1].isPriorityLike).toBe(true);
+      expect(grid[2].isPriorityLike).toBe(false);
+    });
+
+    it('pins a paid priority-like credit the same as a subscriber\'s regular like', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        isPremium: true,
+        latitude: null,
+        longitude: null,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+      });
+      prisma.swipe.findMany
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([
+          { swiperId: 'liker-regular', action: 'LIKE', complimentText: null, complimentTarget: null },
+          {
+            swiperId: 'liker-paid',
+            action: 'LIKE',
+            complimentText: null,
+            complimentTarget: null,
+            isPriorityLike: true,
+          },
+        ]);
+      prisma.user.findMany.mockResolvedValue([
+        {
+          id: 'liker-regular',
+          name: 'Regular',
+          dateOfBirth: null,
+          profilePhotoUrl: null,
+          interests: [],
+          relationshipGoal: null,
+          isPremium: false,
+        },
+        {
+          id: 'liker-paid',
+          name: 'Paid',
+          dateOfBirth: null,
+          profilePhotoUrl: null,
+          interests: [],
+          relationshipGoal: null,
+          isPremium: false,
+        },
+      ]);
+
+      const grid = await service.getLikedByGrid(USER_ID);
+
+      expect(grid.map((card) => card.id)).toEqual(['liker-paid', 'liker-regular']);
+      expect(grid[0].isPriorityLike).toBe(true);
+    });
+
     it('returns an empty grid without querying users when nobody has liked the user', async () => {
       prisma.user.findUnique.mockResolvedValue({
         id: USER_ID,
@@ -3798,7 +3911,13 @@ describe('DiscoveryService', () => {
           action: { in: ['LIKE', 'SUPER_LIKE'] },
           swiperId: { notIn: [USER_ID, 'liker-fail'] },
         },
-        select: { swiperId: true, action: true, complimentText: true, complimentTarget: true },
+        select: {
+          swiperId: true,
+          action: true,
+          complimentText: true,
+          complimentTarget: true,
+          isPriorityLike: true,
+        },
         orderBy: { createdAt: 'desc' },
       });
     });
