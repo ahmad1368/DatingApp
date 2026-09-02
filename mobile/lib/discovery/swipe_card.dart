@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../profile/profile_poll_api.dart';
 import '../profile/voice_intro_player.dart';
 import '../safety/watermark_overlay.dart';
 import 'discovery_api.dart';
@@ -27,6 +28,7 @@ class SwipeCard extends StatefulWidget {
     required this.onSwiped,
     this.onTap,
     this.viewerAccessToken,
+    this.profilePollApi,
   });
 
   final DeckCard card;
@@ -38,6 +40,11 @@ class SwipeCard extends StatefulWidget {
   /// contexts (like most tests) that don't need the watermark.
   final String? viewerAccessToken;
 
+  /// When supplied, fetches and renders this candidate's profile poll
+  /// (see ProfilePollApi) - a prospective match can vote with a single
+  /// tap, before ever matching. Omitted in contexts that don't need it.
+  final ProfilePollApi? profilePollApi;
+
   @override
   State<SwipeCard> createState() => _SwipeCardState();
 }
@@ -47,6 +54,8 @@ class _SwipeCardState extends State<SwipeCard> with SingleTickerProviderStateMix
   late final AnimationController _animController;
   Animation<Offset>? _animation;
   bool _hapticFired = false;
+  ProfilePoll? _poll;
+  bool _isVoting = false;
 
   @override
   void initState() {
@@ -58,6 +67,51 @@ class _SwipeCardState extends State<SwipeCard> with SingleTickerProviderStateMix
           setState(() => _dragOffset = animation.value);
         }
       });
+    _loadPoll();
+  }
+
+  @override
+  void didUpdateWidget(SwipeCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.card.id != widget.card.id) {
+      setState(() => _poll = null);
+      _loadPoll();
+    }
+  }
+
+  Future<void> _loadPoll() async {
+    final profilePollApi = widget.profilePollApi;
+    if (profilePollApi == null) {
+      return;
+    }
+    try {
+      final poll = await profilePollApi.fetchPoll(widget.card.id);
+      if (mounted) {
+        setState(() => _poll = poll);
+      }
+    } on ProfilePollApiException {
+      // Non-critical: the card is still fully usable without its poll.
+    }
+  }
+
+  Future<void> _vote(int optionIndex) async {
+    final profilePollApi = widget.profilePollApi;
+    if (profilePollApi == null || _isVoting) {
+      return;
+    }
+    setState(() => _isVoting = true);
+    try {
+      final poll = await profilePollApi.vote(targetUserId: widget.card.id, optionIndex: optionIndex);
+      if (mounted) {
+        setState(() => _poll = poll);
+      }
+    } on ProfilePollApiException {
+      // Non-critical: leave the poll showing its unvoted state on failure.
+    } finally {
+      if (mounted) {
+        setState(() => _isVoting = false);
+      }
+    }
   }
 
   @override
@@ -108,9 +162,10 @@ class _SwipeCardState extends State<SwipeCard> with SingleTickerProviderStateMix
     final likeOpacity = (_dragOffset.dx / _swipeThreshold).clamp(0.0, 1.0);
     final passOpacity = (-_dragOffset.dx / _swipeThreshold).clamp(0.0, 1.0);
     final accessToken = widget.viewerAccessToken;
+    final content = _CardContent(card: widget.card, poll: _poll, onVote: _isVoting ? null : _vote);
     final cardContent = accessToken != null
-        ? WatermarkOverlay(accessToken: accessToken, child: _CardContent(card: widget.card))
-        : _CardContent(card: widget.card);
+        ? WatermarkOverlay(accessToken: accessToken, child: content)
+        : content;
 
     return GestureDetector(
       onTap: widget.onTap,
@@ -161,9 +216,11 @@ class _SwipeStamp extends StatelessWidget {
 }
 
 class _CardContent extends StatelessWidget {
-  const _CardContent({required this.card});
+  const _CardContent({required this.card, this.poll, this.onVote});
 
   final DeckCard card;
+  final ProfilePoll? poll;
+  final ValueChanged<int>? onVote;
 
   @override
   Widget build(BuildContext context) {
@@ -390,6 +447,10 @@ class _CardContent extends StatelessWidget {
                   ],
                 ),
               ],
+              if (poll != null && poll!.hasPoll) ...[
+                const SizedBox(height: 8),
+                _PollBlock(poll: poll!, onVote: onVote),
+              ],
             ],
           ),
           if (card.isSuperLike)
@@ -484,5 +545,84 @@ class _CardContent extends StatelessWidget {
     // Incognito photo blur: hidden from anyone browsing the deck until they
     // match - see DeckCard.profilePhotoBlurred.
     return ImageFiltered(imageFilter: ImageFilter.blur(sigmaX: 25, sigmaY: 25), child: image);
+  }
+}
+
+/// The poll embedded on a candidate's card - a question with tappable
+/// options before the viewer has voted, or a result breakdown (with their
+/// own pick highlighted) once they have. See ProfilePollApi.
+class _PollBlock extends StatelessWidget {
+  const _PollBlock({required this.poll, this.onVote});
+
+  final ProfilePoll poll;
+  final ValueChanged<int>? onVote;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasVoted = poll.myOptionIndex != null;
+
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            poll.question!,
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 6),
+          for (var i = 0; i < poll.options.length; i++)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: hasVoted ? _buildResultRow(i) : _buildOptionButton(i),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOptionButton(int index) {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: Colors.white,
+          side: const BorderSide(color: Colors.white),
+          padding: const EdgeInsets.symmetric(vertical: 4),
+        ),
+        onPressed: onVote == null ? null : () => onVote!(index),
+        child: Text(poll.options[index]),
+      ),
+    );
+  }
+
+  Widget _buildResultRow(int index) {
+    final isMine = poll.myOptionIndex == index;
+    final percentage = poll.totalVotes > 0 ? (poll.voteCounts[index] / poll.totalVotes * 100).round() : 0;
+
+    return Row(
+      children: [
+        Icon(
+          isMine ? Icons.check_circle : Icons.circle_outlined,
+          color: Colors.white,
+          size: 16,
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            '${poll.options[index]} - $percentage%',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: isMine ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }
