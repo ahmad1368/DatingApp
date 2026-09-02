@@ -51,7 +51,18 @@ export const POWER_UPS: PowerUp[] = [
   // conversation's messages instead of deleting them - see
   // MessagingService.dissolveMatch and User.unmatchProtectionEnabled.
   { id: 'unmatch-protection', label: 'Unmatch Protection', coinCost: 75 },
+  // A la carte "Incognito Mode": the same discovery-deck invisibility a
+  // premium subscriber gets via DiscoveryService.setIncognitoMode, but
+  // time-limited and purchasable without a subscription - see
+  // PowerUpsService.purchaseIncognitoPass/INCOGNITO_PASS_DURATION_HOURS.
+  { id: 'incognito-pass', label: 'Incognito Pass (24h)', coinCost: 60 },
 ];
+
+export const INCOGNITO_PASS_DURATION_HOURS = 24;
+
+export function computeIncognitoPassExpiresAt(from: Date): Date {
+  return new Date(from.getTime() + INCOGNITO_PASS_DURATION_HOURS * 60 * 60 * 1000);
+}
 
 /** How many bonus candidates the "Extra Profile Views" power-up adds to the next deck fetch. */
 export const EXTRA_DECK_SLOTS_GRANTED = 20;

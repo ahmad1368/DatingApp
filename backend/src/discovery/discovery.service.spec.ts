@@ -135,7 +135,23 @@ describe('DiscoveryService', () => {
           onboardingCompletedAt: { not: null },
           activeMode: 'DATING',
           AND: [
-            { OR: [{ incognitoEnabled: false }, { id: { in: [] } }] },
+            {
+              OR: [
+                { incognitoEnabled: false },
+                { id: { in: [] } },
+                {
+                  AND: [
+                    { isPremium: false },
+                    {
+                      OR: [
+                        { incognitoPassExpiresAt: null },
+                        { incognitoPassExpiresAt: { lte: expect.any(Date) } },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
             { OR: [{ id: { notIn: [] } }, { id: { in: [] } }] },
             { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
           ],
@@ -193,7 +209,23 @@ describe('DiscoveryService', () => {
           onboardingCompletedAt: { not: null },
           activeMode: 'DATING',
           AND: [
-            { OR: [{ incognitoEnabled: false }, { id: { in: [] } }] },
+            {
+              OR: [
+                { incognitoEnabled: false },
+                { id: { in: [] } },
+                {
+                  AND: [
+                    { isPremium: false },
+                    {
+                      OR: [
+                        { incognitoPassExpiresAt: null },
+                        { incognitoPassExpiresAt: { lte: expect.any(Date) } },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
             { OR: [{ id: { notIn: [] } }, { id: { in: [] } }] },
             { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
           ],
@@ -229,7 +261,23 @@ describe('DiscoveryService', () => {
           onboardingCompletedAt: { not: null },
           activeMode: 'DATING',
           AND: [
-            { OR: [{ incognitoEnabled: false }, { id: { in: [] } }] },
+            {
+              OR: [
+                { incognitoEnabled: false },
+                { id: { in: [] } },
+                {
+                  AND: [
+                    { isPremium: false },
+                    {
+                      OR: [
+                        { incognitoPassExpiresAt: null },
+                        { incognitoPassExpiresAt: { lte: expect.any(Date) } },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
             { OR: [{ id: { notIn: [] } }, { id: { in: [] } }] },
             { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
           ],
@@ -1067,7 +1115,23 @@ describe('DiscoveryService', () => {
           onboardingCompletedAt: { not: null },
           activeMode: 'DATING',
           AND: [
-            { OR: [{ incognitoEnabled: false }, { id: { in: [] } }] },
+            {
+              OR: [
+                { incognitoEnabled: false },
+                { id: { in: [] } },
+                {
+                  AND: [
+                    { isPremium: false },
+                    {
+                      OR: [
+                        { incognitoPassExpiresAt: null },
+                        { incognitoPassExpiresAt: { lte: expect.any(Date) } },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
             { OR: [{ id: { notIn: [] } }, { id: { in: [] } }] },
             { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
           ],
@@ -1102,7 +1166,23 @@ describe('DiscoveryService', () => {
           onboardingCompletedAt: { not: null },
           activeMode: 'DATING',
           AND: [
-            { OR: [{ incognitoEnabled: false }, { id: { in: [] } }] },
+            {
+              OR: [
+                { incognitoEnabled: false },
+                { id: { in: [] } },
+                {
+                  AND: [
+                    { isPremium: false },
+                    {
+                      OR: [
+                        { incognitoPassExpiresAt: null },
+                        { incognitoPassExpiresAt: { lte: expect.any(Date) } },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
             { OR: [{ id: { notIn: [] } }, { id: { in: [] } }] },
             { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
           ],
@@ -1136,7 +1216,23 @@ describe('DiscoveryService', () => {
           onboardingCompletedAt: { not: null },
           activeMode: 'DATING',
           AND: [
-            { OR: [{ incognitoEnabled: false }, { id: { in: [] } }] },
+            {
+              OR: [
+                { incognitoEnabled: false },
+                { id: { in: [] } },
+                {
+                  AND: [
+                    { isPremium: false },
+                    {
+                      OR: [
+                        { incognitoPassExpiresAt: null },
+                        { incognitoPassExpiresAt: { lte: expect.any(Date) } },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
             { OR: [{ id: { notIn: [] } }, { id: { in: [] } }] },
             { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
           ],
@@ -1194,7 +1290,23 @@ describe('DiscoveryService', () => {
           onboardingCompletedAt: { not: null },
           activeMode: 'DATING',
           AND: [
-            { OR: [{ incognitoEnabled: false }, { id: { in: [] } }] },
+            {
+              OR: [
+                { incognitoEnabled: false },
+                { id: { in: [] } },
+                {
+                  AND: [
+                    { isPremium: false },
+                    {
+                      OR: [
+                        { incognitoPassExpiresAt: null },
+                        { incognitoPassExpiresAt: { lte: expect.any(Date) } },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
             { OR: [{ id: { notIn: [] } }, { id: { in: [] } }] },
             { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
           ],
@@ -1227,7 +1339,23 @@ describe('DiscoveryService', () => {
           onboardingCompletedAt: { not: null },
           activeMode: 'DATING',
           AND: [
-            { OR: [{ incognitoEnabled: false }, { id: { in: [] } }] },
+            {
+              OR: [
+                { incognitoEnabled: false },
+                { id: { in: [] } },
+                {
+                  AND: [
+                    { isPremium: false },
+                    {
+                      OR: [
+                        { incognitoPassExpiresAt: null },
+                        { incognitoPassExpiresAt: { lte: expect.any(Date) } },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
             { OR: [{ id: { notIn: [] } }, { id: { in: [] } }] },
             { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
           ],
@@ -1261,7 +1389,23 @@ describe('DiscoveryService', () => {
           onboardingCompletedAt: { not: null },
           activeMode: 'DATING',
           AND: [
-            { OR: [{ incognitoEnabled: false }, { id: { in: [] } }] },
+            {
+              OR: [
+                { incognitoEnabled: false },
+                { id: { in: [] } },
+                {
+                  AND: [
+                    { isPremium: false },
+                    {
+                      OR: [
+                        { incognitoPassExpiresAt: null },
+                        { incognitoPassExpiresAt: { lte: expect.any(Date) } },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
             { OR: [{ id: { notIn: [] } }, { id: { in: [] } }] },
             { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
           ],
@@ -1295,7 +1439,23 @@ describe('DiscoveryService', () => {
           onboardingCompletedAt: { not: null },
           activeMode: 'DATING',
           AND: [
-            { OR: [{ incognitoEnabled: false }, { id: { in: [] } }] },
+            {
+              OR: [
+                { incognitoEnabled: false },
+                { id: { in: [] } },
+                {
+                  AND: [
+                    { isPremium: false },
+                    {
+                      OR: [
+                        { incognitoPassExpiresAt: null },
+                        { incognitoPassExpiresAt: { lte: expect.any(Date) } },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
             { OR: [{ id: { notIn: [] } }, { id: { in: [] } }] },
             { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
           ],
@@ -1329,7 +1489,23 @@ describe('DiscoveryService', () => {
           onboardingCompletedAt: { not: null },
           activeMode: 'DATING',
           AND: [
-            { OR: [{ incognitoEnabled: false }, { id: { in: [] } }] },
+            {
+              OR: [
+                { incognitoEnabled: false },
+                { id: { in: [] } },
+                {
+                  AND: [
+                    { isPremium: false },
+                    {
+                      OR: [
+                        { incognitoPassExpiresAt: null },
+                        { incognitoPassExpiresAt: { lte: expect.any(Date) } },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
             { OR: [{ id: { notIn: [] } }, { id: { in: [] } }] },
             { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
           ],
@@ -1480,7 +1656,23 @@ describe('DiscoveryService', () => {
           onboardingCompletedAt: { not: null },
           activeMode: 'DATING',
           AND: [
-            { OR: [{ incognitoEnabled: false }, { id: { in: [] } }] },
+            {
+              OR: [
+                { incognitoEnabled: false },
+                { id: { in: [] } },
+                {
+                  AND: [
+                    { isPremium: false },
+                    {
+                      OR: [
+                        { incognitoPassExpiresAt: null },
+                        { incognitoPassExpiresAt: { lte: expect.any(Date) } },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
             { OR: [{ id: { notIn: [] } }, { id: { in: [] } }] },
             { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
           ],
@@ -1513,7 +1705,23 @@ describe('DiscoveryService', () => {
           onboardingCompletedAt: { not: null },
           activeMode: 'DATING',
           AND: [
-            { OR: [{ incognitoEnabled: false }, { id: { in: [] } }] },
+            {
+              OR: [
+                { incognitoEnabled: false },
+                { id: { in: [] } },
+                {
+                  AND: [
+                    { isPremium: false },
+                    {
+                      OR: [
+                        { incognitoPassExpiresAt: null },
+                        { incognitoPassExpiresAt: { lte: expect.any(Date) } },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
             { OR: [{ id: { notIn: [] } }, { id: { in: [] } }] },
             { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
           ],
@@ -2041,7 +2249,23 @@ describe('DiscoveryService', () => {
           onboardingCompletedAt: { not: null },
           activeMode: 'DATING',
           AND: [
-            { OR: [{ incognitoEnabled: false }, { id: { in: ['super-liker-1'] } }] },
+            {
+              OR: [
+                { incognitoEnabled: false },
+                { id: { in: ['super-liker-1'] } },
+                {
+                  AND: [
+                    { isPremium: false },
+                    {
+                      OR: [
+                        { incognitoPassExpiresAt: null },
+                        { incognitoPassExpiresAt: { lte: expect.any(Date) } },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
             { OR: [{ id: { notIn: [] } }, { id: { in: ['super-liker-1'] } }] },
             { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
           ],
@@ -2079,7 +2303,23 @@ describe('DiscoveryService', () => {
           onboardingCompletedAt: { not: null },
           activeMode: 'DATING',
           AND: [
-            { OR: [{ incognitoEnabled: false }, { id: { in: ['liker-1'] } }] },
+            {
+              OR: [
+                { incognitoEnabled: false },
+                { id: { in: ['liker-1'] } },
+                {
+                  AND: [
+                    { isPremium: false },
+                    {
+                      OR: [
+                        { incognitoPassExpiresAt: null },
+                        { incognitoPassExpiresAt: { lte: expect.any(Date) } },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
             { OR: [{ id: { notIn: [] } }, { id: { in: ['liker-1'] } }] },
             { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
           ],
@@ -2222,7 +2462,23 @@ describe('DiscoveryService', () => {
           onboardingCompletedAt: { not: null },
           activeMode: 'BFF',
           AND: [
-            { OR: [{ incognitoEnabled: false }, { id: { in: [] } }] },
+            {
+              OR: [
+                { incognitoEnabled: false },
+                { id: { in: [] } },
+                {
+                  AND: [
+                    { isPremium: false },
+                    {
+                      OR: [
+                        { incognitoPassExpiresAt: null },
+                        { incognitoPassExpiresAt: { lte: expect.any(Date) } },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
             { OR: [{ id: { notIn: [] } }, { id: { in: [] } }] },
             { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
           ],
@@ -2283,7 +2539,23 @@ describe('DiscoveryService', () => {
           onboardingCompletedAt: { not: null },
           activeMode: 'DATING',
           AND: [
-            { OR: [{ incognitoEnabled: false }, { id: { in: [] } }] },
+            {
+              OR: [
+                { incognitoEnabled: false },
+                { id: { in: [] } },
+                {
+                  AND: [
+                    { isPremium: false },
+                    {
+                      OR: [
+                        { incognitoPassExpiresAt: null },
+                        { incognitoPassExpiresAt: { lte: expect.any(Date) } },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
             { OR: [{ id: { notIn: [] } }, { id: { in: [] } }] },
             { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }] },
           ],
@@ -3114,6 +3386,29 @@ describe('DiscoveryService', () => {
         data: { incognitoEnabled: true },
       });
       expect(result).toEqual({ incognitoEnabled: true });
+    });
+
+    it('allows a non-premium user with an active incognito pass to re-enable it', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        isPremium: false,
+        incognitoPassExpiresAt: new Date(Date.now() + 60 * 60 * 1000),
+      });
+      prisma.user.update.mockResolvedValue({ incognitoEnabled: true });
+
+      const result = await service.setIncognitoMode(USER_ID, true);
+
+      expect(result).toEqual({ incognitoEnabled: true });
+    });
+
+    it('rejects a non-premium user whose incognito pass has expired', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        isPremium: false,
+        incognitoPassExpiresAt: new Date(Date.now() - 60 * 60 * 1000),
+      });
+
+      await expect(service.setIncognitoMode(USER_ID, true)).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
     });
   });
 

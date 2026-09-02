@@ -7,7 +7,13 @@ import {
   SUPER_BOOST_PEAK_VIEW_MULTIPLIER,
 } from '../discovery/discovery.constants';
 import { computeExtendedExpiresAt } from '../messaging/messaging.constants';
-import { EXTRA_DECK_SLOTS_GRANTED, findPowerUp, POWER_UPS, PowerUp } from './power-ups.constants';
+import {
+  computeIncognitoPassExpiresAt,
+  EXTRA_DECK_SLOTS_GRANTED,
+  findPowerUp,
+  POWER_UPS,
+  PowerUp,
+} from './power-ups.constants';
 
 export interface PurchasePowerUpResult {
   coinBalance: number;
@@ -68,6 +74,8 @@ export class PowerUpsService {
       case 'see-who-liked-you-unlock':
       case 'see-who-liked-you-unlock-pack-5':
         return this.purchaseSeeWhoLikedYouUnlock(userId, powerUp);
+      case 'incognito-pass':
+        return this.purchaseIncognitoPass(userId, powerUp, user.incognitoEnabled);
       default:
         return this.purchaseSuperLike(userId, powerUp);
     }
@@ -239,6 +247,35 @@ export class PowerUpsService {
       data: {
         giftTokenBalance: { decrement: powerUp.coinCost },
         bonusDeckSlots: { increment: EXTRA_DECK_SLOTS_GRANTED },
+      },
+    });
+
+    return { coinBalance: updatedUser.giftTokenBalance, powerUpId: powerUp.id };
+  }
+
+  /**
+   * A la carte incognito: turns on the same discovery-deck invisibility a
+   * premium subscriber gets for free via DiscoveryService.setIncognitoMode,
+   * but only for INCOGNITO_PASS_DURATION_HOURS - see
+   * incognitoPassExpiresAt's use in DiscoveryService.getDeck's candidate
+   * exclusion, which stops honoring incognitoEnabled once a non-premium
+   * user's pass lapses.
+   */
+  private async purchaseIncognitoPass(
+    userId: string,
+    powerUp: PowerUp,
+    alreadyIncognito: boolean,
+  ): Promise<PurchasePowerUpResult> {
+    if (alreadyIncognito) {
+      throw new BadRequestException('Incognito mode is already active.');
+    }
+
+    const updatedUser = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        giftTokenBalance: { decrement: powerUp.coinCost },
+        incognitoEnabled: true,
+        incognitoPassExpiresAt: computeIncognitoPassExpiresAt(new Date()),
       },
     });
 

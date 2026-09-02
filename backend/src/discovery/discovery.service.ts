@@ -302,7 +302,23 @@ export class DiscoveryService {
         onboardingCompletedAt: { not: null },
         activeMode: currentUser.activeMode,
         AND: [
-          { OR: [{ incognitoEnabled: false }, { id: { in: likedMeIds } }] },
+          {
+            OR: [
+              { incognitoEnabled: false },
+              { id: { in: likedMeIds } },
+              // A non-premium candidate's a la carte incognito pass (see
+              // PowerUpsService.purchaseIncognitoPass) has lapsed - there's
+              // no background job to flip incognitoEnabled back off, so
+              // this is checked lazily here instead, the same way boosts/
+              // matches/etc. expire lazily elsewhere in this codebase.
+              {
+                AND: [
+                  { isPremium: false },
+                  { OR: [{ incognitoPassExpiresAt: null }, { incognitoPassExpiresAt: { lte: now } }] },
+                ],
+              },
+            ],
+          },
           { OR: [{ id: { notIn: mutualConnectionHiddenIds } }, { id: { in: likedMeIds } }] },
           notSnoozedWhere,
         ],
@@ -1035,16 +1051,22 @@ export class DiscoveryService {
   }
 
   /**
-   * Premium "incognito" mode: hides the user from the main discovery deck,
-   * except for profiles the user has actively liked or super-liked (they
-   * remain visible to whoever they've swiped right on).
+   * "Incognito" mode: hides the user from the main discovery deck, except
+   * for profiles the user has actively liked or super-liked (they remain
+   * visible to whoever they've swiped right on). Free for premium
+   * subscribers; a non-premium user can also re-enable it here while an
+   * a la carte PowerUpsService.purchaseIncognitoPass they bought is still
+   * active (purchasing turns it on immediately - this just covers toggling
+   * it back on after manually turning it off mid-pass).
    */
   async setIncognitoMode(userId: string, enabled: boolean): Promise<IncognitoResult> {
     const currentUser = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!currentUser) {
       throw new NotFoundException('User not found.');
     }
-    if (enabled && !currentUser.isPremium) {
+    const hasActiveIncognitoPass =
+      currentUser.incognitoPassExpiresAt != null && currentUser.incognitoPassExpiresAt > new Date();
+    if (enabled && !currentUser.isPremium && !hasActiveIncognitoPass) {
       throw new ForbiddenException('Incognito mode is a premium feature.');
     }
 
