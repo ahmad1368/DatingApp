@@ -139,6 +139,12 @@ model User {
   communityGroupIds                     String[]  @default([])
   filterCommunityGroups                 String[]  @default([])
   incognitoEnabled                      Boolean   @default(false)
+  // Set when incognitoEnabled was turned on via a coin-purchased, time-
+  // limited "Incognito Pass" (see PowerUpsService.purchaseIncognitoPass)
+  // rather than a premium subscription - null for a premium user's
+  // incognito toggle, which never expires on its own. See
+  // DiscoveryService.getDeck's candidate exclusion and setIncognitoMode.
+  incognitoPassExpiresAt                DateTime?
   // Opt-in privacy toggle: excludes this user from the discovery deck of
   // anyone who shares a synced contact with them (a "mutual friend" or
   // phonebook connection) - see getMutualConnectionHiddenIds in

@@ -359,6 +359,38 @@ describe('PowerUpsService', () => {
       });
     });
 
+    describe('incognito-pass', () => {
+      it('deducts coins, enables incognito, and sets a 24-hour pass expiry', async () => {
+        prisma.user.findUnique.mockResolvedValue({ giftTokenBalance: 100, incognitoEnabled: false });
+        prisma.user.update.mockResolvedValue({ giftTokenBalance: 40 });
+
+        const result = await service.purchasePowerUp(USER_ID, 'incognito-pass');
+
+        expect(prisma.user.update).toHaveBeenCalledWith({
+          where: { id: USER_ID },
+          data: {
+            giftTokenBalance: { decrement: 60 },
+            incognitoEnabled: true,
+            incognitoPassExpiresAt: expect.any(Date),
+          },
+        });
+        const call = prisma.user.update.mock.calls[0][0];
+        const hoursUntilExpiry =
+          (call.data.incognitoPassExpiresAt.getTime() - Date.now()) / (60 * 60 * 1000);
+        expect(hoursUntilExpiry).toBeCloseTo(24, 0);
+        expect(result).toEqual({ coinBalance: 40, powerUpId: 'incognito-pass' });
+      });
+
+      it('rejects buying it again while incognito is already active', async () => {
+        prisma.user.findUnique.mockResolvedValue({ giftTokenBalance: 100, incognitoEnabled: true });
+
+        await expect(service.purchasePowerUp(USER_ID, 'incognito-pass')).rejects.toBeInstanceOf(
+          BadRequestException,
+        );
+        expect(prisma.user.update).not.toHaveBeenCalled();
+      });
+    });
+
     describe('extra-profile-views', () => {
       it('deducts coins and grants bonus deck slots', async () => {
         prisma.user.findUnique.mockResolvedValue({ giftTokenBalance: 50 });
