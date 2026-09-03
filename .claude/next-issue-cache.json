@@ -1262,10 +1262,5 @@
       "title": "Daily Curated Profiles Refresh Timer"
     }
   ],
-  "queue": [
-    {
-      "number": 144,
-      "reason": "no existing PR/branch or duplicate-resolution mention found; queued in descending-priority order"
-    }
-  ]
+  "queue": []
 }
