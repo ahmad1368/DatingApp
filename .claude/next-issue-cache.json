@@ -1264,10 +1264,6 @@
   ],
   "queue": [
     {
-      "number": 315,
-      "reason": "fresh full-history dedup pass; no existing PR/branch or duplicate-resolution mention found"
-    },
-    {
       "number": 314,
       "reason": "fresh full-history dedup pass; no existing PR/branch or duplicate-resolution mention found"
     },
