@@ -238,6 +238,10 @@ model User {
   // lastActiveAt is withheld from DeckCard for anyone browsing the deck -
   // see DiscoveryService.setActiveStatusVisibility/toDeckCard.
   showActiveStatusOnProfile             Boolean   @default(true)
+  // "Direct Profile Link & QR Code Sharing": a random token generated
+  // lazily on first request - see ProfileShareService.getOrCreateShareLink/
+  // getSharedProfile. Null until the user first shares their profile.
+  profileShareToken                     String?   @unique
   createdAt                             DateTime  @default(now())
   updatedAt                             DateTime  @updatedAt
 

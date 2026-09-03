@@ -1,19 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import 'parallax_photo_view.dart';
 import 'profile_photo_picker_controller.dart';
 import 'profile_photos_api.dart';
+import 'profile_share_api.dart';
 
 /// Manages the user's photo gallery. The lead (first) photo is what other
 /// users see in the discovery deck; it automatically rotates to whichever
 /// photo is converting best once enough swipes have been recorded against
 /// it, so conversion stats are shown per photo instead of a manual reorder.
 class ProfilePhotosScreen extends StatefulWidget {
-  ProfilePhotosScreen({super.key, required this.profilePhotosApi, ProfilePhotoPickerController? picker})
-      : picker = picker ?? DeviceProfilePhotoPickerController();
+  ProfilePhotosScreen({
+    super.key,
+    required this.profilePhotosApi,
+    ProfilePhotoPickerController? picker,
+    ProfileShareApi? profileShareApi,
+  })  : picker = picker ?? DeviceProfilePhotoPickerController(),
+        profileShareApi =
+            profileShareApi ?? ProfileShareApi(accessToken: profilePhotosApi.accessToken);
 
   final ProfilePhotosApi profilePhotosApi;
   final ProfilePhotoPickerController picker;
+  final ProfileShareApi profileShareApi;
 
   @override
   State<ProfilePhotosScreen> createState() => _ProfilePhotosScreenState();
@@ -62,6 +72,51 @@ class _ProfilePhotosScreenState extends State<ProfilePhotosScreen> {
     } on ProfilePhotosApiException catch (e) {
       setState(() => _errorText = e.message);
     }
+  }
+
+  /// "Direct Profile Link & QR Code Sharing": generates (or reuses) a
+  /// public link to this profile card and shows it alongside a scannable
+  /// QR code, so it can be shared outside the app to someone without an
+  /// account.
+  Future<void> _shareProfile() async {
+    setState(() => _errorText = null);
+    String link;
+    try {
+      link = await widget.profileShareApi.getOrCreateShareLink();
+    } on ProfileShareApiException catch (e) {
+      setState(() => _errorText = e.message);
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Share your profile'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              QrImageView(data: link, size: 200),
+              const SizedBox(height: 12),
+              SelectableText(link),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: link));
+              Navigator.of(context).pop();
+            },
+            child: const Text('Copy link'),
+          ),
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close')),
+        ],
+      ),
+    );
   }
 
   Future<void> _addPhoto() async {
@@ -199,6 +254,11 @@ class _ProfilePhotosScreenState extends State<ProfilePhotosScreen> {
       appBar: AppBar(
         title: const Text('Profile Photos'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.qr_code),
+            tooltip: 'Share your profile',
+            onPressed: _shareProfile,
+          ),
           IconButton(
             icon: const Icon(Icons.auto_fix_high),
             tooltip: 'AI gallery curator',

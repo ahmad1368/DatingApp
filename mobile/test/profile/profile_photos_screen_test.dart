@@ -6,6 +6,7 @@ import 'package:http/testing.dart';
 import 'package:mobile/profile/profile_photo_picker_controller.dart';
 import 'package:mobile/profile/profile_photos_api.dart';
 import 'package:mobile/profile/profile_photos_screen.dart';
+import 'package:mobile/profile/profile_share_api.dart';
 
 class _FakePicker implements ProfilePhotoPickerController {
   String? nextPath = 'file:///tmp/photo.jpg';
@@ -390,5 +391,44 @@ void main() {
     expect(putRequest!.body, '{"enabled":true}');
     final switchTileAfter = tester.widget<SwitchListTile>(find.byType(SwitchListTile));
     expect(switchTileAfter.value, isTrue);
+  });
+
+  testWidgets('sharing the profile shows the link and a QR code', (tester) async {
+    final api = ProfilePhotosApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/profile-photos/blur-until-match') {
+          return _blurResponse();
+        }
+        return http.Response('[]', 200, headers: {'content-type': 'application/json'});
+      }),
+    );
+    http.Request? shareRequest;
+    final profileShareApi = ProfileShareApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        shareRequest = request;
+        return http.Response(
+          '{"shareToken":"abc123"}',
+          201,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ProfilePhotosScreen(profilePhotosApi: api, profileShareApi: profileShareApi),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.qr_code));
+    await tester.pumpAndSettle();
+
+    expect(shareRequest, isNotNull);
+    expect(shareRequest!.method, 'POST');
+    expect(shareRequest!.url.path, '/profile/share-link');
+    expect(find.textContaining('/profile/shared/abc123'), findsOneWidget);
   });
 }
