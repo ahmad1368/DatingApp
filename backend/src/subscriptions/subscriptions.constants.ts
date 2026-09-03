@@ -6,6 +6,9 @@ export type SubscriptionTier = (typeof SUBSCRIPTION_TIERS)[number];
 
 export const SUBSCRIPTION_PERIOD_DAYS = 30;
 
+/** Length (hex chars) of a generated subscription voucher code. */
+export const VOUCHER_CODE_LENGTH = 10;
+
 export interface SubscriptionPlan {
   tier: SubscriptionTier;
   label: string;

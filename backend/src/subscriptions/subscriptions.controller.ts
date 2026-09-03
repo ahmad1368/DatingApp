@@ -3,6 +3,8 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AuthenticatedUser, JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { SubscribeDto } from './dto/subscribe.dto';
 import { GiftSubscriptionDto } from './dto/gift-subscription.dto';
+import { PurchaseVoucherDto } from './dto/purchase-voucher.dto';
+import { RedeemVoucherDto } from './dto/redeem-voucher.dto';
 import { SubscriptionsService } from './subscriptions.service';
 
 @Controller('subscriptions')
@@ -41,5 +43,22 @@ export class SubscriptionsController {
   @Get('gifts/received')
   listReceivedGifts(@CurrentUser() user: AuthenticatedUser) {
     return this.subscriptionsService.listReceivedSubscriptionGifts(user.id);
+  }
+
+  @Post('vouchers/purchase')
+  @HttpCode(HttpStatus.CREATED)
+  purchaseVoucher(@CurrentUser() user: AuthenticatedUser, @Body() dto: PurchaseVoucherDto) {
+    return this.subscriptionsService.purchaseVoucher(user.id, dto.tier);
+  }
+
+  @Get('vouchers/mine')
+  listMyVouchers(@CurrentUser() user: AuthenticatedUser) {
+    return this.subscriptionsService.listMyVouchers(user.id);
+  }
+
+  @Post('vouchers/redeem')
+  @HttpCode(HttpStatus.OK)
+  redeemVoucher(@CurrentUser() user: AuthenticatedUser, @Body() dto: RedeemVoucherDto) {
+    return this.subscriptionsService.redeemVoucher(user.id, dto.code);
   }
 }

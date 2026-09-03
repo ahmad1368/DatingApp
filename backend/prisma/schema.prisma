@@ -688,6 +688,19 @@ model SubscriptionGift {
   @@map("subscription_gifts")
 }
 
+model SubscriptionVoucher {
+  id            String    @id @default(uuid())
+  code          String    @unique
+  tier          String
+  purchasedById String
+  redeemedById  String?
+  redeemedAt    DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@index([purchasedById])
+  @@map("subscription_vouchers")
+}
+
 model CoinPurchase {
   id             String   @id @default(uuid())
   userId         String

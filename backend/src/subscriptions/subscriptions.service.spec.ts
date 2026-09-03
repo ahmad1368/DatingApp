@@ -14,6 +14,7 @@ describe('SubscriptionsService', () => {
   let prisma: {
     user: { findUnique: jest.Mock; update: jest.Mock; findMany: jest.Mock };
     subscriptionGift: { create: jest.Mock; findMany: jest.Mock };
+    subscriptionVoucher: { create: jest.Mock; findMany: jest.Mock; findUnique: jest.Mock; update: jest.Mock };
     $transaction: jest.Mock;
   };
 
@@ -21,6 +22,12 @@ describe('SubscriptionsService', () => {
     prisma = {
       user: { findUnique: jest.fn(), update: jest.fn(), findMany: jest.fn() },
       subscriptionGift: { create: jest.fn(), findMany: jest.fn() },
+      subscriptionVoucher: {
+        create: jest.fn(),
+        findMany: jest.fn(),
+        findUnique: jest.fn(),
+        update: jest.fn(),
+      },
       $transaction: jest.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
     };
     service = new SubscriptionsService(prisma as unknown as PrismaService);
@@ -338,6 +345,134 @@ describe('SubscriptionsService', () => {
           otherUserPhotoUrl: 'https://example.com/jane.jpg',
         },
       ]);
+    });
+  });
+
+  describe('purchaseVoucher', () => {
+    it('throws when the user does not exist', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(service.purchaseVoucher(USER_ID, 'GOLD')).rejects.toBeInstanceOf(NotFoundException);
+      expect(prisma.subscriptionVoucher.create).not.toHaveBeenCalled();
+    });
+
+    it('creates a voucher with a generated code for the purchasing user', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: USER_ID });
+      prisma.subscriptionVoucher.create.mockImplementation(({ data }) =>
+        Promise.resolve({
+          code: data.code,
+          tier: data.tier,
+          redeemedAt: null,
+          redeemedById: null,
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        }),
+      );
+
+      const voucher = await service.purchaseVoucher(USER_ID, 'GOLD');
+
+      expect(prisma.subscriptionVoucher.create).toHaveBeenCalledWith({
+        data: { code: expect.any(String), tier: 'GOLD', purchasedById: USER_ID },
+      });
+      expect(voucher.code).toMatch(/^[0-9A-F]+$/);
+      expect(voucher.tier).toBe('GOLD');
+      expect(voucher.redeemedAt).toBeNull();
+      expect(voucher.redeemedByUserId).toBeNull();
+      expect(voucher.createdAt).toBe('2026-01-01T00:00:00.000Z');
+    });
+  });
+
+  describe('listMyVouchers', () => {
+    it("returns the caller's purchased vouchers, most recent first", async () => {
+      prisma.subscriptionVoucher.findMany.mockResolvedValue([
+        {
+          code: 'ABC123',
+          tier: 'PLUS',
+          redeemedAt: null,
+          redeemedById: null,
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ]);
+
+      const result = await service.listMyVouchers(USER_ID);
+
+      expect(prisma.subscriptionVoucher.findMany).toHaveBeenCalledWith({
+        where: { purchasedById: USER_ID },
+        orderBy: { createdAt: 'desc' },
+      });
+      expect(result).toEqual([
+        {
+          code: 'ABC123',
+          tier: 'PLUS',
+          redeemedAt: null,
+          redeemedByUserId: null,
+          createdAt: '2026-01-01T00:00:00.000Z',
+        },
+      ]);
+    });
+  });
+
+  describe('redeemVoucher', () => {
+    it('throws for an invalid code', async () => {
+      prisma.subscriptionVoucher.findUnique.mockResolvedValue(null);
+
+      await expect(service.redeemVoucher(USER_ID, 'NOPE')).rejects.toBeInstanceOf(NotFoundException);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('rejects a voucher that has already been redeemed', async () => {
+      prisma.subscriptionVoucher.findUnique.mockResolvedValue({
+        id: 'voucher-1',
+        code: 'ABC123',
+        tier: 'GOLD',
+        redeemedAt: new Date('2026-01-01T00:00:00.000Z'),
+        redeemedById: RECIPIENT_ID,
+      });
+
+      await expect(service.redeemVoucher(USER_ID, 'ABC123')).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('grants the caller a fresh billing period and marks the voucher redeemed', async () => {
+      prisma.subscriptionVoucher.findUnique.mockResolvedValue({
+        id: 'voucher-1',
+        code: 'ABC123',
+        tier: 'GOLD',
+        redeemedAt: null,
+        redeemedById: null,
+      });
+      prisma.user.update.mockResolvedValue({
+        subscriptionTier: 'GOLD',
+        subscriptionExpiresAt: hoursFromNow(30 * 24),
+        subscriptionCanceledAt: null,
+        isPremium: true,
+      });
+      prisma.subscriptionVoucher.update.mockResolvedValue({
+        code: 'ABC123',
+        tier: 'GOLD',
+        redeemedAt: new Date('2026-01-01T00:00:00.000Z'),
+        redeemedById: USER_ID,
+        createdAt: new Date('2025-12-01T00:00:00.000Z'),
+      });
+
+      const result = await service.redeemVoucher(USER_ID, 'ABC123');
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: USER_ID },
+        data: {
+          subscriptionTier: 'GOLD',
+          subscriptionExpiresAt: expect.any(Date),
+          subscriptionCanceledAt: null,
+          isPremium: true,
+        },
+      });
+      expect(prisma.subscriptionVoucher.update).toHaveBeenCalledWith({
+        where: { id: 'voucher-1' },
+        data: { redeemedAt: expect.any(Date), redeemedById: USER_ID },
+      });
+      expect(result.status.tier).toBe('GOLD');
+      expect(result.status.isActive).toBe(true);
+      expect(result.voucher.redeemedByUserId).toBe(USER_ID);
+      expect(result.voucher.redeemedAt).toBe('2026-01-01T00:00:00.000Z');
     });
   });
 });

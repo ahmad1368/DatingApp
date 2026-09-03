@@ -33,7 +33,10 @@ void main() {
         client: MockClient((request) async => http.Response('', 500)),
       );
 
-      expect(() => api.fetchCatalog(), throwsA(isA<SubscriptionsApiException>()));
+      expect(
+        () => api.fetchCatalog(),
+        throwsA(isA<SubscriptionsApiException>()),
+      );
     });
   });
 
@@ -138,7 +141,10 @@ void main() {
         }),
       );
 
-      final status = await api.giftSubscription(recipientId: 'user-2', tier: 'GOLD');
+      final status = await api.giftSubscription(
+        recipientId: 'user-2',
+        tier: 'GOLD',
+      );
 
       expect(status.tier, 'GOLD');
       expect(status.isActive, isTrue);
@@ -184,6 +190,111 @@ void main() {
       expect(gifts, hasLength(1));
       expect(gifts.first.tier, 'PLATINUM');
       expect(gifts.first.otherUserName, 'Jane');
+    });
+  });
+
+  group('SubscriptionsApi.purchaseVoucher', () {
+    test('sends the tier and parses the generated voucher', () async {
+      final api = SubscriptionsApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'POST');
+          expect(request.url.path, '/subscriptions/vouchers/purchase');
+          expect(request.body, '{"tier":"GOLD"}');
+          return http.Response(
+            '{"code":"ABCD1234","tier":"GOLD","redeemedAt":null,"redeemedByUserId":null,'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}',
+            201,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final voucher = await api.purchaseVoucher('GOLD');
+
+      expect(voucher.code, 'ABCD1234');
+      expect(voucher.tier, 'GOLD');
+      expect(voucher.isRedeemed, isFalse);
+    });
+
+    test('throws SubscriptionsApiException on a non-201 response', () async {
+      final api = SubscriptionsApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async =>
+              http.Response('{"message":"User not found."}', 404),
+        ),
+      );
+
+      expect(
+        () => api.purchaseVoucher('GOLD'),
+        throwsA(isA<SubscriptionsApiException>()),
+      );
+    });
+  });
+
+  group('SubscriptionsApi.fetchMyVouchers', () {
+    test('sends the bearer token and parses purchased vouchers', () async {
+      final api = SubscriptionsApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.headers['Authorization'], 'Bearer a-jwt');
+          expect(request.url.path, '/subscriptions/vouchers/mine');
+          return http.Response(
+            '[{"code":"ABCD1234","tier":"GOLD","redeemedAt":"2026-01-01T00:00:00.000Z",'
+            '"redeemedByUserId":"user-2","createdAt":"2025-12-01T00:00:00.000Z"}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final vouchers = await api.fetchMyVouchers();
+
+      expect(vouchers, hasLength(1));
+      expect(vouchers.first.isRedeemed, isTrue);
+      expect(vouchers.first.redeemedByUserId, 'user-2');
+    });
+  });
+
+  group('SubscriptionsApi.redeemVoucher', () {
+    test('sends the code and parses the updated status', () async {
+      final api = SubscriptionsApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.method, 'POST');
+          expect(request.url.path, '/subscriptions/vouchers/redeem');
+          expect(request.body, '{"code":"ABCD1234"}');
+          return http.Response(
+            '{"status":{"tier":"GOLD","isActive":true,'
+            '"expiresAt":"2026-02-01T00:00:00.000Z","canceledAt":null},'
+            '"voucher":{"code":"ABCD1234","tier":"GOLD","redeemedAt":"2026-01-01T00:00:00.000Z",'
+            '"redeemedByUserId":"user-1","createdAt":"2025-12-01T00:00:00.000Z"}}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final status = await api.redeemVoucher('ABCD1234');
+
+      expect(status.tier, 'GOLD');
+      expect(status.isActive, isTrue);
+    });
+
+    test('throws SubscriptionsApiException for an invalid code', () async {
+      final api = SubscriptionsApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async =>
+              http.Response('{"message":"Invalid voucher code."}', 404),
+        ),
+      );
+
+      expect(
+        () => api.redeemVoucher('NOPE'),
+        throwsA(isA<SubscriptionsApiException>()),
+      );
     });
   });
 }
