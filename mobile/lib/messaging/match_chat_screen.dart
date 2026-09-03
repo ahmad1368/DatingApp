@@ -50,19 +50,25 @@ class MatchChatScreen extends StatefulWidget {
     GiftingApi? giftingApi,
     VideoReactionPickerController? videoReactionPicker,
     SpotifyApi? spotifyApi,
-  })  : recorder = recorder ?? DeviceVoiceRecorderController(),
-        player = player ?? DeviceVoicePlayerController(),
-        dateSuggestionsApi =
-            dateSuggestionsApi ?? DateSuggestionsApi(accessToken: messagingApi.accessToken),
-        vaultApi = vaultApi ?? VaultApi(accessToken: messagingApi.accessToken),
-        screenSecurityChannel = screenSecurityChannel ?? ScreenSecurityChannel(),
-        screenSecurityApi =
-            screenSecurityApi ?? ScreenSecurityApi(accessToken: messagingApi.accessToken),
-        postMatchSurveyApi =
-            postMatchSurveyApi ?? PostMatchSurveyApi(accessToken: messagingApi.accessToken),
-        giftingApi = giftingApi ?? GiftingApi(accessToken: messagingApi.accessToken),
-        videoReactionPicker = videoReactionPicker ?? DeviceVideoReactionPickerController(),
-        spotifyApi = spotifyApi ?? SpotifyApi(accessToken: messagingApi.accessToken);
+  }) : recorder = recorder ?? DeviceVoiceRecorderController(),
+       player = player ?? DeviceVoicePlayerController(),
+       dateSuggestionsApi =
+           dateSuggestionsApi ??
+           DateSuggestionsApi(accessToken: messagingApi.accessToken),
+       vaultApi = vaultApi ?? VaultApi(accessToken: messagingApi.accessToken),
+       screenSecurityChannel = screenSecurityChannel ?? ScreenSecurityChannel(),
+       screenSecurityApi =
+           screenSecurityApi ??
+           ScreenSecurityApi(accessToken: messagingApi.accessToken),
+       postMatchSurveyApi =
+           postMatchSurveyApi ??
+           PostMatchSurveyApi(accessToken: messagingApi.accessToken),
+       giftingApi =
+           giftingApi ?? GiftingApi(accessToken: messagingApi.accessToken),
+       videoReactionPicker =
+           videoReactionPicker ?? DeviceVideoReactionPickerController(),
+       spotifyApi =
+           spotifyApi ?? SpotifyApi(accessToken: messagingApi.accessToken);
 
   final MessagingApi messagingApi;
   final String matchId;
@@ -99,11 +105,13 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
   String? _errorText;
   IcebreakerPrompt? _suggestedIcebreaker;
   bool _surveyPromptDue = false;
+  String? _wallpaperId;
 
   @override
   void initState() {
     super.initState();
-    widget.screenSecurityChannel.onScreenshotDetected = _handleScreenshotDetected;
+    widget.screenSecurityChannel.onScreenshotDetected =
+        _handleScreenshotDetected;
     widget.screenSecurityChannel.setSecure(true);
     _load();
   }
@@ -126,7 +134,9 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result.warning)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(result.warning)));
       if (result.frozen) {
         await showDialog<void>(
           context: context,
@@ -175,6 +185,23 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
     unawaited(_pingActivity());
     unawaited(_loadSuggestedIcebreaker());
     unawaited(_checkSurveyPromptDue());
+    unawaited(_loadWallpaper());
+  }
+
+  /// Best-effort fetch of this thread's previously chosen wallpaper.
+  /// Failure here shouldn't surface to the user; the background just stays
+  /// at its default appearance.
+  Future<void> _loadWallpaper() async {
+    try {
+      final wallpaperId = await widget.messagingApi.fetchChatWallpaper(
+        widget.matchId,
+      );
+      if (mounted) {
+        setState(() => _wallpaperId = wallpaperId);
+      }
+    } catch (_) {
+      // Ignored - see doc comment above.
+    }
   }
 
   /// Best-effort discreet check for whether this match has a "how did it
@@ -208,7 +235,9 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
   /// just means the banner won't appear this visit.
   Future<void> _loadSuggestedIcebreaker() async {
     try {
-      final suggestion = await widget.messagingApi.fetchSuggestedIcebreaker(widget.matchId);
+      final suggestion = await widget.messagingApi.fetchSuggestedIcebreaker(
+        widget.matchId,
+      );
       if (mounted) {
         setState(() => _suggestedIcebreaker = suggestion);
       }
@@ -255,11 +284,16 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
           controller: controller,
           maxLines: 5,
           maxLength: 1000,
-          decoration: const InputDecoration(hintText: 'Only you can see this note…'),
+          decoration: const InputDecoration(
+            hintText: 'Only you can see this note…',
+          ),
           autofocus: true,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(controller.text),
             child: const Text('Save'),
@@ -370,7 +404,10 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
   /// action off the flagged-message warning.
   Future<void> _blockSender() async {
     try {
-      await widget.messagingApi.unmatch(widget.matchId, reason: 'Inappropriate behavior');
+      await widget.messagingApi.unmatch(
+        widget.matchId,
+        reason: 'Inappropriate behavior',
+      );
       if (mounted) {
         Navigator.of(context).pop();
       }
@@ -399,17 +436,23 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
                 items: _reportAndUnmatchReasons
                     .map((r) => DropdownMenuItem(value: r, child: Text(r)))
                     .toList(),
-                onChanged: (value) => setDialogState(() => reason = value ?? reason),
+                onChanged: (value) =>
+                    setDialogState(() => reason = value ?? reason),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: detailsController,
-                decoration: const InputDecoration(labelText: 'Details (optional)'),
+                decoration: const InputDecoration(
+                  labelText: 'Details (optional)',
+                ),
               ),
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
             TextButton(
               onPressed: () => Navigator.of(context).pop(true),
               child: const Text('Report & unmatch'),
@@ -426,7 +469,9 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
       await widget.messagingApi.reportAndUnmatch(
         matchId: widget.matchId,
         reason: reason,
-        details: detailsController.text.trim().isEmpty ? null : detailsController.text.trim(),
+        details: detailsController.text.trim().isEmpty
+            ? null
+            : detailsController.text.trim(),
       );
       if (mounted) {
         Navigator.of(context).pop();
@@ -545,7 +590,9 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
   Future<void> _toggleReadReceipts() async {
     setState(() => _errorText = null);
     try {
-      final enabled = await widget.messagingApi.setReadReceiptsEnabled(!_readReceiptsEnabled);
+      final enabled = await widget.messagingApi.setReadReceiptsEnabled(
+        !_readReceiptsEnabled,
+      );
       setState(() => _readReceiptsEnabled = enabled);
     } on MessagingApiException catch (e) {
       setState(() => _errorText = e.message);
@@ -555,7 +602,9 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
   Future<void> _toggleMediaBlurPreference() async {
     setState(() => _errorText = null);
     try {
-      final enabled = await widget.messagingApi.setMediaBlurPreference(!_autoBlurMediaEnabled);
+      final enabled = await widget.messagingApi.setMediaBlurPreference(
+        !_autoBlurMediaEnabled,
+      );
       setState(() => _autoBlurMediaEnabled = enabled);
     } on MessagingApiException catch (e) {
       setState(() => _errorText = e.message);
@@ -566,7 +615,9 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
     MeetupSuggestions? suggestions;
     String? error;
     try {
-      suggestions = await widget.dateSuggestionsApi.fetchMeetupSuggestions(widget.matchId);
+      suggestions = await widget.dateSuggestionsApi.fetchMeetupSuggestions(
+        widget.matchId,
+      );
     } on DateSuggestionsApiException catch (e) {
       error = e.message;
     }
@@ -589,9 +640,12 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
           builder: (context, setSheetState) {
             Future<void> pick(String categoryId) async {
               try {
-                await widget.dateSuggestionsApi.pickVenueCategory(widget.matchId, categoryId);
-                final refreshed =
-                    await widget.dateSuggestionsApi.fetchMeetupSuggestions(widget.matchId);
+                await widget.dateSuggestionsApi.pickVenueCategory(
+                  widget.matchId,
+                  categoryId,
+                );
+                final refreshed = await widget.dateSuggestionsApi
+                    .fetchMeetupSuggestions(widget.matchId);
                 setSheetState(() => result = refreshed);
               } on DateSuggestionsApiException {
                 // Best-effort: the sheet just keeps showing the prior selection.
@@ -606,7 +660,10 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                     child: Text(
                       'Meetup spots ~${result.distanceKm.toStringAsFixed(1)} km apart',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
                     ),
                   ),
                   if (result.mutualPickCategoryId != null)
@@ -614,7 +671,9 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                       child: Text(
                         'You both picked the same spot!',
-                        style: TextStyle(color: Theme.of(context).colorScheme.primary),
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
                       ),
                     ),
                   for (final suggestion in result.suggestions)
@@ -623,8 +682,12 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
                       subtitle: Text(suggestion.description),
                       trailing: IconButton(
                         icon: Icon(
-                          suggestion.isMyPick ? Icons.favorite : Icons.favorite_border,
-                          color: suggestion.isMyPick ? Theme.of(context).colorScheme.primary : null,
+                          suggestion.isMyPick
+                              ? Icons.favorite
+                              : Icons.favorite_border,
+                          color: suggestion.isMyPick
+                              ? Theme.of(context).colorScheme.primary
+                              : null,
                         ),
                         tooltip: 'Pick this spot',
                         onPressed: () => pick(suggestion.id),
@@ -661,20 +724,26 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
                   ButtonSegment(value: 'EVENTBRITE', label: Text('Event')),
                 ],
                 selected: {provider},
-                onSelectionChanged: (selection) => setDialogState(() => provider = selection.first),
+                onSelectionChanged: (selection) =>
+                    setDialogState(() => provider = selection.first),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: queryController,
                 decoration: InputDecoration(
-                  hintText: provider == 'OPENTABLE' ? 'Restaurant name' : 'Event name',
+                  hintText: provider == 'OPENTABLE'
+                      ? 'Restaurant name'
+                      : 'Event name',
                 ),
                 autofocus: true,
               ),
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
             TextButton(
               onPressed: () => Navigator.of(context).pop({
                 'provider': provider,
@@ -714,7 +783,9 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
   Future<void> _openIcebreakerAssistant() async {
     List<String> suggestions;
     try {
-      suggestions = await widget.messagingApi.fetchIcebreakerSuggestions(widget.matchId);
+      suggestions = await widget.messagingApi.fetchIcebreakerSuggestions(
+        widget.matchId,
+      );
     } on MessagingApiException catch (e) {
       setState(() => _errorText = e.message);
       return;
@@ -732,7 +803,10 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
           children: [
             const Padding(
               padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: Text('Opener suggestions', style: TextStyle(fontWeight: FontWeight.bold)),
+              child: Text(
+                'Opener suggestions',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
             ),
             if (suggestions.isEmpty)
               const Padding(
@@ -779,7 +853,10 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
           children: [
             const Padding(
               padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: Text('Smart replies', style: TextStyle(fontWeight: FontWeight.bold)),
+              child: Text(
+                'Smart replies',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
             ),
             if (suggestions.isEmpty)
               const Padding(
@@ -829,8 +906,15 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(gift.emoji, style: const TextStyle(fontSize: 28)),
-                    Text(gift.name, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11)),
-                    Text('${gift.tokenCost}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                    Text(
+                      gift.name,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 11),
+                    ),
+                    Text(
+                      '${gift.tokenCost}',
+                      style: const TextStyle(fontSize: 11, color: Colors.grey),
+                    ),
                   ],
                 ),
               ),
@@ -860,7 +944,10 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
 
     final hasPermission = await widget.recorder.hasPermission();
     if (!hasPermission) {
-      setState(() => _errorText = 'Microphone permission is required to send a voice note.');
+      setState(
+        () => _errorText =
+            'Microphone permission is required to send a voice note.',
+      );
       return;
     }
 
@@ -910,15 +997,22 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
     if (path == null) {
       return;
     }
-    await widget.player.play(path, speed: _voiceNoteSpeedByMessageId[message.id] ?? 1.0);
+    await widget.player.play(
+      path,
+      speed: _voiceNoteSpeedByMessageId[message.id] ?? 1.0,
+    );
   }
 
   /// Cycles this voice note's playback speed through 1x/1.25x/1.5x/2x,
   /// remembered per message so replaying it uses the last speed picked.
   void _cycleVoiceNoteSpeed(ChatMessage message) {
     final current = _voiceNoteSpeedByMessageId[message.id] ?? 1.0;
-    final nextIndex = (_voiceNoteSpeeds.indexOf(current) + 1) % _voiceNoteSpeeds.length;
-    setState(() => _voiceNoteSpeedByMessageId[message.id] = _voiceNoteSpeeds[nextIndex]);
+    final nextIndex =
+        (_voiceNoteSpeeds.indexOf(current) + 1) % _voiceNoteSpeeds.length;
+    setState(
+      () =>
+          _voiceNoteSpeedByMessageId[message.id] = _voiceNoteSpeeds[nextIndex],
+    );
   }
 
   String _voiceNoteSpeedLabel(ChatMessage message) {
@@ -939,10 +1033,91 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
   Future<void> _openSpotifyTrackPicker() async {
     final track = await showDialog<SpotifyTrackResult>(
       context: context,
-      builder: (context) => _SpotifyTrackPickerDialog(spotifyApi: widget.spotifyApi),
+      builder: (context) =>
+          _SpotifyTrackPickerDialog(spotifyApi: widget.spotifyApi),
     );
     if (track != null) {
       await _sendTrack(track);
+    }
+  }
+
+  /// "Custom Chat Wallpapers & Theme Options": lets the current user pick a
+  /// private background for this one thread - only they see it, the other
+  /// side can independently set their own (see MessagingApi.setChatWallpaper).
+  Future<void> _openWallpaperPicker() async {
+    List<ChatWallpaper> catalog;
+    try {
+      catalog = await widget.messagingApi.fetchChatWallpaperCatalog();
+    } on MessagingApiException catch (e) {
+      setState(() => _errorText = e.message);
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    final chosen = await showDialog<ChatWallpaper>(
+      context: context,
+      builder: (context) => _WallpaperPickerDialog(catalog: catalog),
+    );
+    if (chosen == null) {
+      return;
+    }
+    setState(() => _errorText = null);
+    try {
+      final wallpaperId = await widget.messagingApi.setChatWallpaper(
+        widget.matchId,
+        chosen.id,
+      );
+      setState(() => _wallpaperId = wallpaperId);
+    } on MessagingApiException catch (e) {
+      setState(() => _errorText = e.message);
+    }
+  }
+
+  /// Deterministic client-side look for each curated wallpaper id (the
+  /// backend catalog only carries id/label/type, no color/asset data) - a
+  /// gradient for GRADIENT wallpapers, a flat tinted background otherwise,
+  /// picked so each of the catalog's ids reads as visually distinct. Falls
+  /// back to the default (undecorated) background for an unrecognized or
+  /// unset id.
+  BoxDecoration? _wallpaperDecoration(String? wallpaperId) {
+    switch (wallpaperId) {
+      case 'sunset-gradient':
+        return const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFFFF7E5F), Color(0xFFFEB47B)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        );
+      case 'ocean-gradient':
+        return const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF2193B0), Color(0xFF6DD5ED)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        );
+      case 'midnight-gradient':
+        return const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF232526), Color(0xFF414345)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        );
+      case 'polka-dot':
+        return const BoxDecoration(color: Color(0xFFFFF3E0));
+      case 'geometric':
+        return const BoxDecoration(color: Color(0xFFE0F7FA));
+      case 'confetti':
+        return const BoxDecoration(color: Color(0xFFFCE4EC));
+      case 'city-skyline':
+        return const BoxDecoration(color: Color(0xFFECEFF1));
+      case 'botanical':
+        return const BoxDecoration(color: Color(0xFFE8F5E9));
+      default:
+        return null;
     }
   }
 
@@ -985,7 +1160,10 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
     setState(() => _suggestedIcebreaker = null);
   }
 
-  Future<void> _respondToIcebreaker(ChatMessage message, int optionIndex) async {
+  Future<void> _respondToIcebreaker(
+    ChatMessage message,
+    int optionIndex,
+  ) async {
     setState(() => _errorText = null);
     try {
       final updated = await widget.messagingApi.respondToIcebreaker(
@@ -1023,7 +1201,11 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
         builder: (context) => const _TwoTruthsComposerDialog(),
       );
       if (round != null) {
-        await _sendGameCard(gameType, statements: round.statements, lieIndex: round.lieIndex);
+        await _sendGameCard(
+          gameType,
+          statements: round.statements,
+          lieIndex: round.lieIndex,
+        );
       }
       return;
     }
@@ -1036,7 +1218,8 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
         questions = trivia.map((q) => q.question).toList();
         ids = trivia.map((q) => q.id).toList();
       } else {
-        final prompts = await widget.messagingApi.fetchTwentyOneQuestionsPrompts();
+        final prompts = await widget.messagingApi
+            .fetchTwentyOneQuestionsPrompts();
         questions = prompts.map((p) => p.question).toList();
         ids = prompts.map((p) => p.id).toList();
       }
@@ -1050,7 +1233,9 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
     final promptId = await showDialog<String>(
       context: context,
       builder: (context) => _GameCardPromptPickerDialog(
-        title: gameType == 'TRIVIA' ? 'Send a trivia card' : 'Send a 21 Questions card',
+        title: gameType == 'TRIVIA'
+            ? 'Send a trivia card'
+            : 'Send a 21 Questions card',
         questions: questions,
         ids: ids,
       ),
@@ -1060,7 +1245,12 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
     }
   }
 
-  Future<void> _sendGameCard(String gameType, {String? promptId, List<String>? statements, int? lieIndex}) async {
+  Future<void> _sendGameCard(
+    String gameType, {
+    String? promptId,
+    List<String>? statements,
+    int? lieIndex,
+  }) async {
     setState(() => _errorText = null);
     try {
       final message = await widget.messagingApi.sendGameCard(
@@ -1132,7 +1322,9 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
   Future<void> _extendMatchTimeLimit() async {
     setState(() => _errorText = null);
     try {
-      final status = await widget.messagingApi.extendMatchTimeLimit(widget.matchId);
+      final status = await widget.messagingApi.extendMatchTimeLimit(
+        widget.matchId,
+      );
       setState(() => _status = status);
     } on MessagingApiException catch (e) {
       setState(() => _errorText = e.message);
@@ -1142,7 +1334,9 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
   Future<void> _requestVerification() async {
     setState(() => _errorText = null);
     try {
-      final status = await widget.messagingApi.requestVerification(widget.matchId);
+      final status = await widget.messagingApi.requestVerification(
+        widget.matchId,
+      );
       setState(() => _status = status);
     } on MessagingApiException catch (e) {
       setState(() => _errorText = e.message);
@@ -1154,7 +1348,8 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
     if (status == null) {
       return false;
     }
-    return status.firstMessageSent || (status.canSendFirstMessage && !status.isExpired);
+    return status.firstMessageSent ||
+        (status.canSendFirstMessage && !status.isExpired);
   }
 
   String? get _lockedBanner {
@@ -1207,15 +1402,19 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
             tooltip: 'Shared private photos',
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (context) =>
-                    VaultGrantedScreen(vaultApi: widget.vaultApi, matchId: widget.matchId),
+                builder: (context) => VaultGrantedScreen(
+                  vaultApi: widget.vaultApi,
+                  matchId: widget.matchId,
+                ),
               ),
             ),
           ),
           IconButton(
             icon: Icon(_readReceiptsEnabled ? Icons.done_all : Icons.done),
             color: _readReceiptsEnabled ? Colors.indigo : null,
-            tooltip: _readReceiptsEnabled ? 'Read receipts on' : 'Read receipts off',
+            tooltip: _readReceiptsEnabled
+                ? 'Read receipts on'
+                : 'Read receipts off',
             onPressed: _toggleReadReceipts,
           ),
           IconButton(
@@ -1232,7 +1431,9 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
               smallSize: 8,
               child: const Icon(Icons.rate_review_outlined),
             ),
-            tooltip: _surveyPromptDue ? 'How did your date go?' : 'Did you meet up?',
+            tooltip: _surveyPromptDue
+                ? 'How did your date go?'
+                : 'Did you meet up?',
             onPressed: () async {
               await Navigator.of(context).push(
                 MaterialPageRoute(
@@ -1253,6 +1454,11 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
             onPressed: _editNote,
           ),
           IconButton(
+            icon: const Icon(Icons.wallpaper_outlined),
+            tooltip: 'Change wallpaper',
+            onPressed: _openWallpaperPicker,
+          ),
+          IconButton(
             icon: const Icon(Icons.report_gmailerrorred_outlined),
             tooltip: 'Report & unmatch',
             onPressed: _openReportAndUnmatchDialog,
@@ -1266,24 +1472,39 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
                 if (_errorText != null)
                   Padding(
                     padding: const EdgeInsets.all(16),
-                    child: Text(_errorText!, style: const TextStyle(color: Colors.red)),
+                    child: Text(
+                      _errorText!,
+                      style: const TextStyle(color: Colors.red),
+                    ),
                   ),
                 if (_lockedBanner != null)
                   Padding(
                     padding: const EdgeInsets.all(16),
-                    child: Text(_lockedBanner!, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    child: Text(
+                      _lockedBanner!,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
                   ),
                 if (_status?.otherUserSnoozeStatusMessage != null)
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 4,
+                    ),
                     child: Text(
                       "They're currently away: ${_status!.otherUserSnoozeStatusMessage}",
-                      style: const TextStyle(fontStyle: FontStyle.italic, color: Colors.indigo),
+                      style: const TextStyle(
+                        fontStyle: FontStyle.italic,
+                        color: Colors.indigo,
+                      ),
                     ),
                   ),
                 if (_status?.otherUserLastActiveAt != null)
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 4,
+                    ),
                     child: Text(
                       _formatLastActive(_status!.otherUserLastActiveAt!),
                       style: const TextStyle(fontSize: 12, color: Colors.grey),
@@ -1301,7 +1522,10 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
                 if (!(_status?.otherUserIsVerified ?? true) &&
                     !(_status?.verificationRequested ?? false))
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 4,
+                    ),
                     child: OutlinedButton.icon(
                       onPressed: _requestVerification,
                       icon: const Icon(Icons.verified_outlined),
@@ -1310,7 +1534,10 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
                   ),
                 if (_status?.verificationRequested ?? false)
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 4,
+                    ),
                     child: Text(
                       _status!.verificationRequestedByMe
                           ? "You've requested photo verification."
@@ -1320,13 +1547,19 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
                   ),
                 if (_suggestedIcebreaker != null)
                   Card(
-                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 4,
+                    ),
                     color: Colors.indigo.shade50,
                     child: Padding(
                       padding: const EdgeInsets.all(12),
                       child: Row(
                         children: [
-                          const Icon(Icons.celebration_outlined, color: Colors.indigo),
+                          const Icon(
+                            Icons.celebration_outlined,
+                            color: Colors.indigo,
+                          ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(
@@ -1341,7 +1574,8 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
                             ),
                           ),
                           TextButton(
-                            onPressed: () => _sendIcebreaker(_suggestedIcebreaker!),
+                            onPressed: () =>
+                                _sendIcebreaker(_suggestedIcebreaker!),
                             child: const Text('Send'),
                           ),
                           IconButton(
@@ -1354,78 +1588,101 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
                     ),
                   ),
                 Expanded(
-                  child: _messages.isEmpty
-                      ? const Center(child: Text('No messages yet.'))
-                      : ListView.builder(
-                          itemCount: _messages.length,
-                          itemBuilder: (context, index) {
-                            final message = _messages[index];
-                            final isMine = message.senderId == widget.currentUserId;
-                            final bubble = Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                              child: Column(
-                                crossAxisAlignment:
-                                    isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-                                children: [
-                                  if (!isMine && message.moderationFlagged)
-                                    _buildFlaggedMessageWarning(message),
-                                  _buildMessageContent(message, isMine),
-                                  if (message.contentType == 'TEXT' && message.content != null)
-                                    if (_translatedContentByMessageId[message.id] case final translated?)
-                                      Padding(
-                                        padding: const EdgeInsets.only(top: 2),
-                                        child: Text(
-                                          translated,
-                                          style: const TextStyle(
-                                            fontSize: 12,
-                                            fontStyle: FontStyle.italic,
-                                            color: Colors.grey,
+                  child: Container(
+                    decoration: _wallpaperDecoration(_wallpaperId),
+                    child: _messages.isEmpty
+                        ? const Center(child: Text('No messages yet.'))
+                        : ListView.builder(
+                            itemCount: _messages.length,
+                            itemBuilder: (context, index) {
+                              final message = _messages[index];
+                              final isMine =
+                                  message.senderId == widget.currentUserId;
+                              final bubble = Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 4,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: isMine
+                                      ? CrossAxisAlignment.end
+                                      : CrossAxisAlignment.start,
+                                  children: [
+                                    if (!isMine && message.moderationFlagged)
+                                      _buildFlaggedMessageWarning(message),
+                                    _buildMessageContent(message, isMine),
+                                    if (message.contentType == 'TEXT' &&
+                                        message.content != null)
+                                      if (_translatedContentByMessageId[message
+                                              .id]
+                                          case final translated?)
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                            top: 2,
+                                          ),
+                                          child: Text(
+                                            translated,
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              fontStyle: FontStyle.italic,
+                                              color: Colors.grey,
+                                            ),
+                                          ),
+                                        )
+                                      else
+                                        GestureDetector(
+                                          onTap: () =>
+                                              _translateMessage(message),
+                                          child: const Text(
+                                            'Translate',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: Colors.indigo,
+                                              decoration:
+                                                  TextDecoration.underline,
+                                            ),
                                           ),
                                         ),
-                                      )
-                                    else
+                                    if (isMine && message.readReceiptLocked)
                                       GestureDetector(
-                                        onTap: () => _translateMessage(message),
+                                        onTap: () =>
+                                            _unlockReadReceipt(message),
                                         child: const Text(
-                                          'Translate',
+                                          'Unlock read receipt',
                                           style: TextStyle(
                                             fontSize: 11,
                                             color: Colors.indigo,
-                                            decoration: TextDecoration.underline,
+                                            decoration:
+                                                TextDecoration.underline,
                                           ),
                                         ),
-                                      ),
-                                  if (isMine && message.readReceiptLocked)
-                                    GestureDetector(
-                                      onTap: () => _unlockReadReceipt(message),
-                                      child: const Text(
-                                        'Unlock read receipt',
+                                      )
+                                    else if (isMine && message.isRead)
+                                      const Text(
+                                        'Read',
                                         style: TextStyle(
                                           fontSize: 11,
-                                          color: Colors.indigo,
-                                          decoration: TextDecoration.underline,
+                                          color: Colors.grey,
                                         ),
                                       ),
-                                    )
-                                  else if (isMine && message.isRead)
-                                    const Text(
-                                      'Read',
-                                      style: TextStyle(fontSize: 11, color: Colors.grey),
-                                    ),
-                                ],
-                              ),
-                            );
-                            return Align(
-                              alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
-                              child: isMine
-                                  ? bubble
-                                  : GestureDetector(
-                                      onLongPress: () => _reportMessage(message),
-                                      child: bubble,
-                                    ),
-                            );
-                          },
-                        ),
+                                  ],
+                                ),
+                              );
+                              return Align(
+                                alignment: isMine
+                                    ? Alignment.centerRight
+                                    : Alignment.centerLeft,
+                                child: isMine
+                                    ? bubble
+                                    : GestureDetector(
+                                        onLongPress: () =>
+                                            _reportMessage(message),
+                                        child: bubble,
+                                      ),
+                              );
+                            },
+                          ),
+                  ),
                 ),
                 if (_canType)
                   Padding(
@@ -1458,18 +1715,26 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
                           onPressed: _recordAndSendVideoReaction,
                         ),
                         IconButton(
-                          icon: Icon(_isRecording ? Icons.stop_circle : Icons.mic_none),
+                          icon: Icon(
+                            _isRecording ? Icons.stop_circle : Icons.mic_none,
+                          ),
                           color: _isRecording ? Colors.red : null,
-                          tooltip: _isRecording ? 'Stop and send voice note' : 'Record a voice note',
+                          tooltip: _isRecording
+                              ? 'Stop and send voice note'
+                              : 'Record a voice note',
                           onPressed: _isSending
                               ? null
-                              : (_isRecording ? _stopAndSendRecording : _startRecording),
+                              : (_isRecording
+                                    ? _stopAndSendRecording
+                                    : _startRecording),
                         ),
                         if (_isRecording) Text('$_recordedSeconds s'),
                         Expanded(
                           child: TextField(
                             controller: _controller,
-                            decoration: const InputDecoration(hintText: 'Type a message'),
+                            decoration: const InputDecoration(
+                              hintText: 'Type a message',
+                            ),
                           ),
                         ),
                         IconButton(
@@ -1497,15 +1762,25 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
           const SizedBox(width: 4),
           const Text(
             'Possibly harmful message',
-            style: TextStyle(fontSize: 12, color: Colors.red, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.red,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           TextButton(
-            style: TextButton.styleFrom(minimumSize: Size.zero, padding: const EdgeInsets.symmetric(horizontal: 8)),
+            style: TextButton.styleFrom(
+              minimumSize: Size.zero,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+            ),
             onPressed: () => _reportMessage(message),
             child: const Text('Report'),
           ),
           TextButton(
-            style: TextButton.styleFrom(minimumSize: Size.zero, padding: const EdgeInsets.symmetric(horizontal: 8)),
+            style: TextButton.styleFrom(
+              minimumSize: Size.zero,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+            ),
             onPressed: _blockSender,
             child: const Text('Block'),
           ),
@@ -1558,13 +1833,19 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
                     const Icon(Icons.warning_amber, color: Colors.white),
                     const Text(
                       'Possibly sensitive content',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 4),
                   ],
                   const Text(
                     'Tap to reveal',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               ),
@@ -1596,14 +1877,20 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
             ),
             Padding(
               padding: const EdgeInsets.only(left: 12, right: 12, bottom: 4),
-              child: VoiceWaveform(seed: message.id, onTap: () => _playVoiceNote(message)),
+              child: VoiceWaveform(
+                seed: message.id,
+                onTap: () => _playVoiceNote(message),
+              ),
             ),
             if (message.transcript != null)
               Padding(
                 padding: const EdgeInsets.only(left: 12, right: 12, bottom: 4),
                 child: Text(
                   message.transcript!,
-                  style: const TextStyle(fontStyle: FontStyle.italic, color: Colors.grey),
+                  style: const TextStyle(
+                    fontStyle: FontStyle.italic,
+                    color: Colors.grey,
+                  ),
                 ),
               ),
           ],
@@ -1620,7 +1907,9 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
           children: [
             const Icon(Icons.videocam),
             const SizedBox(width: 4),
-            Text('${message.durationSeconds ?? maxVideoReactionSeconds}s video reaction'),
+            Text(
+              '${message.durationSeconds ?? maxVideoReactionSeconds}s video reaction',
+            ),
           ],
         );
       case 'TEXT':
@@ -1642,11 +1931,15 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              reservation.provider == 'OPENTABLE' ? Icons.restaurant_outlined : Icons.confirmation_number_outlined,
+              reservation.provider == 'OPENTABLE'
+                  ? Icons.restaurant_outlined
+                  : Icons.confirmation_number_outlined,
             ),
             const SizedBox(width: 4),
             Text(
-              reservation.provider == 'OPENTABLE' ? 'Table reservation' : 'Event tickets',
+              reservation.provider == 'OPENTABLE'
+                  ? 'Table reservation'
+                  : 'Event tickets',
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
           ],
@@ -1654,7 +1947,10 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
         Text(reservation.query),
         SelectableText(
           reservation.url,
-          style: const TextStyle(color: Colors.indigo, decoration: TextDecoration.underline),
+          style: const TextStyle(
+            color: Colors.indigo,
+            decoration: TextDecoration.underline,
+          ),
         ),
       ],
     );
@@ -1689,7 +1985,8 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
                 width: 48,
                 height: 48,
                 fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => const Icon(Icons.music_note, size: 48),
+                errorBuilder: (context, error, stackTrace) =>
+                    const Icon(Icons.music_note, size: 48),
               )
             : const Icon(Icons.music_note, size: 48),
         const SizedBox(width: 8),
@@ -1753,14 +2050,19 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              message.expiryMode == 'VIEW_ONCE' ? Icons.looks_one_outlined : Icons.timer_outlined,
+              message.expiryMode == 'VIEW_ONCE'
+                  ? Icons.looks_one_outlined
+                  : Icons.timer_outlined,
               color: Colors.white,
             ),
             const SizedBox(height: 4),
             Text(
               label,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ],
         ),
@@ -1784,7 +2086,10 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(icebreaker.question, style: const TextStyle(fontWeight: FontWeight.bold)),
+          Text(
+            icebreaker.question,
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 8),
           if (!icebreaker.haveIAnswered) ...[
             OutlinedButton(
@@ -1797,13 +2102,18 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
               child: Text(icebreaker.optionB),
             ),
           ] else ...[
-            Text('You: ${icebreaker.myOptionIndex == 0 ? icebreaker.optionA : icebreaker.optionB}'),
+            Text(
+              'You: ${icebreaker.myOptionIndex == 0 ? icebreaker.optionA : icebreaker.optionB}',
+            ),
             if (icebreaker.haveBothAnswered)
               Text(
                 'Them: ${icebreaker.otherOptionIndex == 0 ? icebreaker.optionA : icebreaker.optionB}',
               )
             else
-              const Text('Waiting for their answer...', style: TextStyle(color: Colors.grey)),
+              const Text(
+                'Waiting for their answer...',
+                style: TextStyle(color: Colors.grey),
+              ),
           ],
         ],
       ),
@@ -1844,10 +2154,16 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
               child: Text(
                 gameCard.options[i],
                 style: TextStyle(
-                  fontWeight: i == gameCard.myAnswerIndex ? FontWeight.bold : FontWeight.normal,
+                  fontWeight: i == gameCard.myAnswerIndex
+                      ? FontWeight.bold
+                      : FontWeight.normal,
                   color: correct == null
                       ? null
-                      : (i == correct ? Colors.green : (i == gameCard.myAnswerIndex ? Colors.red : null)),
+                      : (i == correct
+                            ? Colors.green
+                            : (i == gameCard.myAnswerIndex
+                                  ? Colors.red
+                                  : null)),
                 ),
               ),
             ),
@@ -1872,7 +2188,10 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(gameCard.question, style: const TextStyle(fontWeight: FontWeight.bold)),
+          Text(
+            gameCard.question,
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 8),
           body,
         ],
@@ -1963,15 +2282,18 @@ class _GifPickerDialogState extends State<_GifPickerDialog> {
             ),
             if (_errorText != null)
               Text(_errorText!, style: const TextStyle(color: Colors.red)),
-            if (_isSearching) const Padding(
-              padding: EdgeInsets.all(16),
-              child: CircularProgressIndicator(),
-            ),
+            if (_isSearching)
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: CircularProgressIndicator(),
+              ),
             if (!_isSearching && _results.isNotEmpty)
               SizedBox(
                 height: 200,
                 child: GridView.builder(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                  ),
                   itemCount: _results.length,
                   itemBuilder: (context, index) {
                     final gif = _results[index];
@@ -2006,7 +2328,8 @@ class _SpotifyTrackPickerDialog extends StatefulWidget {
   final SpotifyApi spotifyApi;
 
   @override
-  State<_SpotifyTrackPickerDialog> createState() => _SpotifyTrackPickerDialogState();
+  State<_SpotifyTrackPickerDialog> createState() =>
+      _SpotifyTrackPickerDialogState();
 }
 
 class _SpotifyTrackPickerDialogState extends State<_SpotifyTrackPickerDialog> {
@@ -2056,7 +2379,9 @@ class _SpotifyTrackPickerDialogState extends State<_SpotifyTrackPickerDialog> {
                 Expanded(
                   child: TextField(
                     controller: _queryController,
-                    decoration: const InputDecoration(hintText: 'Search Spotify'),
+                    decoration: const InputDecoration(
+                      hintText: 'Search Spotify',
+                    ),
                     onSubmitted: (_) => _search(),
                   ),
                 ),
@@ -2148,6 +2473,43 @@ class _IcebreakerPickerDialog extends StatelessWidget {
   }
 }
 
+class _WallpaperPickerDialog extends StatelessWidget {
+  const _WallpaperPickerDialog({required this.catalog});
+
+  final List<ChatWallpaper> catalog;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Choose a wallpaper'),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: catalog.isEmpty
+            ? const Text('No wallpapers available right now.')
+            : ListView.builder(
+                shrinkWrap: true,
+                itemCount: catalog.length,
+                itemBuilder: (context, index) {
+                  final wallpaper = catalog[index];
+                  return ListTile(
+                    leading: const Icon(Icons.wallpaper_outlined),
+                    title: Text(wallpaper.label),
+                    subtitle: Text(wallpaper.type),
+                    onTap: () => Navigator.of(context).pop(wallpaper),
+                  );
+                },
+              ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+      ],
+    );
+  }
+}
+
 class _GameNightTypePickerDialog extends StatelessWidget {
   const _GameNightTypePickerDialog();
 
@@ -2174,7 +2536,11 @@ class _GameNightTypePickerDialog extends StatelessWidget {
 }
 
 class _GameCardPromptPickerDialog extends StatelessWidget {
-  const _GameCardPromptPickerDialog({required this.title, required this.questions, required this.ids});
+  const _GameCardPromptPickerDialog({
+    required this.title,
+    required this.questions,
+    required this.ids,
+  });
 
   final String title;
   final List<String> questions;
@@ -2220,11 +2586,16 @@ class _TwoTruthsComposerDialog extends StatefulWidget {
   const _TwoTruthsComposerDialog();
 
   @override
-  State<_TwoTruthsComposerDialog> createState() => _TwoTruthsComposerDialogState();
+  State<_TwoTruthsComposerDialog> createState() =>
+      _TwoTruthsComposerDialogState();
 }
 
 class _TwoTruthsComposerDialogState extends State<_TwoTruthsComposerDialog> {
-  final _controllers = [TextEditingController(), TextEditingController(), TextEditingController()];
+  final _controllers = [
+    TextEditingController(),
+    TextEditingController(),
+    TextEditingController(),
+  ];
   int _lieIndex = 0;
 
   @override
@@ -2254,7 +2625,9 @@ class _TwoTruthsComposerDialogState extends State<_TwoTruthsComposerDialog> {
                     Expanded(
                       child: TextField(
                         controller: _controllers[i],
-                        decoration: InputDecoration(hintText: 'Statement ${i + 1}'),
+                        decoration: InputDecoration(
+                          hintText: 'Statement ${i + 1}',
+                        ),
                       ),
                     ),
                   ],
@@ -2278,7 +2651,9 @@ class _TwoTruthsComposerDialogState extends State<_TwoTruthsComposerDialog> {
             if (statements.any((s) => s.isEmpty)) {
               return;
             }
-            Navigator.of(context).pop(_TwoTruthsRound(statements: statements, lieIndex: _lieIndex));
+            Navigator.of(
+              context,
+            ).pop(_TwoTruthsRound(statements: statements, lieIndex: _lieIndex));
           },
           child: const Text('Send'),
         ),
@@ -2309,7 +2684,9 @@ class _ReportMessageDialogState extends State<_ReportMessageDialog> {
       title: const Text('Report this message'),
       content: TextField(
         controller: _reasonController,
-        decoration: const InputDecoration(hintText: 'Why are you reporting this?'),
+        decoration: const InputDecoration(
+          hintText: 'Why are you reporting this?',
+        ),
         autofocus: true,
       ),
       actions: [

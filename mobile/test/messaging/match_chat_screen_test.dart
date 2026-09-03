@@ -2571,4 +2571,56 @@ void main() {
     expect(sendRequest!.body, '{"trackId":"track-1"}');
     expect(find.text('Artist Name'), findsOneWidget);
   });
+
+  testWidgets('picking a wallpaper from the catalog saves it for this thread', (tester) async {
+    http.Request? putRequest;
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(_emptyMessages, 200, headers: {'content-type': 'application/json'});
+        }
+        if (request.url.path == '/matches/wallpapers') {
+          return http.Response(
+            '[{"id":"ocean-gradient","label":"Ocean Gradient","type":"GRADIENT"}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (request.method == 'PUT' && request.url.path == '/matches/match-1/wallpaper') {
+          putRequest = request;
+          return http.Response(
+            '{"wallpaperId":"ocean-gradient"}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (request.url.path == '/matches/match-1/wallpaper') {
+          return http.Response('{"wallpaperId":null}', 200, headers: {'content-type': 'application/json'});
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":null,'
+          '"isExpired":false,"firstMessageSent":true,"canSendFirstMessage":true}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchChatScreen(messagingApi: api, matchId: 'match-1', currentUserId: 'user-woman'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.wallpaper_outlined));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Ocean Gradient'));
+    await tester.pumpAndSettle();
+
+    expect(putRequest, isNotNull);
+    expect(putRequest!.body, '{"wallpaperId":"ocean-gradient"}');
+  });
 }
