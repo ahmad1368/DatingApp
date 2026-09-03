@@ -1,7 +1,12 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { TRANSLATION_PROVIDER, TranslationProvider } from '../messaging/interfaces/translation-provider.interface';
 import { TRANSCRIPTION_PROVIDER, TranscriptionProvider } from './interfaces/transcription-provider.interface';
 import { findProfilePrompt, ProfilePrompt, PROFILE_PROMPTS } from './profile-prompts.constants';
+
+export interface TranslatePromptAnswerResult {
+  translatedText: string;
+}
 
 export interface VoicePromptAnswerView {
   promptId: string;
@@ -45,6 +50,7 @@ export class ProfilePromptsService {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(TRANSCRIPTION_PROVIDER) private readonly transcriptionProvider: TranscriptionProvider,
+    @Inject(TRANSLATION_PROVIDER) private readonly translationProvider: TranslationProvider,
   ) {}
 
   getPrompts(): ProfilePrompt[] {
@@ -351,6 +357,85 @@ export class ProfilePromptsService {
     await this.prisma.profilePromptTextAnswer.delete({
       where: { userId_promptId: { userId, promptId } },
     });
+  }
+
+  /**
+   * Translates someone's written prompt answer into the caller's language -
+   * lets a viewer read a foreign-language profile response inline, mirroring
+   * [MessagingService.translateMessage]. Defaults to the caller's
+   * preferredLanguage when targetLanguage is omitted.
+   */
+  async translateTextAnswer(
+    userId: string,
+    targetUserId: string,
+    promptId: string,
+    targetLanguage?: string,
+  ): Promise<TranslatePromptAnswerResult> {
+    const answer = await this.prisma.profilePromptTextAnswer.findUnique({
+      where: { userId_promptId: { userId: targetUserId, promptId } },
+    });
+    if (!answer) {
+      throw new NotFoundException('Text answer not found.');
+    }
+
+    const language = await this.resolveTargetLanguage(userId, targetLanguage);
+    const translatedText = await this.translationProvider.translate(answer.answer, language);
+    return { translatedText };
+  }
+
+  /** Translates the transcript of someone's voice prompt answer. */
+  async translateVoiceAnswer(
+    userId: string,
+    targetUserId: string,
+    promptId: string,
+    targetLanguage?: string,
+  ): Promise<TranslatePromptAnswerResult> {
+    const answer = await this.prisma.profilePromptVoiceAnswer.findUnique({
+      where: { userId_promptId: { userId: targetUserId, promptId } },
+    });
+    if (!answer || !answer.transcript) {
+      throw new NotFoundException('No transcript available for this voice answer.');
+    }
+
+    const language = await this.resolveTargetLanguage(userId, targetLanguage);
+    const translatedText = await this.translationProvider.translate(answer.transcript, language);
+    return { translatedText };
+  }
+
+  /** Translates the transcript of someone's video prompt answer. */
+  async translateVideoAnswer(
+    userId: string,
+    targetUserId: string,
+    promptId: string,
+    targetLanguage?: string,
+  ): Promise<TranslatePromptAnswerResult> {
+    const answer = await this.prisma.profilePromptVideoAnswer.findUnique({
+      where: { userId_promptId: { userId: targetUserId, promptId } },
+    });
+    if (!answer || !answer.transcript) {
+      throw new NotFoundException('No transcript available for this video answer.');
+    }
+
+    const language = await this.resolveTargetLanguage(userId, targetLanguage);
+    const translatedText = await this.translationProvider.translate(answer.transcript, language);
+    return { translatedText };
+  }
+
+  private async resolveTargetLanguage(userId: string, targetLanguage?: string): Promise<string> {
+    if (targetLanguage) {
+      return targetLanguage;
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { preferredLanguage: true },
+    });
+    if (!user?.preferredLanguage) {
+      throw new BadRequestException(
+        'No targetLanguage given and no preferred language set - call setPreferredLanguage first.',
+      );
+    }
+    return user.preferredLanguage;
   }
 
   private toTextView(

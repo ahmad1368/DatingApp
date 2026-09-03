@@ -12,6 +12,11 @@ const _otherUserAnswers =
     '[{"promptId":"perfect-first-date","question":"My idea of a perfect first date is...",'
     '"audioUrl":"file:///a.m4a","durationSeconds":5,"createdAt":"2026-01-01T00:00:00.000Z"}]';
 
+const _otherUserAnswersWithTranscript =
+    '[{"promptId":"perfect-first-date","question":"My idea of a perfect first date is...",'
+    '"audioUrl":"file:///a.m4a","durationSeconds":5,"transcript":"Un paseo al atardecer.",'
+    '"createdAt":"2026-01-01T00:00:00.000Z"}]';
+
 class _FakeRecorder implements VoiceRecorderController {
   bool granted = true;
   bool started = false;
@@ -46,8 +51,11 @@ void main() {
     final api = ProfilePromptsApi(
       accessToken: 'a-jwt',
       client: MockClient(
-        (request) async =>
-            http.Response(_otherUserAnswers, 200, headers: {'content-type': 'application/json'}),
+        (request) async => http.Response(
+          _otherUserAnswers,
+          200,
+          headers: {'content-type': 'application/json'},
+        ),
       ),
     );
 
@@ -73,7 +81,8 @@ void main() {
       accessToken: 'a-jwt',
       client: MockClient((request) async {
         if (request.method == 'POST' &&
-            request.url.path == '/profile-prompts/perfect-first-date/reactions') {
+            request.url.path ==
+                '/profile-prompts/perfect-first-date/reactions') {
           reactRequest = request;
           return http.Response(
             '{"id":"reaction-1","fromUserId":"user-1","toUserId":"user-2",'
@@ -83,7 +92,11 @@ void main() {
             headers: {'content-type': 'application/json'},
           );
         }
-        return http.Response(_otherUserAnswers, 200, headers: {'content-type': 'application/json'});
+        return http.Response(
+          _otherUserAnswers,
+          200,
+          headers: {'content-type': 'application/json'},
+        );
       }),
     );
 
@@ -107,7 +120,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(reactRequest, isNotNull);
-    expect(reactRequest!.body, '{"targetUserId":"user-2","comment":"Love this!"}');
+    expect(
+      reactRequest!.body,
+      '{"targetUserId":"user-2","comment":"Love this!"}',
+    );
     expect(find.text('Reaction sent!'), findsOneWidget);
   });
 
@@ -117,7 +133,8 @@ void main() {
       accessToken: 'a-jwt',
       client: MockClient((request) async {
         if (request.method == 'POST' &&
-            request.url.path == '/profile-prompts/perfect-first-date/reactions') {
+            request.url.path ==
+                '/profile-prompts/perfect-first-date/reactions') {
           reactRequest = request;
           return http.Response(
             '{"id":"reaction-2","fromUserId":"user-1","toUserId":"user-2",'
@@ -128,7 +145,11 @@ void main() {
             headers: {'content-type': 'application/json'},
           );
         }
-        return http.Response(_otherUserAnswers, 200, headers: {'content-type': 'application/json'});
+        return http.Response(
+          _otherUserAnswers,
+          200,
+          headers: {'content-type': 'application/json'},
+        );
       }),
     );
     final recorder = _FakeRecorder();
@@ -148,7 +169,9 @@ void main() {
     await tester.tap(find.text('React'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Record an audio reply (optional)'));
+    await tester.tap(
+      find.widgetWithText(OutlinedButton, 'Record an audio reply (optional)'),
+    );
     await tester.pump();
     expect(recorder.started, isTrue);
 
@@ -164,5 +187,49 @@ void main() {
       reactRequest!.body,
       '{"targetUserId":"user-2","audioReplyUrl":"file:///tmp/fake-reply.m4a","durationSeconds":2}',
     );
+  });
+
+  testWidgets('translates a voice answer transcript inline', (tester) async {
+    http.Request? translateRequest;
+    final api = ProfilePromptsApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.method == 'POST' &&
+            request.url.path ==
+                '/profile-prompts/user-2/perfect-first-date/translate') {
+          translateRequest = request;
+          return http.Response(
+            '{"translatedText":"A sunset walk."}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          _otherUserAnswersWithTranscript,
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: VoicePromptReactionScreen(
+          profilePromptsApi: api,
+          otherUserId: 'user-2',
+          recorder: _FakeRecorder(),
+          player: _FakePlayer(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Un paseo al atardecer.'), findsOneWidget);
+
+    await tester.tap(find.text('Translate'));
+    await tester.pumpAndSettle();
+
+    expect(translateRequest, isNotNull);
+    expect(find.text('A sunset walk.'), findsOneWidget);
   });
 }

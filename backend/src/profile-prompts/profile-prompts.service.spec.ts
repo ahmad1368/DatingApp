@@ -1,5 +1,6 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { TranslationProvider } from '../messaging/interfaces/translation-provider.interface';
 import { TranscriptionProvider } from './interfaces/transcription-provider.interface';
 import { ProfilePromptsService } from './profile-prompts.service';
 import { PROFILE_PROMPTS } from './profile-prompts.constants';
@@ -32,8 +33,10 @@ describe('ProfilePromptsService', () => {
       findMany: jest.Mock;
     };
     profilePhoto: { findUnique: jest.Mock };
+    user: { findUnique: jest.Mock };
   };
   let transcriptionProvider: { transcribe: jest.Mock };
+  let translationProvider: { translate: jest.Mock };
 
   beforeEach(() => {
     prisma = {
@@ -60,11 +63,14 @@ describe('ProfilePromptsService', () => {
         findMany: jest.fn(),
       },
       profilePhoto: { findUnique: jest.fn() },
+      user: { findUnique: jest.fn() },
     };
     transcriptionProvider = { transcribe: jest.fn().mockResolvedValue('a transcript') };
+    translationProvider = { translate: jest.fn().mockResolvedValue('translated text') };
     service = new ProfilePromptsService(
       prisma as unknown as PrismaService,
       transcriptionProvider as unknown as TranscriptionProvider,
+      translationProvider as unknown as TranslationProvider,
     );
   });
 
@@ -642,6 +648,128 @@ describe('ProfilePromptsService', () => {
       expect(prisma.profilePromptTextAnswer.delete).toHaveBeenCalledWith({
         where: { userId_promptId: { userId: USER_ID, promptId } },
       });
+    });
+  });
+
+  describe('translateTextAnswer', () => {
+    const promptId = PROFILE_PROMPTS[0].id;
+    const TARGET_USER_ID = 'user-2';
+
+    it('throws when the target has no written answer for that prompt', async () => {
+      prisma.profilePromptTextAnswer.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.translateTextAnswer(USER_ID, TARGET_USER_ID, promptId, 'French'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(translationProvider.translate).not.toHaveBeenCalled();
+    });
+
+    it('translates into the given targetLanguage', async () => {
+      prisma.profilePromptTextAnswer.findUnique.mockResolvedValue({
+        userId: TARGET_USER_ID,
+        promptId,
+        answer: 'Sunset walks and tacos.',
+      });
+      translationProvider.translate.mockResolvedValue('Balades au coucher du soleil et tacos.');
+
+      const result = await service.translateTextAnswer(USER_ID, TARGET_USER_ID, promptId, 'French');
+
+      expect(translationProvider.translate).toHaveBeenCalledWith('Sunset walks and tacos.', 'French');
+      expect(prisma.user.findUnique).not.toHaveBeenCalled();
+      expect(result).toEqual({ translatedText: 'Balades au coucher du soleil et tacos.' });
+    });
+
+    it("falls back to the caller's preferredLanguage when targetLanguage is omitted", async () => {
+      prisma.profilePromptTextAnswer.findUnique.mockResolvedValue({
+        userId: TARGET_USER_ID,
+        promptId,
+        answer: 'Sunset walks and tacos.',
+      });
+      prisma.user.findUnique.mockResolvedValue({ preferredLanguage: 'Spanish' });
+
+      await service.translateTextAnswer(USER_ID, TARGET_USER_ID, promptId);
+
+      expect(prisma.user.findUnique).toHaveBeenCalledWith({
+        where: { id: USER_ID },
+        select: { preferredLanguage: true },
+      });
+      expect(translationProvider.translate).toHaveBeenCalledWith('Sunset walks and tacos.', 'Spanish');
+    });
+
+    it('throws when no targetLanguage is given and the caller has no preferredLanguage set', async () => {
+      prisma.profilePromptTextAnswer.findUnique.mockResolvedValue({
+        userId: TARGET_USER_ID,
+        promptId,
+        answer: 'Sunset walks and tacos.',
+      });
+      prisma.user.findUnique.mockResolvedValue({ preferredLanguage: null });
+
+      await expect(
+        service.translateTextAnswer(USER_ID, TARGET_USER_ID, promptId),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(translationProvider.translate).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('translateVoiceAnswer', () => {
+    const promptId = PROFILE_PROMPTS[0].id;
+    const TARGET_USER_ID = 'user-2';
+
+    it('throws when there is no transcript to translate', async () => {
+      prisma.profilePromptVoiceAnswer.findUnique.mockResolvedValue({
+        userId: TARGET_USER_ID,
+        promptId,
+        transcript: null,
+      });
+
+      await expect(
+        service.translateVoiceAnswer(USER_ID, TARGET_USER_ID, promptId, 'French'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(translationProvider.translate).not.toHaveBeenCalled();
+    });
+
+    it('translates the stored transcript', async () => {
+      prisma.profilePromptVoiceAnswer.findUnique.mockResolvedValue({
+        userId: TARGET_USER_ID,
+        promptId,
+        transcript: 'Hello there.',
+      });
+
+      const result = await service.translateVoiceAnswer(USER_ID, TARGET_USER_ID, promptId, 'French');
+
+      expect(translationProvider.translate).toHaveBeenCalledWith('Hello there.', 'French');
+      expect(result).toEqual({ translatedText: 'translated text' });
+    });
+  });
+
+  describe('translateVideoAnswer', () => {
+    const promptId = PROFILE_PROMPTS[0].id;
+    const TARGET_USER_ID = 'user-2';
+
+    it('throws when there is no transcript to translate', async () => {
+      prisma.profilePromptVideoAnswer.findUnique.mockResolvedValue({
+        userId: TARGET_USER_ID,
+        promptId,
+        transcript: null,
+      });
+
+      await expect(
+        service.translateVideoAnswer(USER_ID, TARGET_USER_ID, promptId, 'French'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(translationProvider.translate).not.toHaveBeenCalled();
+    });
+
+    it('translates the stored transcript', async () => {
+      prisma.profilePromptVideoAnswer.findUnique.mockResolvedValue({
+        userId: TARGET_USER_ID,
+        promptId,
+        transcript: 'Hello there.',
+      });
+
+      const result = await service.translateVideoAnswer(USER_ID, TARGET_USER_ID, promptId, 'French');
+
+      expect(translationProvider.translate).toHaveBeenCalledWith('Hello there.', 'French');
+      expect(result).toEqual({ translatedText: 'translated text' });
     });
   });
 });

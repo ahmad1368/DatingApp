@@ -32,6 +32,7 @@ class VoicePromptAnswer {
   final String question;
   final String audioUrl;
   final int durationSeconds;
+
   /// Auto-generated caption for accessibility and silent browsing - null if
   /// transcription failed or hasn't run yet.
   final String? transcript;
@@ -80,6 +81,7 @@ class VideoPromptAnswer {
   final String question;
   final String videoUrl;
   final int durationSeconds;
+
   /// Auto-generated caption for accessibility and silent browsing - null if
   /// transcription failed or hasn't run yet.
   final String? transcript;
@@ -102,18 +104,21 @@ class TextPromptAnswer {
 
 /// Talks to the backend's voice-answer profile prompt endpoints.
 class ProfilePromptsApi {
-  ProfilePromptsApi({required this.accessToken, http.Client? client, String? baseUrl})
-      : _client = client ?? http.Client(),
-        _baseUrl = baseUrl ?? 'http://10.0.2.2:3000';
+  ProfilePromptsApi({
+    required this.accessToken,
+    http.Client? client,
+    String? baseUrl,
+  }) : _client = client ?? http.Client(),
+       _baseUrl = baseUrl ?? 'http://10.0.2.2:3000';
 
   final String accessToken;
   final http.Client _client;
   final String _baseUrl;
 
   Map<String, String> get _headers => {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $accessToken',
-      };
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer $accessToken',
+  };
 
   Future<List<ProfilePrompt>> fetchPrompts() async {
     final response = await _client.get(
@@ -122,13 +127,20 @@ class ProfilePromptsApi {
     );
 
     if (response.statusCode != 200) {
-      throw ProfilePromptsApiException(_errorMessage(_decode(response), response.statusCode));
+      throw ProfilePromptsApiException(
+        _errorMessage(_decode(response), response.statusCode),
+      );
     }
 
     final list = jsonDecode(response.body) as List;
     return list
         .cast<Map<String, dynamic>>()
-        .map((json) => ProfilePrompt(id: json['id'] as String, question: json['question'] as String))
+        .map(
+          (json) => ProfilePrompt(
+            id: json['id'] as String,
+            question: json['question'] as String,
+          ),
+        )
         .toList();
   }
 
@@ -139,7 +151,9 @@ class ProfilePromptsApi {
     );
 
     if (response.statusCode != 200) {
-      throw ProfilePromptsApiException(_errorMessage(_decode(response), response.statusCode));
+      throw ProfilePromptsApiException(
+        _errorMessage(_decode(response), response.statusCode),
+      );
     }
 
     final list = jsonDecode(response.body) as List;
@@ -153,7 +167,9 @@ class ProfilePromptsApi {
     );
 
     if (response.statusCode != 200) {
-      throw ProfilePromptsApiException(_errorMessage(_decode(response), response.statusCode));
+      throw ProfilePromptsApiException(
+        _errorMessage(_decode(response), response.statusCode),
+      );
     }
 
     final list = jsonDecode(response.body) as List;
@@ -176,7 +192,9 @@ class ProfilePromptsApi {
     );
 
     if (response.statusCode != 200) {
-      throw ProfilePromptsApiException(_errorMessage(_decode(response), response.statusCode));
+      throw ProfilePromptsApiException(
+        _errorMessage(_decode(response), response.statusCode),
+      );
     }
 
     return _toVoicePromptAnswer(_decode(response));
@@ -189,7 +207,9 @@ class ProfilePromptsApi {
     );
 
     if (response.statusCode != 200) {
-      throw ProfilePromptsApiException(_errorMessage(_decode(response), response.statusCode));
+      throw ProfilePromptsApiException(
+        _errorMessage(_decode(response), response.statusCode),
+      );
     }
   }
 
@@ -215,7 +235,9 @@ class ProfilePromptsApi {
     );
 
     if (response.statusCode != 201) {
-      throw ProfilePromptsApiException(_errorMessage(_decode(response), response.statusCode));
+      throw ProfilePromptsApiException(
+        _errorMessage(_decode(response), response.statusCode),
+      );
     }
 
     return _toVoicePromptReaction(_decode(response));
@@ -229,11 +251,16 @@ class ProfilePromptsApi {
     );
 
     if (response.statusCode != 200) {
-      throw ProfilePromptsApiException(_errorMessage(_decode(response), response.statusCode));
+      throw ProfilePromptsApiException(
+        _errorMessage(_decode(response), response.statusCode),
+      );
     }
 
     final list = jsonDecode(response.body) as List;
-    return list.cast<Map<String, dynamic>>().map(_toVoicePromptReaction).toList();
+    return list
+        .cast<Map<String, dynamic>>()
+        .map(_toVoicePromptReaction)
+        .toList();
   }
 
   /// Reacts to [targetUserId]'s profile photo [photoId] with a text
@@ -258,7 +285,9 @@ class ProfilePromptsApi {
     );
 
     if (response.statusCode != 201) {
-      throw ProfilePromptsApiException(_errorMessage(_decode(response), response.statusCode));
+      throw ProfilePromptsApiException(
+        _errorMessage(_decode(response), response.statusCode),
+      );
     }
 
     return _toVoicePromptReaction(_decode(response));
@@ -272,11 +301,16 @@ class ProfilePromptsApi {
     );
 
     if (response.statusCode != 200) {
-      throw ProfilePromptsApiException(_errorMessage(_decode(response), response.statusCode));
+      throw ProfilePromptsApiException(
+        _errorMessage(_decode(response), response.statusCode),
+      );
     }
 
     final list = jsonDecode(response.body) as List;
-    return list.cast<Map<String, dynamic>>().map(_toVoicePromptReaction).toList();
+    return list
+        .cast<Map<String, dynamic>>()
+        .map(_toVoicePromptReaction)
+        .toList();
   }
 
   Future<List<VideoPromptAnswer>> fetchMyVideoAnswers() async {
@@ -286,21 +320,27 @@ class ProfilePromptsApi {
     );
 
     if (response.statusCode != 200) {
-      throw ProfilePromptsApiException(_errorMessage(_decode(response), response.statusCode));
+      throw ProfilePromptsApiException(
+        _errorMessage(_decode(response), response.statusCode),
+      );
     }
 
     final list = jsonDecode(response.body) as List;
     return list.cast<Map<String, dynamic>>().map(_toVideoPromptAnswer).toList();
   }
 
-  Future<List<VideoPromptAnswer>> fetchVideoAnswersForUser(String userId) async {
+  Future<List<VideoPromptAnswer>> fetchVideoAnswersForUser(
+    String userId,
+  ) async {
     final response = await _client.get(
       Uri.parse('$_baseUrl/profile-prompts/video/$userId'),
       headers: _headers,
     );
 
     if (response.statusCode != 200) {
-      throw ProfilePromptsApiException(_errorMessage(_decode(response), response.statusCode));
+      throw ProfilePromptsApiException(
+        _errorMessage(_decode(response), response.statusCode),
+      );
     }
 
     final list = jsonDecode(response.body) as List;
@@ -325,7 +365,9 @@ class ProfilePromptsApi {
     );
 
     if (response.statusCode != 200) {
-      throw ProfilePromptsApiException(_errorMessage(_decode(response), response.statusCode));
+      throw ProfilePromptsApiException(
+        _errorMessage(_decode(response), response.statusCode),
+      );
     }
 
     return _toVideoPromptAnswer(_decode(response));
@@ -338,7 +380,9 @@ class ProfilePromptsApi {
     );
 
     if (response.statusCode != 200) {
-      throw ProfilePromptsApiException(_errorMessage(_decode(response), response.statusCode));
+      throw ProfilePromptsApiException(
+        _errorMessage(_decode(response), response.statusCode),
+      );
     }
   }
 
@@ -349,7 +393,9 @@ class ProfilePromptsApi {
     );
 
     if (response.statusCode != 200) {
-      throw ProfilePromptsApiException(_errorMessage(_decode(response), response.statusCode));
+      throw ProfilePromptsApiException(
+        _errorMessage(_decode(response), response.statusCode),
+      );
     }
 
     final list = jsonDecode(response.body) as List;
@@ -363,7 +409,9 @@ class ProfilePromptsApi {
     );
 
     if (response.statusCode != 200) {
-      throw ProfilePromptsApiException(_errorMessage(_decode(response), response.statusCode));
+      throw ProfilePromptsApiException(
+        _errorMessage(_decode(response), response.statusCode),
+      );
     }
 
     final list = jsonDecode(response.body) as List;
@@ -372,7 +420,10 @@ class ProfilePromptsApi {
 
   /// Records or re-records a written answer to a prompt - independent of
   /// any voice/video answer to the same prompt.
-  Future<TextPromptAnswer> recordTextAnswer({required String promptId, required String answer}) async {
+  Future<TextPromptAnswer> recordTextAnswer({
+    required String promptId,
+    required String answer,
+  }) async {
     final response = await _client.post(
       Uri.parse('$_baseUrl/profile-prompts/text-answers'),
       headers: _headers,
@@ -380,10 +431,89 @@ class ProfilePromptsApi {
     );
 
     if (response.statusCode != 200) {
-      throw ProfilePromptsApiException(_errorMessage(_decode(response), response.statusCode));
+      throw ProfilePromptsApiException(
+        _errorMessage(_decode(response), response.statusCode),
+      );
     }
 
     return _toTextPromptAnswer(_decode(response));
+  }
+
+  /// Translates [targetUserId]'s written answer to [promptId] into
+  /// [targetLanguage] - defaults to the caller's preferred language
+  /// (see MessagingApi.setPreferredLanguage) when omitted.
+  Future<String> translateTextAnswer({
+    required String targetUserId,
+    required String promptId,
+    String? targetLanguage,
+  }) async {
+    final response = await _client.post(
+      Uri.parse(
+        '$_baseUrl/profile-prompts/text/$targetUserId/$promptId/translate',
+      ),
+      headers: _headers,
+      body: jsonEncode({
+        if (targetLanguage != null) 'targetLanguage': targetLanguage,
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      throw ProfilePromptsApiException(
+        _errorMessage(_decode(response), response.statusCode),
+      );
+    }
+
+    return _decode(response)['translatedText'] as String;
+  }
+
+  /// Translates the transcript of [targetUserId]'s voice answer to
+  /// [promptId] into [targetLanguage].
+  Future<String> translateVoiceAnswer({
+    required String targetUserId,
+    required String promptId,
+    String? targetLanguage,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/profile-prompts/$targetUserId/$promptId/translate'),
+      headers: _headers,
+      body: jsonEncode({
+        if (targetLanguage != null) 'targetLanguage': targetLanguage,
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      throw ProfilePromptsApiException(
+        _errorMessage(_decode(response), response.statusCode),
+      );
+    }
+
+    return _decode(response)['translatedText'] as String;
+  }
+
+  /// Translates the transcript of [targetUserId]'s video answer to
+  /// [promptId] into [targetLanguage].
+  Future<String> translateVideoAnswer({
+    required String targetUserId,
+    required String promptId,
+    String? targetLanguage,
+  }) async {
+    final response = await _client.post(
+      Uri.parse(
+        '$_baseUrl/profile-prompts/video/$targetUserId/$promptId/translate',
+      ),
+      headers: _headers,
+      body: jsonEncode({
+        if (targetLanguage != null) 'targetLanguage': targetLanguage,
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      throw ProfilePromptsApiException(
+        _errorMessage(_decode(response), response.statusCode),
+      );
+    }
+
+    return _decode(response)['translatedText'] as String;
   }
 
   Future<void> deleteTextAnswer(String promptId) async {
@@ -393,7 +523,9 @@ class ProfilePromptsApi {
     );
 
     if (response.statusCode != 200) {
-      throw ProfilePromptsApiException(_errorMessage(_decode(response), response.statusCode));
+      throw ProfilePromptsApiException(
+        _errorMessage(_decode(response), response.statusCode),
+      );
     }
   }
 

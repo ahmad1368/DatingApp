@@ -34,7 +34,10 @@ void main() {
         client: MockClient((request) async => http.Response('', 500)),
       );
 
-      expect(() => api.fetchPrompts(), throwsA(isA<ProfilePromptsApiException>()));
+      expect(
+        () => api.fetchPrompts(),
+        throwsA(isA<ProfilePromptsApiException>()),
+      );
     });
   });
 
@@ -109,12 +112,17 @@ void main() {
       final api = ProfilePromptsApi(
         accessToken: 'a-jwt',
         client: MockClient(
-          (request) async => _jsonResponse('{"message":"Unknown profile prompt."}', 400),
+          (request) async =>
+              _jsonResponse('{"message":"Unknown profile prompt."}', 400),
         ),
       );
 
       expect(
-        () => api.recordAnswer(promptId: 'nope', audioUrl: 'x', durationSeconds: 1),
+        () => api.recordAnswer(
+          promptId: 'nope',
+          audioUrl: 'x',
+          durationSeconds: 1,
+        ),
         throwsA(isA<ProfilePromptsApiException>()),
       );
     });
@@ -126,7 +134,10 @@ void main() {
         accessToken: 'a-jwt',
         client: MockClient((request) async {
           expect(request.method, 'DELETE');
-          expect(request.url.path, '/profile-prompts/answers/perfect-first-date');
+          expect(
+            request.url.path,
+            '/profile-prompts/answers/perfect-first-date',
+          );
           return http.Response('', 200);
         }),
       );
@@ -134,16 +145,23 @@ void main() {
       await api.deleteAnswer('perfect-first-date');
     });
 
-    test('throws ProfilePromptsApiException when the answer does not exist', () async {
-      final api = ProfilePromptsApi(
-        accessToken: 'a-jwt',
-        client: MockClient(
-          (request) async => _jsonResponse('{"message":"Voice answer not found."}', 404),
-        ),
-      );
+    test(
+      'throws ProfilePromptsApiException when the answer does not exist',
+      () async {
+        final api = ProfilePromptsApi(
+          accessToken: 'a-jwt',
+          client: MockClient(
+            (request) async =>
+                _jsonResponse('{"message":"Voice answer not found."}', 404),
+          ),
+        );
 
-      expect(() => api.deleteAnswer('nope'), throwsA(isA<ProfilePromptsApiException>()));
-    });
+        expect(
+          () => api.deleteAnswer('nope'),
+          throwsA(isA<ProfilePromptsApiException>()),
+        );
+      },
+    );
   });
 
   group('ProfilePromptsApi.reactToVoicePrompt', () {
@@ -169,8 +187,14 @@ void main() {
       );
 
       expect(postRequest!.method, 'POST');
-      expect(postRequest!.url.path, '/profile-prompts/perfect-first-date/reactions');
-      expect(postRequest!.body, '{"targetUserId":"user-2","comment":"Love this!"}');
+      expect(
+        postRequest!.url.path,
+        '/profile-prompts/perfect-first-date/reactions',
+      );
+      expect(
+        postRequest!.body,
+        '{"targetUserId":"user-2","comment":"Love this!"}',
+      );
       expect(reaction.comment, 'Love this!');
       expect(reaction.audioReplyUrl, isNull);
     });
@@ -206,46 +230,57 @@ void main() {
       expect(reaction.durationSeconds, 8);
     });
 
-    test('throws ProfilePromptsApiException when the target has no answer for that prompt', () async {
-      final api = ProfilePromptsApi(
-        accessToken: 'a-jwt',
-        client: MockClient(
-          (request) async =>
-              _jsonResponse('{"message":"This user has no voice answer for that prompt."}', 404),
-        ),
-      );
+    test(
+      'throws ProfilePromptsApiException when the target has no answer for that prompt',
+      () async {
+        final api = ProfilePromptsApi(
+          accessToken: 'a-jwt',
+          client: MockClient(
+            (request) async => _jsonResponse(
+              '{"message":"This user has no voice answer for that prompt."}',
+              404,
+            ),
+          ),
+        );
 
-      expect(
-        () => api.reactToVoicePrompt(
-          promptId: 'perfect-first-date',
-          targetUserId: 'user-2',
-          comment: 'Hi',
-        ),
-        throwsA(isA<ProfilePromptsApiException>()),
-      );
-    });
+        expect(
+          () => api.reactToVoicePrompt(
+            promptId: 'perfect-first-date',
+            targetUserId: 'user-2',
+            comment: 'Hi',
+          ),
+          throwsA(isA<ProfilePromptsApiException>()),
+        );
+      },
+    );
   });
 
   group('ProfilePromptsApi.fetchReactions', () {
-    test('parses reactions received on the caller\'s own prompt answer', () async {
-      final api = ProfilePromptsApi(
-        accessToken: 'a-jwt',
-        client: MockClient((request) async {
-          expect(request.url.path, '/profile-prompts/perfect-first-date/reactions');
-          return _jsonResponse(
-            '[{"id":"reaction-1","fromUserId":"user-2","toUserId":"user-1",'
-            '"promptId":"perfect-first-date","comment":"Love this!","audioReplyUrl":null,'
-            '"durationSeconds":null,"createdAt":"2026-01-01T00:00:00.000Z"}]',
-            200,
-          );
-        }),
-      );
+    test(
+      'parses reactions received on the caller\'s own prompt answer',
+      () async {
+        final api = ProfilePromptsApi(
+          accessToken: 'a-jwt',
+          client: MockClient((request) async {
+            expect(
+              request.url.path,
+              '/profile-prompts/perfect-first-date/reactions',
+            );
+            return _jsonResponse(
+              '[{"id":"reaction-1","fromUserId":"user-2","toUserId":"user-1",'
+              '"promptId":"perfect-first-date","comment":"Love this!","audioReplyUrl":null,'
+              '"durationSeconds":null,"createdAt":"2026-01-01T00:00:00.000Z"}]',
+              200,
+            );
+          }),
+        );
 
-      final reactions = await api.fetchReactions('perfect-first-date');
+        final reactions = await api.fetchReactions('perfect-first-date');
 
-      expect(reactions, hasLength(1));
-      expect(reactions.first.comment, 'Love this!');
-    });
+        expect(reactions, hasLength(1));
+        expect(reactions.first.comment, 'Love this!');
+      },
+    );
 
     test('throws ProfilePromptsApiException on a non-200 response', () async {
       final api = ProfilePromptsApi(
@@ -253,7 +288,10 @@ void main() {
         client: MockClient((request) async => http.Response('', 500)),
       );
 
-      expect(() => api.fetchReactions('perfect-first-date'), throwsA(isA<ProfilePromptsApiException>()));
+      expect(
+        () => api.fetchReactions('perfect-first-date'),
+        throwsA(isA<ProfilePromptsApiException>()),
+      );
     });
   });
 
@@ -282,7 +320,10 @@ void main() {
       );
 
       expect(postRequest!.method, 'POST');
-      expect(postRequest!.url.path, '/profile-prompts/photos/photo-1/reactions');
+      expect(
+        postRequest!.url.path,
+        '/profile-prompts/photos/photo-1/reactions',
+      );
       expect(
         postRequest!.body,
         '{"targetUserId":"user-2","audioReplyUrl":"file:///tmp/reply.m4a","durationSeconds":6}',
@@ -291,19 +332,29 @@ void main() {
       expect(reaction.promptId, isNull);
     });
 
-    test('throws ProfilePromptsApiException when the target has no photo with that id', () async {
-      final api = ProfilePromptsApi(
-        accessToken: 'a-jwt',
-        client: MockClient(
-          (request) async => _jsonResponse('{"message":"This user has no photo with that id."}', 404),
-        ),
-      );
+    test(
+      'throws ProfilePromptsApiException when the target has no photo with that id',
+      () async {
+        final api = ProfilePromptsApi(
+          accessToken: 'a-jwt',
+          client: MockClient(
+            (request) async => _jsonResponse(
+              '{"message":"This user has no photo with that id."}',
+              404,
+            ),
+          ),
+        );
 
-      expect(
-        () => api.reactToPhoto(photoId: 'photo-1', targetUserId: 'user-2', comment: 'Hi'),
-        throwsA(isA<ProfilePromptsApiException>()),
-      );
-    });
+        expect(
+          () => api.reactToPhoto(
+            photoId: 'photo-1',
+            targetUserId: 'user-2',
+            comment: 'Hi',
+          ),
+          throwsA(isA<ProfilePromptsApiException>()),
+        );
+      },
+    );
   });
 
   group('ProfilePromptsApi.fetchPhotoReactions', () {
@@ -333,7 +384,10 @@ void main() {
         client: MockClient((request) async => http.Response('', 500)),
       );
 
-      expect(() => api.fetchPhotoReactions('photo-1'), throwsA(isA<ProfilePromptsApiException>()));
+      expect(
+        () => api.fetchPhotoReactions('photo-1'),
+        throwsA(isA<ProfilePromptsApiException>()),
+      );
     });
   });
 
@@ -383,7 +437,10 @@ void main() {
         client: MockClient((request) async => http.Response('', 500)),
       );
 
-      expect(() => api.fetchMyVideoAnswers(), throwsA(isA<ProfilePromptsApiException>()));
+      expect(
+        () => api.fetchMyVideoAnswers(),
+        throwsA(isA<ProfilePromptsApiException>()),
+      );
     });
   });
 
@@ -419,12 +476,17 @@ void main() {
       final api = ProfilePromptsApi(
         accessToken: 'a-jwt',
         client: MockClient(
-          (request) async => _jsonResponse('{"message":"Unknown profile prompt."}', 400),
+          (request) async =>
+              _jsonResponse('{"message":"Unknown profile prompt."}', 400),
         ),
       );
 
       expect(
-        () => api.recordVideoAnswer(promptId: 'nope', videoUrl: 'x', durationSeconds: 1),
+        () => api.recordVideoAnswer(
+          promptId: 'nope',
+          videoUrl: 'x',
+          durationSeconds: 1,
+        ),
         throwsA(isA<ProfilePromptsApiException>()),
       );
     });
@@ -436,7 +498,10 @@ void main() {
         accessToken: 'a-jwt',
         client: MockClient((request) async {
           expect(request.method, 'DELETE');
-          expect(request.url.path, '/profile-prompts/video-answers/perfect-first-date');
+          expect(
+            request.url.path,
+            '/profile-prompts/video-answers/perfect-first-date',
+          );
           return http.Response('', 200);
         }),
       );
@@ -444,16 +509,23 @@ void main() {
       await api.deleteVideoAnswer('perfect-first-date');
     });
 
-    test('throws ProfilePromptsApiException when the answer does not exist', () async {
-      final api = ProfilePromptsApi(
-        accessToken: 'a-jwt',
-        client: MockClient(
-          (request) async => _jsonResponse('{"message":"Video answer not found."}', 404),
-        ),
-      );
+    test(
+      'throws ProfilePromptsApiException when the answer does not exist',
+      () async {
+        final api = ProfilePromptsApi(
+          accessToken: 'a-jwt',
+          client: MockClient(
+            (request) async =>
+                _jsonResponse('{"message":"Video answer not found."}', 404),
+          ),
+        );
 
-      expect(() => api.deleteVideoAnswer('nope'), throwsA(isA<ProfilePromptsApiException>()));
-    });
+        expect(
+          () => api.deleteVideoAnswer('nope'),
+          throwsA(isA<ProfilePromptsApiException>()),
+        );
+      },
+    );
   });
 
   group('ProfilePromptsApi.fetchMyTextAnswers', () {
@@ -482,7 +554,10 @@ void main() {
         client: MockClient((request) async => http.Response('', 500)),
       );
 
-      expect(() => api.fetchMyTextAnswers(), throwsA(isA<ProfilePromptsApiException>()));
+      expect(
+        () => api.fetchMyTextAnswers(),
+        throwsA(isA<ProfilePromptsApiException>()),
+      );
     });
   });
 
@@ -517,7 +592,8 @@ void main() {
       final api = ProfilePromptsApi(
         accessToken: 'a-jwt',
         client: MockClient(
-          (request) async => _jsonResponse('{"message":"Unknown profile prompt."}', 400),
+          (request) async =>
+              _jsonResponse('{"message":"Unknown profile prompt."}', 400),
         ),
       );
 
@@ -534,7 +610,10 @@ void main() {
         accessToken: 'a-jwt',
         client: MockClient((request) async {
           expect(request.method, 'DELETE');
-          expect(request.url.path, '/profile-prompts/text-answers/perfect-first-date');
+          expect(
+            request.url.path,
+            '/profile-prompts/text-answers/perfect-first-date',
+          );
           return http.Response('', 200);
         }),
       );
@@ -542,15 +621,135 @@ void main() {
       await api.deleteTextAnswer('perfect-first-date');
     });
 
-    test('throws ProfilePromptsApiException when the answer does not exist', () async {
+    test(
+      'throws ProfilePromptsApiException when the answer does not exist',
+      () async {
+        final api = ProfilePromptsApi(
+          accessToken: 'a-jwt',
+          client: MockClient(
+            (request) async =>
+                _jsonResponse('{"message":"Text answer not found."}', 404),
+          ),
+        );
+
+        expect(
+          () => api.deleteTextAnswer('nope'),
+          throwsA(isA<ProfilePromptsApiException>()),
+        );
+      },
+    );
+  });
+
+  group('ProfilePromptsApi.translateTextAnswer', () {
+    test(
+      'posts to the text translate path and returns the translated text',
+      () async {
+        final api = ProfilePromptsApi(
+          accessToken: 'a-jwt',
+          client: MockClient((request) async {
+            expect(request.method, 'POST');
+            expect(
+              request.url.path,
+              '/profile-prompts/text/user-2/perfect-first-date/translate',
+            );
+            expect(request.body, '{"targetLanguage":"French"}');
+            return _jsonResponse(
+              '{"translatedText":"Une promenade au coucher du soleil."}',
+              200,
+            );
+          }),
+        );
+
+        final translated = await api.translateTextAnswer(
+          targetUserId: 'user-2',
+          promptId: 'perfect-first-date',
+          targetLanguage: 'French',
+        );
+
+        expect(translated, 'Une promenade au coucher du soleil.');
+      },
+    );
+
+    test('omits targetLanguage from the body when not given', () async {
+      final api = ProfilePromptsApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.body, '{}');
+          return _jsonResponse('{"translatedText":"translated"}', 200);
+        }),
+      );
+
+      await api.translateTextAnswer(
+        targetUserId: 'user-2',
+        promptId: 'perfect-first-date',
+      );
+    });
+
+    test('throws ProfilePromptsApiException on a non-200 response', () async {
       final api = ProfilePromptsApi(
         accessToken: 'a-jwt',
         client: MockClient(
-          (request) async => _jsonResponse('{"message":"Text answer not found."}', 404),
+          (request) async =>
+              _jsonResponse('{"message":"Text answer not found."}', 404),
         ),
       );
 
-      expect(() => api.deleteTextAnswer('nope'), throwsA(isA<ProfilePromptsApiException>()));
+      expect(
+        () => api.translateTextAnswer(targetUserId: 'user-2', promptId: 'nope'),
+        throwsA(isA<ProfilePromptsApiException>()),
+      );
     });
+  });
+
+  group('ProfilePromptsApi.translateVoiceAnswer', () {
+    test(
+      'posts to the voice translate path and returns the translated text',
+      () async {
+        final api = ProfilePromptsApi(
+          accessToken: 'a-jwt',
+          client: MockClient((request) async {
+            expect(request.method, 'POST');
+            expect(
+              request.url.path,
+              '/profile-prompts/user-2/perfect-first-date/translate',
+            );
+            return _jsonResponse('{"translatedText":"Hola."}', 200);
+          }),
+        );
+
+        final translated = await api.translateVoiceAnswer(
+          targetUserId: 'user-2',
+          promptId: 'perfect-first-date',
+        );
+
+        expect(translated, 'Hola.');
+      },
+    );
+  });
+
+  group('ProfilePromptsApi.translateVideoAnswer', () {
+    test(
+      'posts to the video translate path and returns the translated text',
+      () async {
+        final api = ProfilePromptsApi(
+          accessToken: 'a-jwt',
+          client: MockClient((request) async {
+            expect(request.method, 'POST');
+            expect(
+              request.url.path,
+              '/profile-prompts/video/user-2/perfect-first-date/translate',
+            );
+            return _jsonResponse('{"translatedText":"Hola."}', 200);
+          }),
+        );
+
+        final translated = await api.translateVideoAnswer(
+          targetUserId: 'user-2',
+          promptId: 'perfect-first-date',
+        );
+
+        expect(translated, 'Hola.');
+      },
+    );
   });
 }
