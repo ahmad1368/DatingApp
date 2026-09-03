@@ -152,10 +152,5 @@
       "updatedAt": "2026-08-10T20:51:20Z"
     }
   ],
-  "queue": [
-    {
-      "number": 454,
-      "reason": "ascending backlog order: lower numbers are foundational/core features, higher numbers are later enhancements/variants"
-    }
-  ]
+  "queue": []
 }
