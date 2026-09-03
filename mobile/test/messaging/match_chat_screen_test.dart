@@ -8,6 +8,7 @@ import 'package:mobile/messaging/date_suggestions_api.dart';
 import 'package:mobile/messaging/match_chat_screen.dart';
 import 'package:mobile/messaging/messaging_api.dart';
 import 'package:mobile/messaging/post_match_survey_api.dart';
+import 'package:mobile/profile/spotify_api.dart';
 import 'package:mobile/profile/voice_player_controller.dart';
 import 'package:mobile/profile/voice_recorder_controller.dart';
 import 'package:mobile/messaging/video_reaction_picker_controller.dart';
@@ -2503,5 +2504,71 @@ void main() {
     expect(reportAndUnmatchRequest!.url.path, '/matches/match-1/report-and-unmatch');
     expect(reportAndUnmatchRequest!.body, '{"reason":"HARASSMENT"}');
     expect(find.byType(MatchChatScreen), findsNothing);
+  });
+
+  testWidgets('searches Spotify and sends a track from the results', (tester) async {
+    http.Request? sendRequest;
+    final api = MessagingApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path.endsWith('/messages')) {
+          return http.Response(_emptyMessages, 200, headers: {'content-type': 'application/json'});
+        }
+        if (request.method == 'POST' && request.url.path == '/matches/match-1/spotify-track') {
+          sendRequest = request;
+          return http.Response(
+            '{"id":"m1","senderId":"user-woman","contentType":"SPOTIFY_TRACK","content":null,'
+            '"mediaUrl":null,"isBlurred":false,"spotifyTrack":{"trackId":"track-1",'
+            '"trackName":"Song Name","artistName":"Artist Name","albumArtUrl":null},'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}',
+            201,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"matchId":"match-1","expiresAt":null,'
+          '"isExpired":false,"firstMessageSent":true,"canSendFirstMessage":true}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+    final spotifyApi = SpotifyApi(
+      accessToken: 'a-jwt',
+      client: MockClient(
+        (request) async => http.Response(
+          '[{"trackId":"track-1","trackName":"Song Name","artistName":"Artist Name",'
+          '"albumArtUrl":null}]',
+          200,
+          headers: {'content-type': 'application/json'},
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MatchChatScreen(
+          messagingApi: api,
+          matchId: 'match-1',
+          currentUserId: 'user-woman',
+          spotifyApi: spotifyApi,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.music_note_outlined));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).last, 'a song');
+    await tester.tap(find.byIcon(Icons.search));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Song Name'));
+    await tester.pumpAndSettle();
+
+    expect(sendRequest, isNotNull);
+    expect(sendRequest!.body, '{"trackId":"track-1"}');
+    expect(find.text('Artist Name'), findsOneWidget);
   });
 }

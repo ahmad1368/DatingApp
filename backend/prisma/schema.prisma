@@ -409,6 +409,14 @@ model Message {
   // MessagingService.toMessageView withholds content/mediaUrl from
   // everyone, closing the moderation feedback loop for the reporter.
   moderationRemovedAt  DateTime?
+  // A SPOTIFY_TRACK message: a shared song card - see
+  // MessagingService.sendTrackMessage. Track/artist names and album art are
+  // snapshotted at send time (Spotify metadata can change or the track can
+  // be removed later) rather than re-fetched on every read.
+  spotifyTrackId       String?
+  spotifyTrackName     String?
+  spotifyArtistName    String?
+  spotifyAlbumArtUrl   String?
   readAt               DateTime?
   // Auto-expiring media: null expiryMode means a normal, permanent message.
   // See isEphemeralExpired in messaging.constants.ts for how these three

@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, NotFoundException } from '@nes
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { GiftingService } from '../gifting/gifting.service';
+import { SpotifySyncService } from '../profile/spotify-sync.service';
 import { ContentModerator } from './interfaces/content-moderator.interface';
 import { ImageModerator } from './interfaces/image-moderator.interface';
 import { TranscriptionProvider } from './interfaces/transcription-provider.interface';
@@ -55,6 +56,7 @@ describe('MessagingService', () => {
   let transcriptionProvider: { transcribe: jest.Mock };
   let giftingService: { sendGift: jest.Mock };
   let translationProvider: { translate: jest.Mock };
+  let spotifySyncService: { getTrackForSharing: jest.Mock };
 
   beforeEach(() => {
     imageModerator = { moderate: jest.fn().mockResolvedValue({ flagged: false, categories: [] }) };
@@ -63,6 +65,14 @@ describe('MessagingService', () => {
     transcriptionProvider = { transcribe: jest.fn().mockResolvedValue('a transcript') };
     giftingService = { sendGift: jest.fn().mockResolvedValue({ tokenBalance: 90, transaction: {} }) };
     translationProvider = { translate: jest.fn().mockResolvedValue('Hola!') };
+    spotifySyncService = {
+      getTrackForSharing: jest.fn().mockResolvedValue({
+        trackId: 'track-1',
+        trackName: 'Song Name',
+        artistName: 'Artist Name',
+        albumArtUrl: 'https://example.com/art.jpg',
+      }),
+    };
     prisma = {
       match: {
         findUnique: jest.fn(),
@@ -110,6 +120,7 @@ describe('MessagingService', () => {
       giftingService as unknown as GiftingService,
       contentModerator as unknown as ContentModerator,
       translationProvider as unknown as TranslationProvider,
+      spotifySyncService as unknown as SpotifySyncService,
     );
   });
 
@@ -637,6 +648,7 @@ describe('MessagingService', () => {
         gift: null,
         gameCard: null,
         locationPin: null,
+        spotifyTrack: null,
         voicePreviewRequest: null,
         expiryMode: null,
         viewTimerSeconds: null,
@@ -1773,6 +1785,7 @@ describe('MessagingService', () => {
           gift: null,
           gameCard: null,
           locationPin: null,
+          spotifyTrack: null,
           voicePreviewRequest: null,
           expiryMode: null,
           viewTimerSeconds: null,
@@ -2726,6 +2739,71 @@ describe('MessagingService', () => {
       giftingService.sendGift.mockRejectedValue(new BadRequestException('Not enough gift tokens for this gift.'));
 
       await expect(service.sendGiftMessage(WOMAN_ID, MATCH_ID, 'rose')).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(prisma.message.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('sendTrackMessage', () => {
+    it('rejects the man sending the first track to a woman match', async () => {
+      mockMatch();
+      mockUsers({ [WOMAN_ID]: ['Woman'], [MAN_ID]: ['Man'] });
+
+      await expect(service.sendTrackMessage(MAN_ID, MATCH_ID, 'track-1')).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+      expect(spotifySyncService.getTrackForSharing).not.toHaveBeenCalled();
+    });
+
+    it('looks up the track via SpotifySyncService and creates a SPOTIFY_TRACK message', async () => {
+      mockMatch();
+      mockUsers({ [WOMAN_ID]: ['Woman'], [MAN_ID]: ['Man'] });
+      prisma.message.create.mockResolvedValue({
+        id: 'message-1',
+        senderId: WOMAN_ID,
+        contentType: 'SPOTIFY_TRACK',
+        content: null,
+        mediaUrl: null,
+        isBlurred: false,
+        readAt: null,
+        spotifyTrackId: 'track-1',
+        spotifyTrackName: 'Song Name',
+        spotifyArtistName: 'Artist Name',
+        spotifyAlbumArtUrl: 'https://example.com/art.jpg',
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      });
+
+      const result = await service.sendTrackMessage(WOMAN_ID, MATCH_ID, 'track-1');
+
+      expect(spotifySyncService.getTrackForSharing).toHaveBeenCalledWith(WOMAN_ID, 'track-1');
+      expect(prisma.message.create).toHaveBeenCalledWith({
+        data: {
+          matchId: MATCH_ID,
+          senderId: WOMAN_ID,
+          contentType: 'SPOTIFY_TRACK',
+          spotifyTrackId: 'track-1',
+          spotifyTrackName: 'Song Name',
+          spotifyArtistName: 'Artist Name',
+          spotifyAlbumArtUrl: 'https://example.com/art.jpg',
+        },
+      });
+      expect(result.spotifyTrack).toEqual({
+        trackId: 'track-1',
+        trackName: 'Song Name',
+        artistName: 'Artist Name',
+        albumArtUrl: 'https://example.com/art.jpg',
+      });
+    });
+
+    it('propagates a not-connected error from SpotifySyncService without creating a message', async () => {
+      mockMatch();
+      mockUsers({ [WOMAN_ID]: ['Woman'], [MAN_ID]: ['Man'] });
+      spotifySyncService.getTrackForSharing.mockRejectedValue(
+        new BadRequestException('Spotify is not connected.'),
+      );
+
+      await expect(service.sendTrackMessage(WOMAN_ID, MATCH_ID, 'track-1')).rejects.toBeInstanceOf(
         BadRequestException,
       );
       expect(prisma.message.create).not.toHaveBeenCalled();

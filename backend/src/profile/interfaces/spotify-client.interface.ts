@@ -29,4 +29,5 @@ export interface SpotifyClient {
   refreshAccessToken(refreshToken: string): Promise<SpotifyRefreshResult>;
   fetchTopArtists(accessToken: string): Promise<SpotifyArtist[]>;
   fetchTrack(accessToken: string, trackId: string): Promise<SpotifyTrack>;
+  searchTracks(accessToken: string, query: string): Promise<SpotifyTrack[]>;
 }

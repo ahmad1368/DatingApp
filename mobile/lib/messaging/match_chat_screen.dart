@@ -10,6 +10,7 @@ import '../safety/screen_security_api.dart';
 import '../safety/screen_security_channel.dart';
 import '../vault/vault_api.dart';
 import '../vault/vault_granted_screen.dart';
+import '../profile/spotify_api.dart';
 import 'date_suggestions_api.dart';
 import 'messaging_api.dart';
 import 'post_match_survey_api.dart';
@@ -48,6 +49,7 @@ class MatchChatScreen extends StatefulWidget {
     PostMatchSurveyApi? postMatchSurveyApi,
     GiftingApi? giftingApi,
     VideoReactionPickerController? videoReactionPicker,
+    SpotifyApi? spotifyApi,
   })  : recorder = recorder ?? DeviceVoiceRecorderController(),
         player = player ?? DeviceVoicePlayerController(),
         dateSuggestionsApi =
@@ -59,7 +61,8 @@ class MatchChatScreen extends StatefulWidget {
         postMatchSurveyApi =
             postMatchSurveyApi ?? PostMatchSurveyApi(accessToken: messagingApi.accessToken),
         giftingApi = giftingApi ?? GiftingApi(accessToken: messagingApi.accessToken),
-        videoReactionPicker = videoReactionPicker ?? DeviceVideoReactionPickerController();
+        videoReactionPicker = videoReactionPicker ?? DeviceVideoReactionPickerController(),
+        spotifyApi = spotifyApi ?? SpotifyApi(accessToken: messagingApi.accessToken);
 
   final MessagingApi messagingApi;
   final String matchId;
@@ -73,6 +76,7 @@ class MatchChatScreen extends StatefulWidget {
   final PostMatchSurveyApi postMatchSurveyApi;
   final GiftingApi giftingApi;
   final VideoReactionPickerController videoReactionPicker;
+  final SpotifyApi spotifyApi;
 
   @override
   State<MatchChatScreen> createState() => _MatchChatScreenState();
@@ -439,6 +443,19 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
         matchId: widget.matchId,
         contentType: 'GIF',
         mediaUrl: gif.url,
+      );
+      _onMessageSent(message);
+    } on MessagingApiException catch (e) {
+      setState(() => _errorText = e.message);
+    }
+  }
+
+  Future<void> _sendTrack(SpotifyTrackResult track) async {
+    setState(() => _errorText = null);
+    try {
+      final message = await widget.messagingApi.sendTrackMessage(
+        matchId: widget.matchId,
+        trackId: track.trackId,
       );
       _onMessageSent(message);
     } on MessagingApiException catch (e) {
@@ -916,6 +933,16 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
     );
     if (gif != null) {
       await _sendGif(gif);
+    }
+  }
+
+  Future<void> _openSpotifyTrackPicker() async {
+    final track = await showDialog<SpotifyTrackResult>(
+      context: context,
+      builder: (context) => _SpotifyTrackPickerDialog(spotifyApi: widget.spotifyApi),
+    );
+    if (track != null) {
+      await _sendTrack(track);
     }
   }
 
@@ -1411,6 +1438,11 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
                           onPressed: _openGifPicker,
                         ),
                         IconButton(
+                          icon: const Icon(Icons.music_note_outlined),
+                          tooltip: 'Send a song',
+                          onPressed: _openSpotifyTrackPicker,
+                        ),
+                        IconButton(
                           icon: const Icon(Icons.quiz_outlined),
                           tooltip: 'Send an icebreaker',
                           onPressed: _openIcebreakerPicker,
@@ -1580,6 +1612,8 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
         return _buildReservationContent(message);
       case 'GIFT':
         return _buildGiftContent(message);
+      case 'SPOTIFY_TRACK':
+        return _buildSpotifyTrackContent(message);
       case 'VIDEO_REACTION':
         return Row(
           mainAxisSize: MainAxisSize.min,
@@ -1637,6 +1671,42 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
         Text(gift.emoji, style: const TextStyle(fontSize: 28)),
         const SizedBox(width: 8),
         Text(gift.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+      ],
+    );
+  }
+
+  Widget _buildSpotifyTrackContent(ChatMessage message) {
+    final track = message.spotifyTrack;
+    if (track == null) {
+      return const Text('Song');
+    }
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        track.albumArtUrl != null
+            ? Image.network(
+                track.albumArtUrl!,
+                width: 48,
+                height: 48,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => const Icon(Icons.music_note, size: 48),
+              )
+            : const Icon(Icons.music_note, size: 48),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                track.trackName,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+                overflow: TextOverflow.ellipsis,
+              ),
+              Text(track.artistName, overflow: TextOverflow.ellipsis),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -1913,6 +1983,118 @@ class _GifPickerDialogState extends State<_GifPickerDialog> {
                         errorBuilder: (context, error, stackTrace) =>
                             const Icon(Icons.broken_image_outlined),
                       ),
+                    );
+                  },
+                ),
+              ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+      ],
+    );
+  }
+}
+
+class _SpotifyTrackPickerDialog extends StatefulWidget {
+  const _SpotifyTrackPickerDialog({required this.spotifyApi});
+
+  final SpotifyApi spotifyApi;
+
+  @override
+  State<_SpotifyTrackPickerDialog> createState() => _SpotifyTrackPickerDialogState();
+}
+
+class _SpotifyTrackPickerDialogState extends State<_SpotifyTrackPickerDialog> {
+  final _queryController = TextEditingController();
+  List<SpotifyTrackResult> _results = [];
+  bool _isSearching = false;
+  String? _errorText;
+
+  @override
+  void dispose() {
+    _queryController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _search() async {
+    final query = _queryController.text.trim();
+    if (query.isEmpty) {
+      return;
+    }
+    setState(() {
+      _isSearching = true;
+      _errorText = null;
+    });
+    try {
+      final results = await widget.spotifyApi.searchTracks(query);
+      setState(() => _results = results);
+    } on SpotifyApiException catch (e) {
+      setState(() => _errorText = e.message);
+    } finally {
+      if (mounted) {
+        setState(() => _isSearching = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Send a song'),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _queryController,
+                    decoration: const InputDecoration(hintText: 'Search Spotify'),
+                    onSubmitted: (_) => _search(),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.search),
+                  onPressed: _isSearching ? null : _search,
+                ),
+              ],
+            ),
+            if (_errorText != null)
+              Text(_errorText!, style: const TextStyle(color: Colors.red)),
+            if (_isSearching)
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: CircularProgressIndicator(),
+              ),
+            if (!_isSearching && _results.isNotEmpty)
+              SizedBox(
+                height: 300,
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: _results.length,
+                  itemBuilder: (context, index) {
+                    final track = _results[index];
+                    return ListTile(
+                      leading: track.albumArtUrl != null
+                          ? Image.network(
+                              track.albumArtUrl!,
+                              width: 48,
+                              height: 48,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const Icon(Icons.music_note),
+                            )
+                          : const Icon(Icons.music_note),
+                      title: Text(track.trackName),
+                      subtitle: Text(track.artistName),
+                      onTap: () => Navigator.of(context).pop(track),
                     );
                   },
                 ),

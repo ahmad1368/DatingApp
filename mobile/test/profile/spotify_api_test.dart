@@ -53,4 +53,41 @@ void main() {
       );
     });
   });
+
+  group('SpotifyApi.searchTracks', () {
+    test('sends the query and parses the results', () async {
+      final api = SpotifyApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          expect(request.url.path, '/profile/spotify/search');
+          expect(request.url.queryParameters['q'], 'a song');
+          return _jsonResponse(
+            '[{"trackId":"track-1","trackName":"Song One","artistName":"Artist One",'
+            '"albumArtUrl":"https://example.com/1.jpg"},'
+            '{"trackId":"track-2","trackName":"Song Two","artistName":"Artist Two",'
+            '"albumArtUrl":null}]',
+            200,
+          );
+        }),
+      );
+
+      final results = await api.searchTracks('a song');
+
+      expect(results, hasLength(2));
+      expect(results.first.trackName, 'Song One');
+      expect(results.first.albumArtUrl, 'https://example.com/1.jpg');
+      expect(results.last.albumArtUrl, isNull);
+    });
+
+    test('throws SpotifyApiException when Spotify is not connected', () async {
+      final api = SpotifyApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => _jsonResponse('{"message":"Spotify is not connected."}', 400),
+        ),
+      );
+
+      expect(() => api.searchTracks('a song'), throwsA(isA<SpotifyApiException>()));
+    });
+  });
 }

@@ -12,6 +12,8 @@ const TOKEN_URL = 'https://accounts.spotify.com/api/token';
 const ME_URL = 'https://api.spotify.com/v1/me';
 const TOP_ARTISTS_URL = 'https://api.spotify.com/v1/me/top/artists?limit=10';
 const TRACK_URL = 'https://api.spotify.com/v1/tracks';
+const SEARCH_URL = 'https://api.spotify.com/v1/search';
+const SEARCH_RESULT_LIMIT = 10;
 
 interface TokenResponse {
   access_token: string;
@@ -32,6 +34,10 @@ interface TrackResponse {
   name: string;
   artists: Array<{ name: string }>;
   album: { images: Array<{ url: string }> };
+}
+
+interface SearchResponse {
+  tracks: { items: TrackResponse[] };
 }
 
 @Injectable()
@@ -121,6 +127,28 @@ export class SpotifyWebApiClient implements SpotifyClient {
       artistName: track.artists.map((artist) => artist.name).join(', '),
       albumArtUrl: track.album.images[0]?.url ?? null,
     };
+  }
+
+  async searchTracks(accessToken: string, query: string): Promise<SpotifyTrack[]> {
+    const params = new URLSearchParams({
+      q: query,
+      type: 'track',
+      limit: String(SEARCH_RESULT_LIMIT),
+    });
+    const response = await fetch(`${SEARCH_URL}?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!response.ok) {
+      throw new UnauthorizedException('Unable to search Spotify right now.');
+    }
+    const body = (await response.json()) as SearchResponse;
+
+    return body.tracks.items.map((track) => ({
+      id: track.id,
+      name: track.name,
+      artistName: track.artists.map((artist) => artist.name).join(', '),
+      albumArtUrl: track.album.images[0]?.url ?? null,
+    }));
   }
 
   private basicAuthHeader(): string {

@@ -183,6 +183,7 @@ class ChatMessage {
     this.gift,
     this.gameCard,
     this.locationPin,
+    this.spotifyTrack,
     this.voicePreviewRequest,
     this.expiryMode,
     this.viewTimerSeconds,
@@ -222,6 +223,7 @@ class ChatMessage {
   final GiftCard? gift;
   final GameCard? gameCard;
   final LocationPin? locationPin;
+  final SpotifyTrackShare? spotifyTrack;
   final VoicePreviewRequest? voicePreviewRequest;
 
   /// 'VIEW_ONCE' or 'TIMER' for an auto-expiring photo/GIF; null for a
@@ -274,6 +276,21 @@ class LocationPin {
   final double latitude;
   final double longitude;
   final String? address;
+}
+
+/// A shared Spotify song card - see MessagingApi.sendTrackMessage.
+class SpotifyTrackShare {
+  SpotifyTrackShare({
+    required this.trackId,
+    required this.trackName,
+    required this.artistName,
+    this.albumArtUrl,
+  });
+
+  final String trackId;
+  final String trackName;
+  final String artistName;
+  final String? albumArtUrl;
 }
 
 /// A low-commitment invite to a brief voice call before either side commits
@@ -1484,6 +1501,23 @@ class MessagingApi {
     return _toChatMessage(body);
   }
 
+  /// Shares a song in chat - requires the sender to have connected their
+  /// own Spotify account (see SpotifyApi.searchTracks).
+  Future<ChatMessage> sendTrackMessage({required String matchId, required String trackId}) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/matches/$matchId/spotify-track'),
+      headers: _headers,
+      body: jsonEncode({'trackId': trackId}),
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 201) {
+      throw MessagingApiException(_errorMessage(body, response.statusCode));
+    }
+
+    return _toChatMessage(body);
+  }
+
   Future<void> reportMessage({
     required String matchId,
     required String messageId,
@@ -1528,6 +1562,7 @@ class MessagingApi {
     final giftJson = json['gift'] as Map<String, dynamic>?;
     final gameCardJson = json['gameCard'] as Map<String, dynamic>?;
     final locationPinJson = json['locationPin'] as Map<String, dynamic>?;
+    final spotifyTrackJson = json['spotifyTrack'] as Map<String, dynamic>?;
     final voicePreviewRequestJson = json['voicePreviewRequest'] as Map<String, dynamic>?;
     return ChatMessage(
       id: json['id'] as String,
@@ -1596,6 +1631,14 @@ class MessagingApi {
               latitude: (locationPinJson['latitude'] as num).toDouble(),
               longitude: (locationPinJson['longitude'] as num).toDouble(),
               address: locationPinJson['address'] as String?,
+            )
+          : null,
+      spotifyTrack: spotifyTrackJson != null
+          ? SpotifyTrackShare(
+              trackId: spotifyTrackJson['trackId'] as String,
+              trackName: spotifyTrackJson['trackName'] as String,
+              artistName: spotifyTrackJson['artistName'] as String,
+              albumArtUrl: spotifyTrackJson['albumArtUrl'] as String?,
             )
           : null,
       voicePreviewRequest: voicePreviewRequestJson != null
