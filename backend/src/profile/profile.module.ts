@@ -36,6 +36,9 @@ import { ProfilePollController } from './profile-poll.controller';
 import { ProfilePollService } from './profile-poll.service';
 import { OpeningQuestionController } from './opening-question.controller';
 import { OpeningQuestionService } from './opening-question.service';
+import { ProfileShareController } from './profile-share.controller';
+import { SharedProfileController } from './shared-profile.controller';
+import { ProfileShareService } from './profile-share.service';
 
 @Module({
   imports: [AuthModule, ConfigModule, NotificationsModule],
@@ -54,6 +57,8 @@ import { OpeningQuestionService } from './opening-question.service';
     BioWriterController,
     ProfilePollController,
     OpeningQuestionController,
+    ProfileShareController,
+    SharedProfileController,
   ],
   providers: [
     VoiceIntroService,
@@ -82,6 +87,7 @@ import { OpeningQuestionService } from './opening-question.service';
     },
     ProfilePollService,
     OpeningQuestionService,
+    ProfileShareService,
   ],
   exports: [SpotifySyncService],
 })

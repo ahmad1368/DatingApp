@@ -71,6 +71,9 @@ dependencies:
   # parallax effect on profile photos.
   sensors_plus: ^6.0.1
 
+  # Renders a scannable QR code for a shared profile link.
+  qr_flutter: ^4.1.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
