@@ -206,6 +206,50 @@ describe('DiscoveryService', () => {
       expect(deck.find((card) => card.id === 'unverified-user')?.isVerified).toBe(false);
     });
 
+    it('withholds lastActiveAt for a candidate who opted out of the active status indicator', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER_ID,
+        latitude: 0,
+        longitude: 0,
+        passportEnabled: false,
+        passportLatitude: null,
+        passportLongitude: null,
+        activeMode: 'DATING',
+        ...noFilters,
+      });
+      prisma.swipe.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      const lastActiveAt = new Date('2026-01-01T00:00:00.000Z');
+      prisma.user.findMany.mockResolvedValue([
+        {
+          id: TARGET_ID,
+          name: 'Jane',
+          dateOfBirth: null,
+          profilePhotoUrl: null,
+          interests: [],
+          relationshipGoal: null,
+          lastActiveAt,
+          showActiveStatusOnProfile: true,
+        },
+        {
+          id: 'opted-out-user',
+          name: 'John',
+          dateOfBirth: null,
+          profilePhotoUrl: null,
+          interests: [],
+          relationshipGoal: null,
+          lastActiveAt,
+          showActiveStatusOnProfile: false,
+        },
+      ]);
+
+      const deck = await service.getDeck(USER_ID);
+
+      expect(deck.find((card) => card.id === TARGET_ID)?.lastActiveAt).toBe(
+        lastActiveAt.toISOString(),
+      );
+      expect(deck.find((card) => card.id === 'opted-out-user')?.lastActiveAt).toBeNull();
+    });
+
     it('also excludes candidates the joint browsing partner has already swiped on', async () => {
       const PARTNER_ID = 'partner-1';
       prisma.user.findUnique.mockResolvedValue({
@@ -3448,6 +3492,28 @@ describe('DiscoveryService', () => {
       await expect(service.setIncognitoMode(USER_ID, true)).rejects.toBeInstanceOf(
         ForbiddenException,
       );
+    });
+  });
+
+  describe('setActiveStatusVisibility', () => {
+    it('turns the active status indicator off', async () => {
+      prisma.user.update.mockResolvedValue({ showActiveStatusOnProfile: false });
+
+      const result = await service.setActiveStatusVisibility(USER_ID, false);
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: USER_ID },
+        data: { showActiveStatusOnProfile: false },
+      });
+      expect(result).toEqual({ showActiveStatusOnProfile: false });
+    });
+
+    it('turns the active status indicator back on', async () => {
+      prisma.user.update.mockResolvedValue({ showActiveStatusOnProfile: true });
+
+      const result = await service.setActiveStatusVisibility(USER_ID, true);
+
+      expect(result).toEqual({ showActiveStatusOnProfile: true });
     });
   });
 

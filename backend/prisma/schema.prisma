@@ -234,6 +234,10 @@ model User {
   unmatchProtectionEnabled               Boolean   @default(false)
   profileCompletionRewardGrantedAt      DateTime?
   lastActiveAt                          DateTime?
+  // "Real-Time Active Status Indicator Toggle": when false, this user's
+  // lastActiveAt is withheld from DeckCard for anyone browsing the deck -
+  // see DiscoveryService.setActiveStatusVisibility/toDeckCard.
+  showActiveStatusOnProfile             Boolean   @default(true)
   createdAt                             DateTime  @default(now())
   updatedAt                             DateTime  @updatedAt
 

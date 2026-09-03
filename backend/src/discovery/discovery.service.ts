@@ -97,6 +97,7 @@ export interface DeckCard {
   responseRateBadge: string | null;
   isTraveling: boolean;
   isVerified: boolean;
+  lastActiveAt: string | null;
 }
 
 /**
@@ -128,6 +129,10 @@ export interface UndoResult {
 
 export interface IncognitoResult {
   incognitoEnabled: boolean;
+}
+
+export interface ActiveStatusVisibilityResult {
+  showActiveStatusOnProfile: boolean;
 }
 
 export interface BoostStatus {
@@ -631,6 +636,8 @@ export class DiscoveryService {
       messagesRepliedCount: number;
       passportEnabled: boolean;
       isVerified: boolean;
+      lastActiveAt: Date | null;
+      showActiveStatusOnProfile: boolean;
       communityGroupIds?: string[];
     },
     now: Date,
@@ -698,6 +705,10 @@ export class DiscoveryService {
       responseRateBadge: this.buildResponseRateBadge(candidate),
       isTraveling: candidate.passportEnabled,
       isVerified: candidate.isVerified,
+      lastActiveAt:
+        candidate.showActiveStatusOnProfile && candidate.lastActiveAt
+          ? candidate.lastActiveAt.toISOString()
+          : null,
     };
   }
 
@@ -1105,6 +1116,24 @@ export class DiscoveryService {
     });
 
     return { incognitoEnabled: updated.incognitoEnabled };
+  }
+
+  /**
+   * "Real-Time Active Status Indicator Toggle": when off, this user's
+   * lastActiveAt is withheld from DeckCard for anyone browsing the deck -
+   * see toDeckCard's use of showActiveStatusOnProfile. Off by default is not
+   * the case here; this only lets a user opt out of the default-on display.
+   */
+  async setActiveStatusVisibility(
+    userId: string,
+    enabled: boolean,
+  ): Promise<ActiveStatusVisibilityResult> {
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: { showActiveStatusOnProfile: enabled },
+    });
+
+    return { showActiveStatusOnProfile: updated.showActiveStatusOnProfile };
   }
 
   /**

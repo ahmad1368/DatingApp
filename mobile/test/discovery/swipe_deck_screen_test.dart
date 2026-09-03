@@ -874,6 +874,46 @@ void main() {
     expect(find.byIcon(Icons.visibility_off), findsOneWidget);
   });
 
+  testWidgets('toggling active status visibility switches the icon and persists the change', (
+    tester,
+  ) async {
+    http.Request? activeStatusRequest;
+    final api = DiscoveryApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/discovery/deck') {
+          return http.Response('[]', 200, headers: {'content-type': 'application/json'});
+        }
+        if (request.url.path == '/discovery/active-status-visibility') {
+          activeStatusRequest = request;
+          return http.Response(
+            '{"showActiveStatusOnProfile":false}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"active":false,"expiresAt":null,"viewCount":0}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: SwipeDeckScreen(discoveryApi: api)));
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.circle), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.circle));
+    await tester.pumpAndSettle();
+
+    expect(activeStatusRequest, isNotNull);
+    expect(activeStatusRequest!.method, 'PUT');
+    expect(activeStatusRequest!.body, '{"enabled":false}');
+    expect(find.byIcon(Icons.circle_outlined), findsOneWidget);
+  });
+
   testWidgets('shows an error when incognito is rejected for a non-premium user', (tester) async {
     final api = DiscoveryApi(
       accessToken: 'a-jwt',

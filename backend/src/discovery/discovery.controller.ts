@@ -2,6 +2,7 @@ import { Body, Controller, Get, HttpCode, HttpStatus, Post, Put, Query, UseGuard
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AuthenticatedUser, JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RecordSwipeDto } from './dto/record-swipe.dto';
+import { SetActiveStatusVisibilityDto } from './dto/set-active-status-visibility.dto';
 import { SetIncognitoModeDto } from './dto/set-incognito-mode.dto';
 import { SetActiveModeDto } from './dto/set-active-mode.dto';
 import { SetSnoozeModeDto } from './dto/set-snooze-mode.dto';
@@ -62,6 +63,15 @@ export class DiscoveryController {
   @HttpCode(HttpStatus.OK)
   setIncognitoMode(@CurrentUser() user: AuthenticatedUser, @Body() dto: SetIncognitoModeDto) {
     return this.discoveryService.setIncognitoMode(user.id, dto.enabled);
+  }
+
+  @Put('active-status-visibility')
+  @HttpCode(HttpStatus.OK)
+  setActiveStatusVisibility(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: SetActiveStatusVisibilityDto,
+  ) {
+    return this.discoveryService.setActiveStatusVisibility(user.id, dto.enabled);
   }
 
   @Post('boost')

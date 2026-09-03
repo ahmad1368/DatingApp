@@ -203,6 +203,49 @@ void main() {
     expect(find.byIcon(Icons.verified), findsNothing);
   });
 
+  testWidgets('shows "Online now" when the candidate was active moments ago', (tester) async {
+    final card = DeckCard(
+      id: 'user-2',
+      name: 'Jane',
+      age: 25,
+      interests: const ['Hiking'],
+      lastActiveAt: DateTime.now().subtract(const Duration(minutes: 1)),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(home: Scaffold(body: Center(child: SwipeCard(card: card, onSwiped: (_) {})))),
+    );
+
+    expect(find.text('Online now'), findsOneWidget);
+  });
+
+  testWidgets('shows how long ago the candidate was active otherwise', (tester) async {
+    final card = DeckCard(
+      id: 'user-2',
+      name: 'Jane',
+      age: 25,
+      interests: const ['Hiking'],
+      lastActiveAt: DateTime.now().subtract(const Duration(hours: 3)),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(home: Scaffold(body: Center(child: SwipeCard(card: card, onSwiped: (_) {})))),
+    );
+
+    expect(find.text('Active 3h ago'), findsOneWidget);
+  });
+
+  testWidgets('hides the active status badge when the candidate has none', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: Center(child: SwipeCard(card: _sampleCard(), onSwiped: (_) {}))),
+      ),
+    );
+
+    expect(find.textContaining('Online'), findsNothing);
+    expect(find.textContaining('Active'), findsNothing);
+  });
+
   testWidgets('shows a playable voice intro control when the card has one', (tester) async {
     final card = DeckCard(
       id: 'user-2',
