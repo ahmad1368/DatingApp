@@ -11,6 +11,13 @@ export interface SpotifyAnthemView {
   albumArtUrl: string | null;
 }
 
+export interface SpotifyTrackSearchResult {
+  trackId: string;
+  trackName: string;
+  artistName: string;
+  albumArtUrl: string | null;
+}
+
 export interface SpotifyConnectionResult {
   connected: boolean;
   topArtists: string[];
@@ -100,6 +107,40 @@ export class SpotifySyncService {
         anthemAlbumArtUrl: track.albumArtUrl,
       },
     });
+
+    return {
+      trackId: track.id,
+      trackName: track.name,
+      artistName: track.artistName,
+      albumArtUrl: track.albumArtUrl,
+    };
+  }
+
+  /**
+   * Powers both the anthem picker and MessagingService.sendTrackMessage's
+   * in-chat song search - requires the caller to have connected their own
+   * Spotify account (see getValidAccessToken), same as every other
+   * Spotify-backed action in this service.
+   */
+  async searchTracks(userId: string, query: string): Promise<SpotifyTrackSearchResult[]> {
+    if (!query.trim()) {
+      throw new BadRequestException('Enter a song or artist to search for.');
+    }
+    const accessToken = await this.getValidAccessToken(userId);
+    const tracks = await this.spotifyClient.searchTracks(accessToken, query);
+
+    return tracks.map((track) => ({
+      trackId: track.id,
+      trackName: track.name,
+      artistName: track.artistName,
+      albumArtUrl: track.albumArtUrl,
+    }));
+  }
+
+  /** Looks up one track's details for sharing in chat - see MessagingService.sendTrackMessage. */
+  async getTrackForSharing(userId: string, trackId: string): Promise<SpotifyTrackSearchResult> {
+    const accessToken = await this.getValidAccessToken(userId);
+    const track = await this.spotifyClient.fetchTrack(accessToken, trackId);
 
     return {
       trackId: track.id,

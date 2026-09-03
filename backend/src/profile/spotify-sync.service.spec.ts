@@ -15,6 +15,7 @@ describe('SpotifySyncService', () => {
     refreshAccessToken: jest.Mock;
     fetchTopArtists: jest.Mock;
     fetchTrack: jest.Mock;
+    searchTracks: jest.Mock;
   };
   let configService: { get: jest.Mock };
 
@@ -25,6 +26,7 @@ describe('SpotifySyncService', () => {
       refreshAccessToken: jest.fn(),
       fetchTopArtists: jest.fn(),
       fetchTrack: jest.fn(),
+      searchTracks: jest.fn(),
     };
     configService = {
       get: jest.fn((key: string) => {
@@ -203,6 +205,78 @@ describe('SpotifySyncService', () => {
         BadRequestException,
       );
       expect(spotifyClient.fetchTrack).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('searchTracks', () => {
+    it('rejects a blank query without calling Spotify', async () => {
+      await expect(service.searchTracks(USER_ID, '   ')).rejects.toBeInstanceOf(BadRequestException);
+      expect(spotifyClient.searchTracks).not.toHaveBeenCalled();
+    });
+
+    it('throws when Spotify is not connected', async () => {
+      prisma.user.findUnique.mockResolvedValue({ spotifyAccessToken: null, spotifyRefreshToken: null });
+
+      await expect(service.searchTracks(USER_ID, 'a song')).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(spotifyClient.searchTracks).not.toHaveBeenCalled();
+    });
+
+    it('searches via SpotifyClient and maps the results', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        spotifyAccessToken: 'sp-token',
+        spotifyRefreshToken: 'sp-refresh',
+        spotifyTokenExpiresAt: new Date(Date.now() + 60 * 60 * 1000),
+      });
+      spotifyClient.searchTracks.mockResolvedValue([
+        { id: 'track-1', name: 'Song One', artistName: 'Artist One', albumArtUrl: 'https://example.com/1.jpg' },
+        { id: 'track-2', name: 'Song Two', artistName: 'Artist Two', albumArtUrl: null },
+      ]);
+
+      const result = await service.searchTracks(USER_ID, 'a song');
+
+      expect(spotifyClient.searchTracks).toHaveBeenCalledWith('sp-token', 'a song');
+      expect(result).toEqual([
+        { trackId: 'track-1', trackName: 'Song One', artistName: 'Artist One', albumArtUrl: 'https://example.com/1.jpg' },
+        { trackId: 'track-2', trackName: 'Song Two', artistName: 'Artist Two', albumArtUrl: null },
+      ]);
+    });
+  });
+
+  describe('getTrackForSharing', () => {
+    it('throws when Spotify is not connected', async () => {
+      prisma.user.findUnique.mockResolvedValue({ spotifyAccessToken: null, spotifyRefreshToken: null });
+
+      await expect(service.getTrackForSharing(USER_ID, 'track-1')).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(spotifyClient.fetchTrack).not.toHaveBeenCalled();
+    });
+
+    it('looks up the track without persisting anything', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        spotifyAccessToken: 'sp-token',
+        spotifyRefreshToken: 'sp-refresh',
+        spotifyTokenExpiresAt: new Date(Date.now() + 60 * 60 * 1000),
+      });
+      spotifyClient.fetchTrack.mockResolvedValue({
+        id: 'track-1',
+        name: 'Song Name',
+        artistName: 'Artist Name',
+        albumArtUrl: 'https://example.com/art.jpg',
+      });
+
+      const result = await service.getTrackForSharing(USER_ID, 'track-1');
+
+      expect(spotifyClient.fetchTrack).toHaveBeenCalledWith('sp-token', 'track-1');
+      expect(prisma.user.update).not.toHaveBeenCalled();
+      expect(result).toEqual({
+        trackId: 'track-1',
+        trackName: 'Song Name',
+        artistName: 'Artist Name',
+        albumArtUrl: 'https://example.com/art.jpg',
+      });
     });
   });
 

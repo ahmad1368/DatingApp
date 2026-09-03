@@ -8,6 +8,7 @@ import {
   Param,
   Post,
   Put,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -37,6 +38,11 @@ export class SpotifyController {
     @Param('otherUserId') otherUserId: string,
   ) {
     return this.spotifySyncService.getMusicCompatibility(user.id, otherUserId);
+  }
+
+  @Get('search')
+  searchTracks(@CurrentUser() user: AuthenticatedUser, @Query('q') query: string) {
+    return this.spotifySyncService.searchTracks(user.id, query ?? '');
   }
 
   @Post('callback')

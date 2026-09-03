@@ -1991,6 +1991,52 @@ void main() {
     });
   });
 
+  group('MessagingApi.sendTrackMessage', () {
+    test('sends the track id and parses the created message', () async {
+      http.Request? capturedRequest;
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          capturedRequest = request;
+          return http.Response(
+            '{"id":"m1","senderId":"user-1","contentType":"SPOTIFY_TRACK","content":null,'
+            '"mediaUrl":null,"isBlurred":false,"spotifyTrack":{"trackId":"track-1",'
+            '"trackName":"Song Name","artistName":"Artist Name",'
+            '"albumArtUrl":"https://example.com/art.jpg"},'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}',
+            201,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      final message = await api.sendTrackMessage(matchId: 'match-1', trackId: 'track-1');
+
+      expect(capturedRequest!.method, 'POST');
+      expect(capturedRequest!.url.path, '/matches/match-1/spotify-track');
+      expect(capturedRequest!.body, '{"trackId":"track-1"}');
+      expect(message.contentType, 'SPOTIFY_TRACK');
+      expect(message.spotifyTrack, isNotNull);
+      expect(message.spotifyTrack!.trackName, 'Song Name');
+      expect(message.spotifyTrack!.artistName, 'Artist Name');
+      expect(message.spotifyTrack!.albumArtUrl, 'https://example.com/art.jpg');
+    });
+
+    test('throws MessagingApiException on a non-201 response', () async {
+      final api = MessagingApi(
+        accessToken: 'a-jwt',
+        client: MockClient(
+          (request) async => http.Response('{"message":"Spotify is not connected."}', 400),
+        ),
+      );
+
+      expect(
+        () => api.sendTrackMessage(matchId: 'match-1', trackId: 'track-1'),
+        throwsA(isA<MessagingApiException>()),
+      );
+    });
+  });
+
   group('MessagingApi.sendVoicePreviewRequest', () {
     test('posts to the voice-preview-request endpoint and parses the created message', () async {
       final api = MessagingApi(

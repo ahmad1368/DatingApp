@@ -4,6 +4,7 @@ import { AuthModule } from '../auth/auth.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { RelationshipCoachModule } from '../relationship-coach/relationship-coach.module';
 import { GiftingModule } from '../gifting/gifting.module';
+import { ProfileModule } from '../profile/profile.module';
 import { MessagingController } from './messaging.controller';
 import { MessagingService } from './messaging.service';
 import { GifSearchService } from './gif-search.service';
@@ -20,7 +21,14 @@ import { TRANSLATION_PROVIDER } from './interfaces/translation-provider.interfac
 import { OpenAiTranslationClient } from './providers/openai-translation.client';
 
 @Module({
-  imports: [AuthModule, ConfigModule, NotificationsModule, RelationshipCoachModule, GiftingModule],
+  imports: [
+    AuthModule,
+    ConfigModule,
+    NotificationsModule,
+    RelationshipCoachModule,
+    GiftingModule,
+    ProfileModule,
+  ],
   controllers: [MessagingController],
   providers: [
     MessagingService,

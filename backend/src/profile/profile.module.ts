@@ -83,5 +83,6 @@ import { OpeningQuestionService } from './opening-question.service';
     ProfilePollService,
     OpeningQuestionService,
   ],
+  exports: [SpotifySyncService],
 })
 export class ProfileModule {}

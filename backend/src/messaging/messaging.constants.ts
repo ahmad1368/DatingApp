@@ -107,6 +107,12 @@ export const GIFT_CONTENT_TYPE = 'GIFT';
 // `content`, mirroring how a RESERVATION message stores its query there.
 export const LOCATION_PIN_CONTENT_TYPE = 'LOCATION_PIN';
 
+// A shared Spotify song card - see MessagingService.sendTrackMessage. Track
+// metadata is snapshotted at send time onto its own spotify* columns rather
+// than reusing `content`, since a track needs several fields (id/name/
+// artist/album art) unlike RESERVATION/LOCATION_PIN's single query/label.
+export const SPOTIFY_TRACK_CONTENT_TYPE = 'SPOTIFY_TRACK';
+
 // A low-commitment invite to a brief voice call before either side commits
 // to a full video call or in-person meetup - see MessagingService.
 // sendVoicePreviewRequest/respondToVoicePreviewRequest.

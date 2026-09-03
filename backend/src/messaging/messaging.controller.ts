@@ -29,6 +29,7 @@ import { SendGameCardDto } from './dto/send-game-card.dto';
 import { RespondGameCardDto } from './dto/respond-game-card.dto';
 import { SendReservationDto } from './dto/send-reservation.dto';
 import { SendLocationPinDto } from './dto/send-location-pin.dto';
+import { SendTrackMessageDto } from './dto/send-track-message.dto';
 import { RespondVoicePreviewRequestDto } from './dto/respond-voice-preview-request.dto';
 import { SendGiftMessageDto } from './dto/send-gift-message.dto';
 import { SendVoiceNoteDto } from './dto/send-voice-note.dto';
@@ -431,6 +432,16 @@ export class MessagingController {
       dto.longitude,
       dto.address,
     );
+  }
+
+  @Post(':matchId/spotify-track')
+  @HttpCode(HttpStatus.CREATED)
+  sendTrackMessage(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('matchId') matchId: string,
+    @Body() dto: SendTrackMessageDto,
+  ) {
+    return this.messagingService.sendTrackMessage(user.id, matchId, dto.trackId);
   }
 
   @Post(':matchId/voice-preview-request')

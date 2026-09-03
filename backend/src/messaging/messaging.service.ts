@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { GiftingService } from '../gifting/gifting.service';
 import { findVirtualGift } from '../gifting/gifting.constants';
+import { SpotifySyncService } from '../profile/spotify-sync.service';
 import { CONTENT_MODERATOR, ContentModerator } from './interfaces/content-moderator.interface';
 import { IMAGE_MODERATOR, ImageModerator } from './interfaces/image-moderator.interface';
 import { TRANSCRIPTION_PROVIDER, TranscriptionProvider } from './interfaces/transcription-provider.interface';
@@ -46,6 +47,7 @@ import {
   RESERVATION_CONTENT_TYPE,
   RESERVATION_PROVIDERS,
   ReservationProvider,
+  SPOTIFY_TRACK_CONTENT_TYPE,
   UNMATCH_REASONS,
   UnmatchReason,
   TRIVIA_QUESTIONS,
@@ -113,6 +115,13 @@ export interface LocationPinView {
   address: string | null;
 }
 
+export interface SpotifyTrackShareView {
+  trackId: string;
+  trackName: string;
+  artistName: string;
+  albumArtUrl: string | null;
+}
+
 export interface VoicePreviewRequestView {
   status: VoicePreviewRequestStatus;
   durationSeconds: number;
@@ -161,6 +170,7 @@ export interface MessageView {
   gift: GiftView | null;
   gameCard: GameCardView | null;
   locationPin: LocationPinView | null;
+  spotifyTrack: SpotifyTrackShareView | null;
   voicePreviewRequest: VoicePreviewRequestView | null;
   expiryMode: ExpiryMode | null;
   viewTimerSeconds: number | null;
@@ -272,6 +282,7 @@ export class MessagingService {
     private readonly giftingService: GiftingService,
     @Inject(CONTENT_MODERATOR) private readonly contentModerator: ContentModerator,
     @Inject(TRANSLATION_PROVIDER) private readonly translationProvider: TranslationProvider,
+    private readonly spotifySyncService: SpotifySyncService,
   ) {}
 
   async getMatchStatus(userId: string, matchId: string): Promise<MatchStatus> {
@@ -1127,6 +1138,35 @@ export class MessagingService {
 
     await this.markFirstMessageIfNeeded(matchId, firstMessageSent);
     await this.notifyNewMessage(match, userId, `Sent a gift: ${gift.name} ${gift.emoji}`);
+
+    return this.toMessageView(message, userId);
+  }
+
+  /**
+   * "In-Chat Spotify Song Sharing": requires the sender to have connected
+   * their own Spotify account (see SpotifySyncService.getTrackForSharing) -
+   * the track is looked up and its metadata snapshotted onto the message at
+   * send time, same as a RESERVATION/LOCATION_PIN card.
+   */
+  async sendTrackMessage(userId: string, matchId: string, trackId: string): Promise<MessageView> {
+    const { match, firstMessageSent } = await this.assertCanSend(userId, matchId);
+
+    const track = await this.spotifySyncService.getTrackForSharing(userId, trackId);
+
+    const message = await this.prisma.message.create({
+      data: {
+        matchId,
+        senderId: userId,
+        contentType: SPOTIFY_TRACK_CONTENT_TYPE,
+        spotifyTrackId: track.trackId,
+        spotifyTrackName: track.trackName,
+        spotifyArtistName: track.artistName,
+        spotifyAlbumArtUrl: track.albumArtUrl,
+      },
+    });
+
+    await this.markFirstMessageIfNeeded(matchId, firstMessageSent);
+    await this.notifyNewMessage(match, userId, `Shared a song: ${track.trackName}`);
 
     return this.toMessageView(message, userId);
   }
@@ -2093,6 +2133,10 @@ export class MessagingService {
       locationLatitude?: number | null;
       locationLongitude?: number | null;
       locationAddress?: string | null;
+      spotifyTrackId?: string | null;
+      spotifyTrackName?: string | null;
+      spotifyArtistName?: string | null;
+      spotifyAlbumArtUrl?: string | null;
       voicePreviewStatus?: string | null;
       gameType?: string | null;
       gameCorrectIndex?: number | null;
@@ -2174,6 +2218,13 @@ export class MessagingService {
         message.locationLongitude,
         message.locationAddress,
       ),
+      spotifyTrack: this.toSpotifyTrackView(
+        message.contentType,
+        message.spotifyTrackId,
+        message.spotifyTrackName,
+        message.spotifyArtistName,
+        message.spotifyAlbumArtUrl,
+      ),
       voicePreviewRequest: this.toVoicePreviewRequestView(message.contentType, message.voicePreviewStatus),
       createdAt: message.createdAt.toISOString(),
     };
@@ -2213,6 +2264,19 @@ export class MessagingService {
       return null;
     }
     return { label, latitude, longitude, address: address ?? null };
+  }
+
+  private toSpotifyTrackView(
+    contentType: string,
+    trackId: string | null | undefined,
+    trackName: string | null | undefined,
+    artistName: string | null | undefined,
+    albumArtUrl: string | null | undefined,
+  ): SpotifyTrackShareView | null {
+    if (contentType !== SPOTIFY_TRACK_CONTENT_TYPE || !trackId || !trackName || !artistName) {
+      return null;
+    }
+    return { trackId, trackName, artistName, albumArtUrl: albumArtUrl ?? null };
   }
 
   private toVoicePreviewRequestView(
