@@ -6,11 +6,13 @@ import 'package:http/testing.dart';
 import 'package:mobile/subscriptions/subscription_screen.dart';
 import 'package:mobile/subscriptions/subscriptions_api.dart';
 
-const _catalogResponse = '[{"tier":"FREE","label":"Free","priceUsdPerMonth":0,'
+const _catalogResponse =
+    '[{"tier":"FREE","label":"Free","priceUsdPerMonth":0,'
     '"features":["Standard swiping"]},'
     '{"tier":"PLUS","label":"Plus","priceUsdPerMonth":9.99,"features":["Unlimited likes"]}]';
 
-const _catalogWithPlatinumResponse = '[{"tier":"FREE","label":"Free","priceUsdPerMonth":0,'
+const _catalogWithPlatinumResponse =
+    '[{"tier":"FREE","label":"Free","priceUsdPerMonth":0,'
     '"features":["Standard swiping"]},'
     '{"tier":"PLUS","label":"Plus","priceUsdPerMonth":9.99,"features":["Unlimited likes"]},'
     '{"tier":"PLATINUM","label":"Platinum","priceUsdPerMonth":29.99,"features":["Priority likes"]}]';
@@ -21,10 +23,25 @@ void main() {
       accessToken: 'a-jwt',
       client: MockClient((request) async {
         if (request.url.path == '/subscriptions/catalog') {
-          return http.Response(_catalogResponse, 200, headers: {'content-type': 'application/json'});
+          return http.Response(
+            _catalogResponse,
+            200,
+            headers: {'content-type': 'application/json'},
+          );
         }
         if (request.url.path == '/subscriptions/gifts/received') {
-          return http.Response('[]', 200, headers: {'content-type': 'application/json'});
+          return http.Response(
+            '[]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (request.url.path == '/subscriptions/vouchers/mine') {
+          return http.Response(
+            '[]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
         }
         return http.Response(
           '{"tier":"FREE","isActive":false,"expiresAt":null,"canceledAt":null}',
@@ -34,7 +51,9 @@ void main() {
       }),
     );
 
-    await tester.pumpWidget(MaterialApp(home: SubscriptionScreen(subscriptionsApi: api)));
+    await tester.pumpWidget(
+      MaterialApp(home: SubscriptionScreen(subscriptionsApi: api)),
+    );
     await tester.pump();
     await tester.pump();
 
@@ -49,12 +68,28 @@ void main() {
       accessToken: 'a-jwt',
       client: MockClient((request) async {
         if (request.url.path == '/subscriptions/catalog') {
-          return http.Response(_catalogResponse, 200, headers: {'content-type': 'application/json'});
+          return http.Response(
+            _catalogResponse,
+            200,
+            headers: {'content-type': 'application/json'},
+          );
         }
         if (request.url.path == '/subscriptions/gifts/received') {
-          return http.Response('[]', 200, headers: {'content-type': 'application/json'});
+          return http.Response(
+            '[]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
         }
-        if (request.method == 'POST' && request.url.path == '/subscriptions/subscribe') {
+        if (request.url.path == '/subscriptions/vouchers/mine') {
+          return http.Response(
+            '[]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (request.method == 'POST' &&
+            request.url.path == '/subscriptions/subscribe') {
           subscribeRequest = request;
           return http.Response(
             '{"tier":"PLUS","isActive":true,"expiresAt":"2026-02-01T00:00:00.000Z","canceledAt":null}',
@@ -70,7 +105,9 @@ void main() {
       }),
     );
 
-    await tester.pumpWidget(MaterialApp(home: SubscriptionScreen(subscriptionsApi: api)));
+    await tester.pumpWidget(
+      MaterialApp(home: SubscriptionScreen(subscriptionsApi: api)),
+    );
     await tester.pump();
     await tester.pump();
 
@@ -84,36 +121,54 @@ void main() {
     expect(find.text('Cancel subscription'), findsOneWidget);
   });
 
-  testWidgets('labels a higher paid tier "Upgrade" when already on a lower active paid tier',
-      (tester) async {
-    final api = SubscriptionsApi(
-      accessToken: 'a-jwt',
-      client: MockClient((request) async {
-        if (request.url.path == '/subscriptions/catalog') {
+  testWidgets(
+    'labels a higher paid tier "Upgrade" when already on a lower active paid tier',
+    (tester) async {
+      final api = SubscriptionsApi(
+        accessToken: 'a-jwt',
+        client: MockClient((request) async {
+          if (request.url.path == '/subscriptions/catalog') {
+            return http.Response(
+              _catalogWithPlatinumResponse,
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+          if (request.url.path == '/subscriptions/gifts/received') {
+            return http.Response(
+              '[]',
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+          if (request.url.path == '/subscriptions/vouchers/mine') {
+            return http.Response(
+              '[]',
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }
           return http.Response(
-            _catalogWithPlatinumResponse,
+            '{"tier":"PLUS","isActive":true,"expiresAt":"2026-02-01T00:00:00.000Z","canceledAt":null}',
             200,
             headers: {'content-type': 'application/json'},
           );
-        }
-        if (request.url.path == '/subscriptions/gifts/received') {
-          return http.Response('[]', 200, headers: {'content-type': 'application/json'});
-        }
-        return http.Response(
-          '{"tier":"PLUS","isActive":true,"expiresAt":"2026-02-01T00:00:00.000Z","canceledAt":null}',
-          200,
-          headers: {'content-type': 'application/json'},
-        );
-      }),
-    );
+        }),
+      );
 
-    await tester.pumpWidget(MaterialApp(home: SubscriptionScreen(subscriptionsApi: api)));
-    await tester.pump();
-    await tester.pump();
+      await tester.pumpWidget(
+        MaterialApp(home: SubscriptionScreen(subscriptionsApi: api)),
+      );
+      await tester.pump();
+      await tester.pump();
 
-    expect(find.widgetWithText(ElevatedButton, 'Upgrade'), findsOneWidget);
-    expect(find.widgetWithText(ElevatedButton, 'Current plan'), findsOneWidget);
-  });
+      expect(find.widgetWithText(ElevatedButton, 'Upgrade'), findsOneWidget);
+      expect(
+        find.widgetWithText(ElevatedButton, 'Current plan'),
+        findsOneWidget,
+      );
+    },
+  );
 
   testWidgets('canceling reverts to the free plan', (tester) async {
     bool canceled = false;
@@ -121,12 +176,28 @@ void main() {
       accessToken: 'a-jwt',
       client: MockClient((request) async {
         if (request.url.path == '/subscriptions/catalog') {
-          return http.Response(_catalogResponse, 200, headers: {'content-type': 'application/json'});
+          return http.Response(
+            _catalogResponse,
+            200,
+            headers: {'content-type': 'application/json'},
+          );
         }
         if (request.url.path == '/subscriptions/gifts/received') {
-          return http.Response('[]', 200, headers: {'content-type': 'application/json'});
+          return http.Response(
+            '[]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
         }
-        if (request.method == 'POST' && request.url.path == '/subscriptions/cancel') {
+        if (request.url.path == '/subscriptions/vouchers/mine') {
+          return http.Response(
+            '[]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (request.method == 'POST' &&
+            request.url.path == '/subscriptions/cancel') {
           canceled = true;
           return http.Response(
             '{"tier":"FREE","isActive":false,"expiresAt":null,"canceledAt":"2026-01-01T00:00:00.000Z"}',
@@ -142,7 +213,9 @@ void main() {
       }),
     );
 
-    await tester.pumpWidget(MaterialApp(home: SubscriptionScreen(subscriptionsApi: api)));
+    await tester.pumpWidget(
+      MaterialApp(home: SubscriptionScreen(subscriptionsApi: api)),
+    );
     await tester.pump();
     await tester.pump();
 
@@ -162,12 +235,28 @@ void main() {
       accessToken: 'a-jwt',
       client: MockClient((request) async {
         if (request.url.path == '/subscriptions/catalog') {
-          return http.Response(_catalogResponse, 200, headers: {'content-type': 'application/json'});
+          return http.Response(
+            _catalogResponse,
+            200,
+            headers: {'content-type': 'application/json'},
+          );
         }
         if (request.url.path == '/subscriptions/gifts/received') {
-          return http.Response('[]', 200, headers: {'content-type': 'application/json'});
+          return http.Response(
+            '[]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
         }
-        if (request.method == 'POST' && request.url.path == '/subscriptions/gift') {
+        if (request.url.path == '/subscriptions/vouchers/mine') {
+          return http.Response(
+            '[]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (request.method == 'POST' &&
+            request.url.path == '/subscriptions/gift') {
           giftRequest = request;
           return http.Response(
             '{"recipientStatus":{"tier":"PLUS","isActive":true,'
@@ -186,7 +275,9 @@ void main() {
       }),
     );
 
-    await tester.pumpWidget(MaterialApp(home: SubscriptionScreen(subscriptionsApi: api)));
+    await tester.pumpWidget(
+      MaterialApp(home: SubscriptionScreen(subscriptionsApi: api)),
+    );
     await tester.pump();
     await tester.pump();
 
@@ -206,12 +297,23 @@ void main() {
       accessToken: 'a-jwt',
       client: MockClient((request) async {
         if (request.url.path == '/subscriptions/catalog') {
-          return http.Response(_catalogResponse, 200, headers: {'content-type': 'application/json'});
+          return http.Response(
+            _catalogResponse,
+            200,
+            headers: {'content-type': 'application/json'},
+          );
         }
         if (request.url.path == '/subscriptions/gifts/received') {
           return http.Response(
             '[{"id":"gift-1","tier":"PLATINUM","createdAt":"2026-01-01T00:00:00.000Z",'
             '"otherUserId":"user-2","otherUserName":"Jane","otherUserPhotoUrl":null}]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (request.url.path == '/subscriptions/vouchers/mine') {
+          return http.Response(
+            '[]',
             200,
             headers: {'content-type': 'application/json'},
           );
@@ -224,10 +326,145 @@ void main() {
       }),
     );
 
-    await tester.pumpWidget(MaterialApp(home: SubscriptionScreen(subscriptionsApi: api)));
+    await tester.pumpWidget(
+      MaterialApp(home: SubscriptionScreen(subscriptionsApi: api)),
+    );
     await tester.pump();
     await tester.pump();
 
     expect(find.text('PLATINUM from Jane'), findsOneWidget);
+  });
+
+  testWidgets('buying a voucher shows the generated code', (tester) async {
+    http.Request? purchaseRequest;
+    final api = SubscriptionsApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/subscriptions/catalog') {
+          return http.Response(
+            _catalogResponse,
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (request.url.path == '/subscriptions/gifts/received') {
+          return http.Response(
+            '[]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (request.method == 'POST' &&
+            request.url.path == '/subscriptions/vouchers/purchase') {
+          purchaseRequest = request;
+          return http.Response(
+            '{"code":"ABCD1234","tier":"PLUS","redeemedAt":null,"redeemedByUserId":null,'
+            '"createdAt":"2026-01-01T00:00:00.000Z"}',
+            201,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (request.url.path == '/subscriptions/vouchers/mine') {
+          return http.Response(
+            '[]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"tier":"FREE","isActive":false,"expiresAt":null,"canceledAt":null}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(home: SubscriptionScreen(subscriptionsApi: api)),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Buy voucher').first);
+    await tester.pump();
+    await tester.pump();
+
+    expect(purchaseRequest, isNotNull);
+    expect(purchaseRequest!.body, '{"tier":"PLUS"}');
+    expect(find.text('ABCD1234'), findsOneWidget);
+
+    await tester.tap(find.text('Close'));
+    await tester.pump();
+
+    expect(find.text('Your vouchers'), findsOneWidget);
+    expect(find.textContaining('PLUS - ABCD1234'), findsOneWidget);
+    expect(find.text('Unredeemed'), findsOneWidget);
+  });
+
+  testWidgets('redeeming a voucher code updates the current plan', (
+    tester,
+  ) async {
+    http.Request? redeemRequest;
+    final api = SubscriptionsApi(
+      accessToken: 'a-jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/subscriptions/catalog') {
+          return http.Response(
+            _catalogResponse,
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (request.url.path == '/subscriptions/gifts/received') {
+          return http.Response(
+            '[]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (request.url.path == '/subscriptions/vouchers/mine') {
+          return http.Response(
+            '[]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (request.method == 'POST' &&
+            request.url.path == '/subscriptions/vouchers/redeem') {
+          redeemRequest = request;
+          return http.Response(
+            '{"status":{"tier":"GOLD","isActive":true,'
+            '"expiresAt":"2026-02-01T00:00:00.000Z","canceledAt":null},'
+            '"voucher":{"code":"ABCD1234","tier":"GOLD","redeemedAt":"2026-01-01T00:00:00.000Z",'
+            '"redeemedByUserId":"user-1","createdAt":"2025-12-01T00:00:00.000Z"}}',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          '{"tier":"FREE","isActive":false,"expiresAt":null,"canceledAt":null}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(home: SubscriptionScreen(subscriptionsApi: api)),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    await tester.tap(find.text('Redeem code'));
+    await tester.pump();
+    await tester.enterText(find.byType(TextField), 'ABCD1234');
+    await tester.tap(find.text('Redeem'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(redeemRequest, isNotNull);
+    expect(redeemRequest!.body, '{"code":"ABCD1234"}');
+    expect(find.text('Current plan: GOLD'), findsOneWidget);
+    expect(find.text('Voucher redeemed!'), findsOneWidget);
   });
 }

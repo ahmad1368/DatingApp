@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -7,6 +8,7 @@ import {
   SUBSCRIPTION_PLANS,
   SubscriptionPlan,
   SubscriptionTier,
+  VOUCHER_CODE_LENGTH,
 } from './subscriptions.constants';
 
 export interface SubscriptionStatus {
@@ -28,6 +30,19 @@ export interface SubscriptionGiftView {
 export interface GiftSubscriptionResult {
   recipientStatus: SubscriptionStatus;
   gift: SubscriptionGiftView;
+}
+
+export interface SubscriptionVoucherView {
+  code: string;
+  tier: PaidSubscriptionTier;
+  redeemedAt: string | null;
+  redeemedByUserId: string | null;
+  createdAt: string;
+}
+
+export interface RedeemVoucherResult {
+  status: SubscriptionStatus;
+  voucher: SubscriptionVoucherView;
 }
 
 interface SubscriptionRecord {
@@ -164,6 +179,99 @@ export class SubscriptionsService {
         otherUserPhotoUrl: sender?.profilePhotoUrl ?? null,
       };
     });
+  }
+
+  /**
+   * Purchases a standalone digital voucher code for a paid tier - unlike
+   * [giftSubscription], it isn't tied to a recipient up front, so it can be
+   * shared with anyone (including someone who hasn't signed up yet) and
+   * redeemed later via [redeemVoucher]. Same no-payment-gateway shortcut as
+   * [subscribe]/[giftSubscription].
+   */
+  async purchaseVoucher(userId: string, tier: PaidSubscriptionTier): Promise<SubscriptionVoucherView> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found.');
+    }
+
+    const code = this.generateVoucherCode();
+    const voucher = await this.prisma.subscriptionVoucher.create({
+      data: { code, tier, purchasedById: userId },
+    });
+
+    return this.toVoucherView(voucher);
+  }
+
+  /** Vouchers the caller has purchased, most recent first. */
+  async listMyVouchers(userId: string): Promise<SubscriptionVoucherView[]> {
+    const vouchers = await this.prisma.subscriptionVoucher.findMany({
+      where: { purchasedById: userId },
+      orderBy: { createdAt: 'desc' },
+    });
+    return vouchers.map((voucher) => this.toVoucherView(voucher));
+  }
+
+  /**
+   * Redeems a voucher code: grants the caller a fresh billing period of the
+   * voucher's tier (same flat-period grant as [giftSubscription], no
+   * mid-cycle pro-ration) and marks the code consumed. Self-redemption is
+   * allowed - a voucher is a portable code, not a targeted gift.
+   */
+  async redeemVoucher(userId: string, code: string): Promise<RedeemVoucherResult> {
+    const voucher = await this.prisma.subscriptionVoucher.findUnique({ where: { code } });
+    if (!voucher) {
+      throw new NotFoundException('Invalid voucher code.');
+    }
+    if (voucher.redeemedAt) {
+      throw new BadRequestException('This voucher has already been redeemed.');
+    }
+
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + SUBSCRIPTION_PERIOD_DAYS * 24 * 60 * 60 * 1000);
+    const tier = voucher.tier as PaidSubscriptionTier;
+
+    const [updatedUser, redeemed] = await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          subscriptionTier: tier,
+          subscriptionExpiresAt: expiresAt,
+          subscriptionCanceledAt: null,
+          isPremium: true,
+        },
+      }),
+      this.prisma.subscriptionVoucher.update({
+        where: { id: voucher.id },
+        data: { redeemedAt: now, redeemedById: userId },
+      }),
+    ]);
+
+    return {
+      status: this.toStatus(updatedUser),
+      voucher: this.toVoucherView(redeemed),
+    };
+  }
+
+  private generateVoucherCode(): string {
+    return randomBytes(VOUCHER_CODE_LENGTH / 2)
+      .toString('hex')
+      .toUpperCase();
+  }
+
+  private toVoucherView(voucher: {
+    code: string;
+    tier: string;
+    redeemedAt: Date | null;
+    redeemedById: string | null;
+    createdAt: Date;
+  }): SubscriptionVoucherView {
+    return {
+      code: voucher.code,
+      tier: voucher.tier as PaidSubscriptionTier,
+      redeemedAt: voucher.redeemedAt ? voucher.redeemedAt.toISOString() : null,
+      redeemedByUserId: voucher.redeemedById,
+      createdAt: voucher.createdAt.toISOString(),
+    };
   }
 
   /** Immediately reverts to the free tier - no partial-period entitlement is retained. */

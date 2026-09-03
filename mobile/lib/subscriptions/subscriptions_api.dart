@@ -39,6 +39,24 @@ class SubscriptionStatus {
   final DateTime? canceledAt;
 }
 
+class SubscriptionVoucher {
+  SubscriptionVoucher({
+    required this.code,
+    required this.tier,
+    required this.createdAt,
+    this.redeemedAt,
+    this.redeemedByUserId,
+  });
+
+  final String code;
+  final String tier;
+  final DateTime createdAt;
+  final DateTime? redeemedAt;
+  final String? redeemedByUserId;
+
+  bool get isRedeemed => redeemedAt != null;
+}
+
 class SubscriptionGift {
   SubscriptionGift({
     required this.id,
@@ -60,18 +78,21 @@ class SubscriptionGift {
 /// Talks to the backend's subscription tier management endpoints. Requires
 /// a signed-in user's access token.
 class SubscriptionsApi {
-  SubscriptionsApi({required this.accessToken, http.Client? client, String? baseUrl})
-      : _client = client ?? http.Client(),
-        _baseUrl = baseUrl ?? 'http://10.0.2.2:3000';
+  SubscriptionsApi({
+    required this.accessToken,
+    http.Client? client,
+    String? baseUrl,
+  }) : _client = client ?? http.Client(),
+       _baseUrl = baseUrl ?? 'http://10.0.2.2:3000';
 
   final String accessToken;
   final http.Client _client;
   final String _baseUrl;
 
   Map<String, String> get _headers => {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $accessToken',
-      };
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer $accessToken',
+  };
 
   Future<List<SubscriptionPlan>> fetchCatalog() async {
     final response = await _client.get(
@@ -80,7 +101,9 @@ class SubscriptionsApi {
     );
 
     if (response.statusCode != 200) {
-      throw SubscriptionsApiException(_errorMessage(_decode(response), response.statusCode));
+      throw SubscriptionsApiException(
+        _errorMessage(_decode(response), response.statusCode),
+      );
     }
 
     final list = jsonDecode(response.body) as List;
@@ -152,11 +175,87 @@ class SubscriptionsApi {
     );
 
     if (response.statusCode != 200) {
-      throw SubscriptionsApiException(_errorMessage(_decode(response), response.statusCode));
+      throw SubscriptionsApiException(
+        _errorMessage(_decode(response), response.statusCode),
+      );
     }
 
     final list = jsonDecode(response.body) as List;
     return list.cast<Map<String, dynamic>>().map(_toGift).toList();
+  }
+
+  /// Purchases a standalone voucher code for [tier] - not tied to a
+  /// recipient up front, so it can be shared with anyone and redeemed later
+  /// via [redeemVoucher].
+  Future<SubscriptionVoucher> purchaseVoucher(String tier) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/subscriptions/vouchers/purchase'),
+      headers: _headers,
+      body: jsonEncode({'tier': tier}),
+    );
+
+    if (response.statusCode != 201) {
+      throw SubscriptionsApiException(
+        _errorMessage(_decode(response), response.statusCode),
+      );
+    }
+
+    return _toVoucher(_decode(response));
+  }
+
+  Future<List<SubscriptionVoucher>> fetchMyVouchers() async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/subscriptions/vouchers/mine'),
+      headers: _headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw SubscriptionsApiException(
+        _errorMessage(_decode(response), response.statusCode),
+      );
+    }
+
+    final list = jsonDecode(response.body) as List;
+    return list.cast<Map<String, dynamic>>().map(_toVoucher).toList();
+  }
+
+  /// Redeems a voucher [code], granting the caller a fresh billing period of
+  /// its tier.
+  Future<SubscriptionStatus> redeemVoucher(String code) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/subscriptions/vouchers/redeem'),
+      headers: _headers,
+      body: jsonEncode({'code': code}),
+    );
+
+    final body = _decode(response);
+    if (response.statusCode != 200) {
+      throw SubscriptionsApiException(_errorMessage(body, response.statusCode));
+    }
+
+    final status = body['status'] as Map<String, dynamic>;
+    return SubscriptionStatus(
+      tier: status['tier'] as String,
+      isActive: status['isActive'] as bool,
+      expiresAt: status['expiresAt'] != null
+          ? DateTime.parse(status['expiresAt'] as String)
+          : null,
+      canceledAt: status['canceledAt'] != null
+          ? DateTime.parse(status['canceledAt'] as String)
+          : null,
+    );
+  }
+
+  SubscriptionVoucher _toVoucher(Map<String, dynamic> json) {
+    return SubscriptionVoucher(
+      code: json['code'] as String,
+      tier: json['tier'] as String,
+      createdAt: DateTime.parse(json['createdAt'] as String),
+      redeemedAt: json['redeemedAt'] != null
+          ? DateTime.parse(json['redeemedAt'] as String)
+          : null,
+      redeemedByUserId: json['redeemedByUserId'] as String?,
+    );
   }
 
   SubscriptionGift _toGift(Map<String, dynamic> json) {
@@ -179,8 +278,12 @@ class SubscriptionsApi {
     return SubscriptionStatus(
       tier: body['tier'] as String,
       isActive: body['isActive'] as bool,
-      expiresAt: body['expiresAt'] != null ? DateTime.parse(body['expiresAt'] as String) : null,
-      canceledAt: body['canceledAt'] != null ? DateTime.parse(body['canceledAt'] as String) : null,
+      expiresAt: body['expiresAt'] != null
+          ? DateTime.parse(body['expiresAt'] as String)
+          : null,
+      canceledAt: body['canceledAt'] != null
+          ? DateTime.parse(body['canceledAt'] as String)
+          : null,
     );
   }
 
