@@ -1264,10 +1264,6 @@
   ],
   "queue": [
     {
-      "number": 186,
-      "reason": "no existing PR/branch or duplicate-resolution mention found; queued in descending-priority order"
-    },
-    {
       "number": 185,
       "reason": "no existing PR/branch or duplicate-resolution mention found; queued in descending-priority order"
     },
