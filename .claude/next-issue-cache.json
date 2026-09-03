@@ -1262,10 +1262,5 @@
       "title": "Daily Curated Profiles Refresh Timer"
     }
   ],
-  "queue": [
-    {
-      "number": 312,
-      "reason": "fresh full-history dedup pass; no existing PR/branch or duplicate-resolution mention found"
-    }
-  ]
+  "queue": []
 }
