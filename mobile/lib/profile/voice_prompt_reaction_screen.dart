@@ -19,8 +19,8 @@ class VoicePromptReactionScreen extends StatefulWidget {
     required this.otherUserId,
     VoiceRecorderController? recorder,
     VoicePlayerController? player,
-  })  : recorder = recorder ?? DeviceVoiceRecorderController(),
-        player = player ?? DeviceVoicePlayerController();
+  }) : recorder = recorder ?? DeviceVoiceRecorderController(),
+       player = player ?? DeviceVoicePlayerController();
 
   final ProfilePromptsApi profilePromptsApi;
   final String otherUserId;
@@ -28,7 +28,8 @@ class VoicePromptReactionScreen extends StatefulWidget {
   final VoicePlayerController player;
 
   @override
-  State<VoicePromptReactionScreen> createState() => _VoicePromptReactionScreenState();
+  State<VoicePromptReactionScreen> createState() =>
+      _VoicePromptReactionScreenState();
 }
 
 class _VoicePromptReactionScreenState extends State<VoicePromptReactionScreen> {
@@ -36,6 +37,8 @@ class _VoicePromptReactionScreenState extends State<VoicePromptReactionScreen> {
   bool _isLoading = true;
   String? _errorText;
   String? _statusText;
+  final Map<String, String> _translations = {};
+  String? _translatingPromptId;
 
   @override
   void initState() {
@@ -49,7 +52,9 @@ class _VoicePromptReactionScreenState extends State<VoicePromptReactionScreen> {
       _errorText = null;
     });
     try {
-      final answers = await widget.profilePromptsApi.fetchAnswersForUser(widget.otherUserId);
+      final answers = await widget.profilePromptsApi.fetchAnswersForUser(
+        widget.otherUserId,
+      );
       setState(() => _answers = answers);
     } on ProfilePromptsApiException catch (e) {
       setState(() => _errorText = e.message);
@@ -62,6 +67,26 @@ class _VoicePromptReactionScreenState extends State<VoicePromptReactionScreen> {
 
   Future<void> _play(VoicePromptAnswer answer) async {
     await widget.player.play(answer.audioUrl);
+  }
+
+  Future<void> _translate(VoicePromptAnswer answer) async {
+    setState(() {
+      _errorText = null;
+      _translatingPromptId = answer.promptId;
+    });
+    try {
+      final translated = await widget.profilePromptsApi.translateVoiceAnswer(
+        targetUserId: widget.otherUserId,
+        promptId: answer.promptId,
+      );
+      setState(() => _translations[answer.promptId] = translated);
+    } on ProfilePromptsApiException catch (e) {
+      setState(() => _errorText = e.message);
+    } finally {
+      if (mounted) {
+        setState(() => _translatingPromptId = null);
+      }
+    }
   }
 
   @override
@@ -78,10 +103,14 @@ class _VoicePromptReactionScreenState extends State<VoicePromptReactionScreen> {
                   const SizedBox(height: 12),
                 ],
                 if (_statusText != null) ...[
-                  Text(_statusText!, style: const TextStyle(color: Colors.green)),
+                  Text(
+                    _statusText!,
+                    style: const TextStyle(color: Colors.green),
+                  ),
                   const SizedBox(height: 12),
                 ],
-                if (_answers.isEmpty) const Text('No voice prompt answers yet.'),
+                if (_answers.isEmpty)
+                  const Text('No voice prompt answers yet.'),
                 for (final answer in _answers) _buildAnswerTile(answer),
               ],
             ),
@@ -95,7 +124,10 @@ class _VoicePromptReactionScreenState extends State<VoicePromptReactionScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(answer.question, style: const TextStyle(fontWeight: FontWeight.bold)),
+            Text(
+              answer.question,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
             Row(
               children: [
@@ -112,14 +144,42 @@ class _VoicePromptReactionScreenState extends State<VoicePromptReactionScreen> {
                 ),
               ],
             ),
-            if (answer.transcript != null)
+            if (answer.transcript != null) ...[
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
                   answer.transcript!,
-                  style: const TextStyle(fontStyle: FontStyle.italic, color: Colors.grey),
+                  style: const TextStyle(
+                    fontStyle: FontStyle.italic,
+                    color: Colors.grey,
+                  ),
                 ),
               ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  icon: _translatingPromptId == answer.promptId
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.translate, size: 18),
+                  label: const Text('Translate'),
+                  onPressed: _translatingPromptId == answer.promptId
+                      ? null
+                      : () => _translate(answer),
+                ),
+              ),
+              if (_translations[answer.promptId] != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    _translations[answer.promptId]!,
+                    style: const TextStyle(fontStyle: FontStyle.italic),
+                  ),
+                ),
+            ],
           ],
         ),
       ),
@@ -136,7 +196,8 @@ class _VoicePromptReactionScreenState extends State<VoicePromptReactionScreen> {
       context: context,
       builder: (context) => _ReactDialog(recorder: widget.recorder),
     );
-    if (result == null || (result.comment == null && result.audioReplyPath == null)) {
+    if (result == null ||
+        (result.comment == null && result.audioReplyPath == null)) {
       return;
     }
 
@@ -156,7 +217,11 @@ class _VoicePromptReactionScreenState extends State<VoicePromptReactionScreen> {
 }
 
 class _ReactionInput {
-  _ReactionInput({this.comment, this.audioReplyPath, this.audioReplyDurationSeconds});
+  _ReactionInput({
+    this.comment,
+    this.audioReplyPath,
+    this.audioReplyDurationSeconds,
+  });
 
   final String? comment;
   final String? audioReplyPath;
@@ -191,7 +256,10 @@ class _ReactDialogState extends State<_ReactDialog> {
     setState(() => _errorText = null);
     final hasPermission = await widget.recorder.hasPermission();
     if (!hasPermission) {
-      setState(() => _errorText = 'Microphone permission is required to record a reply.');
+      setState(
+        () =>
+            _errorText = 'Microphone permission is required to record a reply.',
+      );
       return;
     }
 
@@ -229,7 +297,9 @@ class _ReactDialogState extends State<_ReactDialog> {
           TextField(
             controller: _commentController,
             maxLines: 3,
-            decoration: const InputDecoration(hintText: 'Leave a comment (optional)…'),
+            decoration: const InputDecoration(
+              hintText: 'Leave a comment (optional)…',
+            ),
           ),
           const SizedBox(height: 12),
           if (_isRecording)
@@ -237,7 +307,10 @@ class _ReactDialogState extends State<_ReactDialog> {
               children: [
                 Text('Recording... $_elapsedSeconds/$_maxReplySeconds s'),
                 const Spacer(),
-                TextButton(onPressed: _stopRecording, child: const Text('Stop')),
+                TextButton(
+                  onPressed: _stopRecording,
+                  child: const Text('Stop'),
+                ),
               ],
             )
           else if (_recordedPath != null)
@@ -260,12 +333,18 @@ class _ReactDialogState extends State<_ReactDialog> {
           if (_errorText != null)
             Padding(
               padding: const EdgeInsets.only(top: 8),
-              child: Text(_errorText!, style: const TextStyle(color: Colors.red)),
+              child: Text(
+                _errorText!,
+                style: const TextStyle(color: Colors.red),
+              ),
             ),
         ],
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
         TextButton(
           onPressed: () {
             final comment = _commentController.text.trim();
@@ -273,7 +352,9 @@ class _ReactDialogState extends State<_ReactDialog> {
               _ReactionInput(
                 comment: comment.isEmpty ? null : comment,
                 audioReplyPath: _recordedPath,
-                audioReplyDurationSeconds: _recordedPath == null ? null : _elapsedSeconds,
+                audioReplyDurationSeconds: _recordedPath == null
+                    ? null
+                    : _elapsedSeconds,
               ),
             );
           },

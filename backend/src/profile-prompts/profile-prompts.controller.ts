@@ -6,6 +6,7 @@ import { RecordVideoAnswerDto } from './dto/record-video-answer.dto';
 import { RecordVoiceAnswerDto } from './dto/record-voice-answer.dto';
 import { ReactToVoicePromptDto } from './dto/react-to-voice-prompt.dto';
 import { ReactToPhotoDto } from './dto/react-to-photo.dto';
+import { TranslatePromptAnswerDto } from './dto/translate-prompt-answer.dto';
 import { ProfilePromptsService } from './profile-prompts.service';
 
 @Controller('profile-prompts')
@@ -136,5 +137,38 @@ export class ProfilePromptsController {
   @HttpCode(HttpStatus.OK)
   deleteTextAnswer(@CurrentUser() user: AuthenticatedUser, @Param('promptId') promptId: string) {
     return this.profilePromptsService.deleteTextAnswer(user.id, promptId);
+  }
+
+  @Post('text/:userId/:promptId/translate')
+  @HttpCode(HttpStatus.OK)
+  translateTextAnswer(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('userId') userId: string,
+    @Param('promptId') promptId: string,
+    @Body() dto: TranslatePromptAnswerDto,
+  ) {
+    return this.profilePromptsService.translateTextAnswer(user.id, userId, promptId, dto.targetLanguage);
+  }
+
+  @Post(':userId/:promptId/translate')
+  @HttpCode(HttpStatus.OK)
+  translateVoiceAnswer(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('userId') userId: string,
+    @Param('promptId') promptId: string,
+    @Body() dto: TranslatePromptAnswerDto,
+  ) {
+    return this.profilePromptsService.translateVoiceAnswer(user.id, userId, promptId, dto.targetLanguage);
+  }
+
+  @Post('video/:userId/:promptId/translate')
+  @HttpCode(HttpStatus.OK)
+  translateVideoAnswer(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('userId') userId: string,
+    @Param('promptId') promptId: string,
+    @Body() dto: TranslatePromptAnswerDto,
+  ) {
+    return this.profilePromptsService.translateVideoAnswer(user.id, userId, promptId, dto.targetLanguage);
   }
 }
