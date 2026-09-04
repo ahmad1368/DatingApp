@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 
 import 'apple_sign_in_button.dart';
 import 'auth_api.dart';
+import 'debug_login_defaults.dart';
 import 'google_sign_in_button.dart';
 import 'otp_verify_screen.dart';
 
@@ -20,7 +22,11 @@ class PhoneEntryScreen extends StatefulWidget {
 
 class _PhoneEntryScreenState extends State<PhoneEntryScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _phoneController = TextEditingController();
+  // Pre-filled in debug builds only, so a developer can sign in by pressing
+  // the buttons alone - see debug_login_defaults.dart.
+  final _phoneController = TextEditingController(
+    text: kDebugMode ? debugTestPhoneNumber : '',
+  );
   bool _isSubmitting = false;
   String? _errorText;
 
