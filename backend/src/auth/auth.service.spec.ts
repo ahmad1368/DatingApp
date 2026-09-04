@@ -7,6 +7,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { SmsProvider } from './interfaces/sms-provider.interface';
 import { GoogleTokenVerifier } from './interfaces/google-token-verifier.interface';
 import { AppleTokenVerifier } from './interfaces/apple-token-verifier.interface';
+import { DEBUG_OTP_CODE, DEBUG_TEST_PHONE_NUMBER } from './auth.constants';
 
 const PHONE = '+14155552671';
 
@@ -28,6 +29,16 @@ describe('AuthService', () => {
   let smsProvider: SmsProvider;
   let googleTokenVerifier: GoogleTokenVerifier;
   let appleTokenVerifier: AppleTokenVerifier;
+
+  function buildConfigService(overrides: Record<string, string> = {}): ConfigService {
+    const values: Record<string, string> = {
+      OTP_TTL_SECONDS: '300',
+      OTP_RESEND_COOLDOWN_SECONDS: '60',
+      OTP_CODE_LENGTH: '6',
+      ...overrides,
+    };
+    return { get: (key: string) => values[key] } as unknown as ConfigService;
+  }
 
   beforeEach(() => {
     prisma = {
@@ -51,21 +62,10 @@ describe('AuthService', () => {
     googleTokenVerifier = { verify: jest.fn() };
     appleTokenVerifier = { verify: jest.fn() };
 
-    const configService = {
-      get: (key: string) => {
-        const values: Record<string, string> = {
-          OTP_TTL_SECONDS: '300',
-          OTP_RESEND_COOLDOWN_SECONDS: '60',
-          OTP_CODE_LENGTH: '6',
-        };
-        return values[key];
-      },
-    } as unknown as ConfigService;
-
     service = new AuthService(
       prisma as unknown as PrismaService,
       jwtService as unknown as JwtService,
-      configService,
+      buildConfigService(),
       smsProvider,
       googleTokenVerifier,
       appleTokenVerifier,
@@ -91,6 +91,55 @@ describe('AuthService', () => {
 
       await expect(service.requestOtp(PHONE)).rejects.toBeInstanceOf(HttpException);
       expect(prisma.otpCode.create).not.toHaveBeenCalled();
+    });
+
+    it('issues the fixed debug OTP for the debug test number when the flag is enabled', async () => {
+      const debugService = new AuthService(
+        prisma as unknown as PrismaService,
+        jwtService as unknown as JwtService,
+        buildConfigService({ AUTH_DEBUG_LOGIN_ENABLED: 'true' }),
+        smsProvider,
+        googleTokenVerifier,
+        appleTokenVerifier,
+      );
+      prisma.otpCode.findFirst.mockResolvedValue(null);
+      prisma.otpCode.create.mockResolvedValue({});
+
+      await debugService.requestOtp(DEBUG_TEST_PHONE_NUMBER);
+
+      expect(smsProvider.sendOtp).toHaveBeenCalledWith(DEBUG_TEST_PHONE_NUMBER, DEBUG_OTP_CODE);
+    });
+
+    it('still issues a random OTP for the debug test number when the flag is disabled', async () => {
+      prisma.otpCode.findFirst.mockResolvedValue(null);
+      prisma.otpCode.create.mockResolvedValue({});
+
+      await service.requestOtp(DEBUG_TEST_PHONE_NUMBER);
+
+      expect(smsProvider.sendOtp).toHaveBeenCalledWith(
+        DEBUG_TEST_PHONE_NUMBER,
+        expect.not.stringMatching(`^${DEBUG_OTP_CODE}$`),
+      );
+    });
+
+    it('still issues a random OTP for any other number even when the flag is enabled', async () => {
+      const debugService = new AuthService(
+        prisma as unknown as PrismaService,
+        jwtService as unknown as JwtService,
+        buildConfigService({ AUTH_DEBUG_LOGIN_ENABLED: 'true' }),
+        smsProvider,
+        googleTokenVerifier,
+        appleTokenVerifier,
+      );
+      prisma.otpCode.findFirst.mockResolvedValue(null);
+      prisma.otpCode.create.mockResolvedValue({});
+
+      await debugService.requestOtp(PHONE);
+
+      expect(smsProvider.sendOtp).toHaveBeenCalledWith(
+        PHONE,
+        expect.not.stringMatching(`^${DEBUG_OTP_CODE}$`),
+      );
     });
   });
 
