@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../core/api_config.dart';
+
 class AuthApiException implements Exception {
   AuthApiException(this.message);
 
@@ -43,7 +45,7 @@ class AuthResult {
 class AuthApi {
   AuthApi({http.Client? client, String? baseUrl})
       : _client = client ?? http.Client(),
-        _baseUrl = baseUrl ?? 'http://10.0.2.2:3000';
+        _baseUrl = baseUrl ?? defaultApiBaseUrl;
 
   final http.Client _client;
   final String _baseUrl;
