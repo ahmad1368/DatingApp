@@ -6,5 +6,5 @@
 /// DEBUG_TEST_PHONE_NUMBER doc comment) - against any other backend
 /// (including every production one) they behave like any other
 /// phone/code and simply fail OTP verification like normal.
-const String debugTestPhoneNumber = '+15555550100';
+const String debugTestPhoneNumber = '+17783471347';
 const String debugTestOtpCode = '000000';

@@ -11,5 +11,5 @@ export const DEFAULT_OTP_CODE_LENGTH = 6;
 // otp_verify_screen.dart) can always log in with no typing. Every other
 // phone number, and this one when the flag is off, still gets a real random
 // OTP through the normal flow.
-export const DEBUG_TEST_PHONE_NUMBER = '+15555550100';
+export const DEBUG_TEST_PHONE_NUMBER = '+17783471347';
 export const DEBUG_OTP_CODE = '000000';
