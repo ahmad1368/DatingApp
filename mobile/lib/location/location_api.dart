@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../core/api_config.dart';
+
 class LocationApiException implements Exception {
   LocationApiException(this.message);
 
@@ -72,7 +74,7 @@ class CrossingZone {
 class LocationApi {
   LocationApi({required this.accessToken, http.Client? client, String? baseUrl})
       : _client = client ?? http.Client(),
-        _baseUrl = baseUrl ?? 'http://10.0.2.2:3000';
+        _baseUrl = baseUrl ?? defaultApiBaseUrl;
 
   final String accessToken;
   final http.Client _client;
