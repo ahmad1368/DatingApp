@@ -1,6 +1,11 @@
 {
-  "generated_at": "2026-09-04T06:16:21.223Z",
+  "generated_at": "2026-09-04T06:26:49.400Z",
   "snapshot": [
+    {
+      "number": 850,
+      "updatedAt": "2026-09-04T06:26:03Z",
+      "title": "Debug-mode auto-filled login for fast local runs"
+    },
     {
       "number": 848,
       "updatedAt": "2026-09-04T06:15:53Z",
