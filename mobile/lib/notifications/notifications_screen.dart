@@ -14,6 +14,30 @@ class NotificationsScreen extends StatefulWidget {
   State<NotificationsScreen> createState() => _NotificationsScreenState();
 }
 
+/// Maps the backend's NOTIFICATION_TYPES (notifications.constants.ts) to a
+/// distinct icon so the feed reads at a glance instead of relying on the
+/// title text alone.
+IconData _iconForType(String type) {
+  switch (type) {
+    case 'NEW_MATCH':
+      return Icons.favorite;
+    case 'NEW_MESSAGE':
+      return Icons.chat_bubble;
+    case 'NEW_LIKE':
+      return Icons.thumb_up;
+    case 'PROFILE_ACTIVITY':
+      return Icons.visibility;
+    case 'TOP_PICK':
+      return Icons.star;
+    case 'REPORT_RESOLVED':
+      return Icons.shield;
+    case 'MATCH_EXPIRING_SOON':
+      return Icons.timer;
+    default:
+      return Icons.notifications;
+  }
+}
+
 class _NotificationsScreenState extends State<NotificationsScreen> {
   List<AppNotification> _notifications = [];
   int _unreadCount = 0;
@@ -102,10 +126,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             itemCount: _notifications.length,
                             itemBuilder: (context, index) {
                               final notification = _notifications[index];
+                              final color = notification.read
+                                  ? Colors.grey
+                                  : Theme.of(context).colorScheme.primary;
                               return ListTile(
-                                leading: Icon(
-                                  notification.read ? Icons.notifications_none : Icons.notifications,
-                                  color: notification.read ? Colors.grey : Theme.of(context).colorScheme.primary,
+                                leading: CircleAvatar(
+                                  backgroundColor: color.withValues(alpha: 0.15),
+                                  child: Icon(_iconForType(notification.type), color: color),
                                 ),
                                 title: Text(
                                   notification.title,

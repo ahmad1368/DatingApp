@@ -8,6 +8,7 @@ import '../profile/voice_player_controller.dart';
 import '../profile/voice_recorder_controller.dart';
 import '../safety/screen_security_api.dart';
 import '../safety/screen_security_channel.dart';
+import '../theme/chat_wallpaper_background.dart';
 import '../vault/vault_api.dart';
 import '../vault/vault_granted_screen.dart';
 import '../profile/spotify_api.dart';
@@ -1588,9 +1589,19 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
                     ),
                   ),
                 Expanded(
-                  child: Container(
-                    decoration: _wallpaperDecoration(_wallpaperId),
-                    child: _messages.isEmpty
+                  child: Stack(
+                    children: [
+                      if (_wallpaperDecoration(_wallpaperId) != null)
+                        Positioned.fill(
+                          child: Container(
+                            decoration: _wallpaperDecoration(_wallpaperId),
+                          ),
+                        )
+                      else
+                        const Positioned.fill(
+                          child: ChatWallpaperBackground(),
+                        ),
+                      _messages.isEmpty
                         ? const Center(child: Text('No messages yet.'))
                         : ListView.builder(
                             itemCount: _messages.length,
@@ -1682,6 +1693,7 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
                               );
                             },
                           ),
+                    ],
                   ),
                 ),
                 if (_canType)
@@ -1733,6 +1745,7 @@ class _MatchChatScreenState extends State<MatchChatScreen> {
                           child: TextField(
                             controller: _controller,
                             decoration: const InputDecoration(
+                              prefixIcon: Icon(Icons.chat_bubble_outline),
                               hintText: 'Type a message',
                             ),
                           ),
