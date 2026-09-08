@@ -14,6 +14,8 @@ import { SMS_PROVIDER, SmsProvider } from './interfaces/sms-provider.interface';
 import { GOOGLE_TOKEN_VERIFIER, GoogleTokenVerifier } from './interfaces/google-token-verifier.interface';
 import { APPLE_TOKEN_VERIFIER, AppleTokenVerifier } from './interfaces/apple-token-verifier.interface';
 import {
+  DEBUG_OTP_CODE,
+  DEBUG_TEST_PHONE_NUMBER,
   DEFAULT_OTP_CODE_LENGTH,
   DEFAULT_OTP_RESEND_COOLDOWN_SECONDS,
   DEFAULT_OTP_TTL_SECONDS,
@@ -69,7 +71,15 @@ export class AuthService {
     return createHash('sha256').update(code).digest('hex');
   }
 
-  private generateCode(): string {
+  /** See DEBUG_TEST_PHONE_NUMBER's doc comment - opt-in local-dev only. */
+  private get debugLoginEnabled(): boolean {
+    return this.configService.get('AUTH_DEBUG_LOGIN_ENABLED') === 'true';
+  }
+
+  private generateCode(phoneNumber: string): string {
+    if (this.debugLoginEnabled && phoneNumber === DEBUG_TEST_PHONE_NUMBER) {
+      return DEBUG_OTP_CODE.padStart(this.codeLength, '0');
+    }
     const max = 10 ** this.codeLength;
     return randomInt(0, max).toString().padStart(this.codeLength, '0');
   }
@@ -98,7 +108,7 @@ export class AuthService {
       }
     }
 
-    const code = this.generateCode();
+    const code = this.generateCode(phoneNumber);
     const expiresAt = new Date(now.getTime() + this.ttlSeconds * 1000);
 
     await this.prisma.otpCode.create({
