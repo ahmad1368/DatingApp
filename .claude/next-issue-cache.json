@@ -1,6 +1,11 @@
 {
-  "generated_at": "2026-09-04T06:26:49.400Z",
+  "generated_at": "2026-09-08T00:00:00.000Z",
   "snapshot": [
+    {
+      "number": 852,
+      "updatedAt": "2026-09-08T02:04:17Z",
+      "title": "Centralize hardcoded API base URL (10.0.2.2:3000) into a single config"
+    },
     {
       "number": 850,
       "updatedAt": "2026-09-04T06:26:03Z",
@@ -12,5 +17,8 @@
       "title": "App-wide icon-driven UI overhaul with warm color theme and chat wallpaper"
     }
   ],
-  "queue": []
+  "queue": [
+    { "number": 850, "reason": "Already implemented and merged via PR #851 (stage merge doesn't auto-close issues); needs closing." },
+    { "number": 848, "reason": "Already implemented and merged via PR #849 (stage merge doesn't auto-close issues); needs closing." }
+  ]
 }
