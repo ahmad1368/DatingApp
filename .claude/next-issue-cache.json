@@ -18,7 +18,6 @@
     }
   ],
   "queue": [
-    { "number": 850, "reason": "Already implemented and merged via PR #851 (stage merge doesn't auto-close issues); needs closing." },
     { "number": 848, "reason": "Already implemented and merged via PR #849 (stage merge doesn't auto-close issues); needs closing." }
   ]
 }
