@@ -17,7 +17,5 @@
       "title": "App-wide icon-driven UI overhaul with warm color theme and chat wallpaper"
     }
   ],
-  "queue": [
-    { "number": 848, "reason": "Already implemented and merged via PR #849 (stage merge doesn't auto-close issues); needs closing." }
-  ]
+  "queue": []
 }
